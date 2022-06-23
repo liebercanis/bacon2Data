@@ -1,0 +1,6 @@
+{
+  "files.associations": {
+    "*.cc": "cpp",
+    "__config": "cpp"
+  }
+}

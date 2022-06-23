@@ -1,0 +1,341 @@
+////////////////////////////////////////////////////////
+//  M.Gold May 2022
+//////////////////////////////////////////////////////////
+#include <sstream>
+#include <unistd.h>
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <map>
+#include <complex> //includes std::pair, std::make_pair
+#include <valarray>
+//
+#include <TSystemDirectory.h>
+#include <TSystemFile.h>
+#include <TROOT.h>
+#include <TVirtualFFT.h>
+#include <TChain.h>
+#include <TMath.h>
+#include <TNtuple.h>
+#include <TFile.h>
+#include <Rtypes.h>
+#include <TH1D.h>
+#include <TH2D.h>
+#include <TF1.h>
+#include <TFormula.h>
+#include <TStyle.h>
+#include <TCanvas.h>
+#include <TGraph.h>
+#include <algorithm> // std::sort
+#include "TSpectrum.h"
+#include "TRandom3.h"
+//
+#include "TBWave.hxx"
+#include "TBRun.hxx"
+
+typedef std::vector<std::pair<unsigned, unsigned>> peakType;
+typedef std::vector<std::pair<unsigned, unsigned>>::iterator peakTypeIter;
+
+class anaRun
+{
+  public:
+    enum
+    {
+      UPCROSS,
+      DOWNCROSS,
+      DOUBLEUPCROSS,
+      DOUBLEDOWNCROSS
+    };
+    ofstream dumpFile;
+    TFile *fout;
+    TBRun *brun;
+    TString runTag;
+    vector<TBWave*> waveList;
+    TString tag;
+    TBRun* tbrun;
+    anaRun(const char* theTag="Test");
+    virtual ~anaRun() { ; }
+    void plotRawWave(int ifile,  Long64_t jentry);
+    void findHits(int ifile, Long64_t jentry);
+    std::vector<Double_t> differentiate(std::vector<Double_t> v, unsigned diffStep);
+    std::vector<Int_t> peakKind;
+    double timeUnit;
+    double microSec;
+    double vsign;
+    peakType derivativePeaks(std::vector<Double_t> v, Int_t idet, Int_t nsum, Double_t rms, std::vector<Int_t> &peakKind);
+};
+
+void anaRun::plotRawWave(int ifile, Long64_t jentry) 
+{
+  TString hname;
+  hname.Form("run-%s-event-%lli",tag.Data(),jentry);
+  Long64_t nsamples =  waveList[ifile]->Samples->GetSize();
+  TH1S* hist = new TH1S(hname,hname,nsamples,0,nsamples);
+  for(int i=0; i<nsamples; ++i) hist->SetBinContent(i+1,hist->GetBinContent(i+1) + waveList[ifile]->Samples->GetAt(i));
+  TCanvas *can = new TCanvas(hname,hname);
+  hist->Draw();
+  can->Print(".gif");
+}
+
+anaRun::anaRun(const char* theTag)
+{
+  microSec=1.0E-3;
+  timeUnit = 1.0 ; // ns per count
+  vsign=1.0;
+
+  fout = new TFile("anaRun.root","recreate");
+  TString dirName;
+  tag = TString(theTag);
+  dirName.Form("data/XenonDoped1_5PPMSiPM4/DAQ/%s/RAW",tag.Data());
+  //dirName.Form("data/SiPM_1_inside/DAQ/%s/RAW",tag.Data());
+  cout << tag  << "  dirName " << dirName << endl;
+  TSystemDirectory dir("RAW",dirName);
+  TList *files = dir.GetListOfFiles();
+  tbrun = new TBRun(tag);
+  cout << " create TBRun  " << tbrun->GetName() << endl;
+
+  TIter next(files);
+  TSystemFile *file;
+  unsigned idet = 0; // detectors sequentially numbered
+  while ((file = (TSystemFile *)next()))
+  {
+    string name = string(file->GetName());
+    cout << name << endl;
+    string exten  = name.substr( name.find_last_of(".")+1 );
+    if(exten!=string("root")) continue;
+    string tag = name.substr( 0, name.find_last_of(".") );
+    //string chan = tag.substr( tag.find_first_of("CH"), tag.find_first_of("@") - tag.find_first_of("CH"));
+    string chan = tag.substr( tag.find_first_of("det"), tag.find_first_of(".root") - tag.find_first_of("det"));
+    cout << " tag " << tag << "  " << tag.find_first_of("CH") <<  "   " << " chan  " << chan << endl;
+    string fullName =  string( dirName.Data())  + string("/")+name;
+    cout << " open " << fullName << endl;
+    TFile *f = new TFile(fullName.c_str(),"readonly");
+    if(!f) continue;
+    TTree *dtree=NULL;
+    f->GetObject("Data_R",dtree);
+    if(!dtree) continue;
+    TBranch *b_Samples = dtree->FindBranch("Samples");
+    if(!b_Samples) continue;
+    if(b_Samples->GetEntries()<1) continue;
+    cout << f->GetName()  << "  " << b_Samples->GetEntries() << endl;
+    TBWave* wave = new TBWave(chan.c_str());
+    TTree *tree = NULL;
+    f->GetObject("Data_R",tree);
+    wave->Init(tree);
+    waveList.push_back(wave);
+    tbrun->addDet(Form("DET%i",idet++), wave->GetName()) ;
+  }
+
+  cout << " got " << waveList.size() << " files " <<  endl;
+
+  if( waveList.size()<1) {   
+    fout->Close();
+    return;
+  }
+
+  for (unsigned ifile = 0; ifile < waveList.size(); ++ifile)
+  {
+    cout << ifile << " for wave  " << waveList[ifile]->GetName() << " det " <<  tbrun->detList[ifile]->GetName() << endl;
+    Long64_t nbytes = 0, nb = 0;
+    Long64_t ientry = waveList[ifile]->LoadTree(0);
+    nb = waveList[ifile]->fChain->GetEntry(0);  
+    Long64_t nsamples =  waveList[ifile]->Samples->GetSize();
+    cout << ientry << "  " << nsamples << endl;
+
+    fout->cd();
+
+    Long64_t nentries =  waveList[ifile]->fChain->GetEntries();
+    cout << " entries " << nentries << endl;
+    for (Long64_t jentry=0; jentry<nentries;jentry++) {
+      ientry = waveList[ifile]->LoadTree(jentry);
+      if (ientry < 0) break;
+      nb = waveList[ifile]->GetEntry(jentry);  
+      nbytes += nb;
+      nsamples =  waveList[ifile]->Samples->GetSize();
+      findHits(ifile,jentry);
+
+      //
+      tbrun->fill();
+      if(jentry<4) plotRawWave(ifile,jentry); 
+    }
+  }
+  for(int i=0; i<  tbrun->detList.size() ; ++i) printf(" det %i %s \n",i,tbrun->detList[i]->GetName());
+  //fout->ls();
+  fout->Write();
+  fout->Close();
+}
+
+void anaRun::findHits(int ifile, Long64_t jentry) {
+
+  // fill vector
+  Long64_t nsamples =  waveList[ifile]->Samples->GetSize();
+  std::vector<double> digi;
+  for(int i=0; i<nsamples; ++i) digi.push_back( double(waveList[ifile]->Samples->GetAt(i)) );
+
+  // get averages
+  std::vector<double>vsort;
+  for (unsigned is=0; is< nsamples; ++is) vsort.push_back(digi[is]); 
+  std::sort(vsort.begin(), vsort.end());
+  double ave = vsort[unsigned(0.5*double(vsort.size()))];
+  double sigma = TMath::Abs(vsort[0.659*vsort.size()]-ave);
+  tbrun->detList[ifile]->event=jentry;
+  tbrun->detList[ifile]->ave=ave;
+  tbrun->detList[ifile]->sigma=sigma;
+
+  unsigned diffStep = 7;
+  differentiate(digi, diffStep);
+
+  std::vector<Int_t> peakKind;
+
+  TDetHit dhit;
+  tbrun->detList[ifile]->hits.push_back(dhit);
+}
+
+/*
+   void anaRun::getAverage(std::vector<Double_t> digi, Double_t& ave, Double_t& sigma, unsigned max) 
+   {
+
+   if(max==0) max = digi.size();
+   double sum=0;
+  double sum2=0;
+  for (unsigned is=0; is< max; ++is) {
+    sum += digi[is];
+    sum2 += pow(digi[is],2.);
+  }
+  ave = sum/double(max);
+  sigma = sqrt( sum2/double(max) - pow(ave,2.));
+}
+*/
+std::vector<Double_t> anaRun::differentiate(std::vector<Double_t> v, unsigned diffStep)
+{
+  std::vector<Double_t> d;
+  unsigned nsamples = v.size();
+  Double_t sump = 0;
+  Double_t summ = 0;
+  d.push_back(0); // first entry is zero
+  for (unsigned i = 1; i < nsamples; ++i)
+  {
+    unsigned i2 = 2 * i;
+    unsigned max = TMath::Min(diffStep, i);
+    max = TMath::Min(max, nsamples - 1 - i);
+    // beginning, middle, end cases
+    if (i <= diffStep && i2 <= nsamples - 1)
+    {
+      sump = sump - v[i] + v[i2 - 1] + v[i2];
+      summ = summ + v[i - 1];
+    }
+    else if (i > diffStep && i + diffStep <= nsamples - 1)
+    {
+      sump = sump - v[i] + v[i + diffStep];
+      summ = summ + v[i - 1] - v[i - 1 - diffStep];
+    }
+    else if (i + diffStep > nsamples - 1 && i2 > nsamples - 1)
+    {
+      sump = sump - v[i];
+      summ = summ + v[i - 1] - v[i2 - nsamples - 1] - v[i2 - nsamples];
+    }
+    d.push_back(sump - summ);
+  }
+  return d;
+}
+peakType anaRun::derivativePeaks(std::vector<Double_t> v, Int_t idet, Int_t nsum, Double_t rms, std::vector<Int_t> &peakKind)
+{
+  peakType peakList;
+  peakKind.clear();
+  std::vector<unsigned> crossings;
+  std::vector<unsigned> crossingBin;
+  std::vector<double> crossingTime;
+  unsigned vsize = v.size();
+  Double_t cut =  tbrun->detList[idet]->sigma*rms;
+  // cout << " for det " << idet << " in derivative peaks >>>> rms " << rms << " cut " << cut << endl;
+  Double_t ncut = -cut;
+  // find all crossings
+  for (unsigned ibin = 1; ibin < vsize; ++ibin)
+  {
+    Double_t u = double(ibin) * timeUnit * microSec;
+    Double_t vi = vsign * v[ibin];
+    Double_t vj = vsign * v[ibin - 1];
+    unsigned ctype = 10;
+    if (vj > cut && vi < ncut)
+    {
+      crossings.push_back(DOUBLEUPCROSS);
+      ctype = DOUBLEUPCROSS;
+      crossingBin.push_back(ibin);
+      crossingTime.push_back(u);
+    }
+    else if (vj < ncut && vi > cut)
+    {
+      crossings.push_back(DOUBLEDOWNCROSS);
+      ctype = DOUBLEDOWNCROSS;
+      crossingBin.push_back(ibin);
+      crossingTime.push_back(u);
+    }
+    else if (vi > cut && vj < cut)
+    {
+      crossings.push_back(UPCROSS);
+      ctype = UPCROSS;
+      crossingBin.push_back(ibin);
+      crossingTime.push_back(u);
+    }
+    else if (vi < cut && vj > cut)
+    {
+      crossings.push_back(UPCROSS);
+      ctype = UPCROSS;
+      crossingBin.push_back(ibin);
+      crossingTime.push_back(u);
+    }
+    else if (vi < ncut && vj > ncut)
+    {
+      crossings.push_back(DOWNCROSS);
+      ctype = DOWNCROSS;
+      crossingBin.push_back(ibin);
+      crossingTime.push_back(u);
+    }
+    else if (vi > ncut && vj < ncut)
+    {
+      crossings.push_back(DOWNCROSS);
+      ctype = DOWNCROSS;
+      crossingBin.push_back(ibin);
+      crossingTime.push_back(u);
+    }
+    // if (idet==1&&ctype<10)  printf("....... %u vj %f vi %f cut %f cross type %u \n", ibin, vj, vi, cut, ctype );
+    // if (idet==1&&ibin>2350&&ibin<2450)  printf("\t %u vj %f vi %f ctype %u  \n", ibin, vj, vi, ctype );
+  }
+
+  if (crossings.size() < 4)
+    return peakList;
+
+  // label found crossings, intially all false
+  std::vector<bool> crossingFound;
+  crossingFound.resize(crossings.size());
+  for (unsigned jc = 0; jc < crossings.size(); ++jc)
+  {
+    // printf(" det %i crossing %i bin %i time %f type %i \n",idet,jc,crossingBin[jc],crossingTime[jc],crossings[jc]);
+    crossingFound[jc] = false;
+  }
+
+  // parse crossings to make pairs
+  /* first find sequence of 0,2,x x>0 crossings */
+  unsigned ip = 0;
+  while (ip <= crossings.size() - 3)
+  {
+    int ibin = crossingBin[ip];
+    if (crossings[ip] == UPCROSS && crossings[ip + 1] == DOUBLEUPCROSS && crossings[ip + 2] > UPCROSS)
+    {
+      // if (idet==1)  printf("\t peak %lu ibin %i type (%i,%i,%i) \n", peakList.size() ,ibin, crossings[ip],crossings[ip+1],crossings[ip+2] );
+      peakList.push_back(std::make_pair(crossingBin[ip], crossingBin[ip + 2]));
+      peakKind.push_back(0);
+      // printf(" det %i make peak  (%i,%i) kind %i  \n",idet,crossingBin[ip],crossingBin[ip+2],peakKind[peakKind.size()-1]);
+      //ntDer->Fill(rms, v[crossingBin[ip]], double(crossingBin[ip + 2] - crossingBin[ip]), double(0)); // sigma:d0:step:dstep
+      crossingFound[ip] = true;
+      crossingFound[ip + 1] = true;
+      crossingFound[ip + 2] = true;
+      ip = ip + 3;
+    }
+    else
+    {
+      ++ip;
+    }
+  }
+  return peakList;
+}

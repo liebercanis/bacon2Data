@@ -1,0 +1,8 @@
+#include "TDet.hxx"
+ClassImp(TDet)
+
+TDet::TDet(const TString& name, const TString& title): TNamed(name,title)
+{
+  clear();
+}
+

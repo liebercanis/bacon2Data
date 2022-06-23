@@ -1,0 +1,383 @@
+make all --print-data-base --no-builtin-variables --no-builtin-rules --question
+# GNU Make 3.81
+# Copyright (C) 2006  Free Software Foundation, Inc.
+# This is free software; see the source for copying conditions.
+# There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
+
+# This program built for i386-apple-darwin11.3.0
+ 
+
+# Make data base, printed on Wed Jun 22 13:19:27 2022
+
+# Variables
+
+# automatic
+<D = $(patsubst %/,%,$(dir $<))
+# automatic
+?F = $(notdir $?)
+# environment
+RELEASE_SHLIB = /Users/gold/cdf/6.1.4/shlib
+# environment
+ELECTRON_NO_ATTACH_CONSOLE = 1
+# environment
+VSCODE_LOG_NATIVE = false
+# automatic
+?D = $(patsubst %/,%,$(dir $?))
+# environment
+FFTW = /usr/local/Cellar/fftw/3.3.10/
+# environment
+SPMSANA = /Users/gold/RnD/spmsAna
+# automatic
+@D = $(patsubst %/,%,$(dir $@))
+# automatic
+@F = $(notdir $@)
+# makefile
+ 
+CURDIR := /Users/gold/Documents/GitHub/bacon2Data/bacon2Data/compiled
+# makefile
+SHELL = /bin/sh
+# environment
+VSCODE_NLS_CONFIG = {"locale":"en-us","availableLanguages":{},"_languagePackSupport":true}
+# environment
+HDF5ROOT = /Users/gold/RnD/spmsAna/HDF5root
+# environment
+_ = /usr/bin/make
+# environment
+RWFD2 = /Users/gold/drift/WFD2
+# environment
+BLUE = 64.106.62.27
+# environment
+CLHEP_INCLUDE_DIR = /usr/local/include/CLHEP
+# makefile (from `Makefile', line 17)
+ROOTLIBS := -L/usr/local/root/lib -lCore -lImt -lRIO -lNet -lHist -lGraf -lGraf3d -lGpad -lROOTVecOps -lTree -lTreePlayer -lRint -lPostscript -lMatrix -lPhysics -lMathCore -lThread -lMultiProc -lROOTDataFrame -stdlib=libc++ -lpthread -lm -ldl
+# makefile (from `Makefile', line 1)
+MAKEFILE_LIST :=  Makefile
+# makefile (from `Makefile', line 28)
+CXXFLAGS := -stdlib=libc++ -pthread -std=c++11 -m64 -I/usr/local/root/include -fPIC -I/Users/gold/bacon2Data/compiled  -I/Users/gold/bacon2Data/compiled -I/usr/include -I/usr/local/include -I/Users/gold/bacon2Data/bobj -fPIC
+# environment
+ROOTSYS = /usr/local/root
+# environment
+VSCODE_VERBOSE_LOGGING = true
+# environment
+BRIDGE = /Users/gold/captain/myProject/
+# environment
+__CFBundleIdentifier = com.microsoft.VSCode
+# environment
+PYG = /Users/gold/RnD/pygama
+# environment
+HDF5CPP = /usr/local/Cellar/hdf5/1.12.2
+# environment
+VSCODE_IPC_HOOK_EXTHOST = /var/folders/lw/wwj5fn_j5tg940pgx01yxg_00000gn/T/vscode-ipc-5ed44500-06c8-4272-9e9b-1f8a977db907.sock
+# makefile (from `Makefile', line 29)
+CPP = $(CXX) $(CXXFLAGS)
+# environment
+VSCODE_CWD = /Users/gold/Documents/GitHub/bacon2Data/bacon2Data/compiled
+# environment
+AUGER = augers2.phys.unm.edu
+# environment
+RELEASE = /Users/gold/cdf/6.1.4
+# environment
+PATH = /anaconda3/bin:.:/Users/gold/bin:/usr/local/bin:/usr/local/root/bin:/usr/local/opt/python3/libexec/bin:/usr/local/opt/python/libexec/bin:/Users/gold/Library/Python/3.9/bin:/usr/local/bin:/Applications/CMake.app/Contents/bin/:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/texbin:/sw/bin:/sw/bin:G4WORKDIR/bin/:/usr/local/geant4.9.5-install//bin:/bin:/Users/gold/drift/release/RDrift/bin::/opt/local/lib/qt3mac/bin:/usr/OpenMotif/bin:/Developer/Simulator/GHDL/bin:/usr/local/mysql/bin:/Users/gold/RnD/OrcaRoot/bin/:/usr/local/texlive/2022/bin/universal-darwin/:/usr/local/Cellar/hdf5/1.12.2/include:/opt/local/bin:/opt/local/sbin
+# environment
+G4INSTALL = /usr/local/geant4.9.5-install/
+# environment
+SINGLEPE = /Users/gold/clean/optic/singlepe
+# environment
+BOSE = 64.106.62.103
+# environment
+RDRIFT = /Users/gold/drift/release/RDrift
+# environment
+LaunchInstanceID = A00CB5A4-6AF2-476C-8CCE-E0778F29DB26
+# environment
+CFITSIO_DIR = /opt/local
+# environment
+VSCODE_LOG_STACK = false
+# environment
+ELECTRON_RUN_AS_NODE = 1
+# default
+.FEATURES := target-specific order-only second-expansion else-if archives jobserver check-symlink
+# environment
+SSH_AUTH_SOCK = /private/tmp/com.apple.launchd.zfjJVDF0jj/Listeners
+# makefile (from `Makefile', line 19)
+BOBJ = $(HOME)/bacon2Data/bobj
+# environment
+DISPLAY = /private/tmp/com.apple.launchd.v2DK2T8TfM/org.xquartz:0
+# environment
+MY_ANISOP = /Users/gold/auger/anisop
+# environment
+VSCODE_PIPE_LOGGING = true
+# environment
+PWD = /Users/gold/bacon2Data/compiled
+# automatic
+*D = $(patsubst %/,%,$(dir $*))
+# environment
+CLHEP_LIB_DIR = /usr/local/lib
+# environment
+G4WORKDIR = /Users/gold/geant
+# environment
+ORIGINAL_XDG_CURRENT_DESKTOP = undefined
+# environment
+MANPATH = /opt/local/share/man::/usr/local/man
+# environment
+VSCODE_AMD_ENTRYPOINT = vs/workbench/api/node/extensionHostProcess
+# environment
+HOME = /Users/gold
+# default
+MAKEFILEPATH := /Applications/Xcode.app/Contents/Developer/Makefiles
+# environment
+VSCODE_CLI = 1
+# environment
+VSCODE_CODE_CACHE_PATH = /Users/gold/Library/Application Support/Code/CachedData/30d9c6cd9483b2cc586687151bcbcd635f373630
+# environment
+LOGNAME = gold
+# environment
+APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = 1
+# environment
+TEXINPUTS = .:/Users/gold/texinputs//:/Users/gold/texinputs/prosper:
+# environment
+VSCODE_HANDLES_UNCAUGHT_ERRORS = true
+# automatic
+^D = $(patsubst %/,%,$(dir $^))
+# environment
+XPC_FLAGS = 0x0
+# environment
+HEALPIX_DIR = /Users/gold/local/Healpix_2.00
+# default
+MAKE = $(MAKE_COMMAND)
+# default
+MAKECMDGOALS := all
+# environment
+SHLVL = 3
+# default
+MAKE_VERSION := 3.81
+# environment
+USER = gold
+# makefile
+.DEFAULT_GOAL := all
+# makefile (from `Makefile', line 18)
+ROOTGLIBS := -L/usr/local/root/lib -lGui -lCore -lImt -lRIO -lNet -lHist -lGraf -lGraf3d -lGpad -lROOTVecOps -lTree -lTreePlayer -lRint -lPostscript -lMatrix -lPhysics -lMathCore -lThread -lMultiProc -lROOTDataFrame -stdlib=libc++ -lpthread -lm -ldl
+# environment
+XENVIRONMENT = /Users/gold/.Xdefaults
+# environment
+TERM_SESSION_ID = 67DB3C3E-85FC-43B3-B8FF-19B4CDA453A1
+# environment
+MATLAB = /Applications/MATLAB_R2008a
+# environment
+DBUS_LAUNCHD_SESSION_BUS_SOCKET = /private/tmp/com.apple.launchd.IeLHVM47M0/unix_domain_listener
+# automatic
+%D = $(patsubst %/,%,$(dir $%))
+# default
+MAKE_COMMAND := /Applications/Xcode.app/Contents/Developer/usr/bin/make
+# environment
+TERM_PROGRAM = Apple_Terminal
+# default
+.VARIABLES := 
+# environment
+TMPDIR = /var/folders/lw/wwj5fn_j5tg940pgx01yxg_00000gn/T/
+# automatic
+*F = $(notdir $*)
+# environment
+VSCODE_IPC_HOOK = /Users/gold/Library/Application Support/Code/1.68.1-main.sock
+# environment
+PYTHONPATH = /Users/gold/Library/Python/3.9/bin:/usr/local/root/lib:/usr/bin/:/Users/gold/legend/pygama
+# makefile (from `Makefile', line 14)
+ARCH = $(shell root-config --arch)
+# makefile
+MAKEFLAGS = Rrqp
+# environment
+MFLAGS = -Rrqp
+# environment
+TOOLKIT = /Users/gold/local/Toolkit
+# environment
+TERM_PROGRAM_VERSION = 445
+# environment
+XPC_SERVICE_NAME = application.com.microsoft.VSCode.80394516.80394522.3D408D7B-6790-4435-BB08-8B8D56E7E686
+# environment
+CAPTROOTCONFIG = Linux-Scientific-6.8-x86_64
+# automatic
++D = $(patsubst %/,%,$(dir $+))
+# automatic
++F = $(notdir $+)
+# environment
+JUPYTER = jupyter
+# automatic
+%F = $(notdir $%)
+# environment
+CLHEP_BASE_DIR = /usr/local
+# environment
+__CF_USER_TEXT_ENCODING = 0x1F5:0x0:0x0
+# environment
+COMMAND_MODE = unix2003
+# default
+MAKEFILES := 
+# environment
+STC_DIR = /Users/gold/local/STCoordinates
+# automatic
+<F = $(notdir $<)
+# environment
+BACONSIM = /Users/gold/bacon/baconSim
+# makefile (from `Makefile', line 15)
+LOCAL := /Users/gold/bacon2Data/compiled
+# environment
+CAPTANA = /Users/gold/captain/myProject//captAna/
+# makefile (from `Makefile', line 27)
+CXX := clang++ -arch x86_64
+# environment
+RWFD = /Users/gold/drift/WFD
+# environment
+LC_ALL = C
+# makefile (from `Makefile', line 24)
+LIBS := -L/usr/local/root/lib -lCore -lImt -lRIO -lNet -lHist -lGraf -lGraf3d -lGpad -lROOTVecOps -lTree -lTreePlayer -lRint -lPostscript -lMatrix -lPhysics -lMathCore -lThread -lMultiProc -lROOTDataFrame -stdlib=libc++ -lpthread -lm -ldl -L/Users/gold/bacon2Data/bobj -lBaconAna -L/usr/local/Cellar/fftw/3.3.10//lib -lfftw3 
+# environment
+SECURITYSESSIONID = 186ac
+# automatic
+^F = $(notdir $^)
+# default
+SUFFIXES := 
+# default
+.INCLUDE_DIRS = /usr/local/include
+# environment
+MASTER = /Users/gold/captain/master
+# environment
+MAGEDIR = /Users/gold/legend/MaGeLAr
+# environment
+MAKELEVEL := 0
+# environment
+ORDIR = /Users/gold/RnD/OrcaRoot
+# environment
+LANG = C
+# environment
+TERM = xterm-color
+# environment
+VSCODE_PID = 7798
+# makefile (from `Makefile', line 16)
+ROOTCFLAGS := -stdlib=libc++ -pthread -std=c++11 -m64 -I/usr/local/root/include
+# variable set hash-table stats:
+# Load=120/1024=12%, Rehash=0, Collisions=3/171=2%
+
+# Pattern-specific Variable Values
+
+# No pattern-specific variable values.
+
+# Directories
+
+# . (device 16777232, inode 72218201): 27 files, no impossibilities.
+
+# 27 files, no impossibilities in 1 directories.
+
+# Implicit Rules
+
+# No implicit rules.
+
+# Files
+
+all: ana
+#  Command-line target.
+#  Implicit rule search has been done.
+#  File does not exist.
+#  File has been updated.
+#  Successfully updated.
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+
+.PHONY: clean show
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+# Not a target:
+.SUFFIXES:
+ 
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+# Not a target:
+Makefile:
+#  Implicit rule search has been done.
+#  Last modified 2022-05-19 16:57:07
+#  File has been updated.
+#  Successfully updated.
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+
+ana: ana.cc anaRun.cc
+#  Implicit rule search has not been done.
+#  Last modified 2022-06-20 15:45:44
+#  File has been updated.
+#  Successfully updated.
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+#  commands to execute (from `Makefile', line 44):
+	$(CPP) $< $(LIBS)  -o $@
+	
+
+# Not a target:
+anaRun.cc:
+#  Implicit rule search has been done.
+#  Last modified 2022-06-20 15:45:29
+#  File has been updated.
+#  Successfully updated.
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+
+# Not a target:
+ana.cc:
+#  Implicit rule search has been done.
+#  Last modified 2022-06-14 13:38:00
+#  File has been updated.
+#  Successfully updated.
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+
+# Not a target:
+.DEFAULT:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+clean:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 51):
+	rm -f *.o 
+	rm -f ana
+	rm -rf ana.dSYM
+	
+
+show:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 55):
+	@echo LD =$(LD)
+	@echo sys =$(SYS)
+	@echo arch =$(ARCH)
+	@echo LOCAL = $(LOCAL)
+	@echo BOBJ = $(BOBJ)
+	@echo include path = $(INC_PATH)
+	@echo CXXFLAGS = $(CXXFLAGS)
+	@echo LIBS = $(LIBS)
+	@echo cpp = $(CPP)
+	
+
+# files hash-table stats:
+# Load=10/1024=1%, Rehash=0, Collisions=0/28=0%
+# VPATH Search Paths
+
+# No `vpath' search paths.
+
+# No general (`VPATH' variable) search path.
+
+# # of strings in strcache: 1
+# # of strcache buffers: 1
+# strcache size: total = 4096 / max = 4096 / min = 4096 / avg = 4096
+# strcache free: total = 4087 / max = 4087 / min = 4087 / avg = 4087
+
+# Finished Make data base on Wed Jun 22 13:19:27 2022
+
+ 

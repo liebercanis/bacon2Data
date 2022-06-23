@@ -1,0 +1,5 @@
+make --dry-run --always-make --keep-going --print-directory
+make: Entering directory `/Users/gold/Documents/GitHub/bacon2Data/bacon2Data/compiled'
+clang++ -arch x86_64 -stdlib=libc++ -pthread -std=c++11 -m64 -I/usr/local/root/include -fPIC -I/Users/gold/bacon2Data/compiled  -I/Users/gold/bacon2Data/compiled -I/usr/include -I/usr/local/include -I/Users/gold/bacon2Data/bobj -fPIC ana.cc -L/usr/local/root/lib -lCore -lImt -lRIO -lNet -lHist -lGraf -lGraf3d -lGpad -lROOTVecOps -lTree -lTreePlayer -lRint -lPostscript -lMatrix -lPhysics -lMathCore -lThread -lMultiProc -lROOTDataFrame -stdlib=libc++ -lpthread -lm -ldl -L/Users/gold/bacon2Data/bobj -lBaconAna -L/usr/local/Cellar/fftw/3.3.10//lib -lfftw3   -o ana
+make: Leaving directory `/Users/gold/Documents/GitHub/bacon2Data/bacon2Data/compiled'
+ 
