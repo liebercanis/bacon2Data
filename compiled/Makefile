@@ -16,7 +16,7 @@ LOCAL        := $(shell pwd)
 ROOTCFLAGS   := $(shell root-config --cflags)
 ROOTLIBS     := $(shell root-config --libs)
 ROOTGLIBS    := $(shell root-config --glibs)
-BOBJ=$(HOME)/bacon2Data/bobj
+BOBJ=../bobj
 
 
 CXXFLAGS     :=  $(ROOTCFLAGS) -fPIC -I$(LOCAL) 
@@ -38,7 +38,10 @@ endif
 #CPP+=-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
 
 
-all: ana
+all: convertRaw ana
+
+convertRaw: convertRaw.cc
+	$(CPP) $< $(LIBS)  -o $@
 
 ana: ana.cc anaRun.cc
 	$(CPP) $< $(LIBS)  -o $@
