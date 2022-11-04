@@ -2,13 +2,19 @@
 int main(int argc, char* argv[])
 {
   cout << "executing " << argv[0] << endl;
-  if(argc<2) {
-    printf(" usage: ana  <run name>   \n ");
-    exit(0);
-   }
-  TString tag  = TString(argv[1]);
+  printf(" usage: ana  <max entries 0=all> <run name>   \n ");
+  TString tag("run");
+  Long64_t maxEntries = 0;
+  if (argc > 1)
+  {
+    maxEntries = atoi(argv[1]);
+  }
+  if (argc > 2)
+  {
+      tag = TString(argv[2]);
+  }
 
-  printf(" starting anaRun %s \n", tag.Data());
-  new anaRun(tag);
+  printf(" starting anaRun %lld %s \n",maxEntries, tag.Data());
+  new anaRun(maxEntries, tag);
   exit(0);
 }

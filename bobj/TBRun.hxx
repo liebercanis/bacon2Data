@@ -19,12 +19,17 @@ using namespace std;
 class TBRun: public TNamed {
   public:
     TBRun(TString runName = "run0");
-    ~TBRun();
+    TBRun(TTree* btreeInit,TString runName = "run0");
+    //~TBRun();
 
     void clear();
+    enum {NDET=4};
     TTree *btree;
     TBEvent *bevent;
-
+    TDet det3;
+    TDet det2;
+    TDet det1;
+    TDet det0;
 
     vector<TDet*> detList;
     void detListClear(); 
@@ -33,12 +38,6 @@ class TBRun: public TNamed {
  
     void fill() {
       btree->Fill();
-    }
-
-    void addDet(TString name=TString("UNKNOWN"), const TString title=TString("")) {
-      TDet* det = new TDet(name,title);
-      detList.push_back(det);
-      btree->Branch(name, det);
     }
 
     void print() {
