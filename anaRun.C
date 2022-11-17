@@ -1,3 +1,4 @@
+#include <numeric>
 #include "TBRawEvent.hxx"
 #include "TBRun.hxx"
 TFile *fout;
@@ -6,6 +7,8 @@ TTree *rtree;
 TBRawRun *tbrun;
 TObjArray *brList;
 vector<TBRawEvent *> detList;
+vector<int> vchan;
+vector<TH1D *> noiseHist;
 // TTree *ftree;
 
 bool openFile(TString tag)
@@ -38,59 +41,78 @@ bool openFile(TString tag)
   while( ( aBranch = (TBranchElement *) next() ) ) {
     TString brname = TString(aBranch->GetName()) ;
     int chan = TString(brname(brname.First('n')+1,brname.Length() - brname.First('n'))).Atoi();
-    //aBranch->GetListOfLeaves()->ls();
-    //aBranch->SetAddress( &(detList[detList.size()-1]) );
+    vchan.push_back(chan);
     aBranch->SetAddress(0);
-    //cout << " info " << aBranch->GetFullName()  << " class " << aBranch->GetClassName() << " chan " << chan << " det name  " << detList[detList.size() - 1]->GetName() << endl;
   }
-  printf("det list total =  %lu \n", detList.size());
+  printf("total channels  =  %lu \n", vchan.size());
   return true;
 }
 
 
 void anaRun(TString tag= TString("Test"))
 {
+  // hist to fit to baseline offset
+  TH1D *hEvGaus = new TH1D("baseline","baseline",200,-100,100);
+
+   if(!openFile(tag)) return;
   TString outFileName = TString("anaRun") + tag + TString(".root");
   fout = new TFile(outFileName,"recreate");
-  TString rawRunName = TString("raw-") + tag;
-  if(!openFile(tag)) return;
 
-  
-  //rtree->GetListOfBranches()->ls();
-  //printf("det list total =  %lu \n", detList.size());
-  //for (unsigned i = 0; i < detList.size(); ++i)
-     //printf(" %i name  %s chan %i \n ", i, detList[i]->GetName(), detList[i]->channel);
-  printf(" loop over entries \n");
-  for (Long64_t entry = 0; entry < 2;  ++entry)
+  for (unsigned ichan = 0; ichan < vchan.size();  ++ichan )
+    noiseHist.push_back(new TH1D(Form("RawNoiseChan%i", ichan),Form("RawNoiseChan%i", ichan), 100,0,10));
+
+  Long64_t nentries = rtree->GetEntries();
+  printf(" loop over %llu entries \n",nentries);
+  for (Long64_t entry = 0; entry < nentries; ++entry)
   {
-    cout << " .... entry " << entry << endl;
-
+    if(entry/100*100==entry) cout << " .... entry " << entry << endl;
     rtree->GetEntry(entry);
 
+    // find branches and cast as TBRawEvent. each is a channel
     TIter next(brList);
     TBranchElement *aBranch = NULL;
     detList.clear();
-
     while ((aBranch = (TBranchElement *) next())) {
       TBRawEvent *det = (TBRawEvent *) aBranch->GetObject();
       detList.push_back(det);
     }
     
-
+    // loop over channels
     for (int ichan = 0; ichan < detList.size(); ++ichan) 
     {
+      int nbins = detList[ichan]->rdigi.size();
+      if (nbins < 1)
+        continue;
+
+      /**
       cout << detList[ichan]->channel << " " << detList[ichan]->time << " " << detList[ichan]->rdigi.size() << "; ";
       cout << endl;
+      **/
+
       TString hname;
       hname.Form("EvRawWaveEv%ich%i", int(entry), ichan);
-      int nbins = detList[ichan]->rdigi.size();
-      if(nbins<1)
-        continue;
-      TH1D *hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
+      TH1D *hEvRawWave = NULL;
+      if(entry<100) hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
+      
+      // simple baseline
+      double base = std::accumulate(detList[ichan]->rdigi.begin(), detList[ichan]->rdigi.end(),0)/ detList[ichan]->rdigi.size();
+
+      // baseline correction from fitted Gaussian
+      hEvGaus->Reset();
       for (unsigned j = 0; j < detList[ichan]->rdigi.size(); ++j)
-        hEvRawWave->Fill(j + 1, (double) detList[ichan]->rdigi[j]);
+        hEvGaus->Fill((double)detList[ichan]->rdigi[j] - base);
+  
+      hEvGaus->Fit("gaus","QO");
+      TF1 *gfit = (TF1 *)hEvGaus->GetListOfFunctions()->FindObject("gaus");
+      double ave = gfit->GetParameter(1);
+      double sigma  = gfit->GetParameter(2);
+      //cout << hname << " ave " << ave << " sigma " << sigma << endl;
+      noiseHist[ichan]->Fill(sigma);
+      for (unsigned j = 0; j < detList[ichan]->rdigi.size(); ++j)
+        if (hEvRawWave) hEvRawWave->SetBinContent(j + 1, (double)detList[ichan]->rdigi[j] - base - ave);
     }
   }
-    fout->Close();
-    return;
-  }
+  fout->ls();
+  fout->Write();
+  return;
+}
