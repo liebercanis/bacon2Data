@@ -1,96 +1,96 @@
-vector<TBWave*> waveList;
+#include "TBRawEvent.hxx"
+#include "TBRun.hxx"
 TFile *fout;
-TString tag;
-TBRun* tbrun;
+TFile *fin;
+TTree *rtree;
+TBRawRun *tbrun;
+TObjArray *brList;
+vector<TBRawEvent *> detList;
+// TTree *ftree;
 
-void plotWave( int ifile, int theRun, Long64_t jentry) 
+bool openFile(TString tag)
 {
-  TString hname;
-  hname.Form("set-%s-run%i-event-%lli",tag.Data(),theRun,jentry);
-  Long64_t nsamples =  waveList[ifile]->Samples->GetSize();
-  TH1S* hist = new TH1S(hname,hname,nsamples,0,nsamples);
-  for(int i=0; i<nsamples; ++i) hist->SetBinContent(i+1,hist->GetBinContent(i+1) + waveList[ifile]->Samples->GetAt(i));
-  TCanvas *can = new TCanvas(hname,hname);
-  hist->Draw();
-  can->Print(".gif");
-
-}
-
-void makeHits(ifile) 
-{
-   tbrun->detList[ifile]->clear();
-   vector<double> wvec;
-   for(int i=0; i<nsamples; ++i)  wvec.push_back(waveList[ifile]->Samples->GetAt(i));
-
-}
-
-void anaRun(int theRun=1 , const char* theTag="test")
-{
-  fout = new TFile("anaRun.root","recreate");
-  TString dirName;
-  tag = TString(theTag);
-  dirName.Form("SiPM_Data_UW_Board/%s/DAQ/run_%i/RAW",tag.Data(),theRun);
-  cout << "dirName " << dirName << endl;
-  TSystemDirectory dir("RAW",dirName);
-  TList *files = dir.GetListOfFiles();
-  tbrun = new TBRun(tag);
-  cout << " create TBRun  " << tbrun->GetName() << endl;
-
-  TIter next(files);
-  TSystemFile *file;
-  while( (file = (TSystemFile*) next()) ) {
-    string name = string(file->GetName());
-    string exten  = name.substr( name.find_last_of(".")+1 );
-    if(exten!=string("root")) continue;
-    string tag = name.substr( 0, name.find_last_of(".") );
-    string chan = tag.substr( tag.find_first_of("CH"), tag.find_first_of("@") - tag.find_first_of("CH"));
-    cout << " tag " << tag.find_first_of("CH") <<  "   " <<tag << " can  " << chan << endl;
-    string fullName =  string( dirName.Data())  + string("/")+name;
-    cout << " open " << fullName << endl;
-    TFile *f = new TFile(fullName.c_str(),"readonly");
-    if(!f) continue;
-    TTree *dtree=NULL;
-    f->GetObject("Data_R",dtree);
-    if(!dtree) continue;
-    TBranch *b_Samples = dtree->FindBranch("Samples");
-    if(!b_Samples) continue;
-    if(b_Samples->GetEntries()<1) continue;
-    cout << f->GetName()  << "  " << b_Samples->GetEntries() << endl;
-    TBWave* wave = new TBWave(chan.c_str());
-    TTree *tree = NULL;
-    f->GetObject("Data_R",tree);
-    wave->Init(tree);
-    waveList.push_back(wave);
+  // open ouput file and make some histograms
+  TString fileName; fileName.Form("%s.root",tag.Data());
+  printf(" looking for file %s\n",fileName.Data());
+  fin = new TFile(fileName,"readonly");
+  if(fin->IsZombie()) {
+    printf(" couldnt open file %s\n",fileName.Data());
+    return false;
   }
+
+  rtree = NULL;
+  brList = NULL;
+  fin->GetObject("RawTree", rtree);
+  if(!rtree) {
+    printf("!! RawTree not found \n");
+    return false;
+  }
+
+  printf(" RawTree entries = %llu\n", rtree->GetEntries() );
+  brList = rtree->GetListOfBranches();
+  brList->ls();
+
+  TIter next(brList);
+  TBranchElement *aBranch=NULL;
+  detList.clear();
+
+  while( ( aBranch = (TBranchElement *) next() ) ) {
+    TString brname = TString(aBranch->GetName()) ;
+    int chan = TString(brname(brname.First('n')+1,brname.Length() - brname.First('n'))).Atoi();
+    //aBranch->GetListOfLeaves()->ls();
+    //aBranch->SetAddress( &(detList[detList.size()-1]) );
+    aBranch->SetAddress(0);
+    //cout << " info " << aBranch->GetFullName()  << " class " << aBranch->GetClassName() << " chan " << chan << " det name  " << detList[detList.size() - 1]->GetName() << endl;
+  }
+  printf("det list total =  %lu \n", detList.size());
+  return true;
+}
+
+
+void anaRun(TString tag= TString("Test"))
+{
+  TString outFileName = TString("anaRun") + tag + TString(".root");
+  fout = new TFile(outFileName,"recreate");
+  TString rawRunName = TString("raw-") + tag;
+  if(!openFile(tag)) return;
+
   
+  //rtree->GetListOfBranches()->ls();
+  //printf("det list total =  %lu \n", detList.size());
+  //for (unsigned i = 0; i < detList.size(); ++i)
+     //printf(" %i name  %s chan %i \n ", i, detList[i]->GetName(), detList[i]->channel);
+  printf(" loop over entries \n");
+  for (Long64_t entry = 0; entry < 2;  ++entry)
+  {
+    cout << " .... entry " << entry << endl;
 
-  cout << " files = " << waveList.size() << endl;
-  for(unsigned ifile = 0; ifile<waveList.size(); ++ ifile) {
-    tbrun->detList[ifile]->SetName(Form("SIPM-%s", waveList[ifile]->GetName()));
-    cout << " for wave  " << waveList[ifile]->GetName() << " det " <<  tbrun->detList[ifile]->GetName() << endl;
-    Long64_t nbytes = 0, nb = 0;
-    Long64_t ientry = waveList[ifile]->LoadTree(0);
-    nb = waveList[ifile]->fChain->GetEntry(0);  
-    Long64_t nsamples =  waveList[ifile]->Samples->GetSize();
-    cout << ientry << "  " << nsamples << endl;
+    rtree->GetEntry(entry);
 
-    fout->cd();
+    TIter next(brList);
+    TBranchElement *aBranch = NULL;
+    detList.clear();
 
-    Long64_t nentries =  waveList[ifile]->fChain->GetEntries();
-    cout << " entries " << nentries << endl;
-    nentries = 3;
-    for (Long64_t jentry=0; jentry<nentries;jentry++) {
-      ientry = waveList[ifile]->LoadTree(jentry);
-      if (ientry < 0) break;
-      nb = waveList[ifile]->GetEntry(jentry);  
-      nbytes += nb;
-      nsamples =  waveList[ifile]->Samples->GetSize();
-      plotWave(ifile,theRun,jentry);
-      makeHits(ifile);
+    while ((aBranch = (TBranchElement *) next())) {
+      TBRawEvent *det = (TBRawEvent *) aBranch->GetObject();
+      detList.push_back(det);
     }
+    
 
+    for (int ichan = 0; ichan < detList.size(); ++ichan) 
+    {
+      cout << detList[ichan]->channel << " " << detList[ichan]->time << " " << detList[ichan]->rdigi.size() << "; ";
+      cout << endl;
+      TString hname;
+      hname.Form("EvRawWaveEv%ich%i", int(entry), ichan);
+      int nbins = detList[ichan]->rdigi.size();
+      if(nbins<1)
+        continue;
+      TH1D *hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
+      for (unsigned j = 0; j < detList[ichan]->rdigi.size(); ++j)
+        hEvRawWave->Fill(j + 1, (double) detList[ichan]->rdigi[j]);
+    }
   }
-
-  fout->ls();
-  return;
-}
+    fout->Close();
+    return;
+  }
