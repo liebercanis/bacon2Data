@@ -33,6 +33,7 @@ TList *files;
 std::vector<int> vsub;
 std::vector<int> vchan;
 TBRawRun *rawRun;
+unsigned maxRun;
 /*
 Record Length: 4100
 BoardID: 31
@@ -111,6 +112,7 @@ bool readEvent(int chan, ifstream *stream)
       if (ievent > 1)
       {
         rawRun->fill();
+        rawRun->clear();
         return stream->good();
       }
       readHeader(chan, stream);
@@ -173,20 +175,23 @@ void openSubRun(int isub)
     int subRun, chan;
     TString tname(name.c_str());
     parseName(tname, subRun, chan);
-    if (subRun != isub)
+    //printf(" %s subrun %i chan %i \n",tname.Data(),subRun,chan);
+    if (subRun != isub){
       continue;
+    }
 
     ifstream *in = new ifstream(fullName, std::ios::in);
     if (!in->is_open())
       continue;
 
     // count channels
-    if (std::find(std::begin(vchan), std::end(vchan), subRun) == std::end(vchan))
+    if (std::find(std::begin(vchan), std::end(vchan), chan) == std::end(vchan))
     {
       vchan.push_back(chan);
       fileList.push_back(in);
       fileName.push_back(name);
-    }
+    } 
+      
   }
 
   printf(" subrun %i number of files opened %lu \n", isub, fileList.size());
@@ -222,11 +227,17 @@ int main(int argc, char *argv[])
   cout << "executing " << argv[0] << " argc " << argc << endl;
   if (argc < 1)
   {
-    printf(" usage: convertRaw <tag>  \n ");
+    printf(" usage: convertRaw <tag>  <maxruns> \n ");
     exit(0);
   }
   cout << argv[1] << endl;
   TString tag(argv[1]);
+
+  maxRun=0;
+  if(argc>2 ) {
+    cout << "max runs = " << argv[2] << endl;
+    maxRun = (unsigned) atoi(argv[2]);
+  }
 
   dirName = TString("data/") + tag;
   TSystemDirectory dir("rawdir", dirName); // TSystemDirectory
@@ -247,7 +258,9 @@ int main(int argc, char *argv[])
 
   std::sort(vsub.begin(), vsub.end());
 
-  for (unsigned isub = 0; isub < vsub.size(); ++isub)
+  if(maxRun==0) maxRun = vsub.size();
+
+  for (unsigned isub = 0; isub < maxRun; ++isub)
     openSubRun(vsub[isub]);
 
   fout->ls();

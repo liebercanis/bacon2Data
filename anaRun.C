@@ -49,7 +49,7 @@ bool openFile(TString tag)
 }
 
 
-void anaRun(TString tag= TString("Test"))
+void anaRun(TString tag= TString("No_Doping_1_Digitizer"))
 {
   // hist to fit to baseline offset
   TH1D *hEvGaus = new TH1D("baseline","baseline",200,-100,100);
