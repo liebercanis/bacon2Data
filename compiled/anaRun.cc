@@ -9,14 +9,17 @@
 #include <map>
 #include <complex> //includes std::pair, std::make_pair
 #include <valarray>
-//
-#include <TSystemDirectory.h>
-#include <TSystemFile.h>
+#include <numeric>
+#include <algorithm> // std::sort
+
+#include "TBRawEvent.hxx"
+#include "TBRun.hxx"
 #include <TROOT.h>
 #include <TVirtualFFT.h>
 #include <TChain.h>
 #include <TMath.h>
 #include <TNtuple.h>
+#include <TBranchElement.h>
 #include <TFile.h>
 #include <Rtypes.h>
 #include <TH1D.h>
@@ -26,12 +29,8 @@
 #include <TStyle.h>
 #include <TCanvas.h>
 #include <TGraph.h>
-#include <algorithm> // std::sort
-#include "TSpectrum.h"
-#include "TRandom3.h"
 //
 #include "TBWave.hxx"
-#include "TBRun.hxx"
 #include "hitFinder.hxx"
 
 class anaRun
@@ -41,139 +40,183 @@ public:
   {
     NDET = 4
   };
-
-  int detId[NDET];
-  ofstream dumpFile;
   TFile *fout;
-  TString runTag;
+  TFile *fin;
+  TTree *rtree;
   TBRun *tbrun;
+  TObjArray *brList;
+  vector<TBRawEvent *> detList;
+  vector<TH1D *> noiseHist;
+  vector<TH1D *> skewHist;
+  vector<TH1D *> sumWave;
+  TH1D *hEvRawWave;
+  TH1D *hEvGaus;
+  vector<int> vchan;
+  ofstream dumpFile;
   vector<TBWave *> waveList;
-  vector<double> rdigi;
   hitFinder *finder;
   TString tag;
-  anaRun(Long64_t maxEntries = 0, const char *theTag = "run");
+  anaRun(const char *theTag = "run", Long64_t maxEntries = 0);
   virtual ~anaRun() { ; }
+  bool openFile();
+  long getEvent(Long64_t entry);
+  void anaEvent(Long64_t entry);
   Long64_t nentries;
 };
 
-anaRun::anaRun(Long64_t maxEntries, const char *theTag)
+/* get detList */
+long anaRun::getEvent(Long64_t entry)
+{
+  rtree->GetEntry(entry);
+  // find branches and cast as TBRawEvent. each is a channel
+  // cout << " getEvent " << entry << endl;
+  // brList->ls();
+  TIter next(brList);
+  TBranchElement *aBranch = NULL;
+  detList.clear();
+  while ((aBranch = (TBranchElement *)next()))
+  {
+    TBRawEvent *det = (TBRawEvent *)aBranch->GetObject();
+    detList.push_back(det);
+  }
+  return detList.size();
+}
+
+/* analyze detList */
+void anaRun::anaEvent(Long64_t entry)
+{
+  // loop over channels
+  for (int ichan = 0; ichan < detList.size(); ++ichan)
+  {
+    int nbins = detList[ichan]->rdigi.size();
+    if (nbins < 1)
+      continue;
+
+    // simple baseline
+    double base = std::accumulate(detList[ichan]->rdigi.begin(), detList[ichan]->rdigi.end(), 0) / detList[ichan]->rdigi.size();
+
+    TString hname;
+    hEvRawWave = NULL;
+
+    // baseline correction from fitted Gaussian
+    hEvGaus->Reset();
+    for (unsigned j = 0; j < detList[ichan]->rdigi.size(); ++j)
+      hEvGaus->Fill((double)detList[ichan]->rdigi[j] - base);
+
+    hEvGaus->Fit("gaus", "QO");
+    TF1 *gfit = (TF1 *)hEvGaus->GetListOfFunctions()->FindObject("gaus");
+    double ave = gfit->GetParameter(1);
+    double sigma = gfit->GetParameter(2);
+    double skew = hEvGaus->GetSkewness();
+    // fitptr->Print();
+    // cout << hname << " " <<   " ave " << ave << " sigma " << sigma << " skew " << skew <<  endl;
+    noiseHist[ichan]->Fill(sigma);
+    skewHist[ichan]->Fill(skew);
+    double sign = TMath::Sign(1., skew);
+    // skip events with no hits
+    if (abs(skew) < 1)
+      continue;
+
+    // plot some single events
+    if (entry < 100)
+    {
+      hname.Form("EvRawWaveEv%ich%i", int(entry), ichan);
+      hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
+      for (unsigned j = 0; j < detList[ichan]->rdigi.size(); ++j)
+      {
+        double val = sign * ((double)detList[ichan]->rdigi[j] - base - ave);
+        hEvRawWave->SetBinContent(j + 1, val);
+      }
+    }
+
+    // summed plots
+    for (unsigned j = 0; j < detList[ichan]->rdigi.size(); ++j)
+    {
+      double val = sign * ((double)detList[ichan]->rdigi[j] - base - ave);
+      sumWave[ichan]->SetBinContent(j + 1, sumWave[ichan]->GetBinContent(j + 1) + val);
+    }
+  }
+}
+
+bool anaRun::openFile()
+{
+  // open input file and make some histograms
+  TString fileName;
+  fileName.Form("data/rootData/%s.root", tag.Data());
+  printf(" looking for file %s\n", fileName.Data());
+  fin = new TFile(fileName, "readonly");
+  if (fin->IsZombie())
+  {
+    printf(" couldnt open file %s\n", fileName.Data());
+    return false;
+  }
+
+  rtree = NULL;
+  brList = NULL;
+  fin->GetObject("RawTree", rtree);
+  if (!rtree)
+  {
+    printf("!! RawTree not found \n");
+    return false;
+  }
+
+  printf(" RawTree entries = %llu\n", rtree->GetEntries());
+  brList = rtree->GetListOfBranches();
+  brList->ls();
+
+  TIter next(brList);
+  TBranchElement *aBranch = NULL;
+  detList.clear();
+
+  // set branches
+  while ((aBranch = (TBranchElement *)next()))
+  {
+    TString brname = TString(aBranch->GetName());
+    int chan = TString(brname(brname.First('n') + 1, brname.Length() - brname.First('n'))).Atoi();
+    vchan.push_back(chan);
+    aBranch->SetAddress(0);
+  }
+  printf("total channels  =  %lu \n", vchan.size());
+
+  // make histograms on output file
+  fout->cd();
+  for (unsigned ichan = 0; ichan < vchan.size(); ++ichan)
+  {
+    noiseHist.push_back(new TH1D(Form("NoiseChan%i", ichan), Form("NoiseChan%i", ichan), 100, 0, 10));
+    skewHist.push_back(new TH1D(Form("SkewChan%i", ichan), Form("SkewChan%i", ichan), 100, -10, 10));
+    sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sunWave%i", ichan), 4100, 0, 4100));
+  }
+  hEvGaus = new TH1D("baseline", "baseline", 200, -100, 100);
+
+  return true;
+}
+
+anaRun::anaRun(const char *theTag, Long64_t maxEntries)
 {
   tag = TString(theTag);
-  fout = new TFile(Form("anaRun-%s.root", tag.Data()), "recreate");
-
-  TString dirName;
-  dirName.Form("data/XenonDoped1_5PPMSiPM4/DAQ/%s/RAW", tag.Data());
-  // dirName.Form("data/SiPM_1_inside/DAQ/%s/RAW",tag.Data());
-  cout << tag << "  dirName " << dirName << endl;
-  TSystemDirectory dir("RAW", dirName);
-  TList *files = dir.GetListOfFiles();
-  tbrun = new TBRun(tag);
-  cout << " create TBRun  " << tbrun->GetName() << endl;
-
-  TIter next(files);
-  TSystemFile *file;
-  // get files
-  while ((file = (TSystemFile *)next()))
+  cout << " starting anaRun entries = " << maxEntries << " tag =  " << tag << endl;
+  fout = new TFile(Form("anaRun-%s-%llu.root", tag.Data(), maxEntries), "recreate");
+  cout << " opened output file " << fout->GetName() << endl;
+  if (!openFile())
   {
-    string name = string(file->GetName());
-    cout << name << endl;
-    string exten = name.substr(name.find_last_of(".") + 1);
-    if (exten != string("root"))
-      continue;
-    string tag = name.substr(0, name.find_last_of("."));
-    string tdet = name.substr(name.find_last_of(".")-1,1);
-    // string chan = tag.substr( tag.find_first_of("CH"), tag.find_first_of("@") - tag.find_first_of("CH"));
-    string chan = tag.substr(tag.find_first_of("det"), tag.find_first_of(".root") - tag.find_first_of("det"));
-    // cout << " tag " << tag << "  " << tag.find_first_of("CH") <<  "   " << " chan  " << chan << endl;
-    string fullName = string(dirName.Data()) + string("/") + name;
-    cout << " tag " << tag << " open " << fullName << " tdet " << tdet << endl;
-    TFile *f = new TFile(fullName.c_str(), "readonly");
-    if (!f)
-      continue;
-    TTree *dtree = NULL;
-    f->GetObject("Data_R", dtree);
-    if (!dtree)
-      continue;
-    TBranch *b_Samples = dtree->FindBranch("Samples");
-    if (!b_Samples)
-      continue;
-    if (b_Samples->GetEntries() < 1)
-    {
-      cout << " skipping  " << tag << endl;
-      continue;
-    }
-    cout << f->GetName() << "  " << b_Samples->GetEntries() << endl;
-    TBWave *wave = new TBWave(tag.c_str());
-    TTree *tree = NULL;
-    f->GetObject("Data_R", tree);
-    wave->Init(tree);
-    waveList.push_back(wave);
-    detId[waveList.size() - 1] = stoi(tdet);
-    cout << " file " << wave->GetName() << " open " << waveList.size() << " detId " << detId[waveList.size() - 1] << endl;
-    tbrun->addDet(Form("DET%i", detId[waveList.size() - 1]), wave->GetName());
-  }
-
- 
-  cout << " got " << waveList.size() << " files " << endl;
-
-  if (waveList.size() < 1)
-  {
-    fout->Close();
+    printf("cannot open file!\n");
     return;
   }
+  Long64_t nentries = rtree->GetEntries();
+  if (maxEntries > 0)
+    nentries = TMath::Min(maxEntries, nentries);
+  printf("... total entries  %llu looping over %llu \n ", rtree->GetEntries(), nentries);
 
-  for (unsigned ifile = 0; ifile < waveList.size(); ++ifile)
+  for (Long64_t entry = 0; entry < nentries; ++entry)
   {
-    Long64_t nentries = waveList[ifile]->fChain->GetEntries();
-    cout << ifile << " for wave  " << waveList[ifile]->GetName() << " det entries  " << nentries << endl;
+    if (entry / 10 * 10 == entry)
+      printf("... %llu \n", entry);
+    getEvent(entry);
+    anaEvent(entry);
   }
 
-// loop over files  
-  finder = NULL;
-  for (unsigned ifile = 0; ifile < waveList.size(); ++ifile)
-  {
-    cout << " run finder " << ifile << " for wave  " << waveList[ifile]->GetName() << " det " << tbrun->detList[ifile]->GetName() << endl;
-    Long64_t nbytes = 0, nb = 0;
-    Long64_t ientry = waveList[ifile]->LoadTree(0);
-    nb = waveList[ifile]->fChain->GetEntry(0);
-    int nsamples = waveList[ifile]->Samples->GetSize();
-    if(!finder) finder = new hitFinder(fout, tbrun, tag,nsamples);
-
-    fout->cd();
-
-    Long64_t nentries = waveList[ifile]->fChain->GetEntries();
-    if (maxEntries > 0)
-      nentries = maxEntries;
-    for (Long64_t jentry = 0; jentry < nentries; jentry++)
-    {
-      if (jentry / 1000 * 1000 == jentry)
-        printf("\t ... det %u event %lld \n", ifile , jentry);
-      ientry = waveList[ifile]->LoadTree(jentry);
-      if (ientry < 0)
-        break;
-      nb = waveList[ifile]->GetEntry(jentry);
-      nbytes += nb;
-      rdigi.clear();
-      for (int i = 0; i < nsamples; ++i)
-        rdigi.push_back(waveList[ifile]->Samples->GetAt(i));
-      //
-      finder->event(ifile, jentry, rdigi);
-
-      if (1) { //finder->detHits.size() >0 ) {
-        finder->plotWave(ifile, jentry);
-      }
-      finder->plotEvent(ifile, jentry);
-    }
-  }
-  for (int i = 0; i < tbrun->detList.size(); ++i)
-    printf(" %i detId %i %s \n", i, detId[i],tbrun->detList[i]->GetName());
-  // fout->ls();
-  //
-  
-  printf("... ending ");
-  
-  finder->hPeakCount->Print("all");
-  //fout->ls();
+  // finder->hPeakCount->Print("all");
+  //  fout->ls();
   fout->Write();
   fout->Close();
 }

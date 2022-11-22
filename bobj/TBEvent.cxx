@@ -4,16 +4,7 @@ ClassImp(TBEvent)
 TBEvent::TBEvent(TString runName ): TNamed(runName,runName)
 {
   clear();
+  cout << " TBEvent instance " << runName << endl;
 }
-
-
 //TBEvent::~TBEvent(){}
-
-void TBEvent::clear()
-{
-  event=0;
-  trigTime=0; 
-  energy=0;
-}
-
 

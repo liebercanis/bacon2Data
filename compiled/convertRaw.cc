@@ -34,6 +34,7 @@ std::vector<int> vsub;
 std::vector<int> vchan;
 TBRawRun *rawRun;
 unsigned maxRun;
+unsigned totalEvents;
 /*
 Record Length: 4100
 BoardID: 31
@@ -175,8 +176,9 @@ void openSubRun(int isub)
     int subRun, chan;
     TString tname(name.c_str());
     parseName(tname, subRun, chan);
-    //printf(" %s subrun %i chan %i \n",tname.Data(),subRun,chan);
-    if (subRun != isub){
+    // printf(" %s subrun %i chan %i \n",tname.Data(),subRun,chan);
+    if (subRun != isub)
+    {
       continue;
     }
 
@@ -190,8 +192,7 @@ void openSubRun(int isub)
       vchan.push_back(chan);
       fileList.push_back(in);
       fileName.push_back(name);
-    } 
-      
+    }
   }
 
   printf(" subrun %i number of files opened %lu \n", isub, fileList.size());
@@ -206,16 +207,18 @@ void openSubRun(int isub)
     for (unsigned i = 0; i < fileList.size(); ++i)
     {
       if (nevents / 100 * 100 == nevents)
-        printf(" reading event %i file %i  chan %i file %s \n", nevents, i, vchan[i], fileName[i].c_str());
+        printf(" ... reading event %i file %i  chan %i file %s \n", nevents, i, vchan[i], fileName[i].c_str());
       good = readEvent(vchan[i], fileList[i]);
       if (!good)
         break;
     }
-    if (nevents == 100)
-      break;
+    // if (nevents > 10)
+    // break;
   }
 
-  printf(" events read subrun %i is %i \n", isub, nevents);
+  totalEvents += nevents;
+
+  printf(" events read subrun %i is %i total %i \n", isub, nevents, totalEvents);
 
   // close all files for this subrun
   for (unsigned i = 0; i < fileList.size(); ++i)
@@ -224,6 +227,7 @@ void openSubRun(int isub)
 
 int main(int argc, char *argv[])
 {
+  totalEvents = 0;
   cout << "executing " << argv[0] << " argc " << argc << endl;
   if (argc < 1)
   {
@@ -233,10 +237,11 @@ int main(int argc, char *argv[])
   cout << argv[1] << endl;
   TString tag(argv[1]);
 
-  maxRun=0;
-  if(argc>2 ) {
+  maxRun = 0;
+  if (argc > 2)
+  {
     cout << "max runs = " << argv[2] << endl;
-    maxRun = (unsigned) atoi(argv[2]);
+    maxRun = (unsigned)atoi(argv[2]);
   }
 
   dirName = TString("data/") + tag;
@@ -251,17 +256,21 @@ int main(int argc, char *argv[])
   for (unsigned i = 0; i < vchan.size(); ++i)
     printf("\t chan %i \n", vchan[i]);
 
-  TFile *fout = new TFile(Form("%s.root", tag.Data()), "recreate");
+  TFile *fout = new TFile(Form("data/rootData/%s.root", tag.Data()), "recreate");
   rawRun = new TBRawRun(tag);
   for (unsigned i = 0; i < vchan.size(); ++i)
     rawRun->addDet(vchan[i]);
 
   std::sort(vsub.begin(), vsub.end());
 
-  if(maxRun==0) maxRun = vsub.size();
+  if (maxRun == 0)
+    maxRun = vsub.size();
 
   for (unsigned isub = 0; isub < maxRun; ++isub)
+  {
+    printf("\t *****  starting subrun %u  number %u \n ****** ", isub, vsub[isub]);
     openSubRun(vsub[isub]);
+  }
 
   fout->ls();
   fout->Write();

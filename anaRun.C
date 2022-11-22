@@ -9,6 +9,8 @@ TObjArray *brList;
 vector<TBRawEvent *> detList;
 vector<int> vchan;
 vector<TH1D *> noiseHist;
+vector<TH1D *> skewHist;
+vector<TH1D *> sumWave;
 // TTree *ftree;
 
 bool openFile(TString tag)
@@ -58,8 +60,12 @@ void anaRun(TString tag= TString("No_Doping_1_Digitizer"))
   TString outFileName = TString("anaRun") + tag + TString(".root");
   fout = new TFile(outFileName,"recreate");
 
-  for (unsigned ichan = 0; ichan < vchan.size();  ++ichan )
-    noiseHist.push_back(new TH1D(Form("RawNoiseChan%i", ichan),Form("RawNoiseChan%i", ichan), 100,0,10));
+  for (unsigned ichan = 0; ichan < vchan.size();  ++ichan ){
+    noiseHist.push_back(new TH1D(Form("NoiseChan%i", ichan),Form("NoiseChan%i", ichan), 100,0,10));
+    skewHist.push_back(new TH1D(Form("SkewChan%i", ichan),Form("SkewChan%i", ichan), 100,-20,20));
+    sumWave.push_back(new TH1D(Form("sumWave%i", ichan),Form("sunWave%i", ichan), 4100,0,4100));
+
+  }
 
   Long64_t nentries = rtree->GetEntries();
   printf(" loop over %llu entries \n",nentries);
@@ -92,7 +98,6 @@ void anaRun(TString tag= TString("No_Doping_1_Digitizer"))
       TString hname;
       hname.Form("EvRawWaveEv%ich%i", int(entry), ichan);
       TH1D *hEvRawWave = NULL;
-      if(entry<100) hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
       
       // simple baseline
       double base = std::accumulate(detList[ichan]->rdigi.begin(), detList[ichan]->rdigi.end(),0)/ detList[ichan]->rdigi.size();
@@ -102,14 +107,23 @@ void anaRun(TString tag= TString("No_Doping_1_Digitizer"))
       for (unsigned j = 0; j < detList[ichan]->rdigi.size(); ++j)
         hEvGaus->Fill((double)detList[ichan]->rdigi[j] - base);
   
-      hEvGaus->Fit("gaus","QO");
+      TFitResultPtr fitptr = hEvGaus->Fit("gaus","QOS");
       TF1 *gfit = (TF1 *)hEvGaus->GetListOfFunctions()->FindObject("gaus");
       double ave = gfit->GetParameter(1);
       double sigma  = gfit->GetParameter(2);
-      //cout << hname << " ave " << ave << " sigma " << sigma << endl;
+      double skew   = hEvGaus->GetSkewness();
+      // fitptr->Print();
+      //cout << hname << " " <<   " ave " << ave << " sigma " << sigma << " skew " << skew <<  endl;
       noiseHist[ichan]->Fill(sigma);
-      for (unsigned j = 0; j < detList[ichan]->rdigi.size(); ++j)
-        if (hEvRawWave) hEvRawWave->SetBinContent(j + 1, (double)detList[ichan]->rdigi[j] - base - ave);
+      skewHist[ ichan]->Fill(skew);
+
+      if((abs(skew)>1)) { 
+        hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
+        for (unsigned j = 0; j < detList[ichan]->rdigi.size(); ++j) {
+          hEvRawWave->SetBinContent(j + 1, (double)detList[ichan]->rdigi[j] - base - ave);
+          sumWave[ichan]->SetBinContent(j + 1,  sumWave[ichan]->GetBinContent(j)+(double)detList[ichan]->rdigi[j] - base - ave);
+        }
+      }
     }
   }
   fout->ls();
