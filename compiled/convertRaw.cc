@@ -52,12 +52,12 @@ int readHeader(int chan, ifstream *stream)
   int place[7] = {2, 1, 1, 2, 1, 3, 3};
   char line[256];
   TBRawEvent *rev = rawRun->getDet(chan);
-  rev->clear();
   if (!rev)
   {
     printf(" no TBRawEvent for chan %i !!!\n", chan);
     return nlines;
   }
+  rev->clear();
   for (int i = 0; i < 7; ++i)
   {
     stream->getline(line, 256);
@@ -80,7 +80,7 @@ int readHeader(int chan, ifstream *stream)
       rev->dcOffset = sv->GetString().Atoi();
     ++nlines;
   }
-  // rev->printHeader();
+  //rev->printHeader();
   return nlines;
 }
 
@@ -95,41 +95,6 @@ void parseName(TString name, int &irun, int &ichan)
   TObjString *schan = (TObjString *)tokenArray->At(3);
   ichan = schan->GetString().Atoi();
   // printf("%s run %i chan %i \n", name.Data(), irun, ichan);
-}
-
-bool readEvent(int chan, ifstream *stream)
-{
-  char line[256];
-  std::vector<Short_t> vshort;
-
-  int ievent = 0;
-
-  while (1)
-  {
-    // read header
-    if (stream->peek() == 'R')
-    {
-      ++ievent;
-      if (ievent > 1)
-      {
-        rawRun->fill();
-        rawRun->clear();
-        return stream->good();
-      }
-      readHeader(chan, stream);
-    }
-    else
-    {
-      stream->getline(line, 256);
-      if (!stream->good())
-        break;
-      TString tline(line);
-      TObjArray *tokenArray = tline.Tokenize(' ');
-      TObjString *sv = (TObjString *)tokenArray->At(0);
-      rawRun->getDet(chan)->rdigi.push_back(Short_t(sv->GetString().Atoi()));
-    }
-  }
-  return stream->good();
 }
 
 // count subruns and channels
@@ -156,6 +121,36 @@ void count(TString tag)
   }
 }
 
+
+bool readChan(int chan, ifstream *stream)
+{
+  char line[256];
+  int ievent = 0;
+
+  while (1)
+  {
+    // read header for event
+    if (stream->peek() == 'R')
+    {
+      ++ievent;
+      if (ievent > 1) return stream->good();
+      readHeader(chan, stream);
+    }
+    else
+    {
+      stream->getline(line, 256);
+      if (!stream->good())
+        break;
+
+      TString tline(line);
+      UShort_t val = UShort_t(tline.Atoi());
+      rawRun->getDet(chan)->rdigi.push_back(val);
+    }
+    //printf(" chan %i stream pos %i \n", chan,pos);
+  }
+  return stream->good();
+}
+
 void openSubRun(int isub)
 {
   TIter next(files);
@@ -177,14 +172,14 @@ void openSubRun(int isub)
     TString tname(name.c_str());
     parseName(tname, subRun, chan);
     // printf(" %s subrun %i chan %i \n",tname.Data(),subRun,chan);
-    if (subRun != isub)
-    {
-      continue;
-    }
+    if (subRun != isub) continue;
 
     ifstream *in = new ifstream(fullName, std::ios::in);
-    if (!in->is_open())
-      continue;
+    if (!in->is_open()) continue;
+
+    in->seekg(0, std::ios::end); // go to the end
+    printf(" subrun %i opened file %s length %i \n", isub, tname.Data(), int(in->tellg()));
+    in->seekg(0, std::ios::beg);
 
     // count channels
     if (std::find(std::begin(vchan), std::end(vchan), chan) == std::end(vchan))
@@ -196,33 +191,36 @@ void openSubRun(int isub)
   }
 
   printf(" subrun %i number of files opened %lu \n", isub, fileList.size());
-  for (unsigned i = 0; i < fileName.size(); ++i)
-    printf("\t %i %s \n", i, fileName[i].c_str());
+  //for (unsigned i = 0; i < fileName.size(); ++i)
+  //  printf("\t %i %s \n", i, fileName[i].c_str());
 
   bool good = true;
   int nevents = 0;
+  int nbytes = 0;
+  // loop over events in subrun
   while (good)
   {
     ++nevents;
+    /* read all channels for this event */
     for (unsigned i = 0; i < fileList.size(); ++i)
     {
-      if (nevents / 100 * 100 == nevents)
-        printf(" ... reading event %i file %i  chan %i file %s \n", nevents, i, vchan[i], fileName[i].c_str());
-      good = readEvent(vchan[i], fileList[i]);
+      good = readChan(vchan[i], fileList[i]);
       if (!good)
         break;
+      // end of reading subrun, close all files for this subrun
     }
-    // if (nevents > 10)
-    // break;
+    nbytes += rawRun->fill();
+    rawRun->clear();
+    if (nevents / 1000 * 1000 == nevents)
+      printf(" events read subrun %i event %i entries %llu bytes %i \n", isub, nevents, rawRun->btree->GetEntries(),nbytes);
   }
 
-  totalEvents += nevents;
-
-  printf(" events read subrun %i is %i total %i \n", isub, nevents, totalEvents);
-
-  // close all files for this subrun
+  // end of reading subrun, close all files for this subrun
   for (unsigned i = 0; i < fileList.size(); ++i)
     fileList[i]->close();
+
+  totalEvents += nevents;
+  printf(" end of reading subrun %i total events  %i entries %llu \n", isub,totalEvents ,rawRun->btree->GetEntries());
 }
 
 int main(int argc, char *argv[])
@@ -258,6 +256,11 @@ int main(int argc, char *argv[])
 
   TFile *fout = new TFile(Form("data/rootData/%s.root", tag.Data()), "recreate");
   rawRun = new TBRawRun(tag);
+  //rawRun->btree->SetAutoSave(-300000000);
+  /* autof is the number of consecutive entries after which TTree::Fill will flush all branch buffers to disk.*/
+  rawRun->btree->SetAutoFlush(100);
+  printf(" new rawRun %s auto %llu \n", rawRun->GetName(), rawRun->btree->GetAutoFlush());
+
   for (unsigned i = 0; i < vchan.size(); ++i)
     rawRun->addDet(vchan[i]);
 
