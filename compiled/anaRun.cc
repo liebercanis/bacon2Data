@@ -209,7 +209,7 @@ anaRun::anaRun(const char *theTag, Long64_t maxEntries)
 
   for (Long64_t entry = 0; entry < nentries; ++entry)
   {
-    if (entry / 10 * 10 == entry)
+    if (entry / 1000 * 1000 == entry)
       printf("... %llu \n", entry);
     getEvent(entry);
     anaEvent(entry);
