@@ -269,6 +269,7 @@ int main(int argc, char *argv[])
   if (maxRun == 0)
     maxRun = vsub.size();
 
+  printf(">> Starting loop over %u subruns \n",maxRun);
   for (unsigned isub = 0; isub < maxRun; ++isub)
   {
     printf("\t *****  starting subrun %u  number %u \n ****** ", isub, vsub[isub]);
