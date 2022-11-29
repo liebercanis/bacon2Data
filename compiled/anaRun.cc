@@ -49,6 +49,7 @@ public:
   vector<TH1D *> noiseHist;
   vector<TH1D *> skewHist;
   vector<TH1D *> sumWave;
+  vector<TH1D *> valHist;
   TH1D *hEvRawWave;
   TH1D *hEvGaus;
   vector<int> vchan;
@@ -62,6 +63,7 @@ public:
   long getEvent(Long64_t entry);
   void anaEvent(Long64_t entry);
   Long64_t nentries;
+  int nfill3;
 };
 
 /* get detList */
@@ -93,7 +95,14 @@ void anaRun::anaEvent(Long64_t entry)
       continue;
 
     // simple baseline
-    double base = std::accumulate(detList[ichan]->rdigi.begin(), detList[ichan]->rdigi.end(), 0) / detList[ichan]->rdigi.size();
+    //double base = std::accumulate(detList[ichan]->rdigi.begin(), detList[ichan]->rdigi.end(), 0) / detList[ichan]->rdigi.size();
+    unsigned  baseLength = 100;
+
+    double base = 0;
+    for (unsigned j = 0; j < baseLength; ++j){
+      base += (double) detList[ichan]->rdigi[j];
+    }
+    base /= double(baseLength);
 
     TString hname;
     hEvRawWave = NULL;
@@ -117,6 +126,9 @@ void anaRun::anaEvent(Long64_t entry)
     if (abs(skew) < 1)
       continue;
 
+    if(ichan==3)
+      ++nfill3;
+
     // plot some single events
     if (entry < 100)
     {
@@ -124,7 +136,8 @@ void anaRun::anaEvent(Long64_t entry)
       hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
       for (unsigned j = 0; j < detList[ichan]->rdigi.size(); ++j)
       {
-        double val = sign * ((double)detList[ichan]->rdigi[j] - base - ave);
+        //double val = sign * ((double)detList[ichan]->rdigi[j] - base - ave - valHist[ichan]->GetMean());
+        double val = sign * ((double)detList[ichan]->rdigi[j] - base);
         hEvRawWave->SetBinContent(j + 1, val);
       }
     }
@@ -132,10 +145,17 @@ void anaRun::anaEvent(Long64_t entry)
     // summed plots
     for (unsigned j = 0; j < detList[ichan]->rdigi.size(); ++j)
     {
-      double val = sign * ((double)detList[ichan]->rdigi[j] - base - ave);
+      double val = sign * ((double)detList[ichan]->rdigi[j] - base);
+      //double val = sign * ((double)detList[ichan]->rdigi[j] - base - ave) - valHist[ichan]->GetMean();
       sumWave[ichan]->SetBinContent(j + 1, sumWave[ichan]->GetBinContent(j + 1) + val);
+      valHist[ichan]->Fill(val);
     }
   }
+  /*
+  printf("xxxxx %i  bins %i rdigi %lu sumwave %f val %f \n", nfill3, sumWave[3]->GetNbinsX(), detList[3]->rdigi.size(),
+         double(sumWave[3]->GetEntries()) / double(sumWave[3]->GetNbinsX()),
+          valHist[3]->GetEntries() / double(detList[3]->rdigi.size()));
+          */
 }
 
 bool anaRun::openFile()
@@ -146,10 +166,10 @@ bool anaRun::openFile()
   printf(" looking for file %s\n", fileName.Data());
   fin = new TFile(fileName, "readonly");
   if (fin->IsZombie())
-  {
+   {
     printf(" couldnt open file %s\n", fileName.Data());
-    return false;
-  }
+     return false;
+    }
 
   rtree = NULL;
   brList = NULL;
@@ -173,10 +193,10 @@ bool anaRun::openFile()
   {
     TString brname = TString(aBranch->GetName());
     int chan = TString(brname(brname.First('n') + 1, brname.Length() - brname.First('n'))).Atoi();
-    vchan.push_back(chan);
-    aBranch->SetAddress(0);
-  }
-  printf("total channels  =  %lu \n", vchan.size());
+     vchan.push_back(chan);
+     aBranch->SetAddress(0);
+ }
+ printf("total channels  =  %lu \n", vchan.size());
 
   // make histograms on output file
   fout->cd();
@@ -184,8 +204,9 @@ bool anaRun::openFile()
   {
     noiseHist.push_back(new TH1D(Form("NoiseChan%i", ichan), Form("NoiseChan%i", ichan), 100, 0, 10));
     skewHist.push_back(new TH1D(Form("SkewChan%i", ichan), Form("SkewChan%i", ichan), 100, -10, 10));
-    sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sunWave%i", ichan), 4100, 0, 4100));
-  }
+    sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), 4100, 0, 4100));
+    valHist.push_back(new TH1D(Form("ValChan%i", ichan), Form("ValChan%i", ichan), 1100, -20, 200));
+   }
   hEvGaus = new TH1D("baseline", "baseline", 200, -100, 100);
 
   return true;
@@ -193,6 +214,7 @@ bool anaRun::openFile()
 
 anaRun::anaRun(const char *theTag, Long64_t maxEntries)
 {
+  nfill3 = 0;
   tag = TString(theTag);
   cout << " starting anaRun entries = " << maxEntries << " tag =  " << tag << endl;
   fout = new TFile(Form("anaRun-%s-%llu.root", tag.Data(), maxEntries), "recreate");

@@ -8,8 +8,10 @@ TBRawRun *tbrun;
 TObjArray *brList;
 vector<TBRawEvent *> detList;
 vector<int> vchan;
+vector<double> digi;
 vector<TH1D *> noiseHist;
 vector<TH1D *> skewHist;
+vector<TH1D *> valHist;
 vector<TH1D *> sumWave;
 // TTree *ftree;
 
@@ -63,6 +65,7 @@ void anaRun(TString tag= TString("No_Doping_1_Digitizer"))
   for (unsigned ichan = 0; ichan < vchan.size();  ++ichan ){
     noiseHist.push_back(new TH1D(Form("NoiseChan%i", ichan),Form("NoiseChan%i", ichan), 100,0,10));
     skewHist.push_back(new TH1D(Form("SkewChan%i", ichan),Form("SkewChan%i", ichan), 100,-20,20));
+    valHist.push_back(new TH1D(Form("ValChan%i", ichan),Form("ValChan%i", ichan), 2200,-20,200));
     sumWave.push_back(new TH1D(Form("sumWave%i", ichan),Form("sunWave%i", ichan), 4100,0,4100));
 
   }
@@ -120,8 +123,10 @@ void anaRun(TString tag= TString("No_Doping_1_Digitizer"))
       if((abs(skew)>1)) { 
         hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
         for (unsigned j = 0; j < detList[ichan]->rdigi.size(); ++j) {
-          hEvRawWave->SetBinContent(j + 1, (double)detList[ichan]->rdigi[j] - base - ave);
-          sumWave[ichan]->SetBinContent(j + 1,  sumWave[ichan]->GetBinContent(j)+(double)detList[ichan]->rdigi[j] - base - ave);
+          double val = (double)detList[ichan]->rdigi[j] - base - ave;
+          hEvRawWave->SetBinContent(j + 1, val);
+          sumWave[ichan]->SetBinContent(j + 1,  sumWave[ichan]->GetBinContent(j+ 1) + val );
+          valHist[ichan]->Fill(val);
         }
       }
     }
