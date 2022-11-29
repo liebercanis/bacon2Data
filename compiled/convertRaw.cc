@@ -227,7 +227,7 @@ int main(int argc, char *argv[])
 {
   totalEvents = 0;
   cout << "executing " << argv[0] << " argc " << argc << endl;
-  if (argc < 1)
+  if (argc < 2)
   {
     printf(" usage: convertRaw <tag>  <maxruns> \n ");
     exit(0);
