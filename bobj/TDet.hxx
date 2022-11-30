@@ -16,11 +16,12 @@ using namespace std;
 class TDet : public TNamed
 {
 public:
-  TDet(TString name = TString("UNKNOWN"), const TString title = TString(""));
+  TDet(int ichan, int ilevel=-1);
   // TDet::~TDet(){}
 
   // data elements
   Long64_t event;
+  Int_t channel;
   Int_t level;
   Double_t ave;
   Double_t sigma;
@@ -37,7 +38,6 @@ public:
   void clear()
   {
     event = 0;
-    level = 0;
     ave = 0;
     sigma = 0;
     nspe = 0;

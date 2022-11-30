@@ -30,16 +30,12 @@
 #include <TCanvas.h>
 #include <TGraph.h>
 //
-#include "TBWave.hxx"
+#include "TBRun.hxx"
 #include "hitFinder.hxx"
 
 class anaRun
 {
 public:
-  enum
-  {
-    NDET = 4
-  };
   TFile *fout;
   TFile *fin;
   TTree *rtree;
@@ -217,8 +213,11 @@ anaRun::anaRun(const char *theTag, Long64_t maxEntries)
   nfill3 = 0;
   tag = TString(theTag);
   cout << " starting anaRun entries = " << maxEntries << " tag =  " << tag << endl;
+  // do not create tbrun TTree on output file
+  tbrun = new TBRun(tag);
   fout = new TFile(Form("anaRun-%s-%llu.root", tag.Data(), maxEntries), "recreate");
   cout << " opened output file " << fout->GetName() << endl;
+  fout->Append(tbrun);
   if (!openFile())
   {
     printf("cannot open file!\n");
@@ -227,6 +226,7 @@ anaRun::anaRun(const char *theTag, Long64_t maxEntries)
   Long64_t nentries = rtree->GetEntries();
   if (maxEntries > 0)
     nentries = TMath::Min(maxEntries, nentries);
+  tbrun->nevents = nentries;
   printf("... total entries  %llu looping over %llu \n ", rtree->GetEntries(), nentries);
 
   for (Long64_t entry = 0; entry < nentries; ++entry)
@@ -238,7 +238,8 @@ anaRun::anaRun(const char *theTag, Long64_t maxEntries)
   }
 
   // finder->hPeakCount->Print("all");
-  //  fout->ls();
+  printf(" tbrun events %llu \n",tbrun->nevents);
+  fout->ls();
   fout->Write();
   fout->Close();
 }
