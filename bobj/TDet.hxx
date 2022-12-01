@@ -16,6 +16,7 @@ using namespace std;
 class TDet : public TNamed
 {
 public:
+  TDet();
   TDet(int ichan, int ilevel=-1);
   // TDet::~TDet(){}
 
@@ -25,6 +26,7 @@ public:
   Int_t level;
   Double_t ave;
   Double_t sigma;
+  Double_t skew;
   Int_t nspe;
   Double_t qPrompt;
   Double_t qSum;
@@ -40,6 +42,7 @@ public:
     event = 0;
     ave = 0;
     sigma = 0;
+    skew = 0;
     nspe = 0;
     qPrompt = 0;
     qSum = 0;
@@ -48,6 +51,6 @@ public:
     hits.clear();
   }
 
-  ClassDef(TDet, 4)
+  ClassDef(TDet, 5)
 };
 #endif

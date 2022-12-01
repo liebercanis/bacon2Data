@@ -21,19 +21,23 @@ class TBRun : public TNamed
 public:
   TBRun(TString tag = TString("none"));
   //TBRun(TTree *btreeInit, TString runName = "run0");
-  //~TBRun();
+  ~TBRun(){
+    detList.clear();
+  }
   TTree *btree;
   //TBEvent *bevent;
 
   void clear();
   // data elements
-  Long64_t nevents;
   vector<TDet *> detList;
-  void detListClear();
 
 //void dumpEvent(ofstream &dumpFile);
 
- bool addDet(int ichan, int ilevel=-1)
+Long64_t getNevents() {
+  return btree->GetEntriesFast();
+}
+
+  bool addDet(int ichan, int ilevel = -1)
   {
     // check that it is not already in list
     for (unsigned i = 0; i < detList.size(); ++ i) {
@@ -68,7 +72,7 @@ public:
   void print()
   {
     //bevent->print();
-    printf(" TBRun has %llu events %lu dets \n", nevents,detList.size());
+    printf(" TBRun has %llu events %lu dets \n", btree->GetEntriesFast(), detList.size());
     for (unsigned i = 0; i < detList.size(); ++i)
       printf(" %s %lu \n", detList[i]->GetName(), detList[i]->hits.size());
     btree->GetListOfBranches()->ls();

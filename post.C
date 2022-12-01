@@ -1,6 +1,6 @@
 TBRun *tbrun;
 
-void post(char *fname = "anaRun-No_Doping_1_Digitizer-20000.root")
+void post(char *fname = "anaRun-No_Doping_1_Digitizer-0.root")
 {
     gStyle->SetOptStat(1001101);
     TString fileName(fname);
@@ -48,6 +48,7 @@ void post(char *fname = "anaRun-No_Doping_1_Digitizer-20000.root")
         hscale[i]->SetTitle(Form("Scaled %s", hsum[i]->GetTitle()));
         hscale[i]->Sumw2(kFALSE);
         hscale[i]->Scale(1. / double(ntriggers)); //"width"
+        hscale[i]->Rebin(20);
         Long64_t entries = hsum[i]->GetEntries();
         double inte = hsum[i]->Integral();
         printf(" det %u entries %llu integral %.0f ", i, entries, inte);
@@ -83,7 +84,7 @@ void post(char *fname = "anaRun-No_Doping_1_Digitizer-20000.root")
     }
     hscale[3]->SetMarkerStyle(5);
     hscale[3]->SetMarkerSize(.2);
-    hscale[4]->SetMarkerColor(kGreen + 3);
+    //hscale[4]->SetMarkerColor(kGreen + 3);
 
     for (unsigned i = 0; i < 4; ++i)
     {
@@ -111,4 +112,5 @@ void post(char *fname = "anaRun-No_Doping_1_Digitizer-20000.root")
         else
             hscale[i]->Draw("sames");
     }
+    canall->BuildLegend();
 }

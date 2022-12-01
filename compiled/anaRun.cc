@@ -30,6 +30,7 @@
 #include <TCanvas.h>
 #include <TGraph.h>
 //
+#include "TBWave.hxx"
 #include "TBRun.hxx"
 #include "hitFinder.hxx"
 
@@ -83,6 +84,7 @@ long anaRun::getEvent(Long64_t entry)
 /* analyze detList */
 void anaRun::anaEvent(Long64_t entry)
 {
+  tbrun->clear();
   // loop over channels
   for (int ichan = 0; ichan < detList.size(); ++ichan)
   {
@@ -118,6 +120,14 @@ void anaRun::anaEvent(Long64_t entry)
     noiseHist[ichan]->Fill(sigma);
     skewHist[ichan]->Fill(skew);
     double sign = TMath::Sign(1., skew);
+    TDet *idet = tbrun->getDet(ichan);
+    if(idet!=NULL){
+      idet->ave = ave;
+      idet->sigma = sigma;
+      idet->skew = skew;
+      idet->event = entry;
+    }
+    // fi
     // skip events with no hits
     if (abs(skew) < 1)
       continue;
@@ -133,7 +143,7 @@ void anaRun::anaEvent(Long64_t entry)
       for (unsigned j = 0; j < detList[ichan]->rdigi.size(); ++j)
       {
         //double val = sign * ((double)detList[ichan]->rdigi[j] - base - ave - valHist[ichan]->GetMean());
-        double val = sign * ((double)detList[ichan]->rdigi[j] - base);
+        double val = skew*((double)detList[ichan]->rdigi[j] - base);
         hEvRawWave->SetBinContent(j + 1, val);
       }
     }
@@ -152,6 +162,8 @@ void anaRun::anaEvent(Long64_t entry)
          double(sumWave[3]->GetEntries()) / double(sumWave[3]->GetNbinsX()),
           valHist[3]->GetEntries() / double(detList[3]->rdigi.size()));
           */
+    // fill output Tree for each event
+    tbrun->fill();
 }
 
 bool anaRun::openFile()
@@ -191,7 +203,9 @@ bool anaRun::openFile()
     int chan = TString(brname(brname.First('n') + 1, brname.Length() - brname.First('n'))).Atoi();
      vchan.push_back(chan);
      aBranch->SetAddress(0);
- }
+     tbrun->addDet(chan);
+     printf(" addDet %s \n", tbrun->getDet(chan)->GetName()); 
+  }
  printf("total channels  =  %lu \n", vchan.size());
 
   // make histograms on output file
@@ -199,7 +213,7 @@ bool anaRun::openFile()
   for (unsigned ichan = 0; ichan < vchan.size(); ++ichan)
   {
     noiseHist.push_back(new TH1D(Form("NoiseChan%i", ichan), Form("NoiseChan%i", ichan), 100, 0, 10));
-    skewHist.push_back(new TH1D(Form("SkewChan%i", ichan), Form("SkewChan%i", ichan), 100, -10, 10));
+    skewHist.push_back(new TH1D(Form("SkewChan%i", ichan), Form("SkewChan%i", ichan), 200, -20, 20));
     sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), 4100, 0, 4100));
     valHist.push_back(new TH1D(Form("ValChan%i", ichan), Form("ValChan%i", ichan), 1100, -20, 200));
    }
@@ -217,7 +231,7 @@ anaRun::anaRun(const char *theTag, Long64_t maxEntries)
   tbrun = new TBRun(tag);
   fout = new TFile(Form("anaRun-%s-%llu.root", tag.Data(), maxEntries), "recreate");
   cout << " opened output file " << fout->GetName() << endl;
-  fout->Append(tbrun);
+  fout->Append(tbrun->btree);
   if (!openFile())
   {
     printf("cannot open file!\n");
@@ -226,7 +240,6 @@ anaRun::anaRun(const char *theTag, Long64_t maxEntries)
   Long64_t nentries = rtree->GetEntries();
   if (maxEntries > 0)
     nentries = TMath::Min(maxEntries, nentries);
-  tbrun->nevents = nentries;
   printf("... total entries  %llu looping over %llu \n ", rtree->GetEntries(), nentries);
 
   for (Long64_t entry = 0; entry < nentries; ++entry)
@@ -238,8 +251,9 @@ anaRun::anaRun(const char *theTag, Long64_t maxEntries)
   }
 
   // finder->hPeakCount->Print("all");
-  printf(" tbrun events %llu \n",tbrun->nevents);
-  fout->ls();
+  printf(" tbrun entries %llu \n",tbrun->btree->GetEntriesFast());
+  tbrun->btree->GetListOfBranches()->ls();
+  //fout->ls();
   fout->Write();
   fout->Close();
 }
