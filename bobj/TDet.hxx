@@ -27,6 +27,7 @@ public:
   Double_t ave;
   Double_t sigma;
   Double_t skew;
+  Double_t base;
   Int_t nspe;
   Double_t qPrompt;
   Double_t qSum;
@@ -43,6 +44,7 @@ public:
     ave = 0;
     sigma = 0;
     skew = 0;
+    base = 0;
     nspe = 0;
     qPrompt = 0;
     qSum = 0;
@@ -51,6 +53,6 @@ public:
     hits.clear();
   }
 
-  ClassDef(TDet, 5)
+  ClassDef(TDet, 6)
 };
 #endif

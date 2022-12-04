@@ -37,6 +37,10 @@
 class anaRun
 {
 public:
+  enum
+  {
+    NSAMPLES = 4100
+  };
   TFile *fout;
   TFile *fin;
   TTree *rtree;
@@ -50,6 +54,7 @@ public:
   TH1D *hEvRawWave;
   TH1D *hEvGaus;
   vector<int> vchan;
+  vector<double> ddigi;
   ofstream dumpFile;
   vector<TBWave *> waveList;
   hitFinder *finder;
@@ -126,6 +131,7 @@ void anaRun::anaEvent(Long64_t entry)
       idet->sigma = sigma;
       idet->skew = skew;
       idet->event = entry;
+      idet->base = base;
     }
     // fi
     // skip events with no hits
@@ -156,6 +162,16 @@ void anaRun::anaEvent(Long64_t entry)
       sumWave[ichan]->SetBinContent(j + 1, sumWave[ichan]->GetBinContent(j + 1) + val);
       valHist[ichan]->Fill(val);
     }
+
+    // hit finding
+    ddigi.clear();
+    for (unsigned j = 0; j < detList[ichan]->rdigi.size(); ++j)
+    {
+      double val = sign * ((double)detList[ichan]->rdigi[j] - base);
+      ddigi.push_back(val);
+    }
+
+    finder->event(ichan, entry, ddigi);
   }
   /*
   printf("xxxxx %i  bins %i rdigi %lu sumwave %f val %f \n", nfill3, sumWave[3]->GetNbinsX(), detList[3]->rdigi.size(),
@@ -214,7 +230,7 @@ bool anaRun::openFile()
   {
     noiseHist.push_back(new TH1D(Form("NoiseChan%i", ichan), Form("NoiseChan%i", ichan), 100, 0, 10));
     skewHist.push_back(new TH1D(Form("SkewChan%i", ichan), Form("SkewChan%i", ichan), 200, -20, 20));
-    sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), 4100, 0, 4100));
+    sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), NSAMPLES, 0, NSAMPLES));
     valHist.push_back(new TH1D(Form("ValChan%i", ichan), Form("ValChan%i", ichan), 1100, -20, 200));
    }
   hEvGaus = new TH1D("baseline", "baseline", 200, -100, 100);
@@ -232,11 +248,13 @@ anaRun::anaRun(const char *theTag, Long64_t maxEntries)
   fout = new TFile(Form("anaRun-%s-%llu.root", tag.Data(), maxEntries), "recreate");
   cout << " opened output file " << fout->GetName() << endl;
   fout->Append(tbrun->btree);
+ 
   if (!openFile())
   {
     printf("cannot open file!\n");
     return;
   }
+  finder = new hitFinder(fout, tbrun, tag, NSAMPLES, vchan);
   Long64_t nentries = rtree->GetEntries();
   if (maxEntries > 0)
     nentries = TMath::Min(maxEntries, nentries);

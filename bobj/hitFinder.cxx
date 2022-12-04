@@ -34,7 +34,7 @@
 #include "TBRun.hxx"
 #include "hitFinder.hxx"
 
-hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples)
+hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan)
 {
   fout = theFile;
   fftDir = fout->mkdir("fftDir");
@@ -48,94 +48,85 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples)
   microSec = 1.0E-3;
   timeUnit = 1.0; // ns per count
 
-  for (int i = 0; i < NDET; ++i)
-    vsign[i] = 1.;
-
   fout->cd();
-  hPeakCount = new TH1D("PeakCount", " peaks by det ", NDET, 0, NDET);
+  hPeakCount = new TH1D("PeakCount", " peaks by det ", vchan.size(),0,vchan.size());
   hHitLength = new TH1I("HitLength", " hit length", 100, 0, 100);
   hPeakNWidth = new TH1I("PeakNWidth", "PeakNWidth", 100, 0, 100);
-  hDigiVal = new TH1D("DigiVal","digi value",2000,-1000.,1000.);
   // tbrun->print();
 
-  for (unsigned id = 0; id < tbrun->detList.size(); ++id)
+  for (unsigned ichan = 0; ichan < vchan.size(); ++ichan)
   {
-    hFFT[id] = new TH1D(Form("FFTDET%i", id), Form("FFT Channel %i ", id), nsamples / 2, 0, nsamples / 2);
-    hInvFFT[id] = new TH1D(Form("InvFFTDET%i", id), Form("Inverse FFT Channel %i ", id), nsamples, 0, nsamples);
-    hFFTFilt[id] = new TH1D(Form("FFTFiltDET%i", id), Form("filtered FFT Channel %i ", id), nsamples / 2, 0, nsamples / 2);
-    hEvWave[id] = new TH1D(Form("EvWave%s", tbrun->detList[id]->GetName()), Form("Wave%s", tbrun->detList[id]->GetName()), nsamples, 0, nsamples);
-    hEvDerWave[id] = new TH1D(Form("EvDerWave%s", tbrun->detList[id]->GetName()), Form("DerWave%s", tbrun->detList[id]->GetName()), nsamples, 0, nsamples);
-    hEvFiltWave[id] = new TH1D(Form("EvFiltWave%s", tbrun->detList[id]->GetName()), Form("FiltWave%s", tbrun->detList[id]->GetName()), nsamples, 0, nsamples);
-    hEvHitWave[id] = new TH1D(Form("EvHitWave%s", tbrun->detList[id]->GetName()), Form("HitWave%s", tbrun->detList[id]->GetName()), nsamples, 0, nsamples);
-    hFFT[id]->SetDirectory(nullptr);
-    hInvFFT[id]->SetDirectory(nullptr);
-    hFFTFilt[id]->SetDirectory(nullptr);
-    hEvWave[id]->SetDirectory(nullptr);
-    hEvDerWave[id]->SetDirectory(nullptr);
-    hEvHitWave[id]->SetDirectory(nullptr);
-    hEvFiltWave[id]->SetDirectory(nullptr);
-  }
+    int id = vchan[ichan];
+    chanMap.insert(std::pair<int,int>(id, ichan));
+    hFFT.push_back(new TH1D(Form("FFTDET%i", id), Form("FFT Channel %i ", id), nsamples / 2, 0, nsamples / 2));
+    hInvFFT.push_back(new TH1D(Form("InvFFTDET%i", id), Form("Inverse FFT Channel %i ", id), nsamples, 0, nsamples));
+    
+    hEvWave.push_back(new TH1D(Form("EvWave%s", tbrun->detList[id]->GetName()), Form("Wave%s", tbrun->detList[id]->GetName()), nsamples, 0, nsamples));
+    hEvDerWave.push_back(new TH1D(Form("EvDerWave%s", tbrun->detList[id]->GetName()), Form("DerWave%s", tbrun->detList[id]->GetName()), nsamples, 0, nsamples));
+    hEvFiltWave.push_back(new TH1D(Form("EvFiltWave%s", tbrun->detList[id]->GetName()), Form("FiltWave%s", tbrun->detList[id]->GetName()), nsamples, 0, nsamples));
+    hEvHitWave.push_back(new TH1D(Form("EvHitWave%s", tbrun->detList[id]->GetName()), Form("HitWave%s", tbrun->detList[id]->GetName()), nsamples, 0, nsamples));
+    hDigiVal.push_back(new TH1D(Form("DigiVal%i",id),Form("digi value chan %id",id),2000,-1000.,1000.));
+    hFFT[ichan]->SetDirectory(nullptr);
+    hInvFFT[ichan]->SetDirectory(nullptr);
+    hEvWave[ichan]->SetDirectory(nullptr);
+    hEvDerWave[ichan]->SetDirectory(nullptr);
+    hEvHitWave[ichan]->SetDirectory(nullptr);
+    hEvFiltWave[ichan]->SetDirectory(nullptr);
+    
+    fftDir->cd();
+    hFFTFilt.push_back(new TH1D(Form("FFTFiltDET%i", id), Form("filtered FFT Channel %i ", id), nsamples / 2, 0, nsamples / 2));
+    // hFFTFilt[ichan]->SetDirectory(nullptr);
+    fout->cd();
+    }
+
 
   gotTransforms = getTransforms();
 
-  if (!gotTransforms)
-  {
-    printf(" !!!! no transforms !!!! \n");
-  }
-  cout << " created hitFinder with " << tbrun->GetName() << " nsamples =  " << nsamples << " gotTransforms= " << gotTransforms << endl;
+  cout << " created hitFinder with " << tbrun->GetName() << " nsamples =  " << nsamples << " ndet " << hEvWave.size() << " gotTransforms= " << gotTransforms << endl;
+
+  printf(" channel mapping \n");
+  for (unsigned im = 0; im < chanMap.size(); ++im)
+    printf("%i chan %i mapped to %i \n", im, vchan[im], chanMap.at(vchan[im]));
 }
 
-void hitFinder::event(int idet, Long64_t ievent, vector<double> eventDigi)
+void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi)
 {
 
-  rdigi = eventDigi;
+  int idet = chanMap.at(ichan);
+  digi = eventDigi;
+  //printf( " ievent %llu ichan %i ndigi %lu \n",ievent, ichan, digi.size() );
 
   double triggerTime = 0;
   double firstCharge = 0;
 
-  // get averages
-  std::vector<double> vsort;
-  for (unsigned is = 0; is < nsamples; ++is)
-    vsort.push_back(rdigi[is]);
-  std::sort(vsort.begin(), vsort.end());
-  double ave = vsort[unsigned(0.5 * double(vsort.size()))];
-  double sigma = TMath::Abs(vsort[0.659 * vsort.size()] - ave);
-  tbrun->detList[idet]->event = ievent;
-  tbrun->detList[idet]->ave = ave;
-  tbrun->detList[idet]->sigma = sigma;
-  // printf(" finder idet %i  event %lld  ave %f  sigma %f nsamples %i (%lu) \n ", idet, ievent, ave, sigma, nsamples, rdigi.size());
-
-  digi.clear();
   for (int i = 0; i < nsamples; ++i) {
-    digi.push_back(rdigi[i] - ave);
-    hDigiVal->Fill(rdigi[i] - ave);
+    hDigiVal[idet]->Fill(digi[i]);
   }
-
-  cout << endl;
   // FFT and filter
-  if (gotTransforms)
-  {
-    fdigi.clear();
     fdigi.resize(digi.size());
     std::vector<std::complex<double>> complexTransform;
     complexTransform = FFT(idet, digi);
     unsigned maxFrequency = complexTransform.size();
-    unsigned maxN = gTransform[0]->GetN();
-    double xpoint, ypoint;
+    //unsigned maxN = gTransform[0]->GetN();
+    double xpoint;
+    double ypoint=1.0;
     for (unsigned iw = 1; iw < maxFrequency; ++iw)
     {
       int ipoint = iw - 1;
       if (iw > maxFrequency / 2)
         ipoint = maxFrequency - iw - 1;
-      gTransform[0]->GetPoint(ipoint, xpoint, ypoint);
+      if (gotTransforms)
+        gTransform[0]->GetPoint(ipoint, xpoint, ypoint);
+
       complexTransform[iw] *= ypoint;
     }
     fdigi = inverseFFT(idet, complexTransform, digi);
-  }
+
   for (unsigned isample = 0; isample < digi.size(); isample++)
   {
     hEvWave[idet]->SetBinContent(isample + 1, digi[isample]);
-    hEvFiltWave[idet]->SetBinContent(isample + 1, fdigi[isample]);
+    if (gotTransforms)
+      hEvFiltWave[idet]->SetBinContent(isample + 1, fdigi[isample]);
   }
   // use filtered waveforms
   if (gotTransforms)
@@ -143,26 +134,33 @@ void hitFinder::event(int idet, Long64_t ievent, vector<double> eventDigi)
 
   unsigned diffStep = 7;
   differentiate(diffStep);
-findHits(idet, ievent);
+  findHits(idet, ievent);
 
   detHits = makeHits(idet, triggerTime, firstCharge);
   // fill hits
-  cout << ievent << " det " << idet << " << detHits size " << detHits.size() << endl;
+  cout << " made hits " << ievent << " det " << idet << " << detHits size " << detHits.size() << endl;
   hdigi.clear();
   hdigi.resize(digi.size());
+
+//  for (const auto &[key, value] : m)
+//    std::cout << '[' << key << "] = " << value << "; ";
+
   for (hitMapIter hitIter = detHits.begin(); hitIter != detHits.end(); ++hitIter)
   {
     TDetHit hiti = hitIter->second;
-    tbrun->detList[idet]->hitSum += hiti.qsum;
-    if (hiti.startTime > 720 && hiti.startTime > 770)
-      tbrun->detList[idet]->hitPrompt += hiti.qsum;
+    tbrun->detList[idet]->qSum += hiti.qsum;
+    //if (hiti.startTime > 720 && hiti.startTime > 770)
+    //  tbrun->detList[idet]->hitPrompt += hiti.qsum;
     //
+    TDetHit ahit;
     tbrun->detList[idet]->hits.push_back(hiti);
     // Double_t phitQErr = phiti.qerr*timeUnit*1E9;
-    // file hdigi vector
+    // fill hdigi vector
+    cout << hiti.firstBin << " , " << hiti.lastBin << endl;
     for (unsigned iv = 0; iv < digi.size(); ++iv)
-      if (iv >= hiti.firstBin && iv <= hiti.lastBin)
+      if (iv >= hiti.firstBin && iv <= hiti.lastBin){
         hdigi[iv] = digi[iv];
+      }
   }
 
   for (unsigned isample = 0; isample < hdigi.size(); isample++)
@@ -245,8 +243,8 @@ void hitFinder::derivativePeaks(Int_t idet, Double_t rms)
   for (unsigned ibin = 1; ibin < vsize; ++ibin)
   {
     Double_t u = double(ibin) * timeUnit * microSec;
-    Double_t vi = vsign[idet] * ddigi[ibin];
-    Double_t vj = vsign[idet] * ddigi[ibin - 1];
+    Double_t vi = ddigi[ibin];
+    Double_t vj = ddigi[ibin - 1];
     unsigned ctype = 10;
     // if (idet == 1)
     //   printf(" det %i  bin %i %f %f  \n", idet, ibin, vj, vi);
@@ -346,6 +344,7 @@ void hitFinder::derivativePeaks(Int_t idet, Double_t rms)
 hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
 {
   double sigma = tbrun->detList[idet]->sigma;
+  printf(" makeHits: det %i sigma %f \n",idet, sigma );
   triggerTime = 1E9;
   firstCharge = 0;
   hitMap detHits;
@@ -373,7 +372,7 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
     Double_t qsum = 0;
     for (unsigned k = klow; k < khigh; ++k)
     {
-      double qdigik = vsign[idet] * ddigi[k];
+      double qdigik =  ddigi[k];
       qsum += qdigik;
       if (qdigik > qpeak)
       {
@@ -404,7 +403,7 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
       firstCharge = qsum;
     }
     Double_t hitTime = dhit.startTime * timeUnit * microSec;
-    // printf("  insert hit  %lu time %f (%u,%u) kind %i length %u  \n", detHits.size(), hitTime, dhit.firstBin, dhit.lastBin, peakKind[ip], khigh - klow + 1);
+    printf("  insert hit  %lu time %f (%u,%u) kind %i length %u  \n", detHits.size(), hitTime, dhit.firstBin, dhit.lastBin, peakKind[ip], khigh - klow + 1);
     //  for (unsigned k=klow; k<khigh; ++k) printf(" \t %u %f ; ", k, ddigi[k]);
     //  cout << endl;
     detHits.insert(std::pair<Double_t, TDetHit>(hitTime, dhit));
@@ -435,7 +434,7 @@ void hitFinder::trimPeaks(int idet, std::vector<Double_t> v)
     unsigned peakEnd = std::get<1>(peakList[ip]);
     for (unsigned kp = peakEnd; kp > peakStart; --kp)
     {
-      double vp = vsign[idet] * v[kp];
+      double vp =  v[kp];
       if (vp > 0)
         break;
       std::get<1>(peakList[ip]) = kp;
@@ -443,7 +442,7 @@ void hitFinder::trimPeaks(int idet, std::vector<Double_t> v)
 
     for (unsigned kp = peakStart; kp < peakEnd; ++kp)
     {
-      double vp = vsign[idet] * v[kp];
+      double vp = v[kp];
       if (vp > 0)
         break;
       std::get<0>(peakList[ip]) = kp;
@@ -465,7 +464,7 @@ void hitFinder::extendPeaks(int idet, std::vector<Double_t> v)
       next = std::get<1>(peakList[ip + 1]);
     for (unsigned kp = high; kp < next; ++kp)
     {
-      double vp = vsign[idet] * v[kp];
+      double vp =  v[kp];
       if (vp < 0)
         break;
       std::get<1>(peakList[ip]) = kp;
@@ -478,7 +477,7 @@ void hitFinder::extendPeaks(int idet, std::vector<Double_t> v)
       prev = TMath::Max(prev, std::get<0>(peakList[ip - 1]));
     for (unsigned kp = low; kp > prev; --kp)
     {
-      double vp = vsign[idet] * v[kp];
+      double vp = v[kp];
       if (vp < 0)
         break;
       std::get<0>(peakList[ip]) = kp;
@@ -507,8 +506,7 @@ std::vector<std::complex<double>> hitFinder::FFT(Int_t id, std::vector<double> r
     {
       if (first)
         hFFT[id]->SetBinContent(i, hFFT[id]->GetBinContent(i) + std::abs(c));
-      else
-        hFFTFilt[id]->SetBinContent(i, hFFTFilt[id]->GetBinContent(i) + std::abs(c));
+      hFFTFilt[id]->SetBinContent(i, hFFTFilt[id]->GetBinContent(i) + std::abs(c));
     }
 
     realVec.push_back(VectorComplex[i].real());
@@ -643,26 +641,28 @@ bool hitFinder::getTransforms()
   TGraph *gw = NULL;
   TString fileName = TString("../bobj/WienerTransforms.root");
   TFile *f1 = new TFile(fileName, "readonly");
-  if (!f1)
+  if (f1->IsZombie())
   {
     printf(" no  file for %s \n", tag.Data());
     return false;
   }
 
   bool val = true;
-  for (int i = 0; i < NDET; ++i)
+  int idet = 0;
+  while (val)
   {
-    gTransform[i] = NULL;
-    f1->GetObject(Form("WienerTransDet%i", i), gw);
+    gTransform.clear();
+    f1->GetObject(Form("WienerTransDet%i", idet), gw);
     if (!gw)
     {
       val = false;
-      continue;
+      break;
     }
-    gTransform[i] = (TGraph *)gw->Clone(Form("WeinerForDet%i-%s", i, tag.Data()));
-    printf(" got transform %s points %i for run %s \n", gTransform[i]->GetName(), gTransform[i]->GetN(), tag.Data());
-    fftDir->Append(gTransform[i]);
+    gTransform.push_back((TGraph *)gw->Clone(Form("WeinerForDet%i-%s", idet, tag.Data())));
+    unsigned itran = gTransform.size()-1;
+    printf(" got transform %s points %i for run %s \n", gTransform[itran]->GetName(), gTransform[itran]->GetN(), tag.Data());
+    fftDir->Append(gTransform[itran]);
   }
-  printf(" got transforms for file %s %i \n", tag.Data(), val);
+  if(val) printf(" got transforms for file %s %i \n", fileName.Data(), val);
   return val;
 }

@@ -1,6 +1,6 @@
-TBRun *tbrun;
+TTree *btree;
 
-void post(char *fname = "anaRun-No_Doping_1_Digitizer-0.root")
+void post(char *fname = "anaRun-No_Doping_1_Digitizer-10000.root")
 {
     gStyle->SetOptStat(1001101);
     TString fileName(fname);
@@ -13,15 +13,15 @@ void post(char *fname = "anaRun-No_Doping_1_Digitizer-0.root")
     }
     cout << " opened  " << fileName << endl;
     /* get tbrun */
-    tbrun = NULL;
-    fin->GetObject("TBrun", tbrun);
-    if (!tbrun)
+    btree = NULL;
+    fin->GetObject("RunTree", btree);
+    if (!btree)
     {
         printf("TBRun not found \n");
         return;
     }
 
-    Long64_t ntriggers = tbrun->nevents;
+    Long64_t ntriggers = btree->GetEntriesFast();
     printf(" total triggers analyzed %llu \n", ntriggers);
     /* get histos from file */
     vector<TH1D *> hsum;
@@ -38,6 +38,24 @@ void post(char *fname = "anaRun-No_Doping_1_Digitizer-0.root")
             continue;
         hsum.push_back(h);
     }
+
+     /* get FFT histos from file */
+    vector<TH1D *> hFFT;
+    TDirectory *fftDir;
+    fin->GetObject("fftDir",fftDir);
+    TIter nextf(fftDir->GetListOfKeys());
+    while (TKey *key = (TKey *)nextf())
+    {
+        TClass *cl = gROOT->GetClass(key->GetClassName());
+        if (!cl->InheritsFrom("TH1D"))
+            continue;
+        TH1D *h = (TH1D *)key->ReadObj();
+        TString hname(h->GetName());
+        cout << (h->GetName()) << endl;
+        hFFT.push_back(h);
+    }
+
+
 
     /*normalize */
     vector<TH1D *> hscale;
@@ -113,4 +131,13 @@ void post(char *fname = "anaRun-No_Doping_1_Digitizer-0.root")
             hscale[i]->Draw("sames");
     }
     canall->BuildLegend();
+
+
+    TCanvas *canFFT = new TCanvas("FFT-all", "FFT-all");
+    canFFT->Divide(4,2);
+    for (unsigned i = 0; i < hFFT.size(); ++i)
+    {
+      canFFT->cd(i+1);
+      hFFT[i]->Draw("");
+    }
 }
