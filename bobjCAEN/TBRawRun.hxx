@@ -32,12 +32,11 @@ public:
     return btree->Fill();
   }
 
-  TBRawEvent* addDet(int ichan)
+  void addDet(int ichan)
   {
     TBRawEvent *det = new TBRawEvent(ichan);
     detList.push_back(det);
     btree->Branch(det->GetName(), det);
-    return det;
   }
 
   TBRawEvent *getDet(int ichan)
@@ -51,8 +50,6 @@ public:
         break;
       }
     }
-    if(rev==NULL)
-      rev = this->addDet(ichan);
     return rev;
   }
 
@@ -60,7 +57,7 @@ public:
   {
     printf(" %s  entries %lld \n", this->GetName(), btree->GetEntries());
     for (unsigned i = 0; i < detList.size(); ++i)
-      printf(" %s time %llu  %lu \n", detList[i]->GetName(), detList[i]->time, detList[i]->rdigi.size());
+      printf(" %s ev %i %lu \n", detList[i]->GetName(), detList[i]->event, detList[i]->rdigi.size());
     btree->GetListOfBranches()->ls();
   }
 

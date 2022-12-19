@@ -16,23 +16,30 @@ class TBRawEvent: public TNamed {
 	public:
     TBRawEvent(int ichannel = 0);
 	//		~TBRawEvent();
-	// methods
-	void clear();
-	void print();
 	// data elements
-	int length;
-	int boardID;
-	int channel;
-	int event;
+	unsigned   channel;
+	unsigned   samples;
+	unsigned   startEnergy;
+	unsigned   maxEnergy;
 	Long64_t time;
-	int dcOffset;
+	std::vector<unsigned> rdigi;
 
-	void printHeader() {
-		printf(" TBRawRunEvent %i chan %i length %i ID %i off %i time %llu \n", 
-		event, channel, length, boardID,dcOffset, time); 
+	// methods
+	void clear()
+	{
+		channel = 0;
+		samples = 0;
+		startEnergy = 0;
+		maxEnergy = 0;
+		time = 0;
+		rdigi.clear();
 	}
 
-	std::vector<UShort_t> rdigi;
+	void print() {
+		printf(" TBRawRunEvent chan %u samples %u time %llu startEnergy  %u time maxEnergy %u rdigi size %lu \n", 
+		channel, samples, time, startEnergy, maxEnergy,rdigi.size()); 
+	}
+
 	ClassDef(TBRawEvent,1)
 };
 #endif

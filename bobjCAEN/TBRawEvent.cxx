@@ -12,3 +12,14 @@ TBRawEvent::TBRawEvent(int ichannel): channel(ichannel)
 }
 
 //TBRawEvent::~TBRawEvent(){}
+
+void TBRawEvent::clear()
+{
+  length=0;
+  boardID=0;
+  event=0;
+  time=0;
+  dcOffset=0;
+  rdigi.clear();	 
+}
+

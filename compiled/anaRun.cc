@@ -55,8 +55,9 @@ public:
   TH1D *hEvGaus;
   vector<int> vchan;
   vector<double> ddigi;
+  vector<double> hdigi;
   ofstream dumpFile;
-  vector<TBWave *> waveList;
+  //vector<TBWave *> waveList;
   hitFinder *finder;
   TString tag;
   anaRun(const char *theTag = "run", Long64_t maxEntries = 0);
@@ -172,15 +173,12 @@ void anaRun::anaEvent(Long64_t entry)
     }
 
     finder->event(ichan, entry, ddigi);
-  }
-  /*
-  printf("xxxxx %i  bins %i rdigi %lu sumwave %f val %f \n", nfill3, sumWave[3]->GetNbinsX(), detList[3]->rdigi.size(),
-         double(sumWave[3]->GetEntries()) / double(sumWave[3]->GetNbinsX()),
-          valHist[3]->GetEntries() / double(detList[3]->rdigi.size()));
-          */
-    // fill output Tree for each event
-    tbrun->fill();
-}
+    finder->plotEvent(ichan, entry);
+    
+  } // channel loop
+  // fill output Tree for each event
+  tbrun->fill();
+} // anaEvent
 
 bool anaRun::openFile()
 {
@@ -220,7 +218,7 @@ bool anaRun::openFile()
      vchan.push_back(chan);
      aBranch->SetAddress(0);
      tbrun->addDet(chan);
-     printf(" addDet %s \n", tbrun->getDet(chan)->GetName()); 
+     printf(" addDet chan %i name %s \n", chan, tbrun->getDet(chan)->GetName()); 
   }
  printf("total channels  =  %lu \n", vchan.size());
 

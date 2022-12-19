@@ -1,10 +1,9 @@
-//////////////////////////////////////////////////////////
+/*  read raw data from SIS3316 125MHz MG, Dec 15 2022 */
 #include <sstream>
 #include <unistd.h>
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <valarray>
 #include <TString.h>
 #include <TROOT.h>
 #include <TVirtualFFT.h>
@@ -27,258 +26,198 @@
 #include "TBRawRun.hxx"
 
 using namespace std;
+enum
+{
+  NBYTES = 4,
+  BYTE = 8,
+  WORD = 4 * BYTE
+};
 
-TString dirName;
-TList *files;
-std::vector<int> vsub;
-std::vector<int> vchan;
+std::uint32_t eventLength;
+ifstream input;
+std::vector<std::uint32_t> btest;
 TBRawRun *rawRun;
-unsigned maxRun;
-unsigned totalEvents;
-/*
-Record Length: 4100
-BoardID: 31
-Channel: 6
-Event Number: 0
-Pattern: 0x0000
-Trigger Time Stamp: 213649
-DC offset (DAC): 0x1999
-*/
-int readHeader(int chan, ifstream *stream)
+TBRawEvent *rawEvent;
+
+std::uint32_t
+getLeft(uint32_t a)
 {
-  if (stream->peek() != 'R')
-    return 0;
-  int nlines = 0;
-  int place[7] = {2, 1, 1, 2, 1, 3, 3};
-  char line[256];
-  TBRawEvent *rev = rawRun->getDet(chan);
-  if (!rev)
-  {
-    printf(" no TBRawEvent for chan %i !!!\n", chan);
-    return nlines;
-  }
-  rev->clear();
-  for (int i = 0; i < 7; ++i)
-  {
-    stream->getline(line, 256);
-    if (!stream->good())
-      return nlines;
-    TString tline(line);
-    TObjArray *tokenArray = tline.Tokenize(' ');
-    TObjString *sv = (TObjString *)tokenArray->At(place[i]);
-    // printf(" header line %i %s \n .... place %i = %s \n", nlines, line , place[i], sv->GetString().Data());
-    if (nlines == 0)
-      rev->length = sv->GetString().Atoi();
-    if (nlines == 1)
-      rev->boardID = sv->GetString().Atoi();
-    // if(nlines==2) rev->channel = sv->GetString().Atoi();
-    if (nlines == 3)
-      rev->event = sv->GetString().Atoi();
-    if (nlines == 5)
-      rev->time = sv->GetString().Atoll();
-    if (nlines == 6)
-      rev->dcOffset = sv->GetString().Atoi();
-    ++nlines;
-  }
-  //rev->printHeader();
-  return nlines;
+  return a >> 16;
 }
 
-void parseName(TString name, int &irun, int &ichan)
+std::uint32_t getRight(uint32_t a)
 {
-  TObjArray *tokenArray = name.Tokenize('_');
-  // int narray = tokenArray->GetEntries();
-  //  for (int i = 0; i < narray; ++i)
-  //    printf("token %i %s \n", i, ((TObjString *)tokenArray->At(i))->GetString().Data());
-  TObjString *srun = (TObjString *)tokenArray->At(1);
-  irun = srun->GetString().Atoi();
-  TObjString *schan = (TObjString *)tokenArray->At(3);
-  ichan = schan->GetString().Atoi();
-  // printf("%s run %i chan %i \n", name.Data(), irun, ichan);
+  return (a << 16) >> 16;
 }
-
-// count subruns and channels
-void count(TString tag)
+std::uint32_t getRight25(uint32_t a)
 {
-  TIter next(files);
-  TSystemFile *file;
-  while ((file = (TSystemFile *)next()))
-  {
-    string name = string(file->GetName());
-    string exten = name.substr(name.find_last_of(".") + 1);
-    if (exten != string("dat"))
-      continue;
-    string tag = name.substr(0, name.find_last_of("."));
-    string fullName = string(dirName.Data()) + string("/") + name;
-    int subRun, chan;
-    TString tname(name.c_str());
-    parseName(tname, subRun, chan);
-    // printf("\t\t %s %i %i \n",name.c_str(),subRun,chan);
-    if (std::find(std::begin(vsub), std::end(vsub), subRun) == std::end(vsub))
-      vsub.push_back(subRun);
-    if (std::find(std::begin(vchan), std::end(vchan), chan) == std::end(vchan))
-      vchan.push_back(chan);
-  }
+  return (a << 6) >> 6;
 }
-
-
-bool readChan(int chan, ifstream *stream)
+uint32_t readChannel()
 {
-  char line[256];
-  int ievent = 0;
-
-  while (1)
+  std::uint32_t line;
+  cout << "before...at byte " << input.tellg() << endl;
+  input.read(reinterpret_cast<char *>(&line), sizeof line);
+  uint32_t channel = getRight(line);
+  channel = channel >> 4;
+  input.seekg(std::streampos(-(sizeof line)), ios_base::cur);
+  cout << "after...at byte " << input.tellg() << endl;
+  return channel;
+}
+  void readEventHeader()
   {
-    // read header for event
-    if (stream->peek() == 'R')
+    std::uint32_t line;
+    input.read(reinterpret_cast<char *>(&line), sizeof line);
+    // std::cout << std::hex << std::showbase << line << dec << '\n';
+    // std::bitset<WORD> bits(value);
+    // std::cout << bits.to_string() << std::endl;
+
+    if (int(input.tellg()) == 36)
     {
-      ++ievent;
-      if (ievent > 1) return stream->good();
-      readHeader(chan, stream);
+      uint32_t bits[4];
+      for (int ib = 0; ib < 4; ++ib)
+      {
+        bits[ib] = (btest[ib] & line) >> ib;
+        printf(" bit %i = %i ", ib, bits[ib]);
+      }
+      cout << endl;
     }
-    else
-    {
-      stream->getline(line, 256);
-      if (!stream->good())
-        break;
+    uint64_t time2 = getLeft(line);
+    uint32_t channel = getRight(line);
+    channel = channel >> 4;
 
-      TString tline(line);
-      UShort_t val = UShort_t(tline.Atoi());
-      rawRun->getDet(chan)->rdigi.push_back(val);
-    }
-    //printf(" chan %i stream pos %i \n", chan,pos);
-  }
-  return stream->good();
-}
+    // next line
+    // cout << " at byte " << input.tellg() << endl;
 
-void openSubRun(int isub)
-{
-  TIter next(files);
-  TSystemFile *file;
-  std::vector<int> vchan;
-  std::vector<ifstream *> fileList;
-  std::vector<string> fileName;
-
-  // open all files for this subrun
-  while ((file = (TSystemFile *)next()))
-  {
-    string name = string(file->GetName());
-    string exten = name.substr(name.find_last_of(".") + 1);
-    if (exten != string("dat"))
-      continue;
-    string tag = name.substr(0, name.find_last_of("."));
-    string fullName = string(dirName.Data()) + string("/") + name;
-    int subRun, chan;
-    TString tname(name.c_str());
-    parseName(tname, subRun, chan);
-    // printf(" %s subrun %i chan %i \n",tname.Data(),subRun,chan);
-    if (subRun != isub) continue;
-
-    ifstream *in = new ifstream(fullName, std::ios::in);
-    if (!in->is_open()) continue;
-
-    in->seekg(0, std::ios::end); // go to the end
-    printf(" subrun %i opened file %s length %i \n", isub, tname.Data(), int(in->tellg()));
-    in->seekg(0, std::ios::beg);
-
-    // count channels
-    if (std::find(std::begin(vchan), std::end(vchan), chan) == std::end(vchan))
-    {
-      vchan.push_back(chan);
-      fileList.push_back(in);
-      fileName.push_back(name);
-    }
+    input.read(reinterpret_cast<char *>(&line), sizeof line);
+    uint64_t time1 = getLeft(line);
+    uint64_t time0 = getRight(line);
+    uint64_t time = time0 + (time1 << 16) + (time2 << 32);
+    
+    //  skip the 9 lines
+    input.seekg(std::streampos(NBYTES * 7), ios_base::cur);
+    // read energy
+    input.read(reinterpret_cast<char *>(&line), sizeof line);
+    uint32_t startEnergy = line;
+    input.read(reinterpret_cast<char *>(&line), sizeof line);
+    uint32_t maxEnergy = line;
+    //printf("startEnergy %i maxEnergy %i \n", startEnergy, maxEnergy);
+    // read MAW
+    input.read(reinterpret_cast<char *>(&line), sizeof line);
+    // cout << " at byte " << input.tellg() <<" "<<  hex << line << dec <<  endl;
+    
+    uint32_t samples = getRight25(line);
+    uint32_t mawflag = btest[27] & line;
+    //printf("\t header channel %u samples %u \n ", channel, samples);
+    rawEvent->channel = channel;
+    rawEvent->samples = samples;
+    rawEvent->startEnergy = startEnergy;
+    rawEvent->maxEnergy = maxEnergy;
+    rawEvent->time = time;
+    return;
   }
 
-  printf(" subrun %i number of files opened %lu \n", isub, fileList.size());
-  //for (unsigned i = 0; i < fileName.size(); ++i)
-  //  printf("\t %i %s \n", i, fileName[i].c_str());
-
-  bool good = true;
-  int nevents = 0;
-  int nbytes = 0;
-  // loop over events in subrun
-  while (good)
+  int main(int argc, char *argv[])
   {
-    ++nevents;
-    /* read all channels for this event */
-    for (unsigned i = 0; i < fileList.size(); ++i)
+    // fill bitmask
+    for (unsigned ib = 0; ib < WORD; ++ib)
     {
-      good = readChan(vchan[i], fileList[i]);
-      if (!good)
-        break;
-      // end of reading subrun, close all files for this subrun
+      btest.push_back(pow(2, ib));
     }
-    nbytes += rawRun->fill();
-    rawRun->clear();
-    if (nevents / 1000 * 1000 == nevents)
-      printf(" events read subrun %i event %i entries %llu bytes %i \n", isub, nevents, rawRun->btree->GetEntries(),nbytes);
-  }
+    cout << "executing " << argv[0] << " argc " << argc << endl;
+    if (argc < 2)
+    {
+      printf(" usage: convertRaw <tag> \n ");
+      exit(0);
+    }
+    cout << argv[1] << endl;
+    TString tag(argv[1]);
+    TString inFileName = TString("data/") + tag + TString(".dat");
+    cout << "Open " << inFileName << endl;
+    input.open(inFileName.Data(), ios::binary);
+    if (input.is_open() == false)
+    {
+      cout << "Failed! Quit" << endl;
+      return -1;
+    }
+    cout << "Check input file size... ";
+    input.seekg(0, ios::end);     // move getter to the end of file
+    int fileSize = input.tellg(); // get input file size
+    input.seekg(0, ios::beg);     // move getter back to the beginning
+    cout << fileSize << " bytes ," << fileSize / 1024 << " kbytes  , " << fileSize / 1024 / 1024 << " Mbytes \n"
+         << endl;
+    if (fileSize < 400)
+    {
+      cout << "Too small! Quit" << endl;
+      return -1;
+    }
 
-  // end of reading subrun, close all files for this subrun
-  for (unsigned i = 0; i < fileList.size(); ++i)
-    fileList[i]->close();
+    TFile *fout = new TFile(Form("data/rootData/%s.root", tag.Data()), "recreate");
+    rawRun = new TBRawRun(tag);
+    rawRun->btree->SetAutoFlush(100);
+    printf(" new rawRun %s auto %llu \n", rawRun->GetName(), rawRun->btree->GetAutoFlush());
 
-  totalEvents += nevents;
-  printf(" end of reading subrun %i total events  %i entries %llu \n", isub,totalEvents ,rawRun->btree->GetEntries());
-}
+    cout << "Get input file header" << endl;
+    unsigned eventLength;
+    vector<TString> headerNames;
+    headerNames.push_back("Header Marker       ");
+    headerNames.push_back("SIS identifier      ");
+    headerNames.push_back("bank buffer counter ");
+    headerNames.push_back("module channel id   ");
+    headerNames.push_back("number of events    ");
+    headerNames.push_back("event length        ");
+    headerNames.push_back("encoded short event ");
+    headerNames.push_back("multi event length  ");
+    input.seekg(0, ios::beg);
+    for (int iline = 0; iline < 8; ++iline)
+    {
+      std::uint32_t line;
+      input.read(reinterpret_cast<char *>(&line), sizeof line);
+      cout << "# " << iline << "  " << headerNames[iline] << " : 0x" << hex << line << dec << " dec " << line << endl;
+      if (iline == 5)
+        eventLength = line;
+    }
+    cout << " event length = " << eventLength << " =  " << eventLength * 2 << " samples " << endl;
+    cout << " filesize " << fileSize << " bytes " << endl;
 
-int main(int argc, char *argv[])
-{
-  totalEvents = 0;
-  cout << "executing " << argv[0] << " argc " << argc << endl;
-  if (argc < 2)
-  {
-    printf(" usage: convertRaw <tag>  <maxruns> \n ");
+    /* read event headers and data */
+    uint32_t iline = 0;
+    while (input.good() && input.tellg() < fileSize)
+    {
+      uint32_t channel = readChannel();
+      // start of channel reads.  Fill tree if not the first time at channel 0 
+      if (channel == 0 && rawRun->detList.size() > 1)
+      {
+        rawRun->fill();
+      }
+      // fill TBRawEvent header
+      rawEvent = rawRun->getDet(channel);
+      rawEvent->clear();
+      readEventHeader();
+      printf("\t channel %i samples %i bytes %i \n", rawEvent->channel, rawEvent->samples, NBYTES * rawEvent->samples);
+      // read data buff
+      std::uint32_t line;
+      for (uint32_t idigi = 0; idigi < rawEvent->samples; ++idigi)
+      {
+        input.read(reinterpret_cast<char *>(&line), sizeof line);
+        ushort digi0 = getRight(line);
+        ushort digi1 = getLeft(line);
+        rawEvent->rdigi.push_back(digi0);
+        rawEvent->rdigi.push_back(digi1);
+        //printf(" idigi %i %u %u %lu \n", idigi, digi0, digi1, rawEvent->rdigi.size());
+      }
+      // for MAW buff
+      input.seekg(std::streampos(WORD), ios_base::cur);
+      cout << "... channel "<< channel << " at byte " << input.tellg() << endl;
+      rawEvent->print();
+      cout << " _____________ " << endl << endl;
+    }
+
+    printf(" nchannels %lu nevents %llu \n", rawRun->detList.size(), rawRun->btree->GetEntries());
+    input.close();
+    fout->ls();
+    fout->Write();
+    fout->Close();
+
     exit(0);
   }
-  cout << argv[1] << endl;
-  TString tag(argv[1]);
-
-  maxRun = 0;
-  if (argc > 2)
-  {
-    cout << "max runs = " << argv[2] << endl;
-    maxRun = (unsigned)atoi(argv[2]);
-  }
-
-  dirName = TString("data/") + tag;
-  TSystemDirectory dir("rawdir", dirName); // TSystemDirectory
-  files = dir.GetListOfFiles();            // TList
-  cout << "dirName " << dirName << " has " << files->GetEntries() << " files " << endl;
-
-  count(tag);
-  if (vsub.size() < 1)
-    return 1;
-  printf(" *** found %lu subruns %lu chan *** \n", vsub.size(), vchan.size());
-  for (unsigned i = 0; i < vchan.size(); ++i)
-    printf("\t chan %i \n", vchan[i]);
-
-  TFile *fout = new TFile(Form("data/rootData/%s.root", tag.Data()), "recreate");
-  rawRun = new TBRawRun(tag);
-  //rawRun->btree->SetAutoSave(-300000000);
-  /* autof is the number of consecutive entries after which TTree::Fill will flush all branch buffers to disk.*/
-  rawRun->btree->SetAutoFlush(100);
-  printf(" new rawRun %s auto %llu \n", rawRun->GetName(), rawRun->btree->GetAutoFlush());
-
-  for (unsigned i = 0; i < vchan.size(); ++i)
-    rawRun->addDet(vchan[i]);
-
-  std::sort(vsub.begin(), vsub.end());
-
-  if (maxRun == 0)
-    maxRun = vsub.size();
-
-  printf(">> Starting loop over %u subruns \n",maxRun);
-  for (unsigned isub = 0; isub < maxRun; ++isub)
-  {
-    printf("\t *****  starting subrun %u  number %u \n ****** ", isub, vsub[isub]);
-    openSubRun(vsub[isub]);
-  }
-
-  fout->ls();
-  fout->Write();
-  fout->Close();
-
-  exit(0);
-}

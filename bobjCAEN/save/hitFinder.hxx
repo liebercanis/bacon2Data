@@ -1,8 +1,7 @@
-/*//////////////////////////////////////////////////////
-  M.Gold June 2022
-  class to make hits from vector data
-  P. Zugec et al. Pulse processing routines for neutron time-of-flight data. Nucl. Instrum. Meth., A812:134–144, 2016.
-/////////////////////////////////////////////////////////*/
+////////////////////////////////////////////////////////
+//  M.Gold June 2022
+// class to make hits from vector data
+//////////////////////////////////////////////////////////
 #include <sstream>
 #include <unistd.h>
 #include <iostream>
@@ -34,7 +33,6 @@
 #include "TRandom3.h"
 //
 #include "TBWave.hxx"
-#include "TDetHit.hxx"
 #include "TBRun.hxx"
 
 typedef std::vector<std::pair<unsigned, unsigned>> peakType;
@@ -54,27 +52,28 @@ public:
     DOUBLEUPCROSS,
     DOUBLEDOWNCROSS
   };
+  enum
+  {
+    NDET =12 
+  };
 
+  double vsign[NDET];
   TFile *fout;
   TBRun *tbrun;
   TString tag;
   TDirectory *fftDir;
-  hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan );
-  virtual ~hitFinder() { chanMap.clear(); }
+  hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples);
+  virtual ~hitFinder() { ; }
   int nsamples;
-  unsigned diffStep;
   void plotWave(int idet, Long64_t jentry);
   void plotEvent( unsigned idet,Long64_t ievent);
 
   void findHits(int idet, Long64_t jentry);
   void differentiate(unsigned diffStep);
-  std::map<int, int> chanMap;
-
-  std::vector<double> rdigi;  // 
-  std::vector<double> digi;  // baseline subtracted
-  std::vector<double> ddigi; // derivative
-  std::vector<double> sdigi; // smoothed
-  std::vector<double> hdigi; // hits
+  std::vector<double> rdigi;
+  std::vector<double> digi;
+  std::vector<double> ddigi;
+  std::vector<double> hdigi;
   std::vector< Double_t > fdigi; // filtered
   hitMap detHits;
   peakType peakList;
@@ -91,6 +90,7 @@ public:
   TH1D *hPeakCount;
   TH1I *hHitLength;
   TH1I *hPeakNWidth;
+  TH1D *hDigiVal;
 
   /// The fft class to take the fourier transform.
   TVirtualFFT *fFFT;
@@ -99,18 +99,14 @@ public:
 
   std::vector<std::complex<double>> FFT(Int_t idet, std::vector<double> rdigi, bool first = true);
   std::vector<Double_t> inverseFFT(Int_t idet, std::vector<std::complex<double>> VectorComplex, std::vector<double> rdigi);
+  TGraph *gTransform[NDET];
   bool gotTransforms;
 
-  std::vector<TGraph *> gTransform;
-  std::vector<TH1D *> hFFT;
-  std::vector<TH1D *> hInvFFT;
-  std::vector<TH1D *> hFFTFilt;
-  std::vector<TH1D *> hEvWave;
-  std::vector<TH1D *> hEvSmooth;
-  std::vector<TH1D *> hEvCross;
-  std::vector<TH1D *> hEvHitWave;
-  std::vector<TH1D *> hEvDerWave;
-  std::vector<TH1D *> hEvFiltWave;
-  std::vector<TH1D *> hDigiVal;
-  std::vector<TH1D *> hHitSum;
+  TH1D *hFFT[NDET];
+  TH1D *hInvFFT[NDET];
+  TH1D *hFFTFilt[NDET];
+  TH1D *hEvWave[NDET];
+  TH1D *hEvHitWave[NDET];
+  TH1D *hEvDerWave[NDET];
+  TH1D *hEvFiltWave[NDET];
 };
