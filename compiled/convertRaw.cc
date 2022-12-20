@@ -56,12 +56,12 @@ std::uint32_t getRight25(uint32_t a)
 uint32_t readChannel()
 {
   std::uint32_t line;
-  cout << "before...at byte " << input.tellg() << endl;
+  //cout << "before...at byte " << input.tellg() << endl;
   input.read(reinterpret_cast<char *>(&line), sizeof line);
   uint32_t channel = getRight(line);
   channel = channel >> 4;
   input.seekg(std::streampos(-(sizeof line)), ios_base::cur);
-  cout << "after...at byte " << input.tellg() << endl;
+  //cout << "after...at byte " << input.tellg() << endl;
   return channel;
 }
   void readEventHeader()
@@ -127,11 +127,17 @@ uint32_t readChannel()
     cout << "executing " << argv[0] << " argc " << argc << endl;
     if (argc < 2)
     {
-      printf(" usage: convertRaw <tag> \n ");
+      printf(" usage: convertRaw <tag>  <first event> <number  of events> \n ");
       exit(0);
     }
-    cout << argv[1] << endl;
+    int first=0;
+    int maxEvents=0;
     TString tag(argv[1]);
+    if(argc>2)
+      first = atoi(argv[2]);
+    if (argc > 3)
+      maxEvents = atoi(argv[3]);
+    printf(" starting convertRaw %s first %i maxEvents %i \n ", tag.Data(), first, maxEvents);
     TString inFileName = TString("data/") + tag + TString(".dat");
     cout << "Open " << inFileName << endl;
     input.open(inFileName.Data(), ios::binary);
@@ -182,19 +188,40 @@ uint32_t readChannel()
 
     /* read event headers and data */
     uint32_t iline = 0;
+    uint32_t eventCount = 0;
+    uint32_t eventsRead = 0;
+    bool ifBreak = false;
     while (input.good() && input.tellg() < fileSize)
     {
       uint32_t channel = readChannel();
-      // start of channel reads.  Fill tree if not the first time at channel 0 
+      if (channel == 0)
+        ++eventCount;
+      if (eventCount-1<first) {
+        input.seekg(std::streampos(2128), ios_base::cur);
+        //cout << "... skip  "<< channel << " event "<< eventCount << " at byte " << input.tellg() << endl;
+        continue;
+      }
       if (channel == 0 && rawRun->detList.size() > 1)
       {
         rawRun->fill();
+        eventsRead = rawRun->btree->GetEntries();
+        cout << " fill rawRun " << eventCount << " " << rawRun->btree->GetEntries() << endl;
       }
+      if(maxEvents>0 && eventsRead >= maxEvents){
+        cout << "... break at event  " << eventCount << " at byte " << input.tellg() << endl;
+        ifBreak = true;
+        break;
+      }
+      if(channel ==0) {
+        cout << "... start of event  " << eventCount << " at byte " << input.tellg() << endl;
+      }
+      // start of channel reads.  Fill tree if not the first time at channel 0 
+      
       // fill TBRawEvent header
       rawEvent = rawRun->getDet(channel);
       rawEvent->clear();
       readEventHeader();
-      printf("\t channel %i samples %i bytes %i \n", rawEvent->channel, rawEvent->samples, NBYTES * rawEvent->samples);
+      //printf("\t channel %i samples %i bytes %i \n", rawEvent->channel, rawEvent->samples, NBYTES * rawEvent->samples);
       // read data buff
       std::uint32_t line;
       for (uint32_t idigi = 0; idigi < rawEvent->samples; ++idigi)
@@ -208,12 +235,15 @@ uint32_t readChannel()
       }
       // for MAW buff
       input.seekg(std::streampos(WORD), ios_base::cur);
-      cout << "... channel "<< channel << " at byte " << input.tellg() << endl;
-      rawEvent->print();
-      cout << " _____________ " << endl << endl;
+      //rawEvent->print();
+      //cout << "... end of event  "<< eventCount << " at byte " << input.tellg() << endl;
+      //cout << " _____________ " << endl << endl;
     }
-
-    printf(" nchannels %lu nevents %llu \n", rawRun->detList.size(), rawRun->btree->GetEntries());
+    // fill last event
+    if(!ifBreak) rawRun->fill();
+    cout << " fill rawRun " << eventCount << " " << rawRun->btree->GetEntries() << endl;
+    printf(" end of convertRaw at count %i  ",eventCount);
+    printf(" nchannels %lu events written  %llu \n", rawRun->detList.size(), rawRun->btree->GetEntries());
     input.close();
     fout->ls();
     fout->Write();
