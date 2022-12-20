@@ -148,7 +148,7 @@ uint32_t readChannel()
     }
     cout << "Check input file size... ";
     input.seekg(0, ios::end);     // move getter to the end of file
-    int fileSize = input.tellg(); // get input file size
+    Long64_t fileSize = input.tellg(); // get input file size
     input.seekg(0, ios::beg);     // move getter back to the beginning
     cout << fileSize << " bytes ," << fileSize / 1024 << " kbytes  , " << fileSize / 1024 / 1024 << " Mbytes \n"
          << endl;
