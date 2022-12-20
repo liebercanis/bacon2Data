@@ -14,7 +14,7 @@ using namespace std;
 
 class TBRawEvent: public TNamed {
 	public:
-    TBRawEvent(int ichannel = 0);
+    TBRawEvent(unsigned  ichannel = 0);
 	//		~TBRawEvent();
 	// data elements
 	unsigned   channel;

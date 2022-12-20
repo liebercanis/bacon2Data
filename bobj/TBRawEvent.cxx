@@ -1,7 +1,7 @@
 #include "TBRawEvent.hxx"
 ClassImp(TBRawEvent)
 
-TBRawEvent::TBRawEvent(int ichannel): channel(ichannel)
+TBRawEvent::TBRawEvent(unsigned ichannel): channel(ichannel)
 {
 
   char dname[100];

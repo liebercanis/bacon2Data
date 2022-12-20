@@ -164,7 +164,7 @@ uint32_t readChannel()
     printf(" new rawRun %s auto %llu \n", rawRun->GetName(), rawRun->btree->GetAutoFlush());
 
     cout << "Get input file header" << endl;
-    unsigned eventLength;
+    unsigned eventLength =0;
     vector<TString> headerNames;
     headerNames.push_back("Header Marker       ");
     headerNames.push_back("SIS identifier      ");

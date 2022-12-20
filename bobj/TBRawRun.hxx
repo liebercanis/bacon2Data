@@ -32,7 +32,7 @@ public:
     return btree->Fill();
   }
 
-  TBRawEvent* addDet(int ichan)
+  TBRawEvent* addDet(unsigned  ichan)
   {
     TBRawEvent *det = new TBRawEvent(ichan);
     detList.push_back(det);
@@ -40,7 +40,7 @@ public:
     return det;
   }
 
-  TBRawEvent *getDet(int ichan)
+  TBRawEvent *getDet(unsigned ichan)
   {
     TBRawEvent *rev = NULL;
     for (unsigned i = 0; i < detList.size(); ++i)
