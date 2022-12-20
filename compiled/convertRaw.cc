@@ -107,7 +107,7 @@ uint32_t readChannel()
     // cout << " at byte " << input.tellg() <<" "<<  hex << line << dec <<  endl;
     
     uint32_t samples = getRight25(line);
-    uint32_t mawflag = btest[27] & line;
+    //uint32_t mawflag = btest[27] & line;
     //printf("\t header channel %u samples %u \n ", channel, samples);
     rawEvent->channel = channel;
     rawEvent->samples = samples;
@@ -130,8 +130,8 @@ uint32_t readChannel()
       printf(" usage: convertRaw <tag>  <first event> <number  of events> \n ");
       exit(0);
     }
-    int first=0;
-    int maxEvents=0;
+    uint32_t first=0;
+    uint32_t maxEvents=0;
     TString tag(argv[1]);
     if(argc>2)
       first = atoi(argv[2]);
@@ -187,7 +187,6 @@ uint32_t readChannel()
     cout << " filesize " << fileSize << " bytes " << endl;
 
     /* read event headers and data */
-    uint32_t iline = 0;
     uint32_t eventCount = 0;
     uint32_t eventsRead = 0;
     bool ifBreak = false;
