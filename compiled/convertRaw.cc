@@ -119,6 +119,7 @@ uint32_t readChannel()
 
   int main(int argc, char *argv[])
   {
+    uint32_t eventSize = 2128;
     // fill bitmask
     for (unsigned ib = 0; ib < WORD; ++ib)
     {
@@ -150,8 +151,7 @@ uint32_t readChannel()
     input.seekg(0, ios::end);     // move getter to the end of file
     Long64_t fileSize = input.tellg(); // get input file size
     input.seekg(0, ios::beg);     // move getter back to the beginning
-    cout << fileSize << " bytes ," << fileSize / 1024 << " kbytes  , " << fileSize / 1024 / 1024 << " Mbytes \n"
-         << endl;
+    cout << fileSize << " bytes ," << fileSize / 1024 << " kbytes  , " << fileSize / 1024 / 1024 << " Mbytes " << " number of events " << fileSize / Long64_t(eventSize)  << endl;
     if (fileSize < 400)
     {
       cout << "Too small! Quit" << endl;
@@ -196,7 +196,7 @@ uint32_t readChannel()
       if (channel == 0)
         ++eventCount;
       if (eventCount-1<first) {
-        input.seekg(std::streampos(2128), ios_base::cur);
+        input.seekg(std::streampos(eventSize), ios_base::cur);
         //cout << "... skip  "<< channel << " event "<< eventCount << " at byte " << input.tellg() << endl;
         continue;
       }
