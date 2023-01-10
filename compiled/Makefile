@@ -38,7 +38,11 @@ endif
 #CPP+=-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
 
 
-all: convertRaw ana
+all: sis convertRaw ana 
+
+sis: sis.cc
+	$(CPP) $< $(LIBS)  -o $@
+
 
 convertRaw: convertRaw.cc
 	$(CPP) $< $(LIBS)  -o $@
