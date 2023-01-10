@@ -274,12 +274,13 @@ int main(int argc, char *argv[])
 							bnbuf = buffer_no;
 							bevent = i_event;
 							ftree->Fill();
+
 							for (unsigned ib = 0; ib < wave.size(); ++ib)
 							{
-								hChan[i_ch]->SetBinContent(ib+1, wave[ib]+hChan[i_ch]->GetBinContent(ib+1));
-							}
+								hChan[i_ch]->SetBinContent(ib + 1, wave[ib]  + hChan[i_ch]->GetBinContent(ib + 1));
+								}
 							if (i_event == nof_events-1)
-								printf("\t ...chan %i i_event %i length %lu \n",i_ch, i_event+1, wave.size());
+								printf("\t ...chan %i i_event %i length %lu  \n",i_ch, i_event+1, wave.size());
 						}
 						if (maw_buffer_length != 0)
 						{
