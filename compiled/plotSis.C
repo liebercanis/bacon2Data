@@ -3,9 +3,11 @@ void plotSis(TString file = "sis3316_test_data_2000s.root")
     TFile *fin = new TFile(file, "readonly");
     fin->ls();
 
-    TTree *tree;
+    
+    /*TTree *tree;
     fin->GetObject("raw", tree);
     printf("tree has %lld entries \n", tree->GetEntries());
+    */
 
     //
     TIter next(fin->GetListOfKeys());

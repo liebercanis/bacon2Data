@@ -50,30 +50,41 @@
 #include "TSystem.h"
 #include "TSystemDirectory.h"
 #include "TFile.h"
+#include "TBRawEvent.hxx"
 using namespace std;
 
-#ifdef CERN_ROOT_PLOT
-sis_root_graph *gl_graph_raw;
-sis_root_graph_maw *gl_graph_maw;
-#endif
 
 /*===========================================================================*/
 /* Globals					  			     */
 /*===========================================================================*/
 #define MAX_NUMBER_LWORDS_64MBYTE 0x1000000 /* 64MByte */
 
+TFile *fout;
+
 unsigned int gl_ch_data[MAX_NUMBER_LWORDS_64MBYTE];
 
 FILE *gl_FILE_DataEvenFilePointer;
-TFile *fout;
-TTree *ftree;
+
+/* methods */
+std::uint32_t getLeft(uint32_t a)
+{
+	return a >> 16;
+}
+
+std::uint32_t getRight(uint32_t a)
+{
+	return (a << 16) >> 16;
+}
 
 /*===========================================================================*/
 /* Prototypes			                               		  			     */
 /*===========================================================================*/
 int NCHAN = 13;
 int NSAMPLES = 1024;
-vector<TH1I *> hChan;
+vector<TH1D *> hChan;
+vector<TBRawEvent *> rawEvent;
+vector<TTree *> ftrees;
+std::vector<unsigned short> wave;
 void getWave(unsigned int *ch_rawdata_buffer, std::vector<unsigned short>& data);
 
 int ReadBufferHeaderCounterNofChannelToDataFile(unsigned int *header_marker, unsigned int *sis3316_indentifier, unsigned int *bank_loop_no, unsigned int *channel_no, unsigned int *nof_events, unsigned int *event_length, unsigned int *maw_length, unsigned int *reserved_ch_bankx_buffer_length);
@@ -136,10 +147,10 @@ int main(int argc, char *argv[])
 			case 'h':
 			default:
 				// printf("Usage: %s  [-?h] [-I ip] [-A num]  ", argv[0]);
-				printf("Usage: %s  [-?h] [-F data_filename.dat] ", argv[0]);
+				printf("Usage: %s  [-?h] [-F <tag> ", argv[0]);
 				printf("   \n");
 				printf("   \n");
-				printf("   -F file tag.  read from file  \n");
+				printf("   -F file <tag> read from file  data/<tag>.dat\n");
 				printf("   \n");
 				printf("   -h     ..........  print this message only\n");
 				printf("   \n");
@@ -171,24 +182,25 @@ int main(int argc, char *argv[])
 	// open output file
 	fout  = new TFile(Form("%s.root",filetag),"recreate");
 
-	for (unsigned ich = 0; ich < NCHAN;++ ich){
-		TString hname;
-		TString htitle;
-		hname.Form("channel%i",ich);
-		htitle.Form("channel %i",ich);
-		hChan.push_back(new TH1I(hname, htitle, NSAMPLES, 1, NSAMPLES));
+	// output trees for each channel
+	rawEvent.resize(NCHAN);
+	ftrees.resize(NCHAN);
+	for (int ichan = 0; ichan < NCHAN; ++ichan)
+	{
+		rawEvent[ichan] = new TBRawEvent(ichan);
+		ftrees[ichan] = new TTree(Form("tchan%i",ichan), Form("channel %i",ichan));
+		ftrees[ichan]->Branch(rawEvent[ichan]->GetName(),&rawEvent[ichan]);
+		printf(" new tree  %s \n", ftrees[ichan]->GetName());
 	}
 
-	ftree = new TTree("raw","raw data");
-	int bch;
-	ftree->Branch("channel", &bch);
-	int bnbuf;
-	ftree->Branch("buff", &bnbuf);
-	int bevent;
-	ftree->Branch("event", &bevent);
-	std::vector<unsigned short> wave;
-	auto branch = ftree->Branch("data", &wave, NSAMPLES);
-
+	for (unsigned ich = 0; ich < NCHAN; ++ich)
+	{
+		TString hname;
+		TString htitle;
+		hname.Form("channel%i", ich);
+		htitle.Form("channel %i", ich);
+		hChan.push_back(new TH1D(hname, htitle, NSAMPLES, 1, NSAMPLES));
+	}
 
 	if (gl_FILE_DataEvenFilePointer != NULL)
 	{
@@ -241,9 +253,10 @@ int main(int argc, char *argv[])
 					nof_read = 0;
 					for (i_event = 0; i_event < nof_events; i_event++)
 					{
-						nof_read = nof_read + ReadEventsFromDataFile(&gl_ch_data[0], 1);
+						nof_read = nof_read + ReadEventsFromDataFile(&gl_ch_data[0], 1); //read 4 bytes = 32 bits
 						i_ch = (gl_ch_data[0] & 0xfff0) >> 4;
-						headerformat = (gl_ch_data[0] & 0xf);
+						headerformat = (gl_ch_data[0] & 0xf); 
+
 						header_length = 3; // if headerformat == 0
 						if ((headerformat & 0x1) == 1)
 						{
@@ -261,26 +274,41 @@ int main(int argc, char *argv[])
 						{
 							header_length = header_length + 2;
 						}
-						nof_read = nof_read + ReadEventsFromDataFile(&gl_ch_data[1], header_length - 1); // read rest of Event-Header
 
-						sample_length = 2 * (gl_ch_data[header_length - 1] & 0x3ffffff); //
+						// read rest of Event-Header 
+						nof_read = nof_read + ReadEventsFromDataFile(&gl_ch_data[1], header_length - 1); 
+						/* make the time  */
+						uint64_t time2 = getLeft(gl_ch_data[0]);
+						uint64_t time1 = getLeft(gl_ch_data[1]);
+						uint64_t time0 = getRight(gl_ch_data[1]);
+						uint64_t time = time0 + (time1 << 16) + (time2 << 32);
+
+						sample_length = 2 * (gl_ch_data[header_length - 1] & 0x3ffffff); // bits 0 - 25
 						if (sample_length != 0)
 						{
 							nof_read = nof_read + ReadEventsFromDataFile(&gl_ch_data[header_length], sample_length / 2); // read Raw Data
 							wave.clear();
 							wave.resize(sample_length);
 							getWave(&gl_ch_data[header_length],wave);
-							bch = i_ch;
-							bnbuf = buffer_no;
-							bevent = i_event;
-							ftree->Fill();
+							rawEvent[i_ch]->channel = i_ch;
+							rawEvent[i_ch]->buffer = buffer_no;
+							rawEvent[i_ch]->trigger = i_event;
+							rawEvent[i_ch]->time = time;
+							rawEvent[i_ch]->rdigi = wave;
+							ftrees[i_ch]->Fill();
 
+							// simple baseline
+							double  base = 0;
+							unsigned nsum = 50;
+							for (unsigned ib = 0; ib < nsum ; ++ib)
+								base += double(wave[ib]);
+							base /= double(nsum);
+							//hChan[i_ch]->Reset("ICESM");
 							for (unsigned ib = 0; ib < wave.size(); ++ib)
-							{
-								hChan[i_ch]->SetBinContent(ib + 1, wave[ib]  + hChan[i_ch]->GetBinContent(ib + 1));
-								}
+								hChan[i_ch]->SetBinContent(ib + 1, double(wave[ib]) - base + hChan[i_ch]->GetBinContent(ib + 1));
+							
 							if (i_event == nof_events-1)
-								printf("\t ...chan %i i_event %i length %lu  \n",i_ch, i_event+1, wave.size());
+								printf("\t ...chan %i i_event %i length %lu  baseline %f (%f) \n",i_ch, i_event+1, wave.size(),base, double(wave[0]));
 						}
 						if (maw_buffer_length != 0)
 						{
@@ -303,7 +331,9 @@ int main(int argc, char *argv[])
 
 CLOSE :
 
-	printf(" close with  bank_buffer_counter %i buffer_no %i nof_events  = %i ftree entries %lld \n", bank_buffer_counter, buffer_no , nof_events,ftree->GetEntries());
+	printf(" close with  bank_buffer_counter %i buffer_no %i nof_events  = %i \n", bank_buffer_counter, buffer_no , nof_events);
+	for (int ich = 0; ich < NCHAN; ++ ich )
+		printf(" channel %i  entries = %lld \n", ich, ftrees[ich]->GetEntries());
 	fclose(gl_FILE_DataEvenFilePointer);
 	fout->ls();
 	fout->Write();

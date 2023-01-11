@@ -1,5 +1,6 @@
 /**
 ** MG, July 2020 
+** Modified for SIS data Jan 11, 2023
 **/
 #ifndef TBRAWEVENT_DEFINED
 #define TBRAWEVENT_DEFINED
@@ -18,29 +19,27 @@ class TBRawEvent: public TNamed {
 	//		~TBRawEvent();
 	// data elements
 	unsigned   channel;
-	unsigned   samples;
-	unsigned   startEnergy;
-	unsigned   maxEnergy;
+	unsigned   buffer;
+	unsigned   trigger;
 	Long64_t time;
-	std::vector<unsigned> rdigi;
+	std::vector<unsigned short> rdigi;
 
 	// methods
 	void clear()
 	{
 		channel = 0;
-		samples = 0;
-		startEnergy = 0;
-		maxEnergy = 0;
+		buffer = 0;
+		trigger = 0;
 		time = 0;
 		rdigi.clear();
 	}
 
 	void print() {
-		printf(" TBRawRunEvent chan %u samples %u time %llu startEnergy  %u time maxEnergy %u rdigi size %lu \n", 
-		channel, samples, time, startEnergy, maxEnergy,rdigi.size()); 
+		printf(" TBRawRunEvent chan %u buff %u trigger %u time %lld rdigi size %lu \n", 
+		channel, buffer, trigger, time, rdigi.size()); 
 	}
 
-	ClassDef(TBRawEvent,1)
+	ClassDef(TBRawEvent,2)
 };
 #endif
 
