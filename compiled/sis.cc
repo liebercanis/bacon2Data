@@ -58,6 +58,7 @@ using namespace std;
 /* Globals					  			     */
 /*===========================================================================*/
 #define MAX_NUMBER_LWORDS_64MBYTE 0x1000000 /* 64MByte */
+int maxBuffer;
 
 TFile *fout;
 
@@ -147,7 +148,7 @@ int main(int argc, char *argv[])
 			case 'h':
 			default:
 				// printf("Usage: %s  [-?h] [-I ip] [-A num]  ", argv[0]);
-				printf("Usage: %s  [-?h] [-F <tag> ", argv[0]);
+				printf("Usage: %s  [-?h] [-F <tag> maxBuffer ", argv[0]);
 				printf("   \n");
 				printf("   \n");
 				printf("   -F file <tag> read from file  data/<tag>.dat\n");
@@ -161,9 +162,12 @@ int main(int argc, char *argv[])
 				exit(1);
 			}
 		}
-	} // if (argc > 2)
+	}
+	maxBuffer = 0;
+	if (argc > 2)
+		maxBuffer = atoi(argv[2]);
 
-	printf("\n");
+	printf(" tag %s maxBuffer = %i \n",filetag,maxBuffer);
 
 
 	bank_buffer_counter = 0;
@@ -180,7 +184,7 @@ int main(int argc, char *argv[])
 	}
 
 	// open output file
-	fout  = new TFile(Form("%s.root",filetag),"recreate");
+	fout  = new TFile(Form("data/rootData/%s.root",filetag),"recreate");
 
 	// output trees for each channel
 	rawEvent.resize(NCHAN);
