@@ -53,7 +53,6 @@
 #include "TBRawEvent.hxx"
 using namespace std;
 
-
 /*===========================================================================*/
 /* Globals					  			     */
 /*===========================================================================*/
@@ -86,7 +85,7 @@ vector<TH1D *> hChan;
 vector<TBRawEvent *> rawEvent;
 vector<TTree *> ftrees;
 std::vector<unsigned short> wave;
-void getWave(unsigned int *ch_rawdata_buffer, std::vector<unsigned short>& data);
+void getWave(unsigned int *ch_rawdata_buffer, std::vector<unsigned short> &data);
 
 int ReadBufferHeaderCounterNofChannelToDataFile(unsigned int *header_marker, unsigned int *sis3316_indentifier, unsigned int *bank_loop_no, unsigned int *channel_no, unsigned int *nof_events, unsigned int *event_length, unsigned int *maw_length, unsigned int *reserved_ch_bankx_buffer_length);
 int ReadEventsFromDataFile(unsigned int *memory_data_array, unsigned int nof_write_length_lwords);
@@ -131,7 +130,6 @@ int main(int argc, char *argv[])
 	// unsigned int i_file;
 	int int_ch;
 
-	
 	if (argc > 1)
 	{
 		while ((int_ch = getopt(argc, argv, "?hF:")) != -1)
@@ -148,7 +146,7 @@ int main(int argc, char *argv[])
 			case 'h':
 			default:
 				// printf("Usage: %s  [-?h] [-I ip] [-A num]  ", argv[0]);
-				printf("Usage: %s  [-?h] [-F <tag> maxBuffer ", argv[0]);
+				printf("Usage: %s  [-?h] [-F <tag> maxBuffer (default -1=all) ", argv[0]);
 				printf("   \n");
 				printf("   \n");
 				printf("   -F file <tag> read from file  data/<tag>.dat\n");
@@ -163,11 +161,11 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
-	maxBuffer = 0;
+	maxBuffer = -1;
 	if (argc > 3)
 		maxBuffer = atoi(argv[3]);
 
-	printf(" running %s tag %s maxBuffer = %i \n",argv[0],filetag,maxBuffer);
+	printf(" running %s tag %s maxBuffer = %i \n", argv[0], filetag, maxBuffer);
 
 	bank_buffer_counter = 0;
 
@@ -183,7 +181,7 @@ int main(int argc, char *argv[])
 	}
 
 	// open output file
-	fout  = new TFile(Form("data/rootData/%s.root",filetag),"recreate");
+	fout = new TFile(Form("data/rootData/%s.root", filetag), "recreate");
 
 	// output trees for each channel
 	rawEvent.resize(NCHAN);
@@ -191,8 +189,8 @@ int main(int argc, char *argv[])
 	for (int ichan = 0; ichan < NCHAN; ++ichan)
 	{
 		rawEvent[ichan] = new TBRawEvent(ichan);
-		ftrees[ichan] = new TTree(Form("tchan%i",ichan), Form("channel %i",ichan));
-		ftrees[ichan]->Branch(rawEvent[ichan]->GetName(),&rawEvent[ichan]);
+		ftrees[ichan] = new TTree(Form("tchan%i", ichan), Form("channel %i", ichan));
+		ftrees[ichan]->Branch(rawEvent[ichan]->GetName(), &rawEvent[ichan]);
 		printf(" new tree  %s \n", ftrees[ichan]->GetName());
 	}
 
@@ -214,10 +212,10 @@ int main(int argc, char *argv[])
 		{
 			valid_BankBufferHeader_valid_flag = 0;
 			nof_read = ReadBufferHeaderCounterNofChannelToDataFile(&header_marker, &header_indentifier, &buffer_no, &channel_no, &nof_events, &event_length, &short_event_and_maw_buffer_length, &header_reserved_ch_bankx_buffer_length);
-			if (buffer_no > 0)
+			if (buffer_no > maxBuffer && maxBuffer > -1)
 				goto CLOSE;
 			// printf("\n");
-			printf(" bank_buffer_counter %i header: marker = 0x%08x    identifier = 0x%08x      length = %d    \n", bank_buffer_counter, header_marker, header_indentifier, nof_read);
+			printf(" buffer_no %i bank_buffer_counter %i header: marker = 0x%08x    identifier = 0x%08x      length = %d    \n",buffer_no, bank_buffer_counter, header_marker, header_indentifier, nof_read);
 			++bank_buffer_counter;
 
 			if (nof_read != 8)
@@ -244,11 +242,13 @@ int main(int argc, char *argv[])
 					}
 
 					// print Buffer Header
+					/*
 					printf("Chx Bankx buffer header information: %i \n", nof_events);
 					printf("\tindentifier       = %d   \tbuffer_no    = %d    \tchannel_id         = %d   \n", header_indentifier, buffer_no, channel_no);
 					printf("\tnof_events        = %d   \tevent_length = %d    \tshort_event_length = %d   \traw_data_first_event_only_flag = %ld  \n", nof_events, event_length, (short_event_and_maw_buffer_length & 0x7fff) >> 16, (short_event_and_maw_buffer_length & 0x780000000) >> 31);
 					printf("\tmaw_buffer_length = %d    \n", (short_event_and_maw_buffer_length & 0x7fff));
 					printf("\treserved_ch_bankx_buffer_length = %d (0x%08x) \n", header_reserved_ch_bankx_buffer_length, header_reserved_ch_bankx_buffer_length);
+					*/
 
 					maw_buffer_length = (short_event_and_maw_buffer_length & 0x7fff);
 
@@ -256,9 +256,9 @@ int main(int argc, char *argv[])
 					nof_read = 0;
 					for (i_event = 0; i_event < nof_events; i_event++)
 					{
-						nof_read = nof_read + ReadEventsFromDataFile(&gl_ch_data[0], 1); //read 4 bytes = 32 bits
+						nof_read = nof_read + ReadEventsFromDataFile(&gl_ch_data[0], 1); // read 4 bytes = 32 bits
 						i_ch = (gl_ch_data[0] & 0xfff0) >> 4;
-						headerformat = (gl_ch_data[0] & 0xf); 
+						headerformat = (gl_ch_data[0] & 0xf);
 
 						header_length = 3; // if headerformat == 0
 						if ((headerformat & 0x1) == 1)
@@ -278,8 +278,8 @@ int main(int argc, char *argv[])
 							header_length = header_length + 2;
 						}
 
-						// read rest of Event-Header 
-						nof_read = nof_read + ReadEventsFromDataFile(&gl_ch_data[1], header_length - 1); 
+						// read rest of Event-Header
+						nof_read = nof_read + ReadEventsFromDataFile(&gl_ch_data[1], header_length - 1);
 						/* make the time  */
 						uint64_t time2 = getLeft(gl_ch_data[0]);
 						uint64_t time1 = getLeft(gl_ch_data[1]);
@@ -292,7 +292,7 @@ int main(int argc, char *argv[])
 							nof_read = nof_read + ReadEventsFromDataFile(&gl_ch_data[header_length], sample_length / 2); // read Raw Data
 							wave.clear();
 							wave.resize(sample_length);
-							getWave(&gl_ch_data[header_length],wave);
+							getWave(&gl_ch_data[header_length], wave);
 							rawEvent[i_ch]->channel = i_ch;
 							rawEvent[i_ch]->buffer = buffer_no;
 							rawEvent[i_ch]->trigger = i_event;
@@ -301,17 +301,17 @@ int main(int argc, char *argv[])
 							ftrees[i_ch]->Fill();
 
 							// simple baseline
-							double  base = 0;
+							double base = 0;
 							unsigned nsum = 50;
-							for (unsigned ib = 0; ib < nsum ; ++ib)
+							for (unsigned ib = 0; ib < nsum; ++ib)
 								base += double(wave[ib]);
 							base /= double(nsum);
-							//hChan[i_ch]->Reset("ICESM");
+							// hChan[i_ch]->Reset("ICESM");
 							for (unsigned ib = 0; ib < wave.size(); ++ib)
 								hChan[i_ch]->SetBinContent(ib + 1, double(wave[ib]) - base + hChan[i_ch]->GetBinContent(ib + 1));
-							
-							if (i_event == nof_events-1)
-								printf("\t ...chan %i i_event %i length %lu  baseline %f (%f) \n",i_ch, i_event+1, wave.size(),base, double(wave[0]));
+
+							//if (i_event == nof_events - 1)
+							//	printf("\t ...chan %i i_event %i length %lu  baseline %f (%f) \n", i_ch, i_event + 1, wave.size(), base, double(wave[0]));
 						}
 						if (maw_buffer_length != 0)
 						{
@@ -322,20 +322,20 @@ int main(int argc, char *argv[])
 				}
 			}
 
-			//gSystem->ProcessEvents(); // handle GUI events
-				
+			// gSystem->ProcessEvents(); // handle GUI events
+
 		} while (valid_BankBufferHeader_valid_flag == 1);
-//fclose(gl_FILE_DataEvenFilePointer);
-//printf("file closed and finished   \n");
-//bank_buffer_counter++;
-} // good fil
+		// fclose(gl_FILE_DataEvenFilePointer);
+		// printf("file closed and finished   \n");
+		// bank_buffer_counter++;
+	} // good fil
 
-//}
+	//}
 
-CLOSE :
+CLOSE:
 
-	printf(" close with  bank_buffer_counter %i buffer_no %i nof_events  = %i \n", bank_buffer_counter, buffer_no , nof_events);
-	for (int ich = 0; ich < NCHAN; ++ ich )
+	printf(" close with  bank_buffer_counter %i buffer_no %i nof_events  = %i \n", bank_buffer_counter, buffer_no, nof_events);
+	for (int ich = 0; ich < NCHAN; ++ich)
 		printf(" channel %i  entries = %lld \n", ich, ftrees[ich]->GetEntries());
 	fclose(gl_FILE_DataEvenFilePointer);
 	fout->ls();
@@ -371,13 +371,13 @@ int ReadEventsFromDataFile(unsigned int *memory_data_array, unsigned int nof_wri
 	return nof_read;
 }
 
-void getWave(unsigned int *ch_rawdata_buffer, std::vector<unsigned short> &wave )
+void getWave(unsigned int *ch_rawdata_buffer, std::vector<unsigned short> &wave)
 {
 	unsigned short *ushort_adc_buffer_ptr;
 	ushort_adc_buffer_ptr = (unsigned short *)ch_rawdata_buffer;
-	//module_ch_no = ch_no & 0xf;
+	// module_ch_no = ch_no & 0xf;
 	for (unsigned i = 0; i < wave.size(); i++)
 	{
-		wave[i]=(ushort_adc_buffer_ptr[i]);
+		wave[i] = (ushort_adc_buffer_ptr[i]);
 	}
 }
