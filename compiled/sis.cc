@@ -131,9 +131,9 @@ int main(int argc, char *argv[])
 	// unsigned int i_file;
 	int int_ch;
 
+	
 	if (argc > 1)
 	{
-
 		while ((int_ch = getopt(argc, argv, "?hF:")) != -1)
 		{
 			switch (int_ch)
@@ -164,11 +164,10 @@ int main(int argc, char *argv[])
 		}
 	}
 	maxBuffer = 0;
-	if (argc > 2)
-		maxBuffer = atoi(argv[2]);
+	if (argc > 3)
+		maxBuffer = atoi(argv[3]);
 
-	printf(" tag %s maxBuffer = %i \n",filetag,maxBuffer);
-
+	printf(" running %s tag %s maxBuffer = %i \n",argv[0],filetag,maxBuffer);
 
 	bank_buffer_counter = 0;
 
