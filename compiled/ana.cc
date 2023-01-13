@@ -2,7 +2,9 @@
 int main(int argc, char *argv[])
 {
   cout << "executing " << argv[0] << endl;
-  printf(" usage: ana  <max entries 0=all> <run name>   \n ");
+  printf(" usage: ana  <run name>  <max entries 0=all>  \n ");
+  if(argc<2)
+    exit(0);
   TString tag("run");
   Long64_t maxEntries = 0;
   if (argc > 1)
