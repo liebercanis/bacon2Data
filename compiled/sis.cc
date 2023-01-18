@@ -60,7 +60,7 @@ using namespace std;
 std::uint64_t maxFiles;
 TString dirName;
 TList *files;
-std::vector<std::string> vfile;
+std::map<int, std::string> vfile;
 TFile *fout;
 /* globals	                               		  			     */
 int NCHAN = 13;
@@ -96,10 +96,14 @@ void countFiles()
 	{
 		string name = string(file->GetName());
 		string exten = name.substr(name.find_last_of(".") + 1);
-		if (exten != string("dat"))
-			continue;
-		vfile.push_back(std::string(name.c_str()));
-	}
+    if (exten != string("dat"))
+      continue;
+    int s = name.find_last_of(".") - name.find_last_of("_")-1;
+    string num = name.substr(name.find_last_of("_")+1,s);
+    int inum = atoi(num.c_str());
+    //cout << " s= " << s << " " << name << " " << num << endl;
+    vfile.insert(std::pair<int, std::string>(inum, name));
+  }
 }
 
 
@@ -163,9 +167,9 @@ int main(int argc, char *argv[])
 
   countFiles();
 	cout << "dirName " << dirName << " has "  << vfile.size() <<" .dat files:" << endl;
-  sort(vfile.begin(), vfile.end()); 
-	for (unsigned isub = 0; isub < vfile.size(); ++isub)
-		cout << vfile[isub] << endl;
+
+  for (std::map<int,string>::iterator it = vfile.begin(); it != vfile.end(); ++it)
+    std::cout << it->first << " => " << it->second << '\n';
 
 
 	// open output file
@@ -190,7 +194,6 @@ int main(int argc, char *argv[])
 		htitle.Form("channel %i", ich);
 		hChan.push_back(new TH1D(hname, htitle, NSAMPLES, 1, NSAMPLES));
 	}
-
 	
 
 	/* loop over files  */
@@ -199,13 +202,17 @@ int main(int argc, char *argv[])
   unsigned totalFiles = vfile.size();
   if(maxFiles>0)
     totalFiles = maxFiles;
-  for (unsigned ifile = 0; ifile < totalFiles; ++ifile){
-    TString fullName = dirName + TString("/") + TString(vfile[ifile].c_str());
-    printf("\n\n\t starting file %s \n",fullName.Data());
-		totalEvents += processFile(fullName);
-    printf("\t finished  file %s totalEvents %lld \n",fullName.Data(),totalEvents);
+  for (std::map<int, string>::iterator it = vfile.begin(); it != vfile.end(); ++it)
+    {
+    string fname = it->second;
+    TString fullName = dirName + TString("/") + TString(fname.c_str());
+    printf("\n\n\t starting file %s \n", fullName.Data());
+    totalEvents += processFile(fullName);
+    printf("\t finished  file %s totalEvents %lld \n", fullName.Data(), totalEvents);
     ++filesRead;
-  }
+    if(filesRead>maxFiles)
+      break;
+    }
 
 
 	printf(" finished sis after file %i total events %llu  \n",filesRead,totalEvents);
