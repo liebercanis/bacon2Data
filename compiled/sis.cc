@@ -208,14 +208,14 @@ int main(int argc, char *argv[])
     TString fullName = dirName + TString("/") + TString(fname.c_str());
     printf("\n\n\t starting file %s \n", fullName.Data());
     totalEvents += processFile(fullName);
-    printf("\t finished  file %s totalEvents %lld \n", fullName.Data(), totalEvents);
+    printf("\t FINISHED  file %s totalEvents %lld \n", fullName.Data(), totalEvents);
     ++filesRead;
-    if(filesRead>maxFiles)
+    if(filesRead>totalFiles)
       break;
     }
 
 
-	printf(" finished sis after file %i total events %llu  \n",filesRead,totalEvents);
+	printf(" FINISHED sis after file %i total events %llu  \n",filesRead,totalEvents);
 	for (int ich = 0; ich < NCHAN; ++ich)
 		printf(" channel %i  entries = %lld \n", ich, ftrees[ich]->GetEntries());
 	//fout->ls();
