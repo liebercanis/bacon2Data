@@ -90,7 +90,7 @@ std::uint32_t getRight(uint32_t a)
 // count subruns and channels
 void countFiles()
 {
-	TIter next(files);
+  TIter next(files);
 	TSystemFile *file;
 	while ((file = (TSystemFile *)next()))
 	{
@@ -158,13 +158,12 @@ int main(int argc, char *argv[])
 	tag = TString(dirTag);
 
 	dirName = TString("data/") + tag;
-	TSystemDirectory dir("rawdir", dirName); // TSystemDirectory
+  TSystemDirectory dir("rawdir", dirName); // TSystemDirectory
 	files = dir.GetListOfFiles();			 // TList
 
-
-	countFiles();
+  countFiles();
 	cout << "dirName " << dirName << " has "  << vfile.size() <<" .dat files:" << endl;
-
+  sort(vfile.begin(), vfile.end()); 
 	for (unsigned isub = 0; isub < vfile.size(); ++isub)
 		cout << vfile[isub] << endl;
 
@@ -201,8 +200,10 @@ int main(int argc, char *argv[])
   if(maxFiles>0)
     totalFiles = maxFiles;
   for (unsigned ifile = 0; ifile < totalFiles; ++ifile){
-		TString fullName = dirName + TString("/") + vfile[ifile];
+    TString fullName = dirName + TString("/") + vfile[ifile];
+    printf("\n\n\t starting file %s \n",fullName.Data());
 		totalEvents += processFile(fullName);
+    printf("\t finished  file %s totalEvents %lld \n",fullName.Data(),totalEvents);
     ++filesRead;
   }
 
