@@ -60,7 +60,7 @@ using namespace std;
 std::uint64_t maxFiles;
 TString dirName;
 TList *files;
-std::vector<TString> vfile;
+std::vector<std::string> vfile;
 TFile *fout;
 /* globals	                               		  			     */
 int NCHAN = 13;
@@ -98,7 +98,7 @@ void countFiles()
 		string exten = name.substr(name.find_last_of(".") + 1);
 		if (exten != string("dat"))
 			continue;
-		vfile.push_back(TString(name.c_str()));
+		vfile.push_back(std::string(name.c_str()));
 	}
 }
 
@@ -200,7 +200,7 @@ int main(int argc, char *argv[])
   if(maxFiles>0)
     totalFiles = maxFiles;
   for (unsigned ifile = 0; ifile < totalFiles; ++ifile){
-    TString fullName = dirName + TString("/") + vfile[ifile];
+    TString fullName = dirName + TString("/") + TString(vfile[ifile].c_str());
     printf("\n\n\t starting file %s \n",fullName.Data());
 		totalEvents += processFile(fullName);
     printf("\t finished  file %s totalEvents %lld \n",fullName.Data(),totalEvents);
