@@ -45,6 +45,7 @@ public:
   vector<int> chanList;
   vector<TBRawEvent *> rawBr;
   TBRun *tbrun;
+  TNtuple *ntChan;
   vector<TH1D *> noiseHist;
   vector<TH1D *> skewHist;
   vector<TH1D *> sumWave;
@@ -64,8 +65,9 @@ public:
   void getBranches();
   void getEvent(Long64_t entry);
   void anaEvent(Long64_t entry);
+  TDirectory *evDir;
+  TDirectory *sumDir;
   Long64_t nentries;
-  int nfill3;
 };
 
 bool anaRun::openFile()
@@ -105,7 +107,7 @@ unsigned  anaRun::getTrees()
     int ichan = TString(TString(tree->GetName())(5, 2)).Atoi();
     if (find(chanList.begin(), chanList.end(), ichan) != chanList.end())
       continue;
-    cout << tree->GetName() << " chan " << ichan << endl;
+    cout << "tree name " << tree->GetName() << " chan " << ichan << endl;
     treeList.push_back(tree);
     chanList.push_back(ichan);
   }
@@ -117,24 +119,30 @@ void anaRun::getBranches()
 {
   for (unsigned it = 0; it < treeList.size(); ++it)
   {
+    rawBr[it] = NULL;
     TObjArray *brList = treeList[it]->GetListOfBranches();
     TIter next(brList);
     TBranchElement *aBranch = NULL;
     while ((aBranch = (TBranchElement *)next()))
     {
+      //cout << "tree " << it << " " << aBranch->GetName() << endl;
       TBRawEvent *chan = (TBRawEvent *)aBranch->GetObject();
+      if(!chan){
+        cout << " \t\t !!!! NULL " << it << endl;
+        continue;
+      }
       rawBr[it] = chan;
+      //cout << "rawBr name  ==>  " << rawBr[it]->GetName() << endl;
     }
   }
 }
 
 void anaRun::getEvent(Long64_t entry)
 {
-  for (unsigned it = 0; it < treeList.size(); ++it)
-  {
-    treeList[it]->GetEntry(entry);
-    getBranches();
-  }
+  for (unsigned it = 0; it < treeList.size(); ++it) 
+  treeList[it]->GetEntry(entry);
+  getBranches();
+  
 }
 
 /* analyze rawBr */
@@ -142,76 +150,96 @@ void anaRun::anaEvent(Long64_t entry)
 {
   tbrun->clear();
   // loop over channels
-  for (int ichan = 0; ichan < rawBr.size(); ++ichan)
+  for (int ib = 0; ib< rawBr.size(); ++ib)
   {
-    int nbins = rawBr[ichan]->rdigi.size();
+    unsigned ichan = chanList[ib];
+    int nbins = rawBr[ib]->rdigi.size();
+    //cout << ib << " nbins " << nbins << " max hist " << hEvGaus.size() << " rawBr.size() " << rawBr.size() << endl;
     if (nbins < 1)
       continue;
 
     // simple baseline
     //double base = std::accumulate(rawBr[ichan]->rdigi.begin(), rawBr[ichan]->rdigi.end(), 0) / rawBr[ichan]->rdigi.size();
-    unsigned  baseLength = 100;
+    unsigned  baseLength = 30;
 
     double base = 0;
     for (unsigned j = 0; j < baseLength; ++j){
-      base += (double) rawBr[ichan]->rdigi[j];
+      base += (double) rawBr[ib]->rdigi[j];
     }
     base /= double(baseLength);
+
+    double peak = 0;
+    for (unsigned j = baseLength ; j < 100; ++j)
+    {
+      peak += (double)rawBr[ib]->rdigi[j]-base;
+    }
 
     TString hname;
     hEvRawWave = NULL;
 
     // baseline correction from fitted Gaussian
-    hEvGaus[ichan]->Reset();
-    for (unsigned j = 0; j < rawBr[ichan]->rdigi.size(); ++j)
-      hEvGaus[ichan]->Fill((double)rawBr[ichan]->rdigi[j] - base);
-
-    hEvGaus[ichan]->Fit("gaus", "QO");
-    TF1 *gfit = (TF1 *)hEvGaus[ichan]->GetListOfFunctions()->FindObject("gaus");
-    double ave = gfit->GetParameter(1);
-    double sigma = gfit->GetParameter(2);
-    double skew = hEvGaus[ichan]->GetSkewness();
+    hEvGaus[ib]->Reset("ICES");
+    for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+      hEvGaus[ib]->Fill((double)rawBr[ib]->rdigi[j] - base);
+    hEvGaus[ib]->Fit("gaus", "QO");
+    TF1 *gfit = (TF1 *)hEvGaus[ib]->GetListOfFunctions()->FindObject("gaus");
+    double ave = hEvGaus[ib]->GetMean();
+    double sigma = hEvGaus[ib]->GetRMS();
+    double skew = 0;
+    if (!isnan(hEvGaus[ib]->GetSkewness()))
+      skew = hEvGaus[ib]->GetSkewness();
+    if (gfit != nullptr )
+    {
+     ave = gfit->GetParameter(1);
+     sigma = gfit->GetParameter(2);
+    }
     // fitptr->Print();
-    cout << hname << " " <<   " ave " << ave << " sigma " << sigma << " skew " << skew <<  endl;
-    noiseHist[ichan]->Fill(sigma);
-    skewHist[ichan]->Fill(skew);
+    noiseHist[ib]->Fill(sigma);
+    skewHist[ib]->Fill(skew);
     double sign = TMath::Sign(1., skew);
     TDet *idet = tbrun->getDet(ichan);
-    if(idet!=NULL){
+    if (idet == NULL)
+    {
+      printf("!!!!!NULL idet br %u ichan %i\n", ib,ichan);
+      continue;
+    }
+    if (idet != NULL)
+    {
       idet->ave = ave;
       idet->sigma = sigma;
       idet->skew = skew;
       idet->event = entry;
       idet->base = base;
     }
-    // fi
+    //cout << "tree " << ib << " ch "<< ichan << " " <<   " ave " << ave << " sigma " << sigma << " skew " << skew << " base "<< base << endl;
+    ntChan->Fill(float(ichan),float(ave),float(sigma),float(skew),float(base),float(peak));
+    
     // skip events with no hits
     if (abs(skew) < 1)
-        continue;
-
-    if(ichan==3)
-      ++nfill3;
+      continue;
 
     // plot some single events
     if (entry < 100)
     {
       hname.Form("EvRawWaveEv%ich%i", int(entry), ichan);
       hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
-      for (unsigned j = 0; j < rawBr[ichan]->rdigi.size(); ++j)
+      for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
       {
         //double val = sign * ((double)rawBr[ichan]->rdigi[j] - base - ave - valHist[ichan]->GetMean());
-        double val = (double)rawBr[ichan]->rdigi[j] - base;
+        double val = (double)rawBr[ib]->rdigi[j] - base;
         hEvRawWave->SetBinContent(j + 1, val);
       }
+      evDir->Append(hEvRawWave);
     }
 
     // summed plots
-    for (unsigned j = 0; j < rawBr[ichan]->rdigi.size(); ++j)
+    //cout << ib << " " << sumWave[ib]->GetName() << " , " << valHist[ib]->GetName() << " sign " << sign<< " base " << base << endl;
+    for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
-      double val = sign * ((double)rawBr[ichan]->rdigi[j] - base);
+      double val = (double)rawBr[ib]->rdigi[j] - base;
       //double val = sign * ((double)rawBr[ichan]->rdigi[j] - base - ave) - valHist[ichan]->GetMean();
-      sumWave[ichan]->SetBinContent(j + 1, sumWave[ichan]->GetBinContent(j + 1) + val);
-      valHist[ichan]->Fill(val);
+      sumWave[ib]->SetBinContent(j + 1, sumWave[ib]->GetBinContent(j + 1) + val);
+      valHist[ib]->Fill(val);
     }
 
     // hit finding
@@ -229,13 +257,13 @@ void anaRun::anaEvent(Long64_t entry)
     
   } // channel loop
   // fill output Tree for each event
+  //cout << "finished " << entry << endl;
   tbrun->fill();
 } // anaEvent
 
 
 anaRun::anaRun(const char *theTag, Long64_t maxEntries)
 {
-  nfill3 = 0;
   tag = TString(theTag);
   cout << " starting anaRun entries = " << maxEntries << " tag =  " << tag << endl;
   if (!openFile())
@@ -244,53 +272,65 @@ anaRun::anaRun(const char *theTag, Long64_t maxEntries)
      return;
   }
   getTrees();
-  cout << " treeList size " << treeList.size() << endl;
+  cout << "treeList size " << treeList.size() << endl;
   if(treeList.size()<1)
      return;
+  rawBr.clear();
   rawBr.resize(treeList.size());
-  getBranches();
+  getEvent(0);
 
   fout = new TFile(Form("anaRun-%s-%llu.root", tag.Data(), maxEntries), "recreate");
+  evDir = fout->mkdir("evDir");
+  fout->cd();
   cout << " opened output file " << fout->GetName() << endl;
   tbrun = new TBRun(tag);
-  for (unsigned it = 0; it < chanList.size(); ++it)
+  for (unsigned it = 0; it < chanList.size(); ++it) 
      tbrun->addDet(chanList[it]);
 
+
   //fout->Append(tbrun->btree);
-  getEvent(0);
-  for (unsigned i = 0; i< chanList.size(); ++i)
+  ntChan = new TNtuple("ntChan","channel ntuple","chan:ave:sigma:skew:base:peak");
+ 
+  for (unsigned i = 0; i < rawBr.size(); ++i)
   {
      unsigned ichan = chanList[i];
-     noiseHist.push_back(new TH1D(Form("noiseChan%i", ichan), Form("noiseChan%i", ichan), 100, 0, 10));
-     skewHist.push_back(new TH1D(Form("skewChan%i", ichan), Form("skewChan%i", ichan), 2000, -10, 10));
-     sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+     noiseHist.push_back(new TH1D(Form("noiseChan%i", ichan), Form("noiseChan%i", ichan), 1000, 0, 1000));
+     skewHist.push_back(new TH1D(Form("skewChan%i", ichan), Form("skewChan%i", ichan), 200, -10, 10));
      valHist.push_back(new TH1D(Form("valChan%i", ichan), Form("valChan%i", ichan), 1000, -200, 200));
-     hEvGaus.push_back(new TH1D(Form("baseline%i", ichan), Form("baseline%i", ichan), 200, -100, 100));
+     hEvGaus.push_back(new TH1D(Form("evGaus%i", ichan), Form("evGaus%i", ichan), 200, -100, 100));
   }
-  //fout->ls();
+  sumDir = fout->mkdir("sumDir");
+  sumDir->cd();
+  for (unsigned i = 0; i < rawBr.size(); ++i)
+  {
+     unsigned ichan = chanList[i];
+     sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+  }
+  fout->cd();
+  // fout->ls();
 
   finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList);
   Long64_t nentries = treeList[0]->GetEntries();
   if (maxEntries > 0)
-    nentries = TMath::Min(maxEntries, nentries);
+     nentries = TMath::Min(maxEntries, nentries);
   printf("... total entries  %llu looping over %llu \n ", treeList[0]->GetEntries(), nentries);
 
   for (Long64_t entry = 0; entry < nentries; ++entry)
   {
-    if (entry / 1000 * 1000 == entry)
+     if (entry / 100 * 100 == entry)
       printf("... %llu \n", entry);
-    getEvent(entry);
-    /* test 
-    for (unsigned it = 0; it < treeList.size(); ++it)
-      printf("tree %u chan %i event %i time %lld \n", it, rawBr[it]->channel, rawBr[it]->trigger, rawBr[it]->time);
-    */
-    anaEvent(entry);
-  }
+     getEvent(entry);
+     /* test
+     for (unsigned it = 0; it < treeList.size(); ++it)
+       printf("tree %u chan %i event %i time %lld \n", it, rawBr[it]->channel, rawBr[it]->trigger, rawBr[it]->time);
+     */
+     anaEvent(entry);
+     }
 
-  // finder->hPeakCount->Print("all");
-  printf(" tbrun entries %llu \n",tbrun->btree->GetEntriesFast());
-  tbrun->btree->GetListOfBranches()->ls();
-  fout->ls();
-  fout->Write();
-  fout->Close();
-}
+     // finder->hPeakCount->Print("all");
+     printf(" tbrun entries %llu \n", tbrun->btree->GetEntriesFast());
+     tbrun->btree->GetListOfBranches()->ls();
+     fout->ls();
+     fout->Write();
+     fout->Close();
+  }

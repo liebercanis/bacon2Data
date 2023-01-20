@@ -58,6 +58,7 @@ Long64_t getNevents() {
       if (detList[i]->channel == ichan)
       {
         rev = detList[i];
+        //printf(" got TDET INSTANCE %i  %s \n", ichan, rev->GetName());
         break;
       }
     }
