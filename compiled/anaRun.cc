@@ -61,6 +61,7 @@ public:
   vector<TH1D *> crossHist;
   TH1D *hEvRawWave;
   vector<TH1D *> hEvGaus;
+  TH1D* evCount;
   vector<double> digi;
   vector<double> ddigi;
   vector<double> hdigi;
@@ -248,10 +249,6 @@ void anaRun::anaEvent(Long64_t entry)
 
     //cout << "tree " << ib << " ch " << ichan << " " << " ave " << ave << " sigma " << sigma << " skew " << skew << " base " << base << endl;
 
-    // skip events with no hits
-    // if (skew < 0.2)
-    //  continue;
-
     
     // fill baseline subtracted vector
     digi.clear();
@@ -321,7 +318,7 @@ void anaRun::anaEvent(Long64_t entry)
     if(!idet->pass) eventPass = false;
   }
 
-
+  evCount->Fill(0);
   if(!eventPass)
     return;
 
@@ -338,6 +335,7 @@ void anaRun::anaEvent(Long64_t entry)
       continue;
     }
     if(idet->thresholds<1) continue;
+    evCount->Fill(ichan+1);
 
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
@@ -491,6 +489,7 @@ anaRun::anaRun(const char *theTag, Long64_t maxEntries)
 
   // fout->Append(tbrun->btree);
   ntChan = new TNtuple("ntChan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peak:sum2:sum:crossings:thresholds:cut");
+  evCount =  new TH1D("eventCount","event count",14,0,14);
 
   anaDir = fout->mkdir("anaDir");
   anaDir->cd();
