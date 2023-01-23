@@ -295,7 +295,7 @@ void anaRun::anaEvent(Long64_t entry)
       fout->cd();
       }
 
-    if (idet->pass && idet->skew>0.2 && evDir->GetList()->GetEntries() < 100)
+    if (idet->pass && idet->thresholds>1 && evDir->GetList()->GetEntries() < 100)
     {
       evDir->cd();
       hname.Form("EvRawWaveEv%ich%i", int(entry), ichan);
@@ -337,7 +337,7 @@ void anaRun::anaEvent(Long64_t entry)
       printf("!!!!!NULL idet br %u ichan %i\n", ib, ichan);
       continue;
     }
-    if(idet->skew<0.2) continue;
+    if(idet->thresholds<1) continue;
 
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
