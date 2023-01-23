@@ -28,12 +28,17 @@ public:
   Double_t sigma;
   Double_t skew;
   Double_t base;
+  Double_t peak;
+  Double_t sum2;
+  Double_t sum;
+  Int_t crossings;
+  Int_t thresholds;
   Int_t nspe;
   Double_t qPrompt;
   Double_t qSum;
   Double_t hitPrompt;
   Double_t hitSum;
-
+  bool pass;
   std::vector<TDetHit> hits;
 
   unsigned nhits() { return hits.size(); }
@@ -45,11 +50,17 @@ public:
     sigma = 0;
     skew = 0;
     base = 0;
+    peak = 0;
+    sum2 = 0;
+    sum = 0;
+    crossings = 0;
+    thresholds = 0;
     nspe = 0;
     qPrompt = 0;
     qSum = 0;
     hitPrompt = 0;
     hitSum = 0;
+    pass = 0;
     hits.clear();
   }
 

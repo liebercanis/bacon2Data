@@ -2,7 +2,7 @@ TFile *fin;
 vector<TTree *> treeList;
 vector<int> chanList;
 vector<TBRawEvent *> rawBr;
-vector<TH1D *> sumWave;
+TH1D* sumWave;
 TCanvas *can;
 
 unsigned getTrees()
@@ -53,7 +53,7 @@ void getBranches()
                 continue;
             }
             rawBr[it] = chan;
-            cout << it << " rawBr name  ==>  " << rawBr[it]->GetName() << endl;
+            //cout << it << " rawBr name  ==>  " << rawBr[it]->GetName() << endl;
         }
     }
 }
@@ -88,7 +88,7 @@ void plots()
     }
 }
 
-void plotWave(unsigned ichan, Long64_t entry)
+void plotWave(unsigned ichan, Long64_t entry,bool draw)
 {
     getEvent(entry);
     // find corresponding tree
@@ -100,33 +100,40 @@ void plotWave(unsigned ichan, Long64_t entry)
         printf("no tree for chan %u \n",ichan);
         return;
     }
-    printf("tree for chan %u numbered %u \n",ichan,ib);
+    printf("tree for chan %u numbered %u event %lld trig %u time %lld \n", ichan, ib, entry, rawBr[ib]->trigger,rawBr[ib]->time);
 
     unsigned baseLength = 30;
     double base = 0;
     for (unsigned j = 0; j < baseLength; ++j)
     {
+        //printf(" %u %u ;", j, rawBr[ib]->rdigi[j]);
         base += (double)rawBr[ib]->rdigi[j];
     }
     base /= double(baseLength);
-    sumWave[ib]->Reset("ICES");
+    //printf("base %f \n",base);
+
+    TString hname;
+    hname.Form("sumWave-chan%u-trig-%u,ev%lld",ichan,rawBr[ib]->trigger, entry);
+    TH1D *sumWave = new TH1D(hname,hname,rawBr[ib]->rdigi.size(), 0, rawBr[ib]->rdigi.size());
 
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
         double val = (double)rawBr[ib]->rdigi[j] - base;
-
-        sumWave[ib]->SetBinContent(j + 1, sumWave[ib]->GetBinContent(j + 1) + val);
+        sumWave->SetBinContent(j + 1, sumWave->GetBinContent(j + 1) + val);
     }
+    if(!draw)
+        return;
 
     TString canName;
-    canName.Form("event%lldchan%u",entry,ib);
+    canName.Form("event-%lldchan-%u", entry, chanList[ib]);
     can = new TCanvas(canName,canName);
-    sumWave[ib]->SetTitle(canName);
-    sumWave[ib]->Draw();
+    sumWave->Draw();
 }
 /* main */
 void plotSisEvent(TString file = "data/rootData/run-01_12_2023-nev0.root")
 {
+    cout << " file " << file << endl;
+
     fin = new TFile(file, "readonly");
     fin->ls();
     getTrees();
@@ -138,9 +145,9 @@ void plotSisEvent(TString file = "data/rootData/run-01_12_2023-nev0.root")
 
     TFile *fout = new TFile("plotSisEvent.root", "recreate");
 
-    for (unsigned i = 0; i < rawBr.size(); ++i)
+    for (Long64_t entry = 0; entry < 1000; ++entry)
     {
-        unsigned ichan = chanList[i];
-        sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+        plotWave(9, entry, false);
     }
+    fout->Write();
 }

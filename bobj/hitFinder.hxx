@@ -59,7 +59,9 @@ public:
   TBRun *tbrun;
   TString tag;
   TDirectory *fftDir;
-  hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan );
+  TDirectory *finderDir;
+  bool verbose;
+  hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan);
   virtual ~hitFinder() { chanMap.clear(); }
   int nsamples;
   unsigned diffStep;
@@ -70,12 +72,16 @@ public:
   void differentiate(unsigned diffStep);
   std::map<int, int> chanMap;
 
-  std::vector<double> rdigi;  // 
+  TNtuple *ntFinder;
+  std::vector<double> rdigi; //
   std::vector<double> digi;  // baseline subtracted
   std::vector<double> ddigi; // derivative
   std::vector<double> sdigi; // smoothed
   std::vector<double> hdigi; // hits
   std::vector< Double_t > fdigi; // filtered
+  std::vector<unsigned> crossings;
+  std::vector<unsigned> crossingBin;
+  std::vector<double> crossingTime;
   hitMap detHits;
   peakType peakList;
   std::vector<Int_t> peakKind;

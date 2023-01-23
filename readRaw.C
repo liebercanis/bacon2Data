@@ -13,8 +13,9 @@ enum
 	BYTE = 8 ,
 	WORD = 4 * BYTE
 };
-
 std::uint32_t eventLength;
+std::uint32_t multiEventLength;
+
 ifstream input;
 int format;
 int timestamp;
@@ -47,12 +48,14 @@ std::uint32_t getRight25(uint32_t a)
 
 uint32_t readEventHeader(int iline, std::uint32_t &channel)
 {
+	std::uint32_t nlines=0;
 	cout << ">>>> header for "<< iline << " at byte " << input.tellg() << endl;
 	std::uint32_t line;
 	input.read(reinterpret_cast<char *>(&line), sizeof line);
-	//std::cout << std::hex << std::showbase << line << dec << '\n';
-	//std::bitset<WORD> bits(value);
-	//std::cout << bits.to_string() << std::endl;
+	++nlines;
+	// std::cout << std::hex << std::showbase << line << dec << '\n';
+	// std::bitset<WORD> bits(value);
+	// std::cout << bits.to_string() << std::endl;
 
 	if (int(input.tellg())==36)
 	{
@@ -71,6 +74,7 @@ uint32_t readEventHeader(int iline, std::uint32_t &channel)
 	//cout << " at byte " << input.tellg() << endl;
 
 	input.read(reinterpret_cast<char *>(&line), sizeof line);
+	++nlines;
 	uint64_t time1 = getLeft(line);
 	uint64_t time0 = getRight(line);
 	uint64_t time = time0+ (time1<<16)  + (time2 <<32);
@@ -79,18 +83,22 @@ uint32_t readEventHeader(int iline, std::uint32_t &channel)
 	//cout << " at byte " << input.tellg() << " "<< hex  << line << dec  << endl;
 	// skip the 9 lines
 	input.seekg(std::streampos(NBYTES*7), ios_base::cur);
+	nlines += 7;
 	// read energy
 	input.read(reinterpret_cast<char *>(&line), sizeof line);
+	++nlines;
 	uint32_t startEnergy = line;
 	input.read(reinterpret_cast<char *>(&line), sizeof line);
+	++nlines;
 	uint32_t maxEnergy = line;
 	printf("startEnergy %i maxEnergy %i \n", startEnergy, maxEnergy);
 	// read MAW
 	input.read(reinterpret_cast<char *>(&line), sizeof line);
-	//cout << " at byte " << input.tellg() <<" "<<  hex << line << dec <<  endl;
+	++nlines; 
+	// cout << " at byte " << input.tellg() <<" "<<  hex << line << dec <<  endl;
 	uint32_t samples = getRight25(line);
 	uint32_t mawflag = btest[27] & line;
-	cout << " number raw samples " << samples << " MAW test flag " << mawflag << endl;
+	cout << " nlines " << nlines << " number raw samples " << samples << " MAW test flag " << mawflag << endl;
 	return samples;
 }
 
@@ -146,9 +154,11 @@ void readRaw(const char *inputFileName  = "sis3316_test_data.dat",
 		cout << "# " << iline << "  " << headerNames[iline] << " : 0x" << hex << word[0] << dec << " dec " << word[0] << endl;
 		if (iline == 5)
 			eventLength = word[0];
+		if (iline == 7)
+			multiEeventLength = word[0];
 	}
 	cout << " event length = " << eventLength << " =  " << eventLength * 2 << " samples " << endl;
-	cout << " filesize "<< fileSize << " bytes " << endl;
+	cout << " filesize "<< fileSize << " bytes " << " multiEventLength " << multiEventLength << << endl;
 	uint32_t iline = 0;
 	uint32_t nchannels = 0;
 	uint32_t nevents = 0;
@@ -167,13 +177,13 @@ void readRaw(const char *inputFileName  = "sis3316_test_data.dat",
 		// data buff 
 		input.seekg(std::streampos(NBYTES * samples), ios_base::cur);
 		// for MAW buff
-		cout << "before...at byte " << input.tellg() << endl;
+		//cout << "before...at byte " << input.tellg() << endl;
 		input.seekg(std::streampos(WORD), ios_base::cur);
-		cout << "after...at byte " << input.tellg() << endl;
+		//cout << "after...at byte " << input.tellg() << endl;
 		input.seekg(std::streampos(-WORD), ios_base::cur);
-		cout << "backward...at byte " << input.tellg() << endl;
+		//cout << "backward...at byte " << input.tellg() << endl;
 		input.seekg(std::streampos(WORD), ios_base::cur);
-		cout << "foreward...at byte " << input.tellg() << endl;
+		//cout << "foreward...at byte " << input.tellg() << endl;
 	}
 
 	printf(" nchannels %i nevents %i \n",nchannels,nevents );

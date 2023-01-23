@@ -33,8 +33,9 @@ enum
   WORD = 4 * BYTE,
   NSAMPLES = 512
 };
-
 std::uint32_t eventLength;
+std::uint32_t multiEventLength;
+
 ifstream input;
 std::vector<std::uint32_t> btest;
 TBRawRun *rawRun;
@@ -211,8 +212,13 @@ int main(int argc, char *argv[])
     cout << "# " << iline << "  " << headerNames[iline] << " : 0x" << hex << line << dec << " dec " << line << endl;
     if (iline == 5)
       eventLength = line;
+    if (iline == 7)
+      multiEventLength = line;
   }
-  cout << " event length = " << eventLength << " =  " << eventLength * 2 << " samples " << " fileSize " << fileSize << " bytes " << endl;
+  cout << " event length = " << eventLength << " =  " << eventLength * 2
+       << " samples "
+       << " fileSize " << fileSize << " bytes "
+       << " multiEventLength " << multiEventLength << endl;
 
   /* read event headers and data */
   
