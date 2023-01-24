@@ -61,7 +61,7 @@ public:
   vector<TH1D *> crossHist;
   TH1D *hEvRawWave;
   vector<TH1D *> hEvGaus;
-  TH1D* evCount;
+  TH1D *evCount;
   vector<double> digi;
   vector<double> ddigi;
   vector<double> hdigi;
@@ -79,9 +79,9 @@ public:
   unsigned getTrees();
   void getBranches();
   void getEvent(Long64_t entry);
-  void anaEvent(Long64_t entry);
+  bool anaEvent(Long64_t entry);
   void differentiate(unsigned diffStep);
-  void derivativeCount(TDet* idet, Double_t rms);
+  void derivativeCount(TDet *idet, Double_t rms);
   void thresholdCount(TDet *idet, Double_t rms);
   TDirectory *badDir;
   TDirectory *evDir;
@@ -167,7 +167,7 @@ void anaRun::getEvent(Long64_t entry)
 }
 
 /* analyze rawBr */
-void anaRun::anaEvent(Long64_t entry)
+bool anaRun::anaEvent(Long64_t entry)
 {
   tbrun->clear();
   // loop over channels
@@ -227,7 +227,6 @@ void anaRun::anaEvent(Long64_t entry)
       sigma = gfit->GetParameter(2);
     }
 
-   
     // fitptr->Print();
     noiseHist[ib]->Fill(sigma);
     skewHist[ib]->Fill(skew);
@@ -247,9 +246,9 @@ void anaRun::anaEvent(Long64_t entry)
     idet->sum2 = sum2;
     idet->sum = sum;
 
-    //cout << "tree " << ib << " ch " << ichan << " " << " ave " << ave << " sigma " << sigma << " skew " << skew << " base " << base << endl;
+    // cout << "tree " << ib << " ch " << ichan << " "
+    //     << " ave " << ave << " sigma " << sigma << " skew " << skew << " base " << base << endl;
 
-    
     // fill baseline subtracted vector
     digi.clear();
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
@@ -261,7 +260,7 @@ void anaRun::anaEvent(Long64_t entry)
     Double_t cut = idet->sigma * thresholdValue;
     thresholdCount(idet, thresholdValue);
     unsigned diffStep = 3;
-    differentiate(diffStep);  // fill ddigi
+    differentiate(diffStep);     // fill ddigi
     derivativeCount(idet, 10.0); // use ddigi
     // finder->event(ichan, entry, digi);
     // finder->plotEvent(ichan, entry);
@@ -271,17 +270,17 @@ void anaRun::anaEvent(Long64_t entry)
     threshHist[ib]->Fill(idet->thresholds);
     crossHist[ib]->Fill(idet->crossings);
 
-    ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peak), float(sum2), float(sum), float(crossings.size()), float(thresholds.size()),float(cut));
+    ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peak), float(sum2), float(sum), float(crossings.size()), float(thresholds.size()), float(cut));
     // plot some events
     idet->pass = true;
-    if (idet->thresholds > 1 || idet->crossings>50)
+    if (idet->thresholds > 1 || idet->crossings > 50)
       idet->pass = false;
 
-    if (!(idet->pass) && badDir->GetList()->GetEntries()<100)
+    if (!(idet->pass) && badDir->GetList()->GetEntries() < 100)
     {
       badDir->cd();
       hname.Form("EvRawWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
-      //cout << " failed " << hname << endl;
+      // cout << " failed " << hname << endl;
       hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
       {
@@ -290,9 +289,9 @@ void anaRun::anaEvent(Long64_t entry)
         hEvRawWave->SetBinContent(j + 1, val);
       }
       fout->cd();
-      }
+    }
 
-    if (idet->pass && idet->thresholds>1 && evDir->GetList()->GetEntries() < 100)
+    if (idet->pass && idet->thresholds > 0 && evDir->GetList()->GetEntries() < 100)
     {
       evDir->cd();
       hname.Form("EvRawWaveEv%ich%i", int(entry), ichan);
@@ -312,15 +311,17 @@ void anaRun::anaEvent(Long64_t entry)
   tbrun->fill();
 
   bool eventPass = true;
-  for (int ib = 0; ib < rawBr.size(); ++ib) {
+  for (int ib = 0; ib < rawBr.size(); ++ib)
+  {
     unsigned ichan = chanList[ib];
     TDet *idet = tbrun->getDet(ichan);
-    if(!idet->pass) eventPass = false;
+    if (!idet->pass)
+      eventPass = false;
   }
 
   evCount->Fill(0);
-  if(!eventPass)
-    return;
+  if (!eventPass)
+    return eventPass;
 
   for (int ib = 0; ib < rawBr.size(); ++ib)
   {
@@ -334,8 +335,10 @@ void anaRun::anaEvent(Long64_t entry)
       printf("!!!!!NULL idet br %u ichan %i\n", ib, ichan);
       continue;
     }
-    if(idet->thresholds<1) continue;
-    evCount->Fill(ichan+1);
+    if (idet->thresholds < 1)
+      continue;
+
+    evCount->Fill(ichan + 1);
 
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
@@ -345,7 +348,7 @@ void anaRun::anaEvent(Long64_t entry)
       valHist[ib]->Fill(val);
     }
   } // second channel loop
-
+  return eventPass;
 } // anaEvent
 
 // revised derivative Dec 8 2022 MG
@@ -375,19 +378,21 @@ void anaRun::differentiate(unsigned diffStep)
   }
 }
 
-void anaRun::thresholdCount(TDet *idet, Double_t rms){
+void anaRun::thresholdCount(TDet *idet, Double_t rms)
+{
   thresholds.clear();
   Double_t cut = idet->sigma * rms;
   unsigned step = 10;
   unsigned ibin = 0;
   while (ibin < digi.size() - step)
   {
-      Double_t vi = digi[ibin];
-      Double_t vj = digi[ibin + step];
-      if (vi>0 && vi < cut && vj > cut) {
-        thresholds.push_back(UPCROSS);
-      }
-      ibin += step;
+    Double_t vi = digi[ibin];
+    Double_t vj = digi[ibin + step];
+    if (vi > 0 && vi < cut && vj > cut)
+    {
+      thresholds.push_back(UPCROSS);
+    }
+    ibin += step;
   }
 }
 
@@ -401,7 +406,7 @@ void anaRun::derivativeCount(TDet *idet, Double_t rms)
   double timeUnit = 1.0;
   Double_t cut = idet->sigma * rms;
   unsigned step = 1;
-  //cout << " for det " << idet->channel  << " in derivative peaks >>>> rms " << rms << " cut " << cut << endl;
+  // cout << " for det " << idet->channel  << " in derivative peaks >>>> rms " << rms << " cut " << cut << endl;
   Double_t ncut = -cut;
   // find all crossings
   for (unsigned ibin = step; ibin < vsize; ++ibin)
@@ -489,7 +494,7 @@ anaRun::anaRun(const char *theTag, Long64_t maxEntries)
 
   // fout->Append(tbrun->btree);
   ntChan = new TNtuple("ntChan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peak:sum2:sum:crossings:thresholds:cut");
-  evCount =  new TH1D("eventCount","event count",14,0,14);
+  evCount = new TH1D("eventCount", "event count", 14, 0, 14);
 
   anaDir = fout->mkdir("anaDir");
   anaDir->cd();
@@ -499,8 +504,8 @@ anaRun::anaRun(const char *theTag, Long64_t maxEntries)
     unsigned ichan = chanList[i];
     noiseHist.push_back(new TH1D(Form("noiseChan%i", ichan), Form("noiseChan%i", ichan), 1000, 0, 1000));
     skewHist.push_back(new TH1D(Form("skewChan%i", ichan), Form("skewChan%i", ichan), 200, -3, 7));
-    threshHist.push_back(new TH1D(Form("threshChan%i", ichan), Form("threshChan%i", ichan),20,0,20));
-    crossHist.push_back(new TH1D(Form("crossChan%i", ichan), Form("crossChan%i", ichan),100,0,100));
+    threshHist.push_back(new TH1D(Form("threshChan%i", ichan), Form("threshChan%i", ichan), 20, 0, 20));
+    crossHist.push_back(new TH1D(Form("crossChan%i", ichan), Form("crossChan%i", ichan), 100, 0, 100));
     if (ichan > 8 && ichan < 12)
     {
       valHist.push_back(new TH1D(Form("valChan%i", ichan), Form("valChan%i", ichan), 1500, -500, 1000));
@@ -527,21 +532,25 @@ anaRun::anaRun(const char *theTag, Long64_t maxEntries)
   if (maxEntries > 0)
     nentries = TMath::Min(maxEntries, nentries);
   printf("... total entries  %llu looping over %llu \n ", treeList[0]->GetEntries(), nentries);
-
+  unsigned npass = 0;
+  unsigned nfail = 0;
   for (Long64_t entry = 0; entry < nentries; ++entry)
   {
-    if (entry / 100 * 100 == entry)
-      printf("... %llu \n", entry);
+    if (entry / 1000 * 1000 == entry)
+      printf("... %llu pass %u fail %u \n", entry, npass, nfail);
     getEvent(entry);
     /* test
     for (unsigned it = 0; it < treeList.size(); ++it)
       printf("tree %u chan %i event %i time %lld \n", it, rawBr[it]->channel, rawBr[it]->trigger, rawBr[it]->time);
     */
-    anaEvent(entry);
+    if (anaEvent(entry))
+      ++npass;
+    else
+      ++nfail;
   }
 
   // finder->hPeakCount->Print("all");
-  printf(" tbrun entries %llu fout %s \n", tbrun->btree->GetEntriesFast(), fout->GetName());
+  printf(" npass %u nfail %u tbrun entries %llu fout %s \n", npass, nfail, tbrun->btree->GetEntriesFast(), fout->GetName());
   // tbrun->btree->GetListOfBranches()->ls();
   // fout->ls();
   fout->Write();
