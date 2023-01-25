@@ -61,15 +61,12 @@ public:
   TDirectory *fftDir;
   TDirectory *finderDir;
   bool verbose;
+  bool smoothing;
   hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan);
   virtual ~hitFinder() { chanMap.clear(); }
   int nsamples;
   unsigned diffStep;
-  void plotWave(int idet, Long64_t jentry);
-  void plotEvent( unsigned idet,Long64_t ievent);
-
-  void findHits(int idet, Long64_t jentry);
-  void differentiate(unsigned diffStep);
+  double threshold;
   std::map<int, int> chanMap;
 
   TNtuple *ntFinder;
@@ -87,9 +84,13 @@ public:
   std::vector<Int_t> peakKind;
   double timeUnit;
   double microSec;
-  void event(int idet, Long64_t ievent, vector<double> rdigi);
-  void derivativePeaks(Int_t idet, Double_t rms);
+  void event(int idet, Long64_t ievent, vector<double> rdigi, double thresh, unsigned step=3);
+  void derivativePeaks(Int_t idet);
   hitMap makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge);
+  void plotWave(int idet, Long64_t jentry);
+  void plotEvent(unsigned idet, Long64_t ievent);
+  void findHits(int idet, Long64_t jentry);
+  void differentiate();
   void trimPeaks(int idet, std::vector<Double_t> v);
   void extendPeaks(int idet, std::vector<Double_t> v);
   bool getTransforms();

@@ -249,7 +249,7 @@ bool anaRun::anaEvent(Long64_t entry)
     // cout << "tree " << ib << " ch " << ichan << " "
     //     << " ave " << ave << " sigma " << sigma << " skew " << skew << " base " << base << endl;
 
-    // fill baseline subtracted vector
+    /* fill baseline subtracted vector */
     digi.clear();
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
@@ -262,8 +262,7 @@ bool anaRun::anaEvent(Long64_t entry)
     unsigned diffStep = 3;
     differentiate(diffStep);     // fill ddigi
     derivativeCount(idet, 10.0); // use ddigi
-    // finder->event(ichan, entry, digi);
-    // finder->plotEvent(ichan, entry);
+   
 
     idet->thresholds = int(thresholds.size());
     idet->crossings = int(crossings.size());
@@ -271,11 +270,15 @@ bool anaRun::anaEvent(Long64_t entry)
     crossHist[ib]->Fill(idet->crossings);
 
     ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peak), float(sum2), float(sum), float(crossings.size()), float(thresholds.size()), float(cut));
-    // plot some events
+    // set cut 
     idet->pass = true;
-    if (idet->thresholds > 1 || idet->crossings > 50)
+    if (idet->crossings > 50)
       idet->pass = false;
+    bool trig = ichan == 9 || ichan == 10 || ichan == 11;
+    if (trig && idet->thresholds > 1)
+      idet->pass == false;
 
+    // plot some events
     if (!(idet->pass) && badDir->GetList()->GetEntries() < 100)
     {
       badDir->cd();
@@ -338,15 +341,20 @@ bool anaRun::anaEvent(Long64_t entry)
     if (idet->thresholds < 1)
       continue;
 
-    evCount->Fill(ichan + 1);
+    /* fill the summed histograms */
 
+    evCount->Fill(ichan + 1);
+    digi.clear();
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
       double val = (double)rawBr[ib]->rdigi[j] - idet->base;
-      // double val = sign * ((double)rawBr[ichan]->rdigi[j] - base - ave) - valHist[ichan]->GetMean();
+      digi.push_back(val);
       sumWave[ib]->SetBinContent(j + 1, sumWave[ib]->GetBinContent(j + 1) + val);
       valHist[ib]->Fill(val);
     }
+    /* pulse finding  */
+    finder->event(ichan, entry, digi, 3. ,3);
+    finder->plotEvent(ichan,entry);
   } // second channel loop
   return eventPass;
 } // anaEvent

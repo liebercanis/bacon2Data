@@ -1,10 +1,11 @@
 TTree *btree;
+vector<TH1D *> hsum;
+vector<TH1D *> hFFT;
 
-void post(char *fname = "anaRun-No_Doping_1_Digitizer-10000.root")
+void post(TString fileName = TString("anaRun-run-01_12_2023-nev0-100.root"))
 {
     gStyle->SetOptStat(1001101);
-    TString fileName(fname);
-    TString fullName = TString("compiled/") + fileName;
+    TString fullName = TString("myData/") + fileName;
     TFile *fin = new TFile(fullName, "readonly");
     if (!fin)
     {
@@ -23,9 +24,10 @@ void post(char *fname = "anaRun-No_Doping_1_Digitizer-10000.root")
 
     Long64_t ntriggers = btree->GetEntriesFast();
     printf(" total triggers analyzed %llu \n", ntriggers);
-    /* get histos from file */
-    vector<TH1D *> hsum;
-    TIter next(fin->GetListOfKeys());
+    /* get sum histos from file */
+    TDirectory *sumDir;
+    fin->GetObject("sumDir",sumDir);
+    TIter next(sumDir->GetListOfKeys());
     TKey *key;
     while (TKey *key = (TKey *)next())
     {
@@ -39,8 +41,7 @@ void post(char *fname = "anaRun-No_Doping_1_Digitizer-10000.root")
         hsum.push_back(h);
     }
 
-     /* get FFT histos from file */
-    vector<TH1D *> hFFT;
+    /* get FFT histos from file */
     TDirectory *fftDir;
     fin->GetObject("fftDir",fftDir);
     TIter nextf(fftDir->GetListOfKeys());
@@ -56,8 +57,7 @@ void post(char *fname = "anaRun-No_Doping_1_Digitizer-10000.root")
     }
 
 
-
-    /*normalize */
+    /*normalize 
     vector<TH1D *> hscale;
     hscale.resize(hsum.size());
     for (unsigned i = 0; i < hsum.size(); ++i)
@@ -77,64 +77,70 @@ void post(char *fname = "anaRun-No_Doping_1_Digitizer-10000.root")
 
     vector<int> hcolor;
     hcolor.resize(hsum.size());
+    */
+}
 
-    /** find max val */
-    double ymax;
-    for (unsigned i = 4; i < 8; ++i)
-    {
-        ymax = TMath::Max(ymax, hscale[i]->GetBinContent(hscale[i]->GetMaximumBin()));
-    }
-    ymax *= 1.1;
+void plot1(int ichan=12, int iev=0) 
+{
+  TString tchan; 
+  TString tev;
+  TString thit;
+  TString tder;
+  tchan.Form("chan%i",ichan);
+  tev.Form("EvWave%i",iev);
+  thit.Form("EvHitWave%i",iev);
+  tder.Form("EvDerWave%i",iev);
 
-    TCanvas *can0 = new TCanvas("summed0", "summed0");
-    can0->Divide(2, 2);
-    can0->SetLogy();
 
-    for (unsigned i = 0; i < 8; ++i)
-    {
-        hcolor[i] = i + 1;
-        hscale[i]->SetMarkerColor(hcolor[i]);
-        hscale[i]->SetLineColor(hcolor[i]);
-        hscale[i]->SetMarkerStyle(7);
-        hscale[i]->SetMarkerSize(2);
-        hscale[i]->GetXaxis()->SetRangeUser(0, 5000.);
-        hscale[i]->GetYaxis()->SetRangeUser(0.1, ymax);
-    }
-    hscale[3]->SetMarkerStyle(5);
-    hscale[3]->SetMarkerSize(.2);
-    //hscale[4]->SetMarkerColor(kGreen + 3);
+  TH1D* hwave=NULL;
+  TH1D* hhit=NULL;
+  TH1D* hder=NULL;
+   for (unsigned i = 0; i < hFFT.size(); ++i){
+      TString tname = TString( hFFT[i]->GetName());
+      if( tname.Contains(tchan) &&  tname.Contains(tev))  hwave =  hFFT[i];
+      if( tname.Contains(tchan) &&  tname.Contains(thit)) hhit =  hFFT[i];
+      if( tname.Contains(tchan) &&  tname.Contains(tder)) hder =  hFFT[i];
+   }
 
-    for (unsigned i = 0; i < 4; ++i)
-    {
-        can0->cd(i + 1);
-        gPad->SetLogy();
-        hscale[i]->Draw();
-    }
 
-    TCanvas *can1 = new TCanvas("summed1", "summed1");
-    can1->Divide(2, 2);
-    can1->SetLogy();
-    for (unsigned i = 4; i < 8; ++i)
-    {
-        can1->cd(i + 1 - 4);
-        gPad->SetLogy();
-        hscale[i]->Draw();
-    }
+  if(hwave) cout << "got " << hwave->GetName() << endl ;
+  else cout << tev << " not found " << endl;
 
-    TCanvas *canall = new TCanvas("summed-all", "summed-all");
-    canall->SetLogy();
+  if(hhit) cout << "got "  << hhit->GetName() << endl ;
+  else cout << thit << " not found " << endl;
+
+  if(hder) cout << "got "  << hder->GetName() << endl ;
+  else cout << tder << " not found " << endl;
+
+
+  if(!(hwave&&hhit&&hder)) return;
+
+  TString canName;
+  canName.Form("Chan-%i-Event-%i",ichan,iev);
+  TCanvas *can1 = new TCanvas(canName,canName);
+  can1->Divide(1,2);
+  can1->cd(1);
+  hwave->Draw();
+  hhit->SetFillColor(kRed);
+  hhit->Draw("same");
+  can1->cd(2);
+  hder->Draw();
+}
+
+void summed()
+{
+    TCanvas *canAll = new TCanvas("summed-all", "summed-all");
+    canAll->SetLogy();
+    canAll->Divide(4,3);
     for (unsigned i = 0; i < hsum.size(); ++i)
     {
-        if (i == 0)
-            hscale[i]->Draw("");
-        else
-            hscale[i]->Draw("sames");
+      canAll->cd(i+1);
+      hsum[i]->Draw("");
     }
-    canall->BuildLegend();
-
+    //canall->BuildLegend();
 
     TCanvas *canFFT = new TCanvas("FFT-all", "FFT-all");
-    canFFT->Divide(4,2);
+    canFFT->Divide(4,3);
     for (unsigned i = 0; i < hFFT.size(); ++i)
     {
       canFFT->cd(i+1);

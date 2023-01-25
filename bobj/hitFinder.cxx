@@ -39,8 +39,8 @@
 hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan)
 {
   verbose = false;
+  smoothing = false;
   fout = theFile;
-  diffStep = 3;
   fftDir = fout->mkdir("fftDir");
   finderDir = fout->mkdir("finderDir");
   tag = theTag;
@@ -112,9 +112,10 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   }
 }
 
-void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi)
+void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,double thresh, unsigned step)
 {
-
+  threshold = thresh;
+  diffStep = step;
   int idet = chanMap.at(ichan);
   digi = eventDigi;
   if(verbose) printf( " HHHHHH hitFinder ievent %llu ichan %i idet %i ndigi %lu \n",ievent, ichan,idet , digi.size() );
@@ -162,8 +163,11 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi)
   if (gotTransforms)
     digi = fdigi;
 
+  if(!smoothing)
+    sdigi = digi;
+
   // 7;
-  differentiate(diffStep);
+  differentiate();
   for (unsigned isample = 0; isample < ddigi.size(); isample++)
   {
     hEvDerWave[idet]->SetBinContent(isample + 1, ddigi[isample]);
@@ -172,7 +176,12 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi)
 
   detHits = makeHits(idet, triggerTime, firstCharge);
   // fill hits
-  if(verbose) cout << " made hits " << ievent << " det " << idet << " << detHits size " << detHits.size() << endl;
+  if (verbose)
+    cout << " made hits " << ievent << " det " << idet
+         << "  ddigi size " << ddigi.size()
+         << "  crossings size " << crossings.size()
+         << "  peakList size " << peakList.size()
+         << "  detHits size " << detHits.size() << endl;
   hdigi.clear();
   hdigi.resize(digi.size());
 
@@ -218,7 +227,7 @@ void hitFinder::findHits(int idet, Long64_t jentry)
   unsigned maxWidth = 100000;
   unsigned minWidth = 10;
   if(verbose) printf(" call derivative peaks idet % i \n ", idet);
-  derivativePeaks(idet, 10.0);
+  derivativePeaks(idet);
   hPeakCount->Fill(idet, peakList.size());
 }
 
@@ -239,7 +248,7 @@ void hitFinder::findHits(int idet, Long64_t jentry)
 */
 
 // revised derivative Dec 8 2022 MG
-void hitFinder::differentiate(unsigned diffStep)
+void hitFinder::differentiate()
 {
   ddigi.clear();
   Double_t sump = 0;
@@ -264,7 +273,7 @@ void hitFinder::differentiate(unsigned diffStep)
   }
 }
 
-void hitFinder::derivativePeaks(Int_t idet, Double_t rms)
+void hitFinder::derivativePeaks(Int_t idet)
 {
   peakList.clear();
   peakKind.clear();
@@ -272,9 +281,9 @@ void hitFinder::derivativePeaks(Int_t idet, Double_t rms)
   crossingBin.clear();
   crossingTime.clear();
   unsigned vsize = ddigi.size();
-  Double_t cut = tbrun->detList[idet]->sigma * rms;
+  Double_t cut = tbrun->detList[idet]->sigma * threshold;
   unsigned step = 1;
-  // cout << " for det " << idet << " in derivative peaks >>>> rms " << rms << " cut " << cut << endl;
+  //cout << " for det " << idet << " in derivative peaks rms " << threshold << " cut " << cut << endl;
   Double_t ncut = -cut;
   // find all crossings
   for (unsigned ibin = step; ibin < vsize;  ++ibin)
@@ -283,8 +292,8 @@ void hitFinder::derivativePeaks(Int_t idet, Double_t rms)
     Double_t vi = ddigi[ibin];
     Double_t vj = ddigi[ibin - step];
     unsigned ctype = 10;
-    //if (idet == 5)
-     //printf(" det %i  bin %i %f %f  \n", idet, ibin, vj, vi);
+    //if (idet == 11)
+      //printf(" det %i  bin %i %f %f  \n", idet, ibin, vj, vi);
     if (vj > cut && vi < ncut)
     {
       crossings.push_back(DOUBLEUPCROSS);
@@ -655,7 +664,7 @@ void hitFinder::plotEvent(unsigned ichan, Long64_t ievent)
   histName.Form("EvSmooth%lli_%s", ievent, detName.Data());
   TH1D *hsmooth = (TH1D *)hEvSmooth[idet]->Clone(histName);
 
-  histName.Form("EvDer%uWave%lli_%s", diffStep, ievent, detName.Data());
+  histName.Form("EvDerWave%lli_%s",ievent, detName.Data());
   TH1D *hdwave = (TH1D *)hEvDerWave[idet]->Clone(histName);
   hdwave->SetTitle(histName);
 
