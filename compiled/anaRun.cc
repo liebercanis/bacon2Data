@@ -276,7 +276,7 @@ bool anaRun::anaEvent(Long64_t entry)
       idet->pass = false;
     bool trig = ichan == 9 || ichan == 10 || ichan == 11;
     if (trig && idet->thresholds > 1)
-      idet->pass == false;
+      idet->pass = false;
 
     // plot some events
     if (!(idet->pass) && badDir->GetList()->GetEntries() < 100)
