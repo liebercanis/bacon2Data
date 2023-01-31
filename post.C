@@ -80,28 +80,36 @@ void post(TString fileName = TString("anaRun-run-01_12_2023-nev0-100.root"))
     */
 }
 
-void plot1(int ichan=12, int iev=0) 
+TCanvas *plot1(int iev = 0, int ichan = 12)
 {
   TString tchan; 
   TString tev;
   TString thit;
   TString tder;
+  TString tcross;
   tchan.Form("chan%i",ichan);
-  tev.Form("EvWave%i",iev);
-  thit.Form("EvHitWave%i",iev);
-  tder.Form("EvDerWave%i",iev);
+  tev.Form("EvWave%i_",iev);
+  thit.Form("EvHitWave%i_",iev);
+  tder.Form("EvDerWave%i_",iev);
+  tcross.Form("EvCross%i_",iev);
 
 
   TH1D* hwave=NULL;
   TH1D* hhit=NULL;
   TH1D* hder=NULL;
-   for (unsigned i = 0; i < hFFT.size(); ++i){
-      TString tname = TString( hFFT[i]->GetName());
-      if( tname.Contains(tchan) &&  tname.Contains(tev))  hwave =  hFFT[i];
-      if( tname.Contains(tchan) &&  tname.Contains(thit)) hhit =  hFFT[i];
-      if( tname.Contains(tchan) &&  tname.Contains(tder)) hder =  hFFT[i];
-   }
-
+  TH1D *hcross = NULL;
+  for (unsigned i = 0; i < hFFT.size(); ++i)
+  {
+        TString tname = TString(hFFT[i]->GetName());
+        if (tname.Contains(tchan) && tname.Contains(tev))
+            hwave = hFFT[i];
+        if (tname.Contains(tchan) && tname.Contains(thit))
+            hhit = hFFT[i];
+        if (tname.Contains(tchan) && tname.Contains(tder))
+            hder = hFFT[i];
+        if (tname.Contains(tchan) && tname.Contains(tcross))
+            hcross = hFFT[i];
+  }
 
   if(hwave) cout << "got " << hwave->GetName() << endl ;
   else cout << tev << " not found " << endl;
@@ -112,8 +120,12 @@ void plot1(int ichan=12, int iev=0)
   if(hder) cout << "got "  << hder->GetName() << endl ;
   else cout << tder << " not found " << endl;
 
+  if (hcross)
+        cout << "got " << hcross->GetName() << endl;
+  else
+        cout << tcross << " not found " << endl;
 
-  if(!(hwave&&hhit&&hder)) return;
+  if(!(hwave&&hhit&&hder)) return NULL;
 
   TString canName;
   canName.Form("Chan-%i-Event-%i",ichan,iev);
@@ -124,7 +136,10 @@ void plot1(int ichan=12, int iev=0)
   hhit->SetFillColor(kRed);
   hhit->Draw("same");
   can1->cd(2);
+  hcross->SetFillColor(kRed);
   hder->Draw();
+  hcross->Draw("same");
+  return can1;
 }
 
 void summed()
@@ -145,5 +160,16 @@ void summed()
     {
       canFFT->cd(i+1);
       hFFT[i]->Draw("");
+    }
+}
+
+void multiPlot(int max=20) {
+
+    for (int iev=0 ; iev < max ; ++iev){
+        for (int ichan = 0; ichan<13; ++ichan){
+            TCanvas *can = plot1(ichan, iev);
+            if(can)
+                can->Print(".pdf");
+        }
     }
 }

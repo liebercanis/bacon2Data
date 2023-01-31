@@ -56,6 +56,7 @@ public:
   vector<TH1D *> noiseHist;
   vector<TH1D *> skewHist;
   vector<TH1D *> sumWave;
+  vector<TH1D *> sumHitWave;
   vector<TH1D *> valHist;
   vector<TH1D *> threshHist;
   vector<TH1D *> crossHist;
@@ -353,9 +354,29 @@ bool anaRun::anaEvent(Long64_t entry)
       valHist[ib]->Fill(val);
     }
     /* pulse finding  */
-    finder->event(ichan, entry, digi, 3. ,3);
-    finder->plotEvent(ichan,entry);
+    finder->event(ichan, entry, digi, 5. ,3);
+    TDirectory* fftDir = (TDirectory*) fout->FindObject("fftDir");
+    if(!fftDir){
+      cout << " Error no fftDir" << endl;
+      fout->ls();
+      return false;
+    }
+    // add some event plots
+    if (fftDir->GetList()->GetEntries()<200)
+          finder->plotEvent(ichan, entry);
   } // second channel loop
+
+  // fill sumHitWave
+  // loop over detector channels
+  for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet) 
+  {
+    TDet *tdet = tbrun->detList[idet];
+    for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit) {
+          TDetHit thit = tdet->hits[ihit];
+          sumHitWave[idet]->SetBinContent(thit.peakBin + 1, sumWave[idet]->GetBinContent(thit.peakBin + 1) + thit.qsum);
+    }
+  }
+
   return eventPass;
 } // anaEvent
 
@@ -411,7 +432,7 @@ void anaRun::derivativeCount(TDet *idet, Double_t rms)
   crossingTime.clear();
   unsigned vsize = ddigi.size();
   double microSec = 1.0E-3;
-  double timeUnit = 1.0;
+  double timeUnit = 8.0;
   Double_t cut = idet->sigma * rms;
   unsigned step = 1;
   // cout << " for det " << idet->channel  << " in derivative peaks >>>> rms " << rms << " cut " << cut << endl;
@@ -419,7 +440,7 @@ void anaRun::derivativeCount(TDet *idet, Double_t rms)
   // find all crossings
   for (unsigned ibin = step; ibin < vsize; ++ibin)
   {
-    Double_t u = double(ibin) * timeUnit * microSec;
+    Double_t u = double(ibin) * timeUnit;
     Double_t vi = ddigi[ibin];
     Double_t vj = ddigi[ibin - step];
     unsigned ctype = 10;
@@ -531,6 +552,7 @@ anaRun::anaRun(const char *theTag, Long64_t maxEntries)
   {
     unsigned ichan = chanList[i];
     sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+    sumHitWave.push_back(new TH1D(Form("sumHitWave%i", ichan), Form("sumHitWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
   }
   fout->cd();
   // fout->ls();

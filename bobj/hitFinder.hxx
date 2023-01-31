@@ -47,12 +47,14 @@ const Double_t qnorm = 1.0;
 class hitFinder
 {
 public:
-  enum
+  enum // crossing types
   {
-    UPCROSS,
-    DOWNCROSS,
-    DOUBLEUPCROSS,
-    DOUBLEDOWNCROSS
+    PUP,
+    UPDOWN,
+    NUP,
+    DOWNUP,
+    PDOWN,
+    NDOWN
   };
 
   TFile *fout;
@@ -66,7 +68,9 @@ public:
   virtual ~hitFinder() { chanMap.clear(); }
   int nsamples;
   unsigned diffStep;
+  unsigned thresholdStepSize;
   double threshold;
+  unsigned maxPeakLength;
   std::map<int, int> chanMap;
 
   TNtuple *ntFinder;
@@ -85,17 +89,18 @@ public:
   double timeUnit;
   double microSec;
   void event(int idet, Long64_t ievent, vector<double> rdigi, double thresh, unsigned step=3);
-  void derivativePeaks(Int_t idet);
+  void differentiate();
+  void findThresholdCrossings(Int_t idet);
+  void findDerivativeCrossings(Int_t idet);
+  void makePeaks(int idet, std::vector<Double_t> v);
   hitMap makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge);
   void plotWave(int idet, Long64_t jentry);
   void plotEvent(unsigned idet, Long64_t ievent);
-  void findHits(int idet, Long64_t jentry);
-  void differentiate();
   void trimPeaks(int idet, std::vector<Double_t> v);
-  void extendPeaks(int idet, std::vector<Double_t> v);
   bool getTransforms();
   // hist
   TH1D *hPeakCount;
+  TH1D *hPeakValue;
   TH1I *hHitLength;
   TH1I *hPeakNWidth;
 
