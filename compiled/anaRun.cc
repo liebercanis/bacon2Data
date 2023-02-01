@@ -373,7 +373,7 @@ bool anaRun::anaEvent(Long64_t entry)
     TDet *tdet = tbrun->detList[idet];
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit) {
           TDetHit thit = tdet->hits[ihit];
-          sumHitWave[idet]->SetBinContent(thit.peakBin + 1, sumWave[idet]->GetBinContent(thit.peakBin + 1) + thit.qsum);
+          sumHitWave[idet]->SetBinContent(thit.peakBin + 1, sumHitWave[idet]->GetBinContent(thit.peakBin + 1) + thit.qsum);
     }
   }
 
