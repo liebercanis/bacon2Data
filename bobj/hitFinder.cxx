@@ -215,8 +215,6 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,doubl
     TDetHit hiti = hitIter->second;
     tbrun->detList[idet]->qSum += hiti.qsum;
     tbrun->detList[idet]->hitSum += hiti.qpeak;
-    hitPrompt = 0;
-    hitSum = 0;
     if(hiti.startTime<startTimeCut) {
       tbrun->detList[idet]->qPrompt += hiti.qsum;
       tbrun->detList[idet]->hitPrompt += hiti.qpeak;
