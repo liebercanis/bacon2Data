@@ -1,8 +1,9 @@
 TTree *btree;
 vector<TH1D *> hsum;
+vector<TH1D *> hhitSum;
 vector<TH1D *> hFFT;
 
-void post(TString fileName = TString("anaRun-run-01_12_2023-nev0-100.root"))
+void post(TString fileName = TString("anaRun-run-01_13_2023-nev0-10000.root"))
 {
     gStyle->SetOptStat(1001101);
     TString fullName = TString("myData/") + fileName;
@@ -36,9 +37,8 @@ void post(TString fileName = TString("anaRun-run-01_12_2023-nev0-100.root"))
             continue;
         TH1D *h = (TH1D *)key->ReadObj();
         TString hname(h->GetName());
-        if (!hname.Contains("sumW"))
-            continue;
-        hsum.push_back(h);
+        if (hname.Contains("sumWave")) hsum.push_back(h);
+        else if (hname.Contains("sumHit")) hhitSum.push_back(h);
     }
 
     /* get FFT histos from file */
@@ -94,6 +94,9 @@ TCanvas *plot1(int iev = 0, int ichan = 12)
   tcross.Form("EvCross%i_",iev);
 
 
+  TString twave = tev+tchan;
+  TString thwave = thit+tchan;
+
   TH1D* hwave=NULL;
   TH1D* hhit=NULL;
   TH1D* hder=NULL;
@@ -101,57 +104,74 @@ TCanvas *plot1(int iev = 0, int ichan = 12)
   for (unsigned i = 0; i < hFFT.size(); ++i)
   {
         TString tname = TString(hFFT[i]->GetName());
-        if (tname.Contains(tchan) && tname.Contains(tev))
+        if (tname==twave)
             hwave = hFFT[i];
-        if (tname.Contains(tchan) && tname.Contains(thit))
+        if (tname == thwave)
             hhit = hFFT[i];
+        
+        /*
         if (tname.Contains(tchan) && tname.Contains(tder))
             hder = hFFT[i];
         if (tname.Contains(tchan) && tname.Contains(tcross))
             hcross = hFFT[i];
+            */
   }
 
   if(hwave) cout << "got " << hwave->GetName() << endl ;
-  else cout << tev << " not found " << endl;
+  //else cout << tev << " not found " << endl;
 
   if(hhit) cout << "got "  << hhit->GetName() << endl ;
-  else cout << thit << " not found " << endl;
+  //else cout << thit << " not found " << endl;
 
   if(hder) cout << "got "  << hder->GetName() << endl ;
-  else cout << tder << " not found " << endl;
+  //else cout << tder << " not found " << endl;
 
-  if (hcross)
-        cout << "got " << hcross->GetName() << endl;
-  else
-        cout << tcross << " not found " << endl;
+  //if (hcross)
+    //    cout << "got " << hcross->GetName() << endl;
+  //else
+    //    cout << tcross << " not found " << endl;
 
-  if(!(hwave&&hhit&&hder)) return NULL;
+  if(!(hwave&&hhit)) return NULL;
 
   TString canName;
   canName.Form("Chan-%i-Event-%i",ichan,iev);
   TCanvas *can1 = new TCanvas(canName,canName);
-  can1->Divide(1,2);
-  can1->cd(1);
+  //can1->Divide(1,2);
+  //can1->cd(1);
   hwave->Draw();
   hhit->SetFillColor(kRed);
   hhit->Draw("same");
-  can1->cd(2);
-  hcross->SetFillColor(kRed);
-  hder->Draw();
-  hcross->Draw("same");
+  //can1->cd(2);
+  //hcross->SetFillColor(kRed);
+  //hder->Draw();
+  //hcross->Draw("same");
   return can1;
 }
 
 void summed()
 {
-    TCanvas *canAll = new TCanvas("summed-all", "summed-all");
-    canAll->SetLogy();
-    canAll->Divide(4,3);
-    for (unsigned i = 0; i < hsum.size(); ++i)
-    {
-      canAll->cd(i+1);
-      hsum[i]->Draw("");
+  TCanvas *canSum = new TCanvas("wavesummed-all", "hitsummed-all");
+
+  canSum->Divide(4, 3);
+  for (unsigned i = 0; i < hsum.size(); ++i)
+  {
+        canSum->cd(i + 1);
+        gPad->SetLogy();
+        hsum[i]->Draw("");
+  }
+    canSum->Print(".pdf");
+   // canall->BuildLegend();
+
+   TCanvas *canAll = new TCanvas("hitsummed-all", "hitsummed-all");
+
+  canAll->Divide(4, 3);
+  for (unsigned i = 0; i < hhitSum.size(); ++i)
+  {
+        canAll->cd(i + 1);
+        gPad->SetLogy();
+        hhitSum[i]->Draw("");
     }
+    canAll->Print(".pdf");
     //canall->BuildLegend();
 
     TCanvas *canFFT = new TCanvas("FFT-all", "FFT-all");
@@ -161,13 +181,14 @@ void summed()
       canFFT->cd(i+1);
       hFFT[i]->Draw("");
     }
+    canFFT->Print(".pdf");
 }
 
 void multiPlot(int max=20) {
 
     for (int iev=0 ; iev < max ; ++iev){
-        for (int ichan = 0; ichan<13; ++ichan){
-            TCanvas *can = plot1(ichan, iev);
+        for (int ichan = 0; ichan<9; ++ichan){
+            TCanvas *can = plot1(iev,ichan);
             if(can)
                 can->Print(".pdf");
         }

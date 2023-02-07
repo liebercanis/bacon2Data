@@ -207,12 +207,20 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,doubl
 // push hits to tbrun 
   int icount = 0;
   bool triggerChannel = false;
-  if(ichan==9||ichan==10||ichan==11)
+  double startTimeCut = 70.0;
+  if (ichan == 9 || ichan == 10 || ichan == 11)
     triggerChannel = true;
   for (hitMapIter hitIter = detHits.begin(); hitIter != detHits.end(); ++hitIter)
   {
     TDetHit hiti = hitIter->second;
     tbrun->detList[idet]->qSum += hiti.qsum;
+    tbrun->detList[idet]->hitSum += hiti.qpeak;
+    hitPrompt = 0;
+    hitSum = 0;
+    if(hiti.startTime<startTimeCut) {
+      tbrun->detList[idet]->qPrompt += hiti.qsum;
+      tbrun->detList[idet]->hitPrompt += hiti.qpeak;
+    }
     if(!triggerChannel)
       hPeakValue->Fill(hiti.qpeak);
     hiti.SetTitle(Form("TDetHit %i event %llu chan %i index %i ", icount++, ievent, ichan, idet));
