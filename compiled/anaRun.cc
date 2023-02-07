@@ -63,6 +63,8 @@ public:
   TH1D *hEvRawWave;
   vector<TH1D *> hEvGaus;
   TH1D *evCount;
+  TH1D *histQSum;
+  TH1D *histQPrompt;
   vector<double> digi;
   vector<double> ddigi;
   vector<double> hdigi;
@@ -89,6 +91,7 @@ public:
   TDirectory *sumDir;
   TDirectory *anaDir;
   Long64_t nentries;
+
 };
 
 bool anaRun::openFile()
@@ -371,6 +374,9 @@ bool anaRun::anaEvent(Long64_t entry)
   for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet) 
   {
     TDet *tdet = tbrun->detList[idet];
+    histQSum->Fill(tdet->channel+ 1, tdet->qSum);
+    histQPrompt->Fill(tdet->channel + 1, tdet->qPrompt);
+
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit) {
           TDetHit thit = tdet->hits[ihit];
           sumHitWave[idet]->SetBinContent(thit.peakBin + 1, sumHitWave[idet]->GetBinContent(thit.peakBin + 1) + thit.qsum);
@@ -524,6 +530,8 @@ anaRun::anaRun(const char *theTag, Long64_t maxEntries)
   // fout->Append(tbrun->btree);
   ntChan = new TNtuple("ntChan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peak:sum2:sum:crossings:thresholds:cut");
   evCount = new TH1D("eventCount", "event count", 14, 0, 14);
+  histQSum = new TH1D("histQsum", "qsum by channel", 14, 0, 14);
+  histQPrompt = new TH1D("histQprompt", "qprompt by channel", 14, 0, 14);
 
   anaDir = fout->mkdir("anaDir");
   anaDir->cd();
