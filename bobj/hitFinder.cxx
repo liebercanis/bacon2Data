@@ -535,6 +535,11 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
   return detHits;
 }
 
+// find 
+hitFinder::void splitPeaks(int idet, std::vector<Double_t> v)
+{
+}
+
 void hitFinder::trimPeaks(int idet, std::vector<Double_t> v)
 {
 

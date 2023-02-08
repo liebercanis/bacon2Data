@@ -76,6 +76,8 @@ public:
   // vector<TBWave *> waveList;
   hitFinder *finder;
   TString tag;
+  int currentBuffer;
+  Long64_t currentBufferCount;
   anaRun(const char *theTag = "run", Long64_t maxEntries = 0);
   virtual ~anaRun() { ; }
   bool openFile();
@@ -245,6 +247,17 @@ bool anaRun::anaEvent(Long64_t entry)
     idet->sigma = sigma;
     idet->skew = skew;
     idet->event = entry;
+    idet->trigger = rawBr[ib]->trigger;
+    idet->buffer = rawBr[ib]->buffer;
+    if (ib == 0)
+      ++currentBufferCount;
+    if (ib == 0 && currentBuffer != rawBr[ib]->buffer)
+    {
+      if (currentBuffer>-1)
+        printf(" FINISHEDBUFFER %d count %lld \n", currentBuffer, currentBufferCount);
+      currentBuffer = rawBr[ib]->buffer;
+      currentBufferCount = 0;
+    }
     idet->base = base;
     idet->peak = peak;
     idet->sum2 = sum2;
@@ -501,6 +514,8 @@ void anaRun::derivativeCount(TDet *idet, Double_t rms)
 anaRun::anaRun(const char *theTag, Long64_t maxEntries)
 {
   tag = TString(theTag);
+  currentBuffer = -1;
+  currentBufferCount = 0;
   cout << " starting anaRun entries = " << maxEntries << " tag =  " << tag << endl;
   if (!openFile())
   {

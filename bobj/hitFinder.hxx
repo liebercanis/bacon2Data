@@ -97,6 +97,7 @@ public:
   void plotWave(int idet, Long64_t jentry);
   void plotEvent(unsigned idet, Long64_t ievent);
   void trimPeaks(int idet, std::vector<Double_t> v);
+  void splitPeaks(int idet, std::vector<Double_t> v);
   bool getTransforms();
   // hist
   TH1D *hPeakCount;

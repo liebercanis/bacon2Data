@@ -22,6 +22,8 @@ public:
 
   // data elements
   Long64_t event;
+  Long64_t trigger;
+  Long64_t buffer;
   Int_t channel;
   Int_t level;
   Double_t ave;
@@ -46,6 +48,8 @@ public:
   void clear()
   {
     event = 0;
+    trigger = 0;
+    buffer = 0;
     ave = 0;
     sigma = 0;
     skew = 0;
@@ -64,6 +68,6 @@ public:
     hits.clear();
   }
 
-  ClassDef(TDet, 6)
+  ClassDef(TDet, 7)
 };
 #endif
