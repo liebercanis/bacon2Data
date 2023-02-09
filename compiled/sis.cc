@@ -26,8 +26,10 @@
 
 // #define SIS3316_DATA_FORMAT_2021
 // #define CERN_ROOT_PLOT
-
+// outputs one file for each read file
 #include <iostream>
+#include <sys/stat.h>
+#include <time.h>
 #include <vector>
 #include <TString.h>
 #include <TROOT.h>
@@ -50,6 +52,8 @@
 #include "TSystem.h"
 #include "TSystemDirectory.h"
 #include "TFile.h"
+// in bobj
+#include "TBFile.hxx"
 #include "TBRawEvent.hxx"
 using namespace std;
 
@@ -62,6 +66,7 @@ TString dirName;
 TList *files;
 std::map<int, std::string> vfile;
 TFile *fout;
+TBFile *tbfile;
 /* globals	                               		  			     */
 int NCHAN = 13;
 int NSAMPLES = 1024;
@@ -74,7 +79,6 @@ FILE *filePointer;
 std::uint64_t totalEvents;
 
 unsigned int gl_ch_data[MAX_NUMBER_LWORDS_64MBYTE];
-
 
 /* methods */
 std::uint32_t getLeft(uint32_t a)
@@ -170,30 +174,6 @@ int main(int argc, char *argv[])
 
   for (std::map<int,string>::iterator it = vfile.begin(); it != vfile.end(); ++it)
     std::cout << it->first << " => " << it->second << '\n';
-
-
-	// open output file
-	fout = new TFile(Form("data/rootData/run-%s-nev%llu.root", dirTag,maxFiles), "recreate");
-
-	// output trees for each channel
-	rawEvent.resize(NCHAN);
-	ftrees.resize(NCHAN);
-	for (int ichan = 0; ichan < NCHAN; ++ichan)
-	{
-		rawEvent[ichan] = new TBRawEvent(ichan);
-		ftrees[ichan] = new TTree(Form("tchan%i", ichan), Form("channel %i", ichan));
-		ftrees[ichan]->Branch(rawEvent[ichan]->GetName(), &rawEvent[ichan]);
-		printf(" new tree  %s \n", ftrees[ichan]->GetName());
-	}
-
-	for (unsigned ich = 0; ich < NCHAN; ++ich)
-	{
-		TString hname;
-		TString htitle;
-		hname.Form("channel%i", ich);
-		htitle.Form("channel %i", ich);
-		hChan.push_back(new TH1D(hname, htitle, NSAMPLES, 1, NSAMPLES));
-	}
 	
 
 	/* loop over files  */
@@ -206,9 +186,44 @@ int main(int argc, char *argv[])
     {
     string fname = it->second;
     TString fullName = dirName + TString("/") + TString(fname.c_str());
+
+    // open output file
+    fout = new TFile(Form("data/rootData/run-%s-file%u.root",dirTag,filesRead), "recreate");
+    printf("opened output file %s \n", fout->GetName());
+    // output trees for each channel
+    tbfile = new TBFile(fullName);
+    tbfile->print();
+    rawEvent.clear();
+    ftrees.clear();
+    rawEvent.resize(NCHAN);
+    ftrees.resize(NCHAN);
+    for (int ichan = 0; ichan < NCHAN; ++ichan)
+    {
+      rawEvent[ichan] = new TBRawEvent(ichan);
+      ftrees[ichan] = new TTree(Form("tchan%i", ichan), Form("channel %i", ichan));
+      ftrees[ichan]->Branch(rawEvent[ichan]->GetName(), &rawEvent[ichan]);
+      printf(" new tree  %s \n", ftrees[ichan]->GetName());
+    }
+
+    for (unsigned ich = 0; ich < NCHAN; ++ich)
+    {
+      TString hname;
+      TString htitle;
+      hname.Form("channel%i", ich);
+      htitle.Form("channel %i", ich);
+      hChan.push_back(new TH1D(hname, htitle, NSAMPLES, 1, NSAMPLES));
+    }
+
+    fout->ls();
+
     printf("\n\n\t starting file %s \n", fullName.Data());
     totalEvents += processFile(fullName);
     printf("\t FINISHED  file %s totalEvents %lld \n", fullName.Data(), totalEvents);
+    printf("Entries by channel ");
+    for (int ichan = 0; ichan < NCHAN; ++ichan)
+         printf("%s %llu \n", ftrees[ichan]->GetName(), ftrees[ichan]->GetEntries());
+    fout->Write();
+    fout->Close();
     ++filesRead;
     if(filesRead>totalFiles)
       break;
@@ -218,9 +233,9 @@ int main(int argc, char *argv[])
 	printf(" FINISHED sis after file %i total events %llu  \n",filesRead,totalEvents);
 	for (int ich = 0; ich < NCHAN; ++ich)
 		printf(" channel %i  entries = %lld \n", ich, ftrees[ich]->GetEntries());
-	//fout->ls();
-	fout->Write();
-	fout->Close();
+
+
+
 	return 0;
 }
 
