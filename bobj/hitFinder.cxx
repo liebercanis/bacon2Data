@@ -190,6 +190,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,doubl
   unsigned minWidth = 10;
   findThresholdCrossings(idet);
   makePeaks(idet, digi);
+  //splitPeaks(idet, ddigi);
   detHits = makeHits(idet, triggerTime, firstCharge);
   hPeakCount->Fill(idet, peakList.size());
   // fill hits
@@ -535,9 +536,32 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
   return detHits;
 }
 
-// find 
-hitFinder::void splitPeaks(int idet, std::vector<Double_t> v)
+// split peak based on derivaive
+void hitFinder::splitPeaks(int idet, std::vector<Double_t> v)
 {
+  if (peakList.size() < 1)
+      return;
+  for (unsigned ip = 0; ip < peakList.size(); ++ip)
+  {
+      // trim first peak
+      unsigned peakStart = std::get<0>(peakList[ip]);
+      unsigned peakEnd = std::get<1>(peakList[ip]);
+      for (unsigned kp = peakEnd; kp > peakStart; --kp)
+      {
+      double vp = v[kp];
+      if (vp > 0)
+        break;
+      std::get<1>(peakList[ip]) = kp;
+      }
+
+      for (unsigned kp = peakStart; kp < peakEnd; ++kp)
+      {
+      double vp = v[kp];
+      if (vp > 0)
+        break;
+      std::get<0>(peakList[ip]) = kp;
+      }
+  }
 }
 
 void hitFinder::trimPeaks(int idet, std::vector<Double_t> v)
