@@ -193,6 +193,7 @@ int main(int argc, char *argv[])
     // output trees for each channel
     tbfile = new TBFile(fullName);
     fout->Append(tbfile);
+    fout->ls();
     rawEvent.clear();
     ftrees.clear();
     rawEvent.resize(NCHAN);
@@ -214,7 +215,6 @@ int main(int argc, char *argv[])
       hChan.push_back(new TH1D(hname, htitle, NSAMPLES, 1, NSAMPLES));
     }
 
-    fout->ls();
 
     printf("\n\n\t starting file %s \n", fullName.Data());
     totalEvents += processFile(fullName);
