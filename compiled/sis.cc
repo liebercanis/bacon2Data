@@ -186,16 +186,16 @@ int main(int argc, char *argv[])
     {
     string fname = it->second;
     TString fullName = dirName + TString("/") + TString(fname.c_str());
-
+    printf("\n\n\t starting file %s \n", fullName.Data());
     // open output file
     fout = new TFile(Form("data/rootData/run-%s-file%u.root",dirTag,filesRead), "recreate");
     printf("opened output file %s \n", fout->GetName());
     // output trees for each channel
     tbfile = new TBFile(fullName);
     fout->Append(tbfile);
-    fout->ls();
     rawEvent.clear();
     ftrees.clear();
+    hChan.clear();
     rawEvent.resize(NCHAN);
     ftrees.resize(NCHAN);
     for (int ichan = 0; ichan < NCHAN; ++ichan)
@@ -215,26 +215,19 @@ int main(int argc, char *argv[])
       hChan.push_back(new TH1D(hname, htitle, NSAMPLES, 1, NSAMPLES));
     }
 
-
-    printf("\n\n\t starting file %s \n", fullName.Data());
+ 
     totalEvents += processFile(fullName);
     printf("\t FINISHED  file %s totalEvents %lld \n", fullName.Data(), totalEvents);
-    printf("Entries by channel ");
+    printf("Entries by channel \n");
     for (int ichan = 0; ichan < NCHAN; ++ichan)
          printf("%s %llu \n", ftrees[ichan]->GetName(), ftrees[ichan]->GetEntries());
     fout->Write();
     fout->Close();
     ++filesRead;
-    if(filesRead>totalFiles)
+    if(filesRead>=totalFiles)
       break;
     }
-
-
 	printf(" FINISHED sis after file %i total events %llu  \n",filesRead,totalEvents);
-	for (int ich = 0; ich < NCHAN; ++ich)
-		printf(" channel %i  entries = %lld \n", ich, ftrees[ich]->GetEntries());
-
-
 
 	return 0;
 }

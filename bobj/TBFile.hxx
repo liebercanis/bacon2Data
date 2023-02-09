@@ -4,9 +4,6 @@
 #ifndef TBFILE_DEFINED
 #define TBFILE_DEFINED
 #include <iostream>
-#include <ctime>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <string>
 #include<TNamed.h>
 using namespace std;
@@ -15,15 +12,15 @@ using namespace std;
 class TBFile : public TNamed
 {
 public:
+  TBFile();
   TBFile(TString name);
   //~TBFile();
-  struct stat fileInfo;
   string created;
   string modified;
   
   void print()
   {
-    cout << " TBFile  " << this->GetName() << " created " << created << " modified " << modified << endl;
+    cout << " TBFile  " << this->GetTitle() << endl << " created " << created << " modified " << modified << endl;
   }
 
   ClassDef(TBFile, 1)
