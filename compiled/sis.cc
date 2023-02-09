@@ -192,7 +192,7 @@ int main(int argc, char *argv[])
     printf("opened output file %s \n", fout->GetName());
     // output trees for each channel
     tbfile = new TBFile(fullName);
-    tbfile->print();
+    fout->Append(tbfile);
     rawEvent.clear();
     ftrees.clear();
     rawEvent.resize(NCHAN);
