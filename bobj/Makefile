@@ -11,7 +11,7 @@ ROOTLIBS     := $(shell root-config --libs)
 ROOTGLIBS    := $(shell root-config --glibs)
 
 CXXFLAGS     :=  $(ROOTCFLAGS) -fPIC -I$(LOCAL) 
-LIBS         :=  $(ROOTGLIBS) $(CINTFLAGS)
+LIBS         :=  $(ROOTLIBS) $(CINTFLAGS)
 
 
 ifeq ($(ARCH),macosx64)
