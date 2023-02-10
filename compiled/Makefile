@@ -21,7 +21,7 @@ BOBJ=../bobj
 
 CXXFLAGS     :=  $(ROOTCFLAGS) -fPIC -I$(LOCAL) 
 CXXFLAGS     += -I$(LOCAL) -I/$/usr/include -I/usr/local/include -I$(BOBJ)
-LIBS         := $(ROOTLIBS) -L$(BOBJ) -lBaconAna  -L$(FFTW)/lib -lfftw3 $(CINTFLAGS)
+LIBS         := $(ROOTLIBS) -L$(BOBJ) -lBaconAna  $(ROOTLIBS) -L$(FFTW)/lib -lfftw3 $(CINTFLAGS)
 
 ifeq ($(ARCH),macosx64)
 				CXX := clang++ -arch x86_64 -ggdb 
