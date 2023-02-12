@@ -38,7 +38,7 @@ endif
 #CPP+=-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
 
 
-all: sis build ana 
+all: sis build ana1 ana  
 
 sis: sis.cc
 	$(CPP) $< $(LIBS)  -o $@
@@ -52,6 +52,8 @@ convertRaw: convertRaw.cc
 ana: ana.cc anaRun.cc
 	$(CPP) $< $(LIBS)  -o $@
 
+ana1: ana1.cc anaRun.cc
+	$(CPP) $< $(LIBS)  -o $@
 
 
 .PHONY : clean show
