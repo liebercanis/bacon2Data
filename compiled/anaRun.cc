@@ -35,6 +35,7 @@
 #include "TBRun.hxx"
 #include "TBRawEvent.hxx"
 #include "hitFinder.hxx"
+#include "TBFile.hxx"
 
 class anaRun
 {
@@ -78,9 +79,10 @@ public:
   TString tag;
   int currentBuffer;
   Long64_t currentBufferCount;
-  anaRun(const char *theTag = "run", Long64_t maxEntries = 0);
-  virtual ~anaRun() { ; }
-  bool openFile();
+  anaRun(TString theTag = TString("dirName"));
+  Long64_t anaRunFile(TString theFile, Long64_t maxEntries);
+  bool openFile(TString fileName);
+  unsigned getListOfFiles(TString dir);
   unsigned getTrees();
   void getBranches();
   void getEvent(Long64_t entry);
@@ -96,19 +98,27 @@ public:
 
 };
 
-bool anaRun::openFile()
+bool anaRun::openFile(TString theFile)
 {
   // open input file and make some histograms
   TString fileName;
-  fileName.Form("data/rootData/%s.root", tag.Data());
+  fileName.Form("rootData/%s", theFile.Data());
   printf(" looking for file %s\n", fileName.Data());
-  fin = new TFile(fileName, "readonly");
-  if (fin->IsZombie())
+
+  bool exists = false;
+  FILE *aFile;
+  aFile = fopen(fileName.Data(), "r");
+  if (aFile)
+  {
+    fclose(aFile);
+    exists = true;
+  }
+  if (!exists) 
   {
     printf(" couldnt open file %s\n", fileName.Data());
     return false;
   }
-
+  fin = new TFile(fileName, "readonly");
   printf(" opened file %s\n", fileName.Data());
   return true;
 }
@@ -370,7 +380,7 @@ bool anaRun::anaEvent(Long64_t entry)
       valHist[ib]->Fill(val);
     }
     /* pulse finding  */
-    finder->event(ichan, entry, digi, 5. ,3);
+    finder->event(ichan, entry, digi, 5. ,1);
     TDirectory* fftDir = (TDirectory*) fout->FindObject("fftDir");
     if(!fftDir){
       cout << " Error no fftDir" << endl;
@@ -511,23 +521,22 @@ void anaRun::derivativeCount(TDet *idet, Double_t rms)
   return;
 }
 
-anaRun::anaRun(const char *theTag, Long64_t maxEntries)
+Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
 {
-  tag = TString(theTag);
   currentBuffer = -1;
   currentBufferCount = 0;
   cout << " starting anaRun entries = " << maxEntries << " tag =  " << tag << endl;
-  if (!openFile())
+  if (!openFile(theFile))
   {
     printf("cannot open file!\n");
-    return;
+    return 0;
   }
   getTrees();
   cout << "treeList size " << treeList.size() << endl;
   if (treeList.size() < 1)
   {
     printf("EXIT no trees\n");
-    return;
+    return 0;
   }
   rawBr.clear();
   rawBr.resize(treeList.size());
@@ -538,6 +547,16 @@ anaRun::anaRun(const char *theTag, Long64_t maxEntries)
   badDir = fout->mkdir("badDir");
   fout->cd();
   cout << " opened output file " << fout->GetName() << endl;
+
+  // fin->ls();
+  TBFile *bf;
+  fin->GetObject("tbfile", bf);
+  if(bf){
+  bf->print();
+  fout->Append(bf);
+  } else
+    printf("anaRun ERROR!! no tbfile in input file \n");
+
   tbrun = new TBRun(tag);
   for (unsigned it = 0; it < chanList.size(); ++it)
     tbrun->addDet(chanList[it]);
@@ -608,4 +627,11 @@ anaRun::anaRun(const char *theTag, Long64_t maxEntries)
   // fout->ls();
   fout->Write();
   fout->Close();
+  return nentries;
+}
+
+anaRun::anaRun(TString theTag)
+{
+  tag = theTag;
+  cout << " instance of anaRun with tag= " << tag << endl;
 }
