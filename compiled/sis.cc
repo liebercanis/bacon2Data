@@ -77,6 +77,7 @@ vector<TTree *> ftrees;
 std::vector<unsigned short> wave;
 FILE *filePointer;
 std::uint64_t totalEvents;
+bool verbose = false;
 
 unsigned int gl_ch_data[MAX_NUMBER_LWORDS_64MBYTE];
 
@@ -188,7 +189,7 @@ int main(int argc, char *argv[])
     TString fullName = dirName + TString("/") + TString(fname.c_str());
     printf("\n\n\t starting file %s \n", fullName.Data());
     // open output file
-    fout = new TFile(Form("data/rootData/run-%s-file%u.root",dirTag,filesRead), "recreate");
+    fout = new TFile(Form("rootData/run-%s-file%u.root",dirTag,filesRead), "recreate");
     printf("opened output file %s \n", fout->GetName());
     // output trees for each channel
     tbfile = new TBFile(fullName);
@@ -319,7 +320,7 @@ std::uint64_t processFile(TString fullName)
       }
       else
       { // valid header length
-        printf(" buffer_no %i header: marker = 0x%08x    identifier = 0x%08x  header length = %d  totalEvents %llu  \n", buffer_no, header_marker, header_indentifier, nof_read, totalEvents);
+        if(verbose) printf(" buffer_no %i header: marker = 0x%08x    identifier = 0x%08x  header length = %d  totalEvents %llu  \n", buffer_no, header_marker, header_indentifier, nof_read, totalEvents);
 
         if (header_marker != 0xDEADBEEF)
         {
@@ -409,7 +410,7 @@ std::uint64_t processFile(TString fullName)
             }
           }
           fileEvents += nof_events;
-          printf("...finished fileEvents %llu nof_events = %i  buffer %u  \tChannel ID = %d   \tFormat bits = 0x%02X \n", fileEvents, nof_events, buffer_no, i_ch, headerformat);
+          if(verbose) printf("...finished fileEvents %llu nof_events = %i  buffer %u  \tChannel ID = %d   \tFormat bits = 0x%02X \n", fileEvents, nof_events, buffer_no, i_ch, headerformat);
         }
       }
 
