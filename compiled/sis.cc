@@ -333,13 +333,13 @@ std::uint64_t processFile(TString fullName)
           if (uint_current_bankx_buffer_counter != buffer_no) uint_current_bankx_buffer_counter = buffer_no;
 
           // print Buffer Header
-          /*
+          if(verbose) {
              printf("Chx Bankx buffer header information: %i \n", nof_events);
              printf("\tindentifier       = %d   \tbuffer_no    = %d    \tchannel_id         = %d   \n", header_indentifier, buffer_no, channel_no);
              printf("\tnof_events        = %d   \tevent_length = %d    \tshort_event_length = %d   \traw_data_first_event_only_flag = %ld  \n", nof_events, event_length, (short_event_and_maw_buffer_length & 0x7fff) >> 16, (short_event_and_maw_buffer_length & 0x780000000) >> 31);
              printf("\tmaw_buffer_length = %d    \n", (short_event_and_maw_buffer_length & 0x7fff));
              printf("\treserved_ch_bankx_buffer_length = %d (0x%08x) \n", header_reserved_ch_bankx_buffer_length, header_reserved_ch_bankx_buffer_length);
-             */
+          }
 
           maw_buffer_length = (short_event_and_maw_buffer_length & 0x7fff);
 
@@ -350,6 +350,11 @@ std::uint64_t processFile(TString fullName)
             nof_read = nof_read + ReadEventsFromDataFile(&gl_ch_data[0], 1); // read 4 bytes = 32 bits
             i_ch = (gl_ch_data[0] & 0xfff0) >> 4;
             headerformat = (gl_ch_data[0] & 0xf);
+
+            if(headerformat!=0) {
+              printf("UNKNOWN header format %u !!!!!\n", headerformat);
+              continue;
+            }
 
             header_length = 3; // if headerformat == 0
             if ((headerformat & 0x1) == 1)
