@@ -29,7 +29,7 @@
 #include <TFormula.h>
 #include <TStyle.h>
 #include <TCanvas.h>
-#include <TGraph.h>
+#include <TGraphErrors.h>
 // bobj classes
 #include "TBWave.hxx"
 #include "TBRun.hxx"
@@ -379,8 +379,10 @@ bool anaRun::anaEvent(Long64_t entry)
       sumWave[ib]->SetBinContent(j + 1, sumWave[ib]->GetBinContent(j + 1) + val);
       valHist[ib]->Fill(val);
     }
-    /* pulse finding  */
-    finder->event(ichan, entry, digi, 5. ,1);
+    /* pulse finding
+      hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,double thresh, unsigned step)
+    */
+    finder->event(ichan, entry, digi, 5. , 1 );
     TDirectory* fftDir = (TDirectory*) fout->FindObject("fftDir");
     if(!fftDir){
       cout << " Error no fftDir" << endl;
@@ -394,7 +396,7 @@ bool anaRun::anaEvent(Long64_t entry)
 
   // fill sumHitWave
   // loop over detector channels
-  for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet) 
+  for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
   {
     TDet *tdet = tbrun->detList[idet];
     histQSum->Fill(tdet->channel+ 1, tdet->qSum);
@@ -402,7 +404,7 @@ bool anaRun::anaEvent(Long64_t entry)
 
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit) {
           TDetHit thit = tdet->hits[ihit];
-          sumHitWave[idet]->SetBinContent(thit.peakBin + 1, sumHitWave[idet]->GetBinContent(thit.peakBin + 1) + thit.qsum);
+          sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
     }
   }
 
@@ -427,11 +429,11 @@ void anaRun::differentiate(unsigned diffStep)
       maxSum = nsamples - 1 - i;
     //
     sump = 0;
-    for (unsigned j = 1; j < maxSum; ++j)
-      sump += digi[i + j];
+    for (unsigned j = 0; j < maxSum; ++j)
+      sump += digi[i+1+j];
     summ = 0;
-    for (unsigned j = 1; j < maxSum; ++j)
-      sump -= digi[i - j];
+    for (unsigned j = 0; j < maxSum; ++j)
+      summ = digi[i-1-j];
     ddigi.push_back(sump - summ);
   }
 }
@@ -525,7 +527,7 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
 {
   currentBuffer = -1;
   currentBufferCount = 0;
-  cout << " starting anaRun entries = " << maxEntries << " tag =  " << tag << endl;
+  cout << " starting anaRun entries = " << maxEntries << " file =  " << theFile << endl;
   if (!openFile(theFile))
   {
     printf("cannot open file!\n");
@@ -566,6 +568,7 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   evCount = new TH1D("eventCount", "event count", 14, 0, 14);
   histQSum = new TH1D("histQsum", "qsum by channel", 14, 0, 14);
   histQPrompt = new TH1D("histQprompt", "qprompt by channel", 14, 0, 14);
+  
 
   anaDir = fout->mkdir("anaDir");
   anaDir->cd();
@@ -625,13 +628,39 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   printf(" npass %u nfail %u tbrun entries %llu fout %s \n", npass, nfail, tbrun->btree->GetEntriesFast(), fout->GetName());
   // tbrun->btree->GetListOfBranches()->ls();
   // fout->ls();
+  /* do fits at end of run */
+
+  TString graphName = TString(Form("slope-graph-%s",tag.Data()));
+  printf(" making slope graph %s \n",graphName.Data());
+  vector<double> slope;
+  vector<double> eslope;
+  vector<double> chan;
+  vector<double> echan;
+  for (unsigned i = 0; i < sumHitWave.size(); ++i)
+  {
+    sumHitWave[i]->Fit("expo", "Q", "", 200, 600);
+    TF1 *g = (TF1 *)sumHitWave[i]->GetListOfFunctions()->FindObject("expo");
+    if(g){
+    printf("%s %E %E \n", sumHitWave[i]->GetName(), g->GetParameter(1), g->GetParError(1));
+    slope.push_back(g->GetParameter(1));
+    eslope.push_back(g->GetParError(1));
+    chan.push_back(chanList[i]);
+    echan.push_back(0);
+    }
+  }
+  TGraphErrors *grslope = new TGraphErrors(chan.size() - 4, &chan[3], &slope[3], &eslope[3], &echan[3]);
+  grslope->SetName(graphName);
+  fout->Append(grslope);
   fout->Write();
   fout->Close();
+  cout << "output file " << fout->GetName() << endl;
   return nentries;
 }
 
 anaRun::anaRun(TString theTag)
 {
-  tag = theTag;
+  string sfilename(theTag.Data());
+  string shortName = sfilename.substr(0, sfilename.find_last_of("."));
+  tag = TString(shortName.c_str());
   cout << " instance of anaRun with tag= " << tag << endl;
 }
