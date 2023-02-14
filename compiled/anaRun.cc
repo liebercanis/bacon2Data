@@ -655,8 +655,9 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   fout->Append(grslope);
   fout->Write();
   fout->Close();
-  cout << "output file " << fout->GetName() << endl;
-  printf(" FINISHED npass %u nfail %u tbrun entries %llu fout %s \n", npass, nfail, tbrun->btree->GetEntriesFast(), fout->GetName());
+  printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
+
+
   return nentries;
 }
 
