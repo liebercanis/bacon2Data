@@ -73,6 +73,10 @@ public:
   std::vector<unsigned> crossings;
   std::vector<unsigned> crossingBin;
   std::vector<double> crossingTime;
+  vector<double> slope;
+  vector<double> eslope;
+  vector<double> chan;
+  vector<double> echan;
   ofstream dumpFile;
   // vector<TBWave *> waveList;
   hitFinder *finder;
@@ -81,6 +85,7 @@ public:
   Long64_t currentBufferCount;
   anaRun(TString theTag = TString("dirName"));
   Long64_t anaRunFile(TString theFile, Long64_t maxEntries);
+  void clear();
   bool openFile(TString fileName);
   unsigned getListOfFiles(TString dir);
   unsigned getTrees();
@@ -97,6 +102,31 @@ public:
   Long64_t nentries;
 
 };
+
+void anaRun::clear(){
+  treeList.clear();
+  chanList.clear();
+  rawBr.clear();
+  noiseHist.clear();
+  skewHist.clear();
+  sumWave.clear();
+  sumHitWave.clear();
+  valHist.clear();
+  threshHist.clear();
+  crossHist.clear();
+  hEvGaus.clear();
+  digi.clear();
+  ddigi.clear();
+  hdigi.clear();
+  thresholds.clear();
+  crossings.clear();
+  crossingBin.clear();
+  crossingTime.clear();
+  slope.clear();
+  eslope.clear();
+  chan.clear();
+  echan.clear();
+}
 
 bool anaRun::openFile(TString theFile)
 {
@@ -525,6 +555,7 @@ void anaRun::derivativeCount(TDet *idet, Double_t rms)
 
 Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
 {
+  clear();
   currentBuffer = -1;
   currentBufferCount = 0;
   cout << " starting anaRun entries = " << maxEntries << " file =  " << theFile << endl;
@@ -631,10 +662,7 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
 
   TString graphName = TString(Form("slope-graph-%s",tag.Data()));
   printf(" making slope graph %s \n",graphName.Data());
-  vector<double> slope;
-  vector<double> eslope;
-  vector<double> chan;
-  vector<double> echan;
+  
   for (unsigned i = 0; i < sumHitWave.size(); ++i)
   {
     sumHitWave[i]->Fit("expo", "Q", "", 200, 600);
