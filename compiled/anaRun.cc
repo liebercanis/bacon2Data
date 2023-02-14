@@ -657,9 +657,9 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   return nentries;
 }
 
-anaRun::anaRun(TString theTag)
+anaRun::anaRun(TString theFile)
 {
-  string sfilename(theTag.Data());
+  string sfilename(theFile.Data());
   string shortName = sfilename.substr(0, sfilename.find_last_of("."));
   tag = TString(shortName.c_str());
   cout << " instance of anaRun with tag= " << tag << endl;
