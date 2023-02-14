@@ -574,8 +574,10 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   rawBr.clear();
   rawBr.resize(treeList.size());
   getEvent(0);
-
-  fout = new TFile(Form("myData/anaRun-%s-%llu.root", tag.Data(), maxEntries), "recreate");
+  string sfilename(theFile.Data());
+  string shortName = sfilename.substr(0, sfilename.find_last_of("."));
+  cout << " instance of anaRun with shortName= " << shortName  << endl;
+  fout = new TFile(Form("myData/anaRun-%s-%llu.root", shortName.c_str(), maxEntries), "recreate");
   evDir = fout->mkdir("evDir");
   badDir = fout->mkdir("badDir");
   fout->cd();
@@ -689,10 +691,8 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   return nentries;
 }
 
-anaRun::anaRun(TString theFile)
+anaRun::anaRun(TString theTag)
 {
-  string sfilename(theFile.Data());
-  string shortName = sfilename.substr(0, sfilename.find_last_of("."));
-  tag = TString(shortName.c_str());
+  tag = theTag;
   cout << " instance of anaRun with tag= " << tag << endl;
 }
