@@ -264,7 +264,7 @@ bool anaRun::anaEvent(Long64_t entry)
     if (ib == 0 && currentBuffer != rawBr[ib]->buffer)
     {
       if (currentBuffer>-1)
-        printf(" FINISHEDBUFFER %d count %lld \n", currentBuffer, currentBufferCount);
+        printf("finishedbuffer %d count %lld \n", currentBuffer, currentBufferCount);
       currentBuffer = rawBr[ib]->buffer;
       currentBufferCount = 0;
     }
@@ -625,7 +625,6 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   }
 
   // finder->hPeakCount->Print("all");
-  printf(" npass %u nfail %u tbrun entries %llu fout %s \n", npass, nfail, tbrun->btree->GetEntriesFast(), fout->GetName());
   // tbrun->btree->GetListOfBranches()->ls();
   // fout->ls();
   /* do fits at end of run */
@@ -640,12 +639,15 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   {
     sumHitWave[i]->Fit("expo", "Q", "", 200, 600);
     TF1 *g = (TF1 *)sumHitWave[i]->GetListOfFunctions()->FindObject("expo");
-    if(g){
-    printf("%s %E %E \n", sumHitWave[i]->GetName(), g->GetParameter(1), g->GetParError(1));
-    slope.push_back(g->GetParameter(1));
-    eslope.push_back(g->GetParError(1));
     chan.push_back(chanList[i]);
     echan.push_back(0);
+    if(g){
+      printf("%s %E %E \n", sumHitWave[i]->GetName(), g->GetParameter(1), g->GetParError(1));
+      slope.push_back(g->GetParameter(1));
+      eslope.push_back(g->GetParError(1));
+    } else {
+      slope.push_back(0);
+      eslope.push_back(0);
     }
   }
   TGraphErrors *grslope = new TGraphErrors(chan.size() - 4, &chan[3], &slope[3], &eslope[3], &echan[3]);
@@ -654,6 +656,7 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   fout->Write();
   fout->Close();
   cout << "output file " << fout->GetName() << endl;
+  printf(" FINISHED npass %u nfail %u tbrun entries %llu fout %s \n", npass, nfail, tbrun->btree->GetEntriesFast(), fout->GetName());
   return nentries;
 }
 
