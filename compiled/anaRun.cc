@@ -662,7 +662,7 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   /* do fits at end of run */
 
   TString graphName = TString("slope-graph");
-  TString graphTitle  = TString(Form("slope-graph-%s", tag.Data()));
+  TString graphTitle  = TString(Form("slope-graph-%s", shortName.c_str()));
   printf(" making slope graph %s \n",graphName.Data());
   
   for (unsigned i = 0; i < sumHitWave.size(); ++i)
