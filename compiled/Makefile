@@ -66,6 +66,14 @@ clean:
 	rm -f *.o 
 	rm -f ana
 	rm -rf ana.dSYM
+	rm -f ana1
+	rm -rf ana1.dSYM
+	rm -f sis
+	rm -rf sis.dSYM
+	rm -f build
+	rm -rf build.dSYM
+	rm -f summary
+	rm -rf summary.dSYM
 show:
 	@echo LD =$(LD)
 	@echo sys =$(SYS)
