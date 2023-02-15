@@ -24,6 +24,7 @@
 #include <Rtypes.h>
 #include <TH1D.h>
 #include <TH2D.h>
+#include <TNtuple.h>
 #include <TF1.h>
 #include <TFormula.h>
 #include <TStyle.h>
@@ -62,6 +63,8 @@ public:
   TString tag;
   TDirectory *fftDir;
   TDirectory *finderDir;
+  TDirectory *splitDir;
+  Long64_t theEvent;
   bool verbose;
   bool smoothing;
   hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan);
@@ -70,6 +73,7 @@ public:
   unsigned diffStep;
   unsigned thresholdStepSize;
   double threshold;
+  double peakThreshold;
   unsigned maxPeakLength;
   std::map<int, int> chanMap;
 
@@ -83,6 +87,9 @@ public:
   std::vector<unsigned> crossings;
   std::vector<unsigned> crossingBin;
   std::vector<double> crossingTime;
+  std::vector<unsigned> peakCrossings;
+  std::vector<unsigned> peakCrossingBin;
+  std::vector<double> peakCrossingTime;
   hitMap detHits;
   peakType peakList;
   std::vector<Int_t> peakKind;
@@ -92,18 +99,21 @@ public:
   void differentiate();
   void findThresholdCrossings(Int_t idet);
   void findDerivativeCrossings(Int_t idet);
+  void findPeakCrossings(Int_t idet, unsigned peakStart, unsigned peakEnd);
   void makePeaks(int idet, std::vector<Double_t> v);
   hitMap makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge);
   void plotWave(int idet, Long64_t jentry);
   void plotEvent(unsigned idet, Long64_t ievent);
   void trimPeaks(int idet, std::vector<Double_t> v);
-  void splitPeaks(int idet,std::vector<Double_t> v);
+  void splitPeaks(int idet);
   bool getTransforms();
   // hist
   TH1D *hPeakCount;
   TH1D *hPeakValue;
   TH1I *hHitLength;
   TH1I *hPeakNWidth;
+  TH1D *hPeakCrossingBin;
+  TH1D *hPeakCrossingRatio;
 
   /// The fft class to take the fourier transform.
   TVirtualFFT *fFFT;
@@ -121,6 +131,7 @@ public:
   std::vector<TH1D *> hEvWave;
   std::vector<TH1D *> hEvSmooth;
   std::vector<TH1D *> hEvCross;
+  std::vector<TH1D *> hEvPeakCross;
   std::vector<TH1D *> hEvHitWave;
   std::vector<TH1D *> hEvDerWave;
   std::vector<TH1D *> hEvFiltWave;

@@ -601,7 +601,6 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   evCount = new TH1D("eventCount", "event count", 14, 0, 14);
   histQSum = new TH1D("histQsum", "qsum by channel", 14, 0, 14);
   histQPrompt = new TH1D("histQprompt", "qprompt by channel", 14, 0, 14);
-  
 
   anaDir = fout->mkdir("anaDir");
   anaDir->cd();
@@ -633,8 +632,8 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
     sumHitWave.push_back(new TH1D(Form("sumHitWave%i", ichan), Form("sumHitWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
   }
   fout->cd();
-  // fout->ls();
-
+  //fout->ls();
+  cout << " make hitFinder " << endl;
   finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList);
   Long64_t nentries = treeList[0]->GetEntries();
   if (maxEntries > 0)
@@ -662,7 +661,8 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   // fout->ls();
   /* do fits at end of run */
 
-  TString graphName = TString(Form("slope-graph-%s",tag.Data()));
+  TString graphName = TString("slope-graph");
+  TString graphTitle  = TString(Form("slope-graph-%s", tag.Data()));
   printf(" making slope graph %s \n",graphName.Data());
   
   for (unsigned i = 0; i < sumHitWave.size(); ++i)
@@ -682,6 +682,7 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   }
   TGraphErrors *grslope = new TGraphErrors(chan.size() - 4, &chan[3], &slope[3], &eslope[3], &echan[3]);
   grslope->SetName(graphName);
+  grslope->SetTitle(graphTitle);
   fout->Append(grslope);
   fout->Write();
   fout->Close();

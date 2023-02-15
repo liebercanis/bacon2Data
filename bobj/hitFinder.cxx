@@ -46,6 +46,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   fout = theFile;
   fftDir = fout->mkdir("fftDir");
   finderDir = fout->mkdir("finderDir");
+  splitDir = fout->mkdir("splitDir");
   tag = theTag;
   tbrun = brun;
   nsamples = nSamples;
@@ -62,6 +63,8 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   hHitLength = new TH1I("HitLength", " hit length", 1000, 0, 1000);
   hPeakNWidth = new TH1I("PeakNWidth", "PeakNWidth", 1000, 0, 1000);
   hPeakValue = new TH1D("PeakValue", "Peak value (not trigger)", 1000, 0, 5000);
+  hPeakCrossingBin = new TH1D("PeakCrossingBin", "peak Crossing Bin", 100, 0, 100);
+  hPeakCrossingRatio = new TH1D("PeakCrossingRatio", "peak Crossing Ratio", 100, 0., 1.);
 
   fftDir->cd();
   for (unsigned index = 0; index < vchan.size(); ++index)
@@ -87,6 +90,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     hEvWave.push_back(new TH1D(Form("EvWave%s", deti->GetName()), Form("Wave%s", deti->GetName()), nsamples, 0, nsamples));
     hEvSmooth.push_back(new TH1D(Form("EvSmooth%s", deti->GetName()), Form("Smooth%s", deti->GetName()), nsamples, 0, nsamples));
     hEvCross.push_back(new TH1D(Form("EvCross%s", deti->GetName()), Form("Cross%s", deti->GetName()), nsamples, 0, nsamples));
+    hEvPeakCross.push_back(new TH1D(Form("EvPeakCross%s", deti->GetName()), Form("PeaCross%s", deti->GetName()), nsamples, 0, nsamples));
     hEvDerWave.push_back(new TH1D(Form("EvDerWave%s", deti->GetName()), Form("DerWave%s", deti->GetName()), nsamples, 0, nsamples));
     hEvFiltWave.push_back(new TH1D(Form("EvFiltWave%s", deti->GetName()), Form("FiltWave%s", deti->GetName()), nsamples, 0, nsamples));
     hEvHitWave.push_back(new TH1D(Form("EvHitWave%s", deti->GetName()), Form("HitWave%s", deti->GetName()), nsamples, 0, nsamples));
@@ -122,11 +126,12 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,doubl
     else
       verbose = false;
       */
-    threshold = thresh;
-    diffStep = step;
-    int idet = chanMap.at(ichan);
-    digi = eventDigi;
-    if (verbose)
+  theEvent = ievent;
+  threshold = thresh;
+  diffStep = step;
+  int idet = chanMap.at(ichan);
+  digi = eventDigi;
+  if (verbose)
     printf(" HHHHHH hitFinder ievent %llu ichan %i idet %i threshold %.1f \n", ievent, ichan, idet, tbrun->detList[idet]->sigma * threshold);
 
     double triggerTime = 0;
@@ -147,7 +152,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,doubl
     for (unsigned iw = 1; iw < maxFrequency; ++iw)
     {
       int ipoint = iw - 1;
-      if (iw > maxFrequency / 2)
+      if (iw> maxFrequency / 2)
         ipoint = maxFrequency - iw - 1;
       if (gotTransforms)
         gTransform[0]->GetPoint(ipoint, xpoint, ypoint);
@@ -176,7 +181,6 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,doubl
   if(!smoothing)
     sdigi = digi;
 
-  // 7;
   differentiate();
   for (unsigned isample = 0; isample < ddigi.size(); isample++)
   {
@@ -190,7 +194,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,doubl
   unsigned minWidth = 10;
   findThresholdCrossings(idet);
   makePeaks(idet, digi);
-  //splitPeaks(idet, ddigi);
+  splitPeaks(idet);
   detHits = makeHits(idet, triggerTime, firstCharge);
   hPeakCount->Fill(idet, peakList.size());
   // fill hits
@@ -271,12 +275,12 @@ void hitFinder::differentiate()
       maxSum = nsamples - 1 - i;
     //
     sump = 0;
-    for (unsigned j = 1; j < maxSum; ++j)
-      sump += digi[i + j];
+    for (unsigned j = 0;  j < maxSum; ++j)
+      sump += digi[i+1+j];
     summ = 0;
-    for (unsigned j = 1; j < maxSum; ++j)
-      sump -= digi[i - j];
-    ddigi[i]=sump - summ;
+    for (unsigned j = 0; j < maxSum; ++j)
+      summ += digi[i-1-j];
+    ddigi[i]= sump - summ;
   }
 }
 
@@ -536,30 +540,119 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
   return detHits;
 }
 
-// split peak based on derivaive
-void hitFinder::splitPeaks(int idet, std::vector<Double_t> v)
+void hitFinder::findPeakCrossings(Int_t idet, unsigned peakStart, unsigned peakEnd )
 {
-  if (peakList.size() < 1)
+  peakCrossings.clear();
+  peakCrossingBin.clear();
+  peakCrossingTime.clear();
+  unsigned vsize = ddigi.size();
+  peakThreshold = 7.0;
+  if (vsize < peakEnd)
       return;
-  for (unsigned ip = 0; ip < peakList.size(); ++ip)
+  Double_t cut = tbrun->detList[idet]->sigma * peakThreshold;
+  unsigned step = 1;
+  // find all crossings
+  for (unsigned ibin = peakStart; ibin < peakEnd;  ++ibin)
   {
-      // trim first peak
+    Double_t u = double(ibin) * timeUnit;
+    Double_t vi = ddigi[ibin];
+    Double_t vj = ddigi[ibin + step];
+    unsigned ctype = 10;
+    // crossing types
+    if (vi < cut && vj > cut)
+    {
+      if(verbose)  printf(" PUP det %i  bin %i %f %f  \n", idet, ibin, vi, vj);
+      peakCrossings.push_back(PUP);
+      ctype = PUP;
+      peakCrossingBin.push_back(ibin+1);
+      peakCrossingTime.push_back(u);
+    }
+    else if (vi > cut  && vj < -cut)
+    {
+      if(verbose)  printf(" UPDOWN det %i  bin %i %f %f  \n", idet, ibin, vi, vj);
+      peakCrossings.push_back(UPDOWN);
+      ctype = UPDOWN;
+      peakCrossingBin.push_back(ibin+1);
+      peakCrossingTime.push_back(u);
+    }
+    else if (vi > cut && vj < cut)
+    {
+      if(verbose)  printf(" NUP det %i  bin %i %f %f  \n", idet, ibin, vi, vj);
+      peakCrossings.push_back(NUP);
+      ctype = NUP;
+      peakCrossingBin.push_back(ibin+1);
+      peakCrossingTime.push_back(u);
+    }
+    else if (vi < -cut && vj > cut)
+    {
+      if(verbose)  printf(" DOWNUP det %i  bin %i %f %f  \n", idet, ibin, vi, vj);
+      peakCrossings.push_back(DOWNUP);
+      ctype = DOWNUP;
+      peakCrossingBin.push_back(ibin+1);
+      peakCrossingTime.push_back(u);
+    }
+    else if (vi < -cut && vj > -cut)
+    {
+      if(verbose)  printf(" PDOWN det %i  bin %i %f %f  \n", idet, ibin, vi, vj);
+      peakCrossings.push_back(PDOWN);
+      ctype = PDOWN;
+      peakCrossingBin.push_back(ibin+1);
+      peakCrossingTime.push_back(u);
+    }
+    else if (vi > -cut && vj < -cut)
+    {
+      peakCrossings.push_back(NDOWN);
+      ctype = NDOWN;
+      peakCrossingBin.push_back(ibin+1);
+      peakCrossingTime.push_back(u);
+    }
+    // if (idet==5&&ctype<10)  printf("....... %u vj %f vi %f cut %f cross type %u \n", ibin, vj, vi, cut, ctype );
+    // if (idet==1&&ibin>2350&&ibin<2450)  printf("\t %u vj %f vi %f ctype %u  \n", ibin, vj, vi, ctype );
+  }
+
+  
+  return;
+}
+
+// split peak based on derivaive
+// requires digi, ddigi vectors 
+void hitFinder::splitPeaks(int idet)
+{
+  bool splitVerbowse = false;
+  if (peakList.size() < 1 || digi.size() < 1 || ddigi.size() < 1)
+    return;
+  hEvPeakCross[idet]->Reset("ICESM");
+  //
+  //hPeakCrossingBin->Fill(0);
+  Double_t cut = tbrun->detList[idet]->sigma * peakThreshold;
+  if (splitVerbowse)
+    printf(" event %llu idet %i  npeaks = %lu peakThreshold %.2f \n", theEvent, idet, peakList.size(), peakThreshold);
+  for (unsigned ip = 0; ip < peakList.size(); ++ip)
+  {  
       unsigned peakStart = std::get<0>(peakList[ip]);
       unsigned peakEnd = std::get<1>(peakList[ip]);
-      for (unsigned kp = peakEnd; kp > peakStart; --kp)
+      // max for this peak
+      double peakMax = 0;
+      for (unsigned k = peakStart; k < peakEnd; ++k)
       {
-      double vp = v[kp];
-      if (vp > 0)
-        break;
-      std::get<1>(peakList[ip]) = kp;
+      if (digi[k] >peakMax)
+        peakMax = digi[k];
       }
-
-      for (unsigned kp = peakStart; kp < peakEnd; ++kp)
-      {
-      double vp = v[kp];
-      if (vp > 0)
-        break;
-      std::get<0>(peakList[ip]) = kp;
+      findPeakCrossings(idet, peakStart, peakEnd);
+      if (splitVerbowse)
+         printf(" \t peak  = %u   max %f crossings %lu cut  %f  \n", ip, peakMax, peakCrossings.size(), cut);
+      for (unsigned ipc = 0; ipc < peakCrossings.size(); ++ipc) {
+      if (peakCrossings[ipc] == PDOWN || peakCrossings[ipc] == NDOWN)
+       {
+        double ratio = digi[peakCrossingBin[ipc]] / peakMax;
+        if (ratio>1) {
+          printf(" event %llu idet %i  npeaks = %lu peakThreshold %.2f \n", theEvent, idet, peakList.size(), peakThreshold);
+          printf(" \t\t crossing  %i type %i bin %i peakStart %i  peakEnd %i ddigi %f digi %f max %f ratio to max %f \n", ipc, peakCrossings[ipc], peakCrossingBin[ipc], peakStart, peakEnd, ddigi[peakCrossingBin[ipc]], digi[peakCrossingBin[ipc]], peakMax, ratio);
+        }
+        hPeakCrossingBin->Fill(peakCrossingBin[ip] - peakStart);
+        hEvPeakCross[idet]->SetBinContent(peakCrossingBin[ipc], digi[peakCrossingBin[ipc]]);
+        hPeakCrossingRatio->Fill(digi[peakCrossingBin[ipc]] / peakMax);
+       }
       }
   }
 }
@@ -687,7 +780,6 @@ void hitFinder::plotWave(int idet, Long64_t jentry)
   hder->Draw();
   can->cd(4);
   hhit->Draw();
-
   can->Print(".gif");
 }
 
@@ -711,6 +803,9 @@ void hitFinder::plotEvent(unsigned ichan, Long64_t ievent)
 
   histName.Form("EvCross%lli_%s", ievent, detName.Data());
   TH1D *hcross = (TH1D *)hEvCross[idet]->Clone(histName);
+
+  histName.Form("EvPeakCross%lli_%s", ievent, detName.Data());
+  TH1D *hpeakCross = (TH1D *)hEvPeakCross[idet]->Clone(histName);
 
   histName.Form("EvFiltWave%lli_%s", ievent,detName.Data());
   TH1D *hfiltwave = (TH1D *)hEvFiltWave[idet]->Clone(histName);
