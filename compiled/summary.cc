@@ -63,12 +63,19 @@ int main(int argc, char *argv[])
     TString fullName = TString("myData/") + fileList[ifile];
     TFile *fin = new TFile(fullName);
     TBFile *bf;
+    TGraph *gslope;
     fin->GetObject("tbfile", bf);
+    fin->GetObject("slope-graph", gslope);
     if(!bf) {
       //printf(" no timestamp in file %s \n",fileList[i].Data());
       continue;
     }
-    cout << bf->GetTitle()  << " modified " << bf->modified << endl;
+    if (!gslope)
+    {
+      // printf(" no timestamp in file %s \n",fileList[i].Data());
+      continue;
+    }
+    cout << bf->GetTitle() << " modified " << bf->modified << " slope graph " << gslope->GetTitle() << endl;
     filenum.push_back(double(ifile));
     efilenum.push_back(0);
     // use bf->modified a std string
