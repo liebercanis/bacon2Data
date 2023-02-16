@@ -655,6 +655,16 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
     else
       ++nfail;
   }
+  // normailize to number of nentries.
+  // loop over detector channels
+  double scaleFactor = 1. / double(nentries);
+
+  for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
+  {
+    histQSum->Scale(scaleFactor);
+    histQPrompt->Scale(scaleFactor);
+    sumHitWave[idet]->Scale(scaleFactor);
+  }
 
   // finder->hPeakCount->Print("all");
   // tbrun->btree->GetListOfBranches()->ls();
@@ -684,11 +694,11 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   grslope->SetName(graphName);
   grslope->SetTitle(graphTitle);
   fout->Append(grslope);
+
   fout->Write();
   fout->Close();
   printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
-
-
+  
   return nentries;
 }
 
