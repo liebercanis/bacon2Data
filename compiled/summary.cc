@@ -1,3 +1,7 @@
+#include <ctime>
+#include <iostream>
+#include <iterator>
+#include <locale>
 #include <TString.h>
 #include <TROOT.h>
 #include "TString.h"
@@ -15,7 +19,16 @@ std::vector<double> efilenum;
 std::vector<double> vqsum8;
 std::vector<double> veqsum8;
 
-
+string currentDate()
+{
+  time_t rawtime;
+  struct tm *timeinfo;
+  time(&rawtime);
+  timeinfo = localtime(&rawtime);
+  char output[30];
+  strftime(output, 30, "%Y-%m-%d-%H-%M", timeinfo);
+  return string(output);
+}
 // count subruns and channels
 unsigned long  countFiles()
 {
@@ -45,8 +58,6 @@ int main(int argc, char *argv[])
     exit(0);
   TString tag("run");
 
-  TFile *fout = new TFile("summary.root","recreate");
-
   countFiles();
   printf(" for %s found %lu files \n", tag.Data(), fileList.size());
   Long64_t maxFiles = fileList.size();
@@ -55,8 +66,10 @@ int main(int argc, char *argv[])
     maxFiles = atoi(argv[2]);
   }
 
-  cout << " starting summary for  " << maxFiles << " files " << endl;
+  std::string sdate = currentDate();
+  cout << " starting summary for  " << maxFiles << " files on " << sdate << endl;
 
+  TFile *fout = new TFile(Form("summary-%s.root", sdate.c_str()), "recreate");
 
   for (unsigned ifile = 0; ifile < maxFiles; ++ifile){
     cout << " starting anaRunFile " << fileList[ifile] << endl;
