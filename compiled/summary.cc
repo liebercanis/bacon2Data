@@ -16,8 +16,8 @@
 std::vector<TString> fileList;
 std::vector<double> filenum;
 std::vector<double> efilenum;
-std::vector<double> vqsum8;
-std::vector<double> veqsum8;
+std::vector<vector<double>> vecQsum;
+std::vector<vector<double>> vecEqsum;
 
 string currentDate()
 {
@@ -59,6 +59,12 @@ int main(int argc, char *argv[])
   TString tag("run");
 
   countFiles();
+  unsigned nchan = 12;
+  vecQsum.resize(nchan);
+  vecEqsum.resize(nchan);
+  for (unsigned ic = 0; ic < nchan; ++ic)
+    printf(" chan %u vecQsum %lu \n",ic,vecQsum[ic].size());
+
   printf(" for %s found %lu files \n", tag.Data(), fileList.size());
   Long64_t maxFiles = fileList.size();
   if (argc > 1)
@@ -89,8 +95,7 @@ int main(int argc, char *argv[])
       continue;
     }
     cout << bf->GetTitle() << " modified " << bf->modified << " slope graph " << gslope->GetTitle() << endl;
-    filenum.push_back(double(ifile));
-    efilenum.push_back(0);
+    
     // use bf->modified a std string
     /* migrate fit from post.C:        TF1 *g = (TF1*)hHitSum[i]->GetListOfFunctions()->FindObject("expo");*/
 
@@ -102,23 +107,36 @@ int main(int argc, char *argv[])
     if (!hqsum || !hqprompt)
       continue;
 
-    cout << hqsum->GetName() << " " << hqprompt->GetName() << endl;
+    cout << "for file  " << ifile << " " << hqsum->GetName() << " " << hqprompt->GetName() << endl;
+    
+    filenum.push_back(double(ifile));
+    efilenum.push_back(0);
 
-    for (int i = 0; i < hqsum->GetNbinsX(); ++ i){
-      if(i==4)
-        continue;
+
+    for (int i = 0; i < hqsum->GetNbinsX(); ++i)
+    {
       cout << "chan " << i + 1 << " qsum " << hqsum->GetBinContent(i + 1) << endl;
-      if(i+1==8){
-        vqsum8.push_back(hqsum->GetBinContent(i + 1));
-        veqsum8.push_back(hqsum->GetBinError(i + 1));
-      }
+      vecQsum[i].push_back(hqsum->GetBinContent(i + 1));
+      vecEqsum[i].push_back(hqsum->GetBinError(i + 1));
     }
-    TGraphErrors *gqsum = new TGraphErrors(filenum.size(), &filenum[0], &vqsum8[0], &efilenum[0], &veqsum8[0]);
-    TCanvas *can = new TCanvas("Qsummary","Qsummary");
-    gqsum->Draw("ap");
-    fout->Append(gqsum);
-    fout->Append(can);
+  } // end loop over files
+  printf(" files %lu \n", filenum.size());
+  for (unsigned ic = 0; ic < nchan; ++ic)
+    printf(" chan %u vecQsum %lu \n", ic, vecQsum[ic].size());
+
+  // one graph per channel
+  vector<TGraphErrors *> gqsum;
+  for (unsigned ic = 0; ic < nchan; ++ic )
+  {
+      gqsum.push_back(new TGraphErrors(filenum.size(), &filenum[0], &vecQsum[ic][0], &efilenum[0], &vecEqsum[ic][0]));
   }
+  // overlay all channel graphs on canvas
+  TCanvas *can = new TCanvas("Qsummary","Qsummary");
+  for (unsigned ic = 0; ic < nchan; ++ic) {
+    gqsum[ic]->Draw("ap");
+    fout->Append(gqsum[ic]);
+  }
+  fout->Append(can);
 
   cout << "summary finished " << maxFiles << endl;
 
