@@ -601,7 +601,8 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   evCount = new TH1D("eventCount", "event count", 14, 0, 14);
   histQSum = new TH1D("histQsum", "qsum by channel", 14, 0, 14);
   histQPrompt = new TH1D("histQprompt", "qprompt by channel", 14, 0, 14);
-
+  histQSum->Sumw2();
+  histQPrompt->Sumw2();
   anaDir = fout->mkdir("anaDir");
   anaDir->cd();
 
@@ -658,13 +659,11 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   // normailize to number of nentries.
   // loop over detector channels
   double scaleFactor = 1. / double(nentries);
-
-  for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
-  {
-    histQSum->Scale(scaleFactor);
-    histQPrompt->Scale(scaleFactor);
-    sumHitWave[idet]->Scale(scaleFactor);
-  }
+  printf("scale by %E\n", scaleFactor);
+  histQSum->Scale(scaleFactor);
+  histQPrompt->Scale(scaleFactor);
+  for (unsigned i = 0; i < sumHitWave.size(); ++i)
+    sumHitWave[i]->Scale(scaleFactor);
 
   // finder->hPeakCount->Print("all");
   // tbrun->btree->GetListOfBranches()->ls();

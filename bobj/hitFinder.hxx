@@ -24,7 +24,6 @@
 #include <Rtypes.h>
 #include <TH1D.h>
 #include <TH2D.h>
-#include <TNtuple.h>
 #include <TF1.h>
 #include <TFormula.h>
 #include <TStyle.h>
@@ -78,6 +77,7 @@ public:
   std::map<int, int> chanMap;
 
   TNtuple *ntFinder;
+  TNtuple *ntSplit;
   std::vector<double> rdigi; //
   std::vector<double> digi;  // baseline subtracted
   std::vector<double> ddigi; // derivative
@@ -106,6 +106,7 @@ public:
   void plotEvent(unsigned idet, Long64_t ievent);
   void trimPeaks(int idet, std::vector<Double_t> v);
   void splitPeaks(int idet);
+  void printPeakList();
   bool getTransforms();
   // hist
   TH1D *hPeakCount;
@@ -137,4 +138,4 @@ public:
   std::vector<TH1D *> hEvFiltWave;
   std::vector<TH1D *> hDigiVal;
   std::vector<TH1D *> hHitSum;
-};
+  };

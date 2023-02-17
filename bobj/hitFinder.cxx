@@ -105,7 +105,8 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     printf(" create  index %i vchan %i %s %s \n", index, id, hEvWave[index]->GetName(), hEvWave[index]->GetTitle());
   }
   fout->cd();
-  ntFinder = new TNtuple("finder"," hit finder ","chan:ncross:npeak");
+  ntFinder = new TNtuple("finder", " hit finder ", "chan:ncross:npeak");
+  ntSplit = new TNtuple("split"," split for finder ","chan:cross:bin:ratio:batr:width");
 
   gotTransforms = getTransforms();
 
@@ -116,6 +117,16 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     int id = chanMap.at(vchan[index]);
     printf("index %i chan %i mapped to index  %i %s %s\n", index, vchan[index],id,
       hEvWave[id]->GetName(), hEvWave[id]->GetTitle());
+  }
+}
+
+void hitFinder::printPeakList() {
+  cout << "peakList size " << peakList.size() << endl;
+  for (unsigned ip = 0; ip < peakList.size(); ++ip)
+  {
+    unsigned peakStart = std::get<0>(peakList[ip]);
+    unsigned peakEnd = std::get<1>(peakList[ip]);
+    printf("\t peak %i (%i,%i) \n",ip,peakStart,peakEnd);
   }
 }
 
@@ -619,6 +630,7 @@ void hitFinder::findPeakCrossings(Int_t idet, unsigned peakStart, unsigned peakE
 void hitFinder::splitPeaks(int idet)
 {
   bool splitVerbowse = false;
+  vector<int> splitAt;
   if (peakList.size() < 1 || digi.size() < 1 || ddigi.size() < 1)
     return;
   hEvPeakCross[idet]->Reset("ICESM");
@@ -627,14 +639,16 @@ void hitFinder::splitPeaks(int idet)
   Double_t cut = tbrun->detList[idet]->sigma * peakThreshold;
   if (splitVerbowse)
     printf(" event %llu idet %i  npeaks = %lu peakThreshold %.2f \n", theEvent, idet, peakList.size(), peakThreshold);
+  
   for (unsigned ip = 0; ip < peakList.size(); ++ip)
-  {  
-      unsigned peakStart = std::get<0>(peakList[ip]);
-      unsigned peakEnd = std::get<1>(peakList[ip]);
-      // max for this peak
-      double peakMax = 0;
-      for (unsigned k = peakStart; k < peakEnd; ++k)
-      {
+  {
+    bool splitIt = false;
+    unsigned peakStart = std::get<0>(peakList[ip]);
+    unsigned peakEnd = std::get<1>(peakList[ip]);
+    // max for this peak
+    double peakMax = 0;
+    for (unsigned k = peakStart; k < peakEnd; ++k)
+    {
       if (digi[k] >peakMax)
         peakMax = digi[k];
       }
@@ -649,12 +663,41 @@ void hitFinder::splitPeaks(int idet)
           printf(" event %llu idet %i  npeaks = %lu peakThreshold %.2f \n", theEvent, idet, peakList.size(), peakThreshold);
           printf(" \t\t crossing  %i type %i bin %i peakStart %i  peakEnd %i ddigi %f digi %f max %f ratio to max %f \n", ipc, peakCrossings[ipc], peakCrossingBin[ipc], peakStart, peakEnd, ddigi[peakCrossingBin[ipc]], digi[peakCrossingBin[ipc]], peakMax, ratio);
         }
-        hPeakCrossingBin->Fill(peakCrossingBin[ip] - peakStart);
+        hPeakCrossingBin->Fill(peakCrossingBin[ipc] - peakStart);
         hEvPeakCross[idet]->SetBinContent(peakCrossingBin[ipc], digi[peakCrossingBin[ipc]]);
         hPeakCrossingRatio->Fill(digi[peakCrossingBin[ipc]] / peakMax);
+        double binAtr = 20. - (20. / .3) * ratio;
+        ntSplit->Fill(float(idet), float(ipc), float(peakCrossingBin[ipc] - peakStart), float(ratio), float(binAtr),
+        float(peakEnd-peakStart));
+        double subBin = double(peakCrossingBin[ipc] - peakStart);
+        // split peak
+        if (subBin>binAtr)
+          splitIt = true;
        }
       }
+       if(splitIt)
+       splitAt.push_back(ip);
   }
+  // splitThePeak(ip, peakCrossingBin[ipc]);
+    /*
+  if(splitAt.size()>0) {
+    printf("idet %i number of peaks to split %lu \n",idet,splitAt.size());
+    // copy and remake peakList
+    peakType peakList0  = peakList;
+    std::vector<Int_t> peakKind0 = peakKind;
+    for (unsigned isplit = 0; isplit < splitAt.size(); ++isplit)
+      {
+        printPeakList();
+        unsigned ip = splitAt[isplit];
+        cout << "erase peak " << ip << endl;
+        peakList.erase(peakList.begin() + ip);
+        printPeakList();
+        // peakCrossingBin[ipc]
+        // peakList.push_back(std::make_pair(ilow, ihigh));
+      }
+    }
+  }
+  */
 }
 
 void hitFinder::trimPeaks(int idet, std::vector<Double_t> v)

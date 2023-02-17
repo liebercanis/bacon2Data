@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
   TString tag("run");
 
   countFiles();
-  unsigned nchan = 12;
+  unsigned nchan = 14;
   vecQsum.resize(nchan);
   vecEqsum.resize(nchan);
   for (unsigned ic = 0; ic < nchan; ++ic)
@@ -107,8 +107,8 @@ int main(int argc, char *argv[])
     if (!hqsum || !hqprompt)
       continue;
 
-    cout << "for file  " << ifile << " " << hqsum->GetName() << " " << hqprompt->GetName() << endl;
-    
+    cout << "for file  " << ifile << " " << hqsum->GetName() << " " << hqsum->GetNbinsX()   << endl;
+
     filenum.push_back(double(ifile));
     efilenum.push_back(0);
 
@@ -122,25 +122,31 @@ int main(int argc, char *argv[])
   } // end loop over files
   printf(" files %lu \n", filenum.size());
   for (unsigned ic = 0; ic < nchan; ++ic)
-    printf(" chan %u vecQsum %lu \n", ic, vecQsum[ic].size());
+    printf(" chan %u vecQsum %lu chan 8 \n", ic, vecQsum[ic].size());
+  for (unsigned ifile = 0; ifile < vecQsum[8+1].size(); ++ifile )
+    printf(" %u %f  ",ifile, vecQsum[8+1][ifile]);
+  cout << endl;
 
   // one graph per channel
   vector<TGraphErrors *> gqsum;
   for (unsigned ic = 0; ic < nchan; ++ic )
   {
-      gqsum.push_back(new TGraphErrors(filenum.size(), &filenum[0], &vecQsum[ic][0], &efilenum[0], &vecEqsum[ic][0]));
+      gqsum.push_back(new TGraphErrors(filenum.size(), &filenum[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEqsum[ic][0])));
+      gqsum[ic]->SetName(Form("qsumChan%i",ic));
+      gqsum[ic]->SetTitle(Form("qsum-chan-%i",ic));
   }
   // overlay all channel graphs on canvas
   TCanvas *can = new TCanvas("Qsummary","Qsummary");
   for (unsigned ic = 0; ic < nchan; ++ic) {
-    gqsum[ic]->Draw("ap");
-    fout->Append(gqsum[ic]);
+      gqsum[ic]->SetMarkerSize(1);
+      gqsum[ic]->SetMarkerStyle(7);
+      fout->Append(gqsum[ic]);
+      if (ic == 0) gqsum[ic]->Draw("ap");
+      else gqsum[ic]->Draw("apsame");
   }
   fout->Append(can);
-
-  cout << "summary finished " << maxFiles << endl;
-
   fout->ls();
   fout->Write();
+  cout << "summary finished " << maxFiles <<  " " << fout->GetName() << endl;
   exit(0);
 }
