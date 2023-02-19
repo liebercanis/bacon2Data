@@ -131,11 +131,13 @@ int main(int argc, char *argv[])
   // one graph per channel
   vector<TGraphErrors *> gqsum;
   TMultiGraph *mg = new TMultiGraph();
-  for (unsigned ic = 0; ic < nchan; ++ic )
+  for (unsigned ic = 1; ic < nchan; ++ic )
   {
       gqsum.push_back(new TGraphErrors(filenum.size(), &filenum[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEqsum[ic][0])));
       gqsum[ic]->SetName(Form("qsumChan%i",ic));
       gqsum[ic]->SetTitle(Form("qsum-chan-%i",ic));
+      gqsum[ic]->SetMarkerSize(1);
+      gqsum[ic]->SetMarkerStyle(ic+1);
       fout->Add(gqsum[ic]);
       if (ic < nchan-4) mg->Add(gqsum[ic]);
   }
