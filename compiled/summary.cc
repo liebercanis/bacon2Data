@@ -137,7 +137,7 @@ int main(int argc, char *argv[])
       gqsum[ic]->SetName(Form("qsumChan%i",ic));
       gqsum[ic]->SetTitle(Form("qsum-chan-%i",ic));
       gqsum[ic]->SetMarkerSize(1);
-      gqsum[ic]->SetMarkerStyle(3);
+      //gqsum[ic]->SetMarkerStyle(3);
       fout->Add(gqsum[ic]);
       if (ic < nchan-4) mg->Add(gqsum[ic]);
   }
