@@ -8,6 +8,7 @@
 #include "TObjString.h"
 #include "TSystem.h"
 #include "TSystemDirectory.h"
+#include "TMultiGraph.h"
 #include "TGraphErrors.h"
 #include "TList.h"
 //
@@ -129,21 +130,19 @@ int main(int argc, char *argv[])
 
   // one graph per channel
   vector<TGraphErrors *> gqsum;
+  TMultiGraph *mg = new TMultiGraph();
   for (unsigned ic = 0; ic < nchan; ++ic )
   {
       gqsum.push_back(new TGraphErrors(filenum.size(), &filenum[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEqsum[ic][0])));
       gqsum[ic]->SetName(Form("qsumChan%i",ic));
       gqsum[ic]->SetTitle(Form("qsum-chan-%i",ic));
+      mg->Add(gqsum[ic]);
   }
   // overlay all channel graphs on canvas
+
+  
   TCanvas *can = new TCanvas("Qsummary","Qsummary");
-  for (unsigned ic = 0; ic < nchan; ++ic) {
-      gqsum[ic]->SetMarkerSize(1);
-      gqsum[ic]->SetMarkerStyle(7);
-      fout->Append(gqsum[ic]);
-      if (ic == 0) gqsum[ic]->Draw("ap");
-      else gqsum[ic]->Draw("apsame");
-  }
+  mg->Draw("ap");
   fout->Append(can);
   fout->ls();
   fout->Write();
