@@ -143,6 +143,7 @@ int main(int argc, char *argv[])
   
   TCanvas *can = new TCanvas("Qsummary","Qsummary");
   mg->Draw("ap");
+  can->BuildLegend();
   fout->Append(can);
   fout->ls();
   fout->Write();
