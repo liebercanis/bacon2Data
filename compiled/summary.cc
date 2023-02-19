@@ -137,7 +137,7 @@ int main(int argc, char *argv[])
       gqsum[ic]->SetName(Form("qsumChan%i",ic));
       gqsum[ic]->SetTitle(Form("qsum-chan-%i",ic));
       fout->Add(gqsum[ic]);
-      mg->Add(gqsum[ic]);
+      if (ic < 10) mg->Add(gqsum[ic]);
   }
   // overlay all channel graphs on canvas
 
