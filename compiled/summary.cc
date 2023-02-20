@@ -105,8 +105,12 @@ int main(int argc, char *argv[])
     fin->GetObject("histQsum", hqsum);
     fin->GetObject("histQprompt", hqprompt);
 
-    if (!hqsum || !hqprompt)
-      continue;
+    TH1D *hq = (TH1D *)hqsum->Clone(Form("hqsum%i",ifile));
+    TH1D *hp = (TH1D *)hqsum->Clone(Form("hqprompt%i",ifile));
+    fout->Add(hq);
+    fout->Add(hp);
+
+    if (!hqsum || !hqprompt) continue;
 
     cout << "for file  " << ifile << " " << hqsum->GetName() << " " << hqsum->GetNbinsX()   << endl;
 
@@ -114,7 +118,7 @@ int main(int argc, char *argv[])
     efilenum.push_back(0);
 
 
-    for (int i = 0; i < hqsum->GetNbinsX(); ++i)
+    for (int i = 0; i < hqsum->GetNbinsX()-1; ++i)
     {
       cout << "chan " << i + 1 << " qsum " << hqsum->GetBinContent(i + 1) << endl;
       vecQsum[i].push_back(hqsum->GetBinContent(i + 1));
@@ -140,7 +144,7 @@ int main(int argc, char *argv[])
     gqsum[ic]->SetMarkerSize(1);
     gqsum[ic]->SetMarkerStyle(3);
     fout->Add(gqsum[ic]);
-    if (ic < 10&&ic>0)
+    if (ic < 11&&ic>0)
       mg->Add(gqsum[ic]);
   }
   // overlay all channel graphs on canvas
