@@ -129,8 +129,7 @@ int main(int argc, char *argv[])
   for (unsigned ic = 0; ic < nchan; ++ic)
     printf(" chan %u vecQsum %lu  \n", ic, vecQsum[ic].size());
   for (unsigned ifile = 0; ifile < vecQsum[7].size(); ++ifile )
-    printf("  summary-channel-6 %u %f  ",ifile, vecQsum[7][ifile]);
-  cout << endl;
+    printf("  summary file %u  %s chan6 %f  \n", ifile, fileList[ifile].Data(), vecQsum[7][ifile]);
 
   // one graph per channel
   vector<TGraphErrors *> gqsum;
