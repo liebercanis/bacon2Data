@@ -63,8 +63,8 @@ int main(int argc, char *argv[])
   unsigned nchan = 14;
   vecQsum.resize(nchan);
   vecEqsum.resize(nchan);
-  for (unsigned ic = 0; ic < nchan; ++ic)
-    printf(" chan %u vecQsum %lu \n",ic,vecQsum[ic].size());
+  //for (unsigned ic = 0; ic < nchan; ++ic)
+  //  printf(" chan %u vecQsum %lu \n",ic,vecQsum[ic].size());
 
   printf(" for %s found %lu files \n", tag.Data(), fileList.size());
   Long64_t maxFiles = fileList.size();
@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
 
     if (!hqsum || !hqprompt) continue;
 
-    cout << "for file  " << ifile << " " << hqsum->GetName() << " " << hqsum->GetNbinsX()   << endl;
+    cout << "for file  " << ifile <<" " << fileList[ifile] << " " << hqsum->GetName() << " " << hqsum->GetNbinsX() << endl;
 
     filenum.push_back(double(ifile));
     efilenum.push_back(0);
@@ -126,17 +126,19 @@ int main(int argc, char *argv[])
     }
   } // end loop over files
   printf(" files %lu \n", filenum.size());
-  for (unsigned ic = 0; ic < nchan; ++ic)
-    printf(" chan %u vecQsum %lu  \n", ic, vecQsum[ic].size());
-  for (unsigned ifile = 0; ifile < vecQsum[7].size(); ++ifile )
+  //for (unsigned ic = 0; ic < nchan; ++ic)
+   // printf(" chan %u vecQsum %lu  \n", ic, vecQsum[ic].size());
+  for (unsigned jfile = 0; jfile < filenum.size() ; ++jfile ) {
+    int ifile = int(filenum[jfile]);
     printf("  summary file %u  %s chan6 %f  \n", ifile, fileList[ifile].Data(), vecQsum[7][ifile]);
+  }
 
   // one graph per channel
   vector<TGraphErrors *> gqsum;
   TMultiGraph *mg = new TMultiGraph();
   for (unsigned ic = 0; ic < nchan; ++ic )
   {
-    cout << " add " << ic << endl; 
+    //cout << " add " << ic << endl; 
     gqsum.push_back(new TGraphErrors(filenum.size(), &filenum[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEqsum[ic][0])));
     gqsum[ic]->SetName(Form("qsumChan%i", ic-1));
     gqsum[ic]->SetTitle(Form("qsum-chan-%i", ic-1));
