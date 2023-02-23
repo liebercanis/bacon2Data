@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
     gqsum[ic]->SetMarkerSize(1);
     gqsum[ic]->SetMarkerStyle(3);
     fout->Add(gqsum[ic]);
-    if(ic==9||ic==8||ic==7)
+    if(ic==10||ic==9||ic==8)
       mg->Add(gqsum[ic]);
   }
   // overlay all channel graphs on canvas
