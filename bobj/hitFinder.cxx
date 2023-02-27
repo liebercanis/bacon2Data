@@ -230,23 +230,29 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,doubl
   for (hitMapIter hitIter = detHits.begin(); hitIter != detHits.end(); ++hitIter)
   {
     TDetHit hiti = hitIter->second;
-    if (hiti.qsum < hitQThreshold )
-      continue; // low threshold cut
-    tbrun->detList[idet]->qSum += hiti.qsum;
-    tbrun->detList[idet]->hitSum += hiti.qpeak;
-    if(hiti.startTime<startTimeCut) {
-      tbrun->detList[idet]->qPrompt += hiti.qsum;
-      tbrun->detList[idet]->hitPrompt += hiti.qpeak;
-    }
-    if(!triggerChannel)
-      hPeakValue->Fill(hiti.qpeak);
-    hiti.SetTitle(Form("TDetHit %i event %llu chan %i index %i ", icount++, ievent, ichan, idet));
+   
     tbrun->detList[idet]->hits.push_back(hiti);
+    // fill hit digi 
     for (unsigned iv = 0; iv < digi.size(); ++iv)
       if (iv >= hiti.firstBin && iv <= hiti.lastBin){
         hdigi[iv] = digi[iv];
       }
+    // make sums with cut
+    if (hiti.qsum > hitQThreshold)
+    {
+      tbrun->detList[idet]->qSum += hiti.qsum;
+      tbrun->detList[idet]->hitSum += hiti.qpeak;
+      if (hiti.startTime < startTimeCut)
+      {
+        tbrun->detList[idet]->qPrompt += hiti.qsum;
+        tbrun->detList[idet]->hitPrompt += hiti.qpeak;
+      }
+    }
+    if (!triggerChannel)
+      hPeakValue->Fill(hiti.qpeak);
+    hiti.SetTitle(Form("TDetHit %i event %llu chan %i index %i ", icount++, ievent, ichan, idet));
   }
+  // save the hits
   tbrun->fill();
 
   for (unsigned isample = 0; isample < hdigi.size(); isample++){

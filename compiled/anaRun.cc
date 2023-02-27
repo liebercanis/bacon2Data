@@ -100,6 +100,7 @@ public:
   void differentiate(unsigned diffStep);
   void derivativeCount(TDet *idet, Double_t rms);
   void thresholdCount(TDet *idet, Double_t rms);
+  TDirectory *rawSumDir;
   TDirectory *badDir;
   TDirectory *evDir;
   TDirectory *sumDir;
@@ -192,6 +193,8 @@ unsigned anaRun::getTrees()
 // get summed histos
 void anaRun::getSummedHists()
 {
+  rawSumDir = fout->mkdir("rawSumDir");
+  rawSumDir->cd();
   TIter next(fin->GetListOfKeys());
   TKey *key;
   while (TKey *key = (TKey *)next())
@@ -203,8 +206,9 @@ void anaRun::getSummedHists()
     TString name;
     name.Form("SumWave-%s-%s",h->GetName(),tag.Data());
     TH1D *hsave = (TH1D *)h->Clone(name);
-    fout->Add(hsave);
+    //rawSumDir->Add(hsave);
   }
+  fout->cd();
   return;
 }
 
@@ -457,17 +461,19 @@ bool anaRun::anaEvent(Long64_t entry)
   for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
   {
     TDet *tdet = tbrun->detList[idet];
+    // hit threshold cut done in hitFinder
     histQSum->Fill(tdet->channel, tdet->qSum);
-    hQSum[idet]->Fill(tdet->qSum);
-    hQPeak[idet]->Fill(tdet->hitSum);
-    // filling histogram bin 1 has lower edge of 0
     histQPrompt->Fill(tdet->channel, tdet->qPrompt);
 
-    for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit) {
-          TDetHit thit = tdet->hits[ihit];
-          // setting histogram bin 1 is lowest bin, 0 is underflow
-          if(thit.qsum > hitQThreshold)
-            sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
+    // loop over hits
+    for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
+    {
+      TDetHit thit = tdet->hits[ihit];
+      hQSum[idet]->Fill(thit.qsum);
+      hQPeak[idet]->Fill(thit.qpeak);
+      // do threshold for summed waveform
+      if(thit.qsum > hitQThreshold) 
+        sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
     }
   }
 
@@ -680,6 +686,8 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
     if (trigger)
       limit = 200000;
     // else if(ichan==12) limit = 10000;
+    else if(ichan==12)
+      limit = 10000;
     else
       limit = 20000;
     
