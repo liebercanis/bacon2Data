@@ -58,6 +58,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   timeUnit = 8.0; // ns per count
   maxPeakLength = 100;
   thresholdStepSize=1;
+  
   fout->cd();
   hPeakCount = new TH1D("PeakCount", " peaks by det ", vchan.size(),0,vchan.size());
   hHitLength = new TH1I("HitLength", " hit length", 1000, 0, 1000);
@@ -229,6 +230,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,doubl
   for (hitMapIter hitIter = detHits.begin(); hitIter != detHits.end(); ++hitIter)
   {
     TDetHit hiti = hitIter->second;
+    if (hiti.qsum < hitQThreshold )
+      continue; // low threshold cut
     tbrun->detList[idet]->qSum += hiti.qsum;
     tbrun->detList[idet]->hitSum += hiti.qpeak;
     if(hiti.startTime<startTimeCut) {
@@ -250,7 +253,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,doubl
     hEvHitWave[idet]->SetBinContent(isample + 1, hdigi[isample]);
     hHitSum[idet]->SetBinContent(isample + 1, hdigi[isample] + hHitSum[idet]->GetBinContent(isample + 1));
   }
-
+  
+  
   //
   ntFinder->Fill(float(idet),float(crossings.size()), float(peakList.size()));
   if(verbose) {

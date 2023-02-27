@@ -43,6 +43,7 @@ typedef std::map<Double_t, TDetHit, std::less<Double_t>> hitMap;
 typedef std::map<Double_t, TDetHit, std::less<Double_t>>::iterator hitMapIter;
 
 const Double_t qnorm = 1.0;
+static double hitQThreshold=1000;
 
 class hitFinder
 {
@@ -138,4 +139,5 @@ public:
   std::vector<TH1D *> hEvFiltWave;
   std::vector<TH1D *> hDigiVal;
   std::vector<TH1D *> hHitSum;
+
   };

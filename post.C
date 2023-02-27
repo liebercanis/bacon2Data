@@ -1,84 +1,14 @@
 TTree *btree;
 vector<TH1D *> hsum;
-vector<TH1D *> hhitSum;
+vector<TH1D *> hHitSum;
 vector<TH1D *> hFFT;
-
-void post(TString fileName = TString("anaRun-run-01_13_2023-nev0-10000.root"))
-{
-    gStyle->SetOptStat(1001101);
-    TString fullName = TString("myData/") + fileName;
-    TFile *fin = new TFile(fullName, "readonly");
-    if (!fin)
-    {
-        cout << " didnt find " << fileName << endl;
-        return;
-    }
-    cout << " opened  " << fileName << endl;
-    /* get tbrun */
-    btree = NULL;
-    fin->GetObject("RunTree", btree);
-    if (!btree)
-    {
-        printf("TBRun not found \n");
-        return;
-    }
-
-    Long64_t ntriggers = btree->GetEntriesFast();
-    printf(" total triggers analyzed %llu \n", ntriggers);
-    /* get sum histos from file */
-    TDirectory *sumDir;
-    fin->GetObject("sumDir",sumDir);
-    TIter next(sumDir->GetListOfKeys());
-    TKey *key;
-    while (TKey *key = (TKey *)next())
-    {
-        TClass *cl = gROOT->GetClass(key->GetClassName());
-        if (!cl->InheritsFrom("TH1D"))
-            continue;
-        TH1D *h = (TH1D *)key->ReadObj();
-        TString hname(h->GetName());
-        if (hname.Contains("sumWave")) hsum.push_back(h);
-        else if (hname.Contains("sumHit")) hhitSum.push_back(h);
-    }
-
-    /* get FFT histos from file */
-    TDirectory *fftDir;
-    fin->GetObject("fftDir",fftDir);
-    TIter nextf(fftDir->GetListOfKeys());
-    while (TKey *key = (TKey *)nextf())
-    {
-        TClass *cl = gROOT->GetClass(key->GetClassName());
-        if (!cl->InheritsFrom("TH1D"))
-            continue;
-        TH1D *h = (TH1D *)key->ReadObj();
-        TString hname(h->GetName());
-        cout << (h->GetName()) << endl;
-        hFFT.push_back(h);
-    }
+vector<double> slope;
+vector<double> eslope;
+vector<double> chan;
+vector<double> echan;
+TString tag;
 
 
-    /*normalize 
-    vector<TH1D *> hscale;
-    hscale.resize(hsum.size());
-    for (unsigned i = 0; i < hsum.size(); ++i)
-    {
-        hscale[i] = (TH1D *)hsum[i]->Clone(Form("Scale%s", hsum[i]->GetName()));
-        hscale[i]->SetTitle(Form("Scaled %s", hsum[i]->GetTitle()));
-        hscale[i]->Sumw2(kFALSE);
-        hscale[i]->Scale(1. / double(ntriggers)); //"width"
-        hscale[i]->Rebin(20);
-        Long64_t entries = hsum[i]->GetEntries();
-        double inte = hsum[i]->Integral();
-        printf(" det %u entries %llu integral %.0f ", i, entries, inte);
-        entries = hscale[i]->GetEntries();
-        inte = hscale[i]->Integral();
-        printf(" det %u entries %llu integral %.0f \n", i, entries, inte);
-    }
-
-    vector<int> hcolor;
-    hcolor.resize(hsum.size());
-    */
-}
 
 TCanvas *plot1(int iev = 0, int ichan = 12)
 {
@@ -165,11 +95,16 @@ void summed()
    TCanvas *canAll = new TCanvas("hitsummed-all", "hitsummed-all");
 
   canAll->Divide(4, 3);
-  for (unsigned i = 0; i < hhitSum.size(); ++i)
+  for (unsigned i = 0; i < hHitSum.size(); ++i)
   {
         canAll->cd(i + 1);
         gPad->SetLogy();
-        hhitSum[i]->Draw("");
+        hHitSum[i]->Fit("expo","","",200,600);
+        TF1 *g = (TF1*)hHitSum[i]->GetListOfFunctions()->FindObject("expo");
+        printf("%s %E %E \n",hHitSum[i]->GetName(),g->GetParameter(1),g->GetParError(1));
+        slope.push_back(g->GetParameter(1));
+        eslope.push_back(g->GetParError(1));
+        hHitSum[i]->Draw("");
     }
     canAll->Print(".pdf");
     //canall->BuildLegend();
@@ -182,6 +117,21 @@ void summed()
       hFFT[i]->Draw("");
     }
     canFFT->Print(".pdf");
+
+
+    // slope graph
+    TGraphErrors *grslope = new TGraphErrors(chan.size()-4, &chan[3],&slope[3], &eslope[3],&echan[3]);
+    TString canSlopeName;
+    canSlopeName.Form("slope-%s",tag.Data());
+    grslope->SetTitle(canSlopeName);
+    TCanvas *canSlope = new TCanvas(canSlopeName,canSlopeName);
+    grslope->SetMarkerStyle(22);
+    grslope->SetMarkerSize(1.0);
+    grslope->Draw("ap");
+    canSlope->Print(".pdf");
+
+
+
 }
 
 void multiPlot(int max=20) {
@@ -193,4 +143,90 @@ void multiPlot(int max=20) {
                 can->Print(".pdf");
         }
     }
+}
+
+void post(TString fileName = TString("anaRun-run-01_28_2023-nev0_1-1000.root"))
+{
+    tag = fileName;
+    gStyle->SetOptStat(1001101);
+    TString fullName = TString("myData/") + fileName;
+    TFile *fin = new TFile(fullName, "readonly");
+    if (!fin)
+    {
+        cout << " didnt find " << fileName << endl;
+        return;
+    }
+    cout << " opened  " << fileName << endl;
+    /* get tbrun */
+    btree = NULL;
+    fin->GetObject("RunTree", btree);
+    if (!btree)
+    {
+        printf("TBRun not found \n");
+        return;
+    }
+
+    Long64_t ntriggers = btree->GetEntriesFast();
+    printf(" total triggers analyzed %llu \n", ntriggers);
+    /* get sum histos from file */
+    TDirectory *sumDir;
+    fin->GetObject("sumDir",sumDir);
+    TIter next(sumDir->GetListOfKeys());
+    TKey *key;
+    while (TKey *key = (TKey *)next())
+    {
+      TClass *cl = gROOT->GetClass(key->GetClassName());
+      if (!cl->InheritsFrom("TH1D"))
+        continue;
+      TH1D *h = (TH1D *)key->ReadObj();
+      TString hname(h->GetName());
+      if (hname.Contains("sumWave")) {
+        hsum.push_back(h);
+      } else if (hname.Contains("sumHit")) {
+        hHitSum.push_back(h);
+        string sname = string(hname.Data());
+        chan.push_back(stof(sname.substr(10,2))); 
+        echan.push_back(0);
+        //cout << hname << " " << chan[chan.size()-1] << endl;
+      }
+
+    }
+
+    /* get FFT histos from file */
+    TDirectory *fftDir;
+    fin->GetObject("fftDir",fftDir);
+    TIter nextf(fftDir->GetListOfKeys());
+    while (TKey *key = (TKey *)nextf())
+    {
+        TClass *cl = gROOT->GetClass(key->GetClassName());
+        if (!cl->InheritsFrom("TH1D"))
+            continue;
+        TH1D *h = (TH1D *)key->ReadObj();
+        TString hname(h->GetName());
+        //cout << (h->GetName()) << endl;
+        hFFT.push_back(h);
+    }
+
+
+    /*normalize 
+    vector<TH1D *> hscale;
+    hscale.resize(hsum.size());
+    for (unsigned i = 0; i < hsum.size(); ++i)
+    {
+        hscale[i] = (TH1D *)hsum[i]->Clone(Form("Scale%s", hsum[i]->GetName()));
+        hscale[i]->SetTitle(Form("Scaled %s", hsum[i]->GetTitle()));
+        hscale[i]->Sumw2(kFALSE);
+        hscale[i]->Scale(1. / double(ntriggers)); //"width"
+        hscale[i]->Rebin(20);
+        Long64_t entries = hsum[i]->GetEntries();
+        double inte = hsum[i]->Integral();
+        printf(" det %u entries %llu integral %.0f ", i, entries, inte);
+        entries = hscale[i]->GetEntries();
+        inte = hscale[i]->Integral();
+        printf(" det %u entries %llu integral %.0f \n", i, entries, inte);
+    }
+
+    vector<int> hcolor;
+    hcolor.resize(hsum.size());
+    */
 }

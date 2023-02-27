@@ -51,6 +51,7 @@ public:
   TFile *fin;
   vector<TTree *> treeList;
   vector<int> chanList;
+  std::map<int, int> chanMap;
   vector<TBRawEvent *> rawBr;
   TBRun *tbrun;
   TNtuple *ntChan;
@@ -61,10 +62,13 @@ public:
   vector<TH1D *> valHist;
   vector<TH1D *> threshHist;
   vector<TH1D *> crossHist;
+  vector<TH1D *> hQSum;
+  vector<TH1D *> hQPeak;
   TH1D *hEvRawWave;
   vector<TH1D *> hEvGaus;
   TH1D *evCount;
   TH1D *histQSum;
+  //TH1D *histQPE;
   TH1D *histQPrompt;
   vector<double> digi;
   vector<double> ddigi;
@@ -89,6 +93,7 @@ public:
   bool openFile(TString fileName);
   unsigned getListOfFiles(TString dir);
   unsigned getTrees();
+  void getSummedHists();
   void getBranches();
   void getEvent(Long64_t entry);
   bool anaEvent(Long64_t entry);
@@ -104,8 +109,11 @@ public:
 };
 
 void anaRun::clear(){
+  hQSum.clear();
+  hQPeak.clear();
   treeList.clear();
   chanList.clear();
+  chanMap.clear();
   rawBr.clear();
   noiseHist.clear();
   skewHist.clear();
@@ -157,11 +165,11 @@ unsigned anaRun::getTrees()
 {
   treeList.clear();
   chanList.clear();
+  chanMap.clear();
   //
   TIter next(fin->GetListOfKeys());
   TKey *key;
-  while (TKey *key = (TKey *)next())
-  {
+  while (TKey *key = (TKey *)next()) {
     TClass *cl = gROOT->GetClass(key->GetClassName());
 
     if (!cl->InheritsFrom("TTree"))
@@ -177,8 +185,27 @@ unsigned anaRun::getTrees()
     cout << "tree name " << tree->GetName() << " chan " << ichan << endl;
     treeList.push_back(tree);
     chanList.push_back(ichan);
+    chanMap.insert(std::pair<int, int>(ichan, chanList.size() - 1));
   }
   return treeList.size();
+}
+// get summed histos
+void anaRun::getSummedHists()
+{
+  TIter next(fin->GetListOfKeys());
+  TKey *key;
+  while (TKey *key = (TKey *)next())
+  {
+    TClass *cl = gROOT->GetClass(key->GetClassName());
+    if (!cl->InheritsFrom("TH1D"))
+      continue;
+    TH1D *h = (TH1D *) key->ReadObj();
+    TString name;
+    name.Form("SumWave-%s-%s",h->GetName(),tag.Data());
+    TH1D *hsave = (TH1D *)h->Clone(name);
+    fout->Add(hsave);
+  }
+  return;
 }
 
 /* get rawBr */
@@ -399,7 +426,6 @@ bool anaRun::anaEvent(Long64_t entry)
       continue;
 
     /* fill the summed histograms */
-
     evCount->Fill(ichan + 1);
     digi.clear();
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
@@ -409,6 +435,8 @@ bool anaRun::anaEvent(Long64_t entry)
       sumWave[ib]->SetBinContent(j + 1, sumWave[ib]->GetBinContent(j + 1) + val);
       valHist[ib]->Fill(val);
     }
+    
+
     /* pulse finding
       hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,double thresh, unsigned step)
     */
@@ -424,17 +452,22 @@ bool anaRun::anaEvent(Long64_t entry)
           finder->plotEvent(ichan, entry);
   } // second channel loop
 
-  // fill sumHitWave
+  // fill sumHitWave and Q sums
   // loop over detector channels
   for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
   {
     TDet *tdet = tbrun->detList[idet];
-    histQSum->Fill(tdet->channel+ 1, tdet->qSum);
-    histQPrompt->Fill(tdet->channel + 1, tdet->qPrompt);
+    histQSum->Fill(tdet->channel, tdet->qSum);
+    hQSum[idet]->Fill(tdet->qSum);
+    hQPeak[idet]->Fill(tdet->hitSum);
+    // filling histogram bin 1 has lower edge of 0
+    histQPrompt->Fill(tdet->channel, tdet->qPrompt);
 
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit) {
           TDetHit thit = tdet->hits[ihit];
-          sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
+          // setting histogram bin 1 is lowest bin, 0 is underflow
+          if(thit.qsum > hitQThreshold)
+            sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
     }
   }
 
@@ -566,10 +599,12 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   }
   getTrees();
   cout << "treeList size " << treeList.size() << endl;
+  
+
   if (treeList.size() < 1)
-  {
-    printf("EXIT no trees\n");
-    return 0;
+    {
+      printf("EXIT no trees\n");
+      return 0;
   }
   rawBr.clear();
   rawBr.resize(treeList.size());
@@ -582,6 +617,8 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   badDir = fout->mkdir("badDir");
   fout->cd();
   cout << " opened output file " << fout->GetName() << endl;
+  getSummedHists();
+  //fout->ls();
 
   // fin->ls();
   TBFile *bf;
@@ -596,11 +633,19 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   for (unsigned it = 0; it < chanList.size(); ++it)
     tbrun->addDet(chanList[it]);
 
+  // chanlist check
+  cout << "**** chanList check **** size " << chanList.size() << endl;
+  for (unsigned ic = 0; ic < chanList.size(); ++ic)
+    printf(" %u list/key  %u mapped to %u treeList %s det in tbrun %s \n ",
+           ic, chanList[ic], chanMap.at(chanList[ic]), treeList[ic]->GetName(), tbrun->detList[ic]->GetName());
+
   // fout->Append(tbrun->btree);
+  int totalChannels = 13; 
   ntChan = new TNtuple("ntChan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peak:sum2:sum:crossings:thresholds:cut");
-  evCount = new TH1D("eventCount", "event count", 14, 0, 14);
-  histQSum = new TH1D("histQsum", "qsum by channel", 14, 0, 14);
-  histQPrompt = new TH1D("histQprompt", "qprompt by channel", 14, 0, 14);
+  evCount = new TH1D("eventCount", "event count", totalChannels, 0, totalChannels);
+  histQSum = new TH1D("histQsum", "qsum by channel", totalChannels, 0, totalChannels);
+  //nn/histQPE = new TH1D("histQPE", "QPE by channel", totalChannels, 0, totalChannels);
+  histQPrompt = new TH1D("histQprompt", "qprompt by channel", totalChannels, 0, totalChannels);
   histQSum->Sumw2();
   histQPrompt->Sumw2();
   anaDir = fout->mkdir("anaDir");
@@ -626,13 +671,25 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   }
   sumDir = fout->mkdir("sumDir");
   sumDir->cd();
+  double limit;
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
     unsigned ichan = chanList[i];
+   
+    bool trigger = ichan == 9 || ichan == 10 || ichan == 11;
+    if (trigger)
+      limit = 200000;
+    // else if(ichan==12) limit = 10000;
+    else
+      limit = 20000;
+    
+    hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 1000, 0, limit));
+    hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 1000, 0, limit));
     sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
     sumHitWave.push_back(new TH1D(Form("sumHitWave%i", ichan), Form("sumHitWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
   }
   fout->cd();
+
   //fout->ls();
   cout << " make hitFinder " << endl;
   finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList);
@@ -659,11 +716,14 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   // normailize to number of nentries.
   // loop over detector channels
   double scaleFactor = 1. / double(nentries);
-  printf("scale by %E\n", scaleFactor);
+  printf(" \n \n At END OF FILE scale by %E\n", scaleFactor);
   histQSum->Scale(scaleFactor);
   histQPrompt->Scale(scaleFactor);
-  for (unsigned i = 0; i < sumHitWave.size(); ++i)
+  for (unsigned i = 0; i < sumHitWave.size(); ++i) {
     sumHitWave[i]->Scale(scaleFactor);
+    hQSum[i]->Scale(scaleFactor);
+    hQPeak[i]->Scale(scaleFactor);
+  }
 
   // finder->hPeakCount->Print("all");
   // tbrun->btree->GetListOfBranches()->ls();
