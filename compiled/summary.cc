@@ -7,6 +7,7 @@
 #include "TString.h"
 #include "TObjString.h"
 #include "TSystem.h"
+#include "TDirectory.h"
 #include "TSystemDirectory.h"
 #include "TMultiGraph.h"
 #include "TGraphErrors.h"
@@ -19,6 +20,52 @@ std::vector<double> filenum;
 std::vector<double> efilenum;
 std::vector<vector<double>> vecQsum;
 std::vector<vector<double>> vecEqsum;
+std::vector<TH1D*> runQSum;
+std::map<int, TH1D*> histMap;
+TDirectory *sumDir;
+TFile *fin;
+TFile *fout;
+bool first = true;
+
+void addSumHistos() {
+  if(!sumDir){
+    printf("addSumHistos no sumDir!!! \n");
+    return;
+  }
+
+  //sumDir->ls();
+
+  TList *sumList = sumDir->GetListOfKeys();
+  TIter next(sumList);
+  TKey *key;
+  printf("addSumHistos %u \n",sumList->GetEntries());
+  while (TKey *key = (TKey *)next())
+  {
+    TClass *cl = gROOT->GetClass(key->GetClassName());
+    if (!cl->InheritsFrom("TH1D"))
+      continue;
+   TH1D *h = (TH1D *)key->ReadObj();
+   std::string name = string(h->GetName());
+   if (name.find("QSumChan") == std::string::npos)
+     continue;
+   string chan = name.substr(name.find_last_of("n") + 1);
+   int ichan = stoi(chan);
+   if(first){
+    cout << " addSumHistos clone "   << name << " chan " << ichan << endl;
+    TH1D *hclone = (TH1D *)h->Clone(Form("runQSumCh%i",ichan));
+    runQSum.push_back(hclone);
+    histMap.insert(std::pair<int,TH1D*>(ichan,hclone));
+    fout->Add(hclone);
+   } else {
+     cout << " addSumHistos add  "   << name << " chan " << ichan << endl;
+     histMap.at(ichan)->Add(h);
+   }
+   // name.Form("SumWave-%s-%s", h->GetName(), tag.Data());
+   // TH1D *hsave = (TH1D *)h->Clone(name);
+   //  rawSumDir->Add(hsave);
+  }
+  first = false;
+}
 
 string currentDate()
 {
@@ -76,12 +123,12 @@ int main(int argc, char *argv[])
   std::string sdate = currentDate();
   cout << " starting summary for  " << maxFiles << " files on " << sdate << endl;
 
-  TFile *fout = new TFile(Form("summary-%s.root", sdate.c_str()), "recreate");
+  fout = new TFile(Form("summary-%s.root", sdate.c_str()), "recreate");
 
   for (unsigned ifile = 0; ifile < maxFiles; ++ifile){
     cout << " starting anaRunFile " << fileList[ifile] << endl;
     TString fullName = TString("myData/") + fileList[ifile];
-    TFile *fin = new TFile(fullName);
+    fin = new TFile(fullName);
     TBFile *bf;
     TGraph *gslope;
     fin->GetObject("tbfile", bf);
@@ -96,6 +143,14 @@ int main(int argc, char *argv[])
       continue;
     }
     cout << bf->GetTitle() << " modified " << bf->modified << " slope graph " << gslope->GetTitle() << endl;
+
+    fin->GetObject("sumDir", sumDir);
+    if(!sumDir) {
+      printf(" sumDir not found in file %s \n", fin->GetName());
+      continue;
+    }
+    printf(" sumDir for file %s \n", fin->GetName());
+
     
     // use bf->modified a std string
     /* migrate fit from post.C:        TF1 *g = (TF1*)hHitSum[i]->GetListOfFunctions()->FindObject("expo");*/
@@ -109,6 +164,8 @@ int main(int argc, char *argv[])
     TH1D *hp = (TH1D *)hqsum->Clone(Form("hqprompt%i",ifile));
     fout->Add(hq);
     fout->Add(hp);
+    
+    addSumHistos();
 
     if (!hqsum || !hqprompt) continue;
 
@@ -120,9 +177,9 @@ int main(int argc, char *argv[])
 
     for (int i = 0; i < hqsum->GetNbinsX()-1; ++i)
     {
-      cout << "chan " << i + 1 << " qsum " << hqsum->GetBinContent(i + 1) << endl;
       vecQsum[i].push_back(hqsum->GetBinContent(i + 1));
       vecEqsum[i].push_back(hqsum->GetBinError(i + 1));
+      cout << "chan " << i + 1 << " qsum " << hqsum->GetBinContent(i + 1) << " size "  << vecQsum[i].size() <<  endl;
     }
   } // end loop over files
   printf(" files %lu \n", filenum.size());
@@ -140,8 +197,8 @@ int main(int argc, char *argv[])
   {
     //cout << " add " << ic << endl; 
     gqsum.push_back(new TGraphErrors(filenum.size(), &filenum[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEqsum[ic][0])));
-    gqsum[ic]->SetName(Form("qsumChan%i", ic-1));
-    gqsum[ic]->SetTitle(Form("qsum-chan-%i", ic-1));
+    gqsum[ic]->SetName(Form("qsumChan%i", ic));
+    gqsum[ic]->SetTitle(Form("qsum-chan-%i", ic));
     gqsum[ic]->SetMarkerSize(1);
     gqsum[ic]->SetMarkerStyle(3);
     fout->Add(gqsum[ic]);
