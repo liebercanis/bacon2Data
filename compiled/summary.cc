@@ -67,11 +67,16 @@ void QPEFits()
       }
       hclone->Fit("gaus", " ", " ",xlow,xhigh);
       TF1 *gfit = (TF1 *)hclone->GetListOfFunctions()->FindObject("gaus");
+      if(gfit) {
       hQPEChan->SetBinContent(ichan, gfit->GetParameter(1));
       hQPEChan->SetBinError(ichan, gfit->GetParError(1));
       printf(" ****** chan %i low %E hight %E QPE %E\n", ichan, xlow, xhigh, gfit->GetParameter(1));
       vecQPE[ichan].push_back(gfit->GetParameter(1));
-      vecEQPE[ichan].push_back(gfit->GetParError(1));
+      vecEQPE[ichan].push_back(gfit->GetParError(1)); 
+      } else {
+      vecQPE[ichan].push_back(0);
+      vecEQPE[ichan].push_back(0);
+      }
       fout->Add(hclone);
   }
 }
