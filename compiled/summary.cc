@@ -12,6 +12,8 @@
 #include "TMultiGraph.h"
 #include "TGraphErrors.h"
 #include "TList.h"
+#include "TF1.h"
+
 //
 #include "anaRun.cc"
 
@@ -20,12 +22,59 @@ std::vector<double> filenum;
 std::vector<double> efilenum;
 std::vector<vector<double>> vecQsum;
 std::vector<vector<double>> vecEqsum;
+std::vector<vector<double>> vecQPE;
+std::vector<vector<double>> vecEQPE;
 std::vector<TH1D*> runQSum;
 std::map<int, TH1D*> histMap;
 TDirectory *sumDir;
 TFile *fin;
 TFile *fout;
 bool first = true;
+TH1D *hQPEChan;
+
+void QPEFits()
+{
+  if (!sumDir)
+  {
+    printf("addSumHistos no sumDir!!! \n");
+    return;
+  }
+
+  // sumDir->ls();
+
+  TList *sumList = sumDir->GetListOfKeys();
+  TIter next(sumList);
+  TKey *key;
+  printf("QPEFIT %u \n", sumList->GetEntries());
+  while (TKey *key = (TKey *)next())
+  {
+    TClass *cl = gROOT->GetClass(key->GetClassName());
+    if (!cl->InheritsFrom("TH1D"))
+      continue;
+    TH1D *h = (TH1D *)key->ReadObj();
+    std::string name = string(h->GetName());
+    if (name.find("QSumChan") == std::string::npos)
+      continue;
+    string chan = name.substr(name.find_last_of("n") + 1);
+    int ichan = stoi(chan);
+      cout << " addSumHistos clone " << name << " chan " << ichan << endl;
+      TH1D *hclone = (TH1D *)h->Clone(Form("fitQSumCh%i", ichan));
+      double xlow = 2000.;
+      double xhigh = 5000;
+      if(ichan==9||ichan==10||ichan==11) {
+        xlow = 4.E4;
+        xhigh = 8.E4;
+      }
+      hclone->Fit("gaus", " ", " ",xlow,xhigh);
+      TF1 *gfit = (TF1 *)hclone->GetListOfFunctions()->FindObject("gaus");
+      hQPEChan->SetBinContent(ichan, gfit->GetParameter(1));
+      hQPEChan->SetBinError(ichan, gfit->GetParError(1));
+      printf(" ****** chan %i low %E hight %E QPE %E\n", ichan, xlow, xhigh, gfit->GetParameter(1));
+      vecQPE[ichan].push_back(gfit->GetParameter(1));
+      vecEQPE[ichan].push_back(gfit->GetParError(1));
+      fout->Add(hclone);
+  }
+}
 
 void addSumHistos() {
   if(!sumDir){
@@ -107,9 +156,11 @@ int main(int argc, char *argv[])
   TString tag("run");
 
   countFiles();
-  unsigned nchan = 14;
+  unsigned nchan = 13;
   vecQsum.resize(nchan);
   vecEqsum.resize(nchan);
+  vecQPE.resize(nchan);
+  vecEQPE.resize(nchan);
   //for (unsigned ic = 0; ic < nchan; ++ic)
   //  printf(" chan %u vecQsum %lu \n",ic,vecQsum[ic].size());
 
@@ -125,7 +176,11 @@ int main(int argc, char *argv[])
 
   fout = new TFile(Form("summary-%s.root", sdate.c_str()), "recreate");
 
-  for (unsigned ifile = 0; ifile < maxFiles; ++ifile){
+  hQPEChan  = new TH1D("QPEChan","QPE  by channel",12,0,12);
+  hQPEChan->Sumw2();
+
+  for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
+  {
     cout << " starting anaRunFile " << fileList[ifile] << endl;
     TString fullName = TString("myData/") + fileList[ifile];
     fin = new TFile(fullName);
@@ -165,9 +220,11 @@ int main(int argc, char *argv[])
     fout->Add(hq);
     fout->Add(hp);
     
-    addSumHistos();
+    //addSumHistos();
+    QPEFits();
 
-    if (!hqsum || !hqprompt) continue;
+    if (!hqsum || !hqprompt)
+      continue;
 
     cout << "for file  " << ifile <<" " << fileList[ifile] << " " << hqsum->GetName() << " " << hqsum->GetNbinsX() << endl;
 
@@ -207,11 +264,32 @@ int main(int argc, char *argv[])
   }
   // overlay all channel graphs on canvas
 
-  
+  // QPE graphs one graph per channel
+  vector<TGraphErrors *> gqpe;
+  TMultiGraph *mgQPE = new TMultiGraph();
+  for (unsigned ic = 0; ic < nchan; ++ic)
+  {
+    // cout << " add " << ic << endl;
+    gqpe.push_back(new TGraphErrors(filenum.size(), &filenum[0], &(vecQPE[ic][0]), &efilenum[0], &(vecEQPE[ic][0])));
+    gqpe[ic]->SetName(Form("QPEChan%i", ic));
+    gqpe[ic]->SetTitle(Form("QPE-chan-%i", ic));
+    gqpe[ic]->SetMarkerSize(1);
+    gqpe[ic]->SetMarkerStyle(3);
+    fout->Add(gqpe[ic]);
+    if (ic == 6 || ic == 7 || ic == 8)
+      mgQPE->Add(gqpe[ic]);
+  }
+  // overlay all channel graphs on canvas
+
   TCanvas *can = new TCanvas("Qsummary","Qsummary");
   mg->Draw("ap");
   can->BuildLegend();
   fout->Append(can);
+
+  TCanvas *canqpe = new TCanvas("QPE", "QPE");
+  mgQPE->Draw("ap");
+  canqpe->BuildLegend();
+  fout->Append(canqpe);
   fout->ls();
   fout->Write();
   cout << "summary finished " << maxFiles <<  " " << fout->GetName() << endl;
