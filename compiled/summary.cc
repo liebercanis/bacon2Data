@@ -251,7 +251,8 @@ int main(int argc, char *argv[])
     int ifile = int(filenum[jfile]);
     printf("  summary file %u  %s chan6 %f  \n", ifile, fileList[ifile].Data(), vecQsum[7][ifile]);
   }
-
+  int myColor[13] = {41, 42, 43, 44, 45, 46, 2, 3, 4, 31, 32, 33, 34};
+  int myStyle[13] = {21, 22, 23, 24, 25, 26, 21, 22, 23, 31, 32, 33, 34};
   // one graph per channel
   vector<TGraphErrors *> gqsum;
   TMultiGraph *mg = new TMultiGraph();
@@ -262,7 +263,8 @@ int main(int argc, char *argv[])
     gqsum[ic]->SetName(Form("qsumChan%i", ic));
     gqsum[ic]->SetTitle(Form("qsum-chan-%i", ic));
     gqsum[ic]->SetMarkerSize(1);
-    gqsum[ic]->SetMarkerStyle(3);
+    gqsum[ic]->SetMarkerColor(myColor[ic]);
+    gqsum[ic]->SetMarkerStyle(myStyle[ic]);
     fout->Add(gqsum[ic]);
     if(ic==6||ic==7||ic==8)
       mg->Add(gqsum[ic]);
@@ -272,6 +274,7 @@ int main(int argc, char *argv[])
   // QPE graphs one graph per channel
   vector<TGraphErrors *> gqpe;
   TMultiGraph *mgQPE = new TMultiGraph();
+  
   for (unsigned ic = 0; ic < nchan; ++ic)
   {
     // cout << " add " << ic << endl;
@@ -279,7 +282,8 @@ int main(int argc, char *argv[])
     gqpe[ic]->SetName(Form("QPEChan%i", ic));
     gqpe[ic]->SetTitle(Form("QPE-chan-%i", ic));
     gqpe[ic]->SetMarkerSize(1);
-    gqpe[ic]->SetMarkerStyle(3);
+    gqpe[ic]->SetMarkerColor(myColor[ic]);
+    gqpe[ic]->SetMarkerStyle(myStyle[ic]);
     fout->Add(gqpe[ic]);
     if (ic == 6 || ic == 7 || ic == 8)
       mgQPE->Add(gqpe[ic]);
@@ -288,6 +292,7 @@ int main(int argc, char *argv[])
 
   TCanvas *can = new TCanvas("Qsummary","Qsummary");
   mg->Draw("ap");
+  gPad->Update();
   can->BuildLegend();
   fout->Append(can);
 
