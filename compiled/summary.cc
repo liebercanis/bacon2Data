@@ -20,6 +20,8 @@
 std::vector<TString> fileList;
 std::vector<double> filenum;
 std::vector<double> efilenum;
+std::vector<double> fileTime;
+TBFile *bf;
 std::vector<vector<double>> vecQsum;
 std::vector<vector<double>> vecEqsum;
 std::vector<vector<double>> vecQPE;
@@ -32,6 +34,57 @@ TFile *fout;
 bool first = true;
 TH1D *hQPEChan;
 
+
+Int_t get_month_index(TString name)
+{
+  int imonth;
+  if (name.EqualTo("Jan"))
+    imonth =1;
+  if (name.EqualTo("Feb"))
+    imonth =2;
+  if (name.EqualTo("Mar"))
+    imonth =3;
+  if (name.EqualTo("Apr"))
+    imonth =4;
+  if (name.EqualTo("May"))
+    imonth =5;
+  if (name.EqualTo("Jun"))
+    imonth =6;
+  if (name.EqualTo("Jul"))
+    imonth =7;
+  if (name.EqualTo("Aug"))
+    imonth =8;
+  if (name.EqualTo("Sep"))
+    imonth =9;
+  if (name.EqualTo("Oct"))
+    imonth =10;
+  if (name.EqualTo("Nov"))
+    imonth =11;
+  if (name.EqualTo("Dec"))
+    imonth =12;
+  return imonth;
+}
+
+TDatime getTime()
+{
+  TString strfileTime = bf->modified;
+  TString tempstring = TString(strfileTime(20, 4));
+  int fileYear = tempstring.Atoi();
+  tempstring = TString(strfileTime(4, 3));
+  int fileMonth = get_month_index(tempstring);
+  tempstring = TString(strfileTime(8, 2));
+  int fileDay = tempstring.Atoi();
+  tempstring = TString(strfileTime(11, 2));
+  int fileHour = tempstring.Atoi();
+  tempstring = TString(strfileTime(14, 2));
+  int fileMin = tempstring.Atoi();
+  tempstring = TString(strfileTime(17, 2));
+  int fileSec = tempstring.Atoi();
+  TDatime datime;
+  datime.Set(fileYear, fileMonth, fileDay, fileHour, fileMin, fileSec);
+  printf("FileYear = %u , FileMonth = %u , FileDay = %u , FileHour = %u , FileMin = %u , FileSec = %u \n", fileYear, fileMonth, fileDay, fileHour, fileMin, fileSec);
+  return datime;
+}
 void QPEFits()
 {
   if (!sumDir)
@@ -189,7 +242,6 @@ int main(int argc, char *argv[])
     cout << " starting anaRunFile " << fileList[ifile] << endl;
     TString fullName = TString("myData/") + fileList[ifile];
     fin = new TFile(fullName);
-    TBFile *bf;
     TGraph *gslope;
     fin->GetObject("tbfile", bf);
     fin->GetObject("slope-graph", gslope);
@@ -235,7 +287,8 @@ int main(int argc, char *argv[])
 
     filenum.push_back(double(ifile));
     efilenum.push_back(0);
-
+    fileTime.push_back(getTime().Convert());
+    efilenum.push_back(0);
 
     for (int i = 0; i < hqsum->GetNbinsX()-1; ++i)
     {
@@ -259,7 +312,7 @@ int main(int argc, char *argv[])
   for (unsigned ic = 0; ic < nchan; ++ic )
   {
     //cout << " add " << ic << endl; 
-    gqsum.push_back(new TGraphErrors(filenum.size(), &filenum[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEqsum[ic][0])));
+    gqsum.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEqsum[ic][0])));
     gqsum[ic]->SetName(Form("qsumChan%i", ic));
     gqsum[ic]->SetTitle(Form("qsum-chan-%i", ic));
     gqsum[ic]->SetMarkerSize(1);
@@ -278,7 +331,7 @@ int main(int argc, char *argv[])
   for (unsigned ic = 0; ic < nchan; ++ic)
   {
     // cout << " add " << ic << endl;
-    gqpe.push_back(new TGraphErrors(filenum.size(), &filenum[0], &(vecQPE[ic][0]), &efilenum[0], &(vecEQPE[ic][0])));
+    gqpe.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQPE[ic][0]), &efilenum[0], &(vecEQPE[ic][0])));
     gqpe[ic]->SetName(Form("QPEChan%i", ic));
     gqpe[ic]->SetTitle(Form("QPE-chan-%i", ic));
     gqpe[ic]->SetMarkerSize(1);
@@ -289,13 +342,20 @@ int main(int argc, char *argv[])
       mgQPE->Add(gqpe[ic]);
   }
   // overlay all channel graphs on canvas
-
+  mg->GetXaxis()->SetTimeDisplay(1);
+  mg->GetXaxis()->SetNdivisions(503);
+  mg->GetXaxis()->SetTimeFormat("%Y-%m-%d %H:%M");
+  mg->GetXaxis()->SetTimeOffset(0, "gmt");
   TCanvas *can = new TCanvas("Qsummary","Qsummary");
   mg->Draw("ap");
   gPad->Update();
   can->BuildLegend();
   fout->Append(can);
 
+  mgQPE->GetXaxis()->SetTimeDisplay(1);
+  mgQPE->GetXaxis()->SetNdivisions(503);
+  mgQPE->GetXaxis()->SetTimeFormat("%Y-%m-%d %H:%M");
+  mgQPE->GetXaxis()->SetTimeOffset(0, "gmt");
   TCanvas *canqpe = new TCanvas("QPE", "QPE");
   mgQPE->Draw("ap");
   canqpe->BuildLegend();
