@@ -312,7 +312,9 @@ void hitFinder::findThresholdCrossings(Int_t idet)
   crossingBin.clear();
   crossingTime.clear();
   unsigned vsize = digi.size();
-  Double_t cut = tbrun->detList[idet]->sigma * threshold;
+  //Double_t cut = tbrun->detList[idet]->sigma * threshold;
+  // fixed cut value
+  Double_t cut =  9.0 * threshold;
   unsigned step = thresholdStepSize;
   unsigned ibin = 0;
   while (ibin < digi.size() - step)

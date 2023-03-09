@@ -60,6 +60,8 @@ public:
   vector<TH1D *> sumWave;
   vector<TH1D *> sumHitWave;
   vector<TH1D *> valHist;
+  vector<TH1D *> sumWaveB;
+  vector<TH1D *> valHistB;
   vector<TH1D *> threshHist;
   vector<TH1D *> crossHist;
   vector<TH1D *> hQSum;
@@ -121,6 +123,8 @@ void anaRun::clear(){
   sumWave.clear();
   sumHitWave.clear();
   valHist.clear();
+  sumWaveB.clear();
+  valHistB.clear();
   threshHist.clear();
   crossHist.clear();
   hEvGaus.clear();
@@ -410,7 +414,7 @@ bool anaRun::anaEvent(Long64_t entry)
       eventPass = false;
   }
 
-  evCount->Fill(0);
+  evCount->Fill(-1); // underflow bin
   if (!eventPass)
     return eventPass;
 
@@ -418,20 +422,31 @@ bool anaRun::anaEvent(Long64_t entry)
   {
     unsigned ichan = chanList[ib];
     int nbins = rawBr[ib]->rdigi.size();
-    if (nbins != 1024)
-      continue;
+    //if (nbins != 1024)
+    //  continue;
     TDet *idet = tbrun->getDet(ichan);
     if (idet == NULL)
     {
       printf("!!!!!NULL idet br %u ichan %i\n", ib, ichan);
       continue;
     }
-    if (idet->thresholds < 1)
-      continue;
+    evCount->Fill(ichan);  // chan 0 from GetBinContent(0)
+    //if (idet->thresholds < 1)
+    //  continue;
 
-    /* fill the summed histograms */
-    evCount->Fill(ichan + 1);
+    /* fill the summed histogram*/
     digi.clear();
+
+   // histogram bad events 
+    if(idet->thresholds <1 ) {  
+      for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+      {
+        double val = (double)rawBr[ib]->rdigi[j] - idet->base;
+        sumWaveB[ib]->SetBinContent(j + 1, sumWaveB[ib]->GetBinContent(j + 1) + val);
+        valHistB[ib]->Fill(val);
+     }
+    }
+
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
       double val = (double)rawBr[ib]->rdigi[j] - idet->base;
@@ -439,7 +454,6 @@ bool anaRun::anaEvent(Long64_t entry)
       sumWave[ib]->SetBinContent(j + 1, sumWave[ib]->GetBinContent(j + 1) + val);
       valHist[ib]->Fill(val);
     }
-    
 
     /* pulse finding
       hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,double thresh, unsigned step)
@@ -465,7 +479,7 @@ bool anaRun::anaEvent(Long64_t entry)
     histQSum->Fill(tdet->channel, tdet->qSum);
     histQPrompt->Fill(tdet->channel, tdet->qPrompt);
 
-    // loop over hits
+    
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
     {
       TDetHit thit = tdet->hits[ihit];
@@ -667,11 +681,13 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
     if (ichan > 8 && ichan < 12)
     {
       valHist.push_back(new TH1D(Form("valChan%i", ichan), Form("valChan%i", ichan), 1500, -500, 1000));
+      valHistB.push_back(new TH1D(Form("valBadChan%i", ichan), Form("valBadChan%i", ichan), 1500, -500, 1000));
       hEvGaus.push_back(new TH1D(Form("evGaus%i", ichan), Form("evGaus%i", ichan), 200, -500, 500));
     }
     else
     {
       valHist.push_back(new TH1D(Form("valChan%i", ichan), Form("valChan%i", ichan), 1000, -200, 200));
+      valHistB.push_back(new TH1D(Form("valBadChan%i", ichan), Form("valBadChan%i", ichan), 1000, -200, 200));
       hEvGaus.push_back(new TH1D(Form("evGaus%i", ichan), Form("evGaus%i", ichan), 200, -100, 100));
     }
   }
@@ -694,6 +710,7 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
     hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 1000, 0, limit));
     hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 1000, 0, limit));
     sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+    sumWaveB.push_back(new TH1D(Form("sumWaveBad%i", ichan), Form("sumWaveBad%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
     sumHitWave.push_back(new TH1D(Form("sumHitWave%i", ichan), Form("sumHitWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
   }
   fout->cd();
