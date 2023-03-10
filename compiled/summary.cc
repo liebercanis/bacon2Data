@@ -307,10 +307,11 @@ int main(int argc, char *argv[])
     for (int i = 0; i < hqsum->GetNbinsX() - 1; ++i)
       {
         double norm = 1.0;
+        //now overflow is every event and qsum bin is 
         if (eventCount)
-          norm = eventCount->GetBinContent(i)/eventCount->GetBinContent(1);
-        vecQsum[i].push_back(hqsum->GetBinContent(i + 1) / norm);
-        vecEqsum[i].push_back(hqsum->GetBinError(i + 1) / norm);
+          norm = eventCount->GetBinContent(i)/eventCount->GetBinContent(0);
+        vecQsum[i].push_back(hqsum->GetBinContent(i+1) / norm);
+        vecEqsum[i].push_back(hqsum->GetBinError(i+1) / norm);
         cout << "chan " << i + 1 << " qsum " << hqsum->GetBinContent(i + 1) << " norm " << norm << " size " << vecQsum[i].size() << endl;
       }
   } // end loop over files
