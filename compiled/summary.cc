@@ -33,7 +33,7 @@ TFile *fin;
 TFile *fout;
 bool first = true;
 TH1D *hQPEChan;
-
+TH1D *eventCount;
 
 Int_t get_month_index(TString name)
 {
@@ -262,7 +262,6 @@ int main(int argc, char *argv[])
       continue;
     }
     printf(" sumDir for file %s \n", fin->GetName());
-
     
     // use bf->modified a std string
     /* migrate fit from post.C:        TF1 *g = (TF1*)hHitSum[i]->GetListOfFunctions()->FindObject("expo");*/
@@ -276,7 +275,15 @@ int main(int argc, char *argv[])
     TH1D *hp = (TH1D *)hqsum->Clone(Form("hqprompt%i",ifile));
     fout->Add(hq);
     fout->Add(hp);
-    
+    eventCount = NULL;
+    fin->GetObject("eventCount", eventCount);
+    if (eventCount)
+    {
+      printf(" eventCount for file %s  entries %E \n", fin->GetName(), eventCount->GetEntries());
+      TH1D *hevcount  = (TH1D *)eventCount->Clone(Form("eventCount%i", ifile));
+      fout->Add(hevcount);
+    }
+
     //addSumHistos();
     QPEFits();
 
@@ -290,12 +297,22 @@ int main(int argc, char *argv[])
     fileTime.push_back(getTime().Convert());
     efilenum.push_back(0);
 
-    for (int i = 0; i < hqsum->GetNbinsX()-1; ++i)
-    {
-      vecQsum[i].push_back(hqsum->GetBinContent(i + 1));
-      vecEqsum[i].push_back(hqsum->GetBinError(i + 1));
-      cout << "chan " << i + 1 << " qsum " << hqsum->GetBinContent(i + 1) << " size "  << vecQsum[i].size() <<  endl;
+    if (eventCount) {
+      for (int i = 0 ; i<= eventCount->GetNbinsX(); ++i ) {
+        double norm = eventCount->GetBinContent(i+1) / eventCount->GetBinContent(1);
+        printf(" %i count %0f norm %f \n", i-1, eventCount->GetBinContent(i+1),norm);
+      }
     }
+
+    for (int i = 0; i < hqsum->GetNbinsX() - 1; ++i)
+      {
+        double norm = 1.0;
+        if (eventCount)
+          norm = eventCount->GetBinContent(i)/eventCount->GetBinContent(1);
+        vecQsum[i].push_back(hqsum->GetBinContent(i + 1) / norm);
+        vecEqsum[i].push_back(hqsum->GetBinError(i + 1) / norm);
+        cout << "chan " << i + 1 << " qsum " << hqsum->GetBinContent(i + 1) << " norm " << norm << " size " << vecQsum[i].size() << endl;
+      }
   } // end loop over files
   printf(" files %lu \n", filenum.size());
   //for (unsigned ic = 0; ic < nchan; ++ic)

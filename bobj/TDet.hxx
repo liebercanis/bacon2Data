@@ -18,7 +18,7 @@ class TDet : public TNamed
 public:
   TDet();
   TDet(int ichan, int ilevel=-1);
-  // TDet::~TDet(){}
+  virtual ~TDet() {}
 
   // data elements
   Long64_t event;
