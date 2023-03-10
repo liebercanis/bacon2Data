@@ -19,7 +19,7 @@ class TBRawRun : public TNamed
 public:
   TBRawRun();
   TBRawRun(TString runName = "run0");
-  //~TBRawRun();
+  virtual ~TBRawRun(){};
 
   void clear();
   TTree *btree;

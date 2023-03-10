@@ -21,7 +21,7 @@ class TBRun : public TNamed
 public:
   TBRun(TString tag = TString("none"));
   //TBRun(TTree *btreeInit, TString runName = "run0");
-  ~TBRun(){
+  virtual ~TBRun(){
     detList.clear();
   }
   TTree *btree;

@@ -17,7 +17,7 @@ using namespace std;
 class TBWave: public TNamed {
 	public:
    TBWave(TString detName = "SIPM0");
-	 //~TBWave();
+	 virtual ~TBWave(){};
 	 // methods
    Long64_t LoadTree(Long64_t entry);
    void Init(TTree *tree);
