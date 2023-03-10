@@ -11,11 +11,11 @@
 std::vector<TString> fileList;
 
 // count subruns and channels
-unsigned long  countFiles(TString dateTag)
+unsigned long countFiles(TString dateTag)
 {
   TString dirName = TString("rootData/");
   TSystemDirectory dir("rootdir", dirName); // TSystemDirectory
-  TList* files = dir.GetListOfFiles();            //
+  TList *files = dir.GetListOfFiles();      //
   TIter next(files);
   TSystemFile *file;
   while ((file = (TSystemFile *)next()))
@@ -35,14 +35,14 @@ int main(int argc, char *argv[])
 {
   cout << "executing " << argv[0] << " do set of files by date tag as 01_12_2023 " << endl;
   printf(" usage: ana  <xx_xx_xxxx> data  <max files 0=all>  \n ");
-  if(argc<2)
+  if (argc < 2)
     exit(0);
   TString tag("run");
   if (argc > 1)
   {
     tag = TString(argv[1]);
   }
-  
+
   countFiles(tag);
   printf(" for %s found %lu files \n", tag.Data(), fileList.size());
   Long64_t maxFiles = fileList.size();
@@ -51,13 +51,18 @@ int main(int argc, char *argv[])
     maxFiles = atoi(argv[2]);
   }
 
-  anaRun *r = new anaRun(tag);
+  anaRun *arun = NULL;
 
   cout << " starting ana for  " << maxFiles << " files " << endl;
 
-  for (unsigned i = 0; i < maxFiles; ++i){
+  for (unsigned i = 0; i < maxFiles; ++i)
+  {
     cout << " starting anaRunFile " << fileList[i] << endl;
-    r->anaRunFile(fileList[i],0);
+
+    if (arun)
+      delete arun;
+    arun = new anaRun(tag);
+    arun->anaRunFile(fileList[i], 0);
   }
 
   cout << "ana finished " << maxFiles << endl;
