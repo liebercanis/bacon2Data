@@ -15,7 +15,10 @@ using namespace std;
 class TDetHit: public TNamed {
   public:
     TDetHit();
-    virtual ~TDetHit(){;}
+    virtual ~TDetHit()
+    {
+      clear() ;
+    }
 
     void clear();
     std::vector<Double_t> getPulse(Int_t nwid, std::vector<Double_t> v ) {

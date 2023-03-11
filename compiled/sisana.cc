@@ -192,6 +192,8 @@ int main(int argc, char *argv[])
     TString fullName = dirName + TString("/") + TString(fname.c_str());
     printf("\n\n\t starting file %s \n", fullName.Data());
     // open output file
+    TString foutName;
+    foutName.Form("run-%s-file%u.root",dirTag,filesRead);
     fout = new TFile(Form("rootData/run-%s-file%u.root",dirTag,filesRead), "recreate");
     printf("opened output file %s \n", fout->GetName());
     // output trees for each channel
@@ -226,7 +228,7 @@ int main(int argc, char *argv[])
     if (arun)
       delete arun;
     arun = new anaRun(tag);
-    arun->anaRunFile(fullName, 0);
+    arun->anaRunFile(foutName, 0);
 
     printf("\t FINISHED  file %s totalEvents %lld \n", fullName.Data(), totalEvents);
     printf("Entries by channel \n");
