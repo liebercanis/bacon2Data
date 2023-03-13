@@ -364,19 +364,23 @@ int main(int argc, char *argv[])
   mg->GetXaxis()->SetNdivisions(503);
   mg->GetXaxis()->SetTimeFormat("%Y-%m-%d %H:%M");
   mg->GetXaxis()->SetTimeOffset(0, "gmt");
-  TCanvas *can = new TCanvas("Qsummary","Qsummary");
+  mg->GetXaxis()->SetTitle("integrated charge (ADC)");
+  TCanvas *can = new TCanvas("Qsummary", "Qsummary");
   mg->Draw("ap");
   gPad->Update();
   can->BuildLegend();
+  can->SetGrid();
   fout->Append(can);
 
   mgQPE->GetXaxis()->SetTimeDisplay(1);
   mgQPE->GetXaxis()->SetNdivisions(503);
   mgQPE->GetXaxis()->SetTimeFormat("%Y-%m-%d %H:%M");
   mgQPE->GetXaxis()->SetTimeOffset(0, "gmt");
+  mg->GetXaxis()->SetTitle(" single photon charge (ADC)");
   TCanvas *canqpe = new TCanvas("QPE", "QPE");
   mgQPE->Draw("ap");
   canqpe->BuildLegend();
+  can->SetGrid();
   fout->Append(canqpe);
   fout->ls();
   fout->Write();
