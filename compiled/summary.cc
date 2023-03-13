@@ -376,11 +376,11 @@ int main(int argc, char *argv[])
   mgQPE->GetXaxis()->SetNdivisions(503);
   mgQPE->GetXaxis()->SetTimeFormat("%Y-%m-%d %H:%M");
   mgQPE->GetXaxis()->SetTimeOffset(0, "gmt");
-  mg->GetYaxis()->SetTitle(" single photon charge (ADC)");
+  mgQPE->GetYaxis()->SetTitle(" single photon charge (ADC)");
   TCanvas *canqpe = new TCanvas("QPE", "QPE");
   mgQPE->Draw("ap");
   canqpe->BuildLegend();
-  can->SetGrid();
+  canqpe->SetGrid();
   fout->Append(canqpe);
   fout->ls();
   fout->Write();
