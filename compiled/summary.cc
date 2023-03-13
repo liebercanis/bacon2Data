@@ -364,7 +364,7 @@ int main(int argc, char *argv[])
   mg->GetXaxis()->SetNdivisions(503);
   mg->GetXaxis()->SetTimeFormat("%Y-%m-%d %H:%M");
   mg->GetXaxis()->SetTimeOffset(0, "gmt");
-  mg->GetXaxis()->SetTitle("integrated charge (ADC)");
+  mg->GetYaxis()->SetTitle("integrated charge (ADC)");
   TCanvas *can = new TCanvas("Qsummary", "Qsummary");
   mg->Draw("ap");
   gPad->Update();
@@ -376,7 +376,7 @@ int main(int argc, char *argv[])
   mgQPE->GetXaxis()->SetNdivisions(503);
   mgQPE->GetXaxis()->SetTimeFormat("%Y-%m-%d %H:%M");
   mgQPE->GetXaxis()->SetTimeOffset(0, "gmt");
-  mg->GetXaxis()->SetTitle(" single photon charge (ADC)");
+  mg->GetYaxis()->SetTitle(" single photon charge (ADC)");
   TCanvas *canqpe = new TCanvas("QPE", "QPE");
   mgQPE->Draw("ap");
   canqpe->BuildLegend();
