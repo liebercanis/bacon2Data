@@ -15,12 +15,14 @@ def main(args):
     myEnv = os.environ.copy()
     #print(myEnv)
     files = []
-    theDir = "rootData/"+sys.argv[1]
-    print("dir = %s ",theDir)
-    p = os.listdir('rootData')
+    tag =sys.argv[1] 
+    theDir = 'rootData/'
+    print("dir =  ",theDir, " file date  ", tag)
+    p = os.listdir(theDir)
     #print(p)
     for i in p:
-        files.append(i)
+        if i.find(tag) != -1:
+            files.append(i)
 
     n = len(files)
     if (n < 1):
@@ -32,7 +34,8 @@ def main(args):
 
     print(" number of files to run  %i ", n)
     for i in range(0, n):
-        print(" file %i ", i, " file %d", files[i])
+        print(" file ", i, " file ", files[i])
+
 
     for i in range(0, n):
         print(" run job %i ", i, " file %d", files[i])
