@@ -23,7 +23,7 @@ std::vector<double> efilenum;
 std::vector<double> fileTime;
 TBFile *bf;
 std::vector<vector<double>> vecQsum;
-std::vector<vector<double>> vecEqsum;
+std::vector<vector<double>> vecEQsum;
 std::vector<vector<double>> vecQPE;
 std::vector<vector<double>> vecEQPE;
 std::vector<TH1D*> runQSum;
@@ -216,7 +216,7 @@ int main(int argc, char *argv[])
   countFiles();
   unsigned nchan = 13;
   vecQsum.resize(nchan);
-  vecEqsum.resize(nchan);
+  vecEQsum.resize(nchan);
   vecQPE.resize(nchan);
   vecEQPE.resize(nchan);
   //for (unsigned ic = 0; ic < nchan; ++ic)
@@ -311,7 +311,7 @@ int main(int argc, char *argv[])
         if (eventCount)
           norm = eventCount->GetBinContent(i)/eventCount->GetBinContent(0);
         vecQsum[i].push_back(hqsum->GetBinContent(i+1) / norm);
-        vecEqsum[i].push_back(hqsum->GetBinError(i+1) / norm);
+        vecEQsum[i].push_back(hqsum->GetBinError(i+1) / norm);
         cout << "chan " << i + 1 << " qsum " << hqsum->GetBinContent(i + 1) << " norm " << norm << " size " << vecQsum[i].size() << endl;
       }
   } // end loop over files
@@ -360,14 +360,18 @@ int main(int argc, char *argv[])
     // apply norms
     for (unsigned ic = 0; ic < vecQsum.size(); ++ic)
     {
-      for (unsigned jf = 0; jf < vecQsum[ic].size(); ++ jf)
+      for (unsigned jf = 0; jf < vecQsum[ic].size(); ++ jf){
           vecQsum[ic][jf] /= normQsum[ic]; 
+          vecEQsum[ic][jf] /= normQsum[ic]; 
+      }
     }
     // apply norms 
     for (unsigned ic = 0; ic < vecQPE.size(); ++ic)
     {
-      for (unsigned jf = 0; jf < vecQPE[ic].size(); ++jf)
+      for (unsigned jf = 0; jf < vecQPE[ic].size(); ++jf){
           vecQPE[ic][jf] /= normQPE[ic];
+          vecEQPE[ic][jf] /= normQPE[ic];
+      }
     }
 
     // one graph per channel
@@ -376,7 +380,7 @@ int main(int argc, char *argv[])
     for (unsigned ic = 0; ic < nchan; ++ic )
     {
       //cout << " add " << ic << endl; 
-      gqsum.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEqsum[ic][0])));
+      gqsum.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEQsum[ic][0])));
       gqsum[ic]->SetName(Form("qsumChan%i", ic));
       gqsum[ic]->SetTitle(Form("qsum-chan-%i", ic));
       gqsum[ic]->SetMarkerSize(1);
@@ -406,12 +410,12 @@ int main(int argc, char *argv[])
       if (ic == 6 || ic == 7 || ic == 8)
         mgQPE->Add(gqpe[ic]);
     }
-    // overlay all channel graphs on canvas
-    mg->GetXaxis()->SetTimeDisplay(1);
-    mg->GetXaxis()->SetNdivisions(503);
+  // overlay all channel graphs on canvas
+  mg->GetXaxis()->SetTimeDisplay(1);
+  mg->GetXaxis()->SetNdivisions(503);
   mg->GetXaxis()->SetTimeFormat("%Y-%m-%d %H:%M");
   mg->GetXaxis()->SetTimeOffset(0, "gmt");
-  mg->GetYaxis()->SetTitle("integrated charge (ADC)");
+  mg->GetYaxis()->SetTitle("integrated charge (normed)");
   TCanvas *can = new TCanvas("Qsummary", "Qsummary");
   mg->Draw("ap");
   gPad->Update();
@@ -423,7 +427,7 @@ int main(int argc, char *argv[])
   mgQPE->GetXaxis()->SetNdivisions(503);
   mgQPE->GetXaxis()->SetTimeFormat("%Y-%m-%d %H:%M");
   mgQPE->GetXaxis()->SetTimeOffset(0, "gmt");
-  mgQPE->GetYaxis()->SetTitle(" single photon charge (ADC)");
+  mgQPE->GetYaxis()->SetTitle(" single photon charge (normed)");
   TCanvas *canqpe = new TCanvas("QPE", "QPE");
   mgQPE->Draw("ap");
   canqpe->BuildLegend();
