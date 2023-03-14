@@ -389,7 +389,7 @@ bool anaRun::anaEvent(Long64_t entry)
     if (idet->pass && idet->thresholds > 0 && evDir->GetList()->GetEntries() < 100)
     {
       evDir->cd();
-      hname.Form("EvRawWaveEv%ich%i", int(entry), ichan);
+      hname.Form("EvRawWaveEv%ich%i-thresh%i", int(entry), ichan,idet->thresholds);
       hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
       {
@@ -430,9 +430,8 @@ bool anaRun::anaEvent(Long64_t entry)
       printf("!!!!!NULL idet br %u ichan %i\n", ib, ichan);
       continue;
     }
-    evCount->Fill(ichan);  // chan 0 from GetBinContent(0)
-    //if (idet->thresholds < 1)
-    //  continue;
+   
+    
 
     /* fill the summed histogram*/
     digi.clear();
@@ -454,6 +453,11 @@ bool anaRun::anaEvent(Long64_t entry)
       sumWave[ib]->SetBinContent(j + 1, sumWave[ib]->GetBinContent(j + 1) + val);
       valHist[ib]->Fill(val);
     }
+
+    //if (idet->thresholds < 1)
+    //     continue;
+
+    evCount->Fill(ichan); // chan 0 from GetBinContent(0)
 
     /* pulse finding
       hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,double thresh, unsigned step)

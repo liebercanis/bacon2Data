@@ -318,50 +318,97 @@ int main(int argc, char *argv[])
   printf(" files %lu \n", filenum.size());
   //for (unsigned ic = 0; ic < nchan; ++ic)
    // printf(" chan %u vecQsum %lu  \n", ic, vecQsum[ic].size());
-  for (unsigned jfile = 0; jfile < filenum.size() ; ++jfile ) {
-    int ifile = int(filenum[jfile]);
-    printf("  summary file %u  %s chan6 %f  \n", ifile, fileList[ifile].Data(), vecQsum[7][ifile]);
-  }
-  int myColor[13] = {41, 42, 43, 44, 45, 46, 2, 3, 4, 31, 32, 33, 34};
-  int myStyle[13] = {21, 22, 23, 24, 25, 26, 21, 22, 23, 31, 32, 33, 34};
-  // one graph per channel
-  vector<TGraphErrors *> gqsum;
-  TMultiGraph *mg = new TMultiGraph();
-  for (unsigned ic = 0; ic < nchan; ++ic )
-  {
-    //cout << " add " << ic << endl; 
-    gqsum.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEqsum[ic][0])));
-    gqsum[ic]->SetName(Form("qsumChan%i", ic));
-    gqsum[ic]->SetTitle(Form("qsum-chan-%i", ic));
-    gqsum[ic]->SetMarkerSize(1);
-    gqsum[ic]->SetMarkerColor(myColor[ic]);
-    gqsum[ic]->SetMarkerStyle(myStyle[ic]);
-    fout->Add(gqsum[ic]);
-    if(ic==6||ic==7||ic==8)
-      mg->Add(gqsum[ic]);
-  }
-  // overlay all channel graphs on canvas
+    for (unsigned jfile = 0; jfile < filenum.size() ; ++jfile ) {
+      int ifile = int(filenum[jfile]);
+      printf("  summary file %u  %s chan6 %f  \n", ifile, fileList[ifile].Data(), vecQsum[7][ifile]);
+    }
+    int myColor[13] = {41, 42, 43, 44, 45, 46, 2, 3, 4, 31, 32, 33, 34};
+    int myStyle[13] = {21, 22, 23, 24, 25, 26, 21, 22, 23, 31, 32, 33, 34};
 
-  // QPE graphs one graph per channel
-  vector<TGraphErrors *> gqpe;
-  TMultiGraph *mgQPE = new TMultiGraph();
-  
-  for (unsigned ic = 0; ic < nchan; ++ic)
-  {
-    // cout << " add " << ic << endl;
-    gqpe.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQPE[ic][0]), &efilenum[0], &(vecEQPE[ic][0])));
-    gqpe[ic]->SetName(Form("QPEChan%i", ic));
-    gqpe[ic]->SetTitle(Form("QPE-chan-%i", ic));
-    gqpe[ic]->SetMarkerSize(1);
-    gqpe[ic]->SetMarkerColor(myColor[ic]);
-    gqpe[ic]->SetMarkerStyle(myStyle[ic]);
-    fout->Add(gqpe[ic]);
-    if (ic == 6 || ic == 7 || ic == 8)
-      mgQPE->Add(gqpe[ic]);
-  }
-  // overlay all channel graphs on canvas
-  mg->GetXaxis()->SetTimeDisplay(1);
-  mg->GetXaxis()->SetNdivisions(503);
+
+    // normalize to first file 
+    vector<double>  normQsum;
+    normQsum.resize(vecQsum.size());
+    for (unsigned ic = 0; ic < vecQsum.size(); ++ic)
+    {
+      printf(" vecQsum %i %lu \n", ic, vecQsum[ic].size());
+      normQsum[ic] = 1;
+      if (vecQsum[ic].size() > 0)
+      {
+          if (!isinf(vecQsum[ic][0]) && vecQsum[ic][0] > 0)
+            normQsum[ic] = vecQsum[ic][0];
+      }
+      printf("\t  normQsum =  %f  \n", normQsum[ic]);
+      
+    }
+
+    vector<double> normQPE;
+    normQPE.resize(vecQPE.size());
+    for (unsigned ic = 0; ic < vecQPE.size(); ++ic)
+    { 
+      printf(" vecQPE %i %lu \n", ic, vecQPE[ic].size() );
+      normQPE[ic] = 1;
+      if (vecQPE[ic].size() > 0)
+      {
+          printf("\t vecQPE =  %f  \n", vecQPE[ic][0]);
+          if (!isinf(vecQPE[ic][0]) && vecQPE[ic][0]>0)
+            normQPE[ic] = vecQPE[ic][0];
+      }
+      printf("\t normQPE =  %f  \n", normQPE[ic]);
+    }
+    
+    // apply norms
+    for (unsigned ic = 0; ic < vecQsum.size(); ++ic)
+    {
+      for (unsigned jf = 0; jf < vecQsum[ic].size(); ++ jf)
+          vecQsum[ic][jf] /= normQsum[ic]; 
+    }
+    // apply norms 
+    for (unsigned ic = 0; ic < vecQPE.size(); ++ic)
+    {
+      for (unsigned jf = 0; jf < vecQPE[ic].size(); ++jf)
+          vecQPE[ic][jf] /= normQPE[ic];
+    }
+
+    // one graph per channel
+    vector<TGraphErrors *> gqsum;
+    TMultiGraph *mg = new TMultiGraph();
+    for (unsigned ic = 0; ic < nchan; ++ic )
+    {
+      //cout << " add " << ic << endl; 
+      gqsum.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEqsum[ic][0])));
+      gqsum[ic]->SetName(Form("qsumChan%i", ic));
+      gqsum[ic]->SetTitle(Form("qsum-chan-%i", ic));
+      gqsum[ic]->SetMarkerSize(1);
+      gqsum[ic]->SetMarkerColor(myColor[ic]);
+      gqsum[ic]->SetMarkerStyle(myStyle[ic]);
+      fout->Add(gqsum[ic]);
+      if(ic==6||ic==7||ic==8)
+        mg->Add(gqsum[ic]);
+    }
+    // overlay all channel graphs on canvas
+    
+
+      // QPE graphs one graph per channel
+    vector<TGraphErrors *> gqpe;
+    TMultiGraph *mgQPE = new TMultiGraph();
+    
+    for (unsigned ic = 0; ic < nchan; ++ic)
+    {
+      // cout << " add " << ic << endl;
+      gqpe.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQPE[ic][0]), &efilenum[0], &(vecEQPE[ic][0])));
+      gqpe[ic]->SetName(Form("QPEChan%i", ic));
+      gqpe[ic]->SetTitle(Form("QPE-chan-%i", ic));
+      gqpe[ic]->SetMarkerSize(1);
+      gqpe[ic]->SetMarkerColor(myColor[ic]);
+      gqpe[ic]->SetMarkerStyle(myStyle[ic]);
+      fout->Add(gqpe[ic]);
+      if (ic == 6 || ic == 7 || ic == 8)
+        mgQPE->Add(gqpe[ic]);
+    }
+    // overlay all channel graphs on canvas
+    mg->GetXaxis()->SetTimeDisplay(1);
+    mg->GetXaxis()->SetNdivisions(503);
   mg->GetXaxis()->SetTimeFormat("%Y-%m-%d %H:%M");
   mg->GetXaxis()->SetTimeOffset(0, "gmt");
   mg->GetYaxis()->SetTitle("integrated charge (ADC)");
