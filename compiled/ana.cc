@@ -51,20 +51,26 @@ int main(int argc, char *argv[])
     maxFiles = atoi(argv[2]);
   }
 
-  anaRun *arun = NULL;
+  //anaRun *arun = NULL;
 
   cout << " starting ana for  " << maxFiles << " files " << endl;
-
-  for (unsigned i = 0; i < maxFiles; ++i)
-  {
-    cout << " starting anaRunFile " << fileList[i] << endl;
-
-    if (arun)
-      delete arun;
-    arun = new anaRun(tag);
-    arun->anaRunFile(fileList[i], 0);
+  for (unsigned i = 0; i < maxFiles; ++i){
+    cout << i << " " << fileList[i] << endl;
   }
 
-  cout << "ana finished " << maxFiles << endl;
-  exit(0);
-}
+    for (unsigned i = 0; i < maxFiles; ++i)
+    {
+      cout << " starting anaRunFile " << fileList[i] << endl;
+      wait - n ana1 fileList[i] 0;
+
+      /*
+        if (arun)
+          delete arun;
+        arun = new anaRun(tag);
+        arun->anaRunFile(fileList[i], 0);
+      }
+      */
+
+      cout << "ana finished " << maxFiles << endl;
+      exit(0);
+    }
