@@ -7,11 +7,18 @@ import pprint
 
 def main(args):
     """ run  anaDir ... ana on directory  """
+    print(sys.argv)
+    if (len(sys.argv) < 2):
+        print("usage: anaDir <directory>")
+        return;
+        
     myEnv = os.environ.copy()
-    print(myEnv)
+    #print(myEnv)
     files = []
+    theDir = "rootData/"+sys.argv[1]
+    print("dir = %s ",theDir)
     p = os.listdir('rootData')
-    print(p)
+    #print(p)
     for i in p:
         files.append(i)
 
@@ -19,11 +26,14 @@ def main(args):
     if (n < 1):
         return
 
-    print(" files %i ", len(p), " files %i ", len(files))
-    if (len(sys.argv) > 1):
-        n = int(args[0])
+    #print(" files %i ", len(p), " files %i ", len(files))
+    if (len(sys.argv) > 2):
+        n = int(sys.argv[2])
 
-    print(" args ", args, " number of files to run  ", n)
+    print(" number of files to run  %i ", n)
+    for i in range(0, n):
+        print(" file %i ", i, " file %d", files[i])
+
     for i in range(0, n):
         print(" run job %i ", i, " file %d", files[i])
         os.environ['LD_LIBRARY_PATH'] = os.getcwd()  # 
