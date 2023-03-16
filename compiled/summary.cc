@@ -459,9 +459,9 @@ int main(int argc, char *argv[])
 
   for (unsigned it = 0; it < fileTime.size(); ++it)
     if(fileDatime[it].Convert()<dopeTime.Convert()) 
-    cout << " before " << fileDatime[it].AsString() << endl;
+    cout << " before " << fileDatime[it].AsString() << "  " << fileList[it] << endl;
     else
-    cout << " afterf "<< fileDatime[it].AsString() << endl;
+    cout << " after  " << fileDatime[it].AsString() << "  " << fileList[it] << endl;
   cout  << "summary finished " << maxFiles << " " << fout->GetName() << endl;
   exit(0);
 }
