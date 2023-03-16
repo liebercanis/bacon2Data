@@ -15,7 +15,7 @@ def main(args):
         
     myEnv = os.environ.copy()
     # init scp
-    client = scp.Client(host="64.106.62.27", user="gold")
+    client = SCPClient(host="64.106.62.27", user="gold")
     client.use_system_keys()
     #print(myEnv)
     files = []
