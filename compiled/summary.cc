@@ -442,7 +442,8 @@ int main(int argc, char *argv[])
   }
   // overlay all channel graphs on canvas
   mg->GetXaxis()->SetTimeDisplay(1);
-  mg->GetXaxis()->SetNdivisions(1010);
+  //mg->GetXaxis()->SetNdivisions(1010);
+  mg->GetXaxis()->SetNdivisions(-219);
   mg->GetXaxis()->SetTimeFormat("%Y-%m-%d %H-%M");
   mg->GetXaxis()->SetTimeOffset(0, "gmt");
   mg->GetYaxis()->SetTitle("integrated charge (normed)");
@@ -456,6 +457,7 @@ int main(int argc, char *argv[])
   mgQPE->GetXaxis()->SetTimeDisplay(1);
   int ndiv = 10 + 100 * 5 + 10000 * 3;
   mgQPE->GetXaxis()->SetNdivisions(ndiv);
+  mgQPE->GetXaxis()->SetNdivisions(-219);
   mgQPE->GetXaxis()->SetTimeFormat("%Y-%m-%d %H-%M");
   mgQPE->GetXaxis()->SetTimeOffset(0, "gmt");
   mgQPE->GetYaxis()->SetTitle(" single photon charge (normed)");
