@@ -224,7 +224,7 @@ int main(int argc, char *argv[])
     exit(0);
   TString tag("run");
 
-  TDatime dopeTime(2023,3,9,12,0,0);
+  TDatime dopeTime(2023,3,9,22,0,0);
 
   countFiles();
   unsigned nchan = 13;
@@ -355,9 +355,18 @@ int main(int argc, char *argv[])
     printf(" vecQsum %i %lu \n", ic, vecQsum[ic].size());
     normQsum[ic] = 1;
     if (vecQsum[ic].size() > 0)
-    {
-      if (!isinf(vecQsum[ic][0]) && vecQsum[ic][0] > 0)
-        normQsum[ic] = vecQsum[ic][0];
+    { // ave over before doping
+      double beforeSum = 0;
+      int normCount = 0;
+      for (unsigned jt = 0; jt < vecQsum[ic].size(); ++jt)
+      {
+        if (!isinf(vecQsum[ic][jt]) && vecQsum[ic][jt] > 0 && fileDatime[jt].Convert() < dopeTime.Convert())
+        {
+          beforeSum += vecQsum[ic][jt];
+          ++normCount;
+        }
+      }
+      normQsum[ic] = beforeSum /double(normCount);
     }
     printf("\t  normQsum =  %f  \n", normQsum[ic]);
   }
