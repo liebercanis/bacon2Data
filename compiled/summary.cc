@@ -458,7 +458,7 @@ int main(int argc, char *argv[])
   int ndiv = 10 + 100 * 5 + 10000 * 3;
   mgQPE->GetXaxis()->SetNdivisions(ndiv);
   mgQPE->GetXaxis()->SetNdivisions(-219);
-  mgQPE->GetXaxis()->SetTimeFormat("%Y-%m-%d %H-%M");
+  mgQPE->GetXaxis()->SetTimeFormat("%d %H");
   mgQPE->GetXaxis()->SetTimeOffset(0, "gmt");
   mgQPE->GetYaxis()->SetTitle(" single photon charge (normed)");
   TCanvas *canqpe = new TCanvas("QPE", "QPE");
