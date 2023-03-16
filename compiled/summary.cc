@@ -7,6 +7,7 @@
 #include "TString.h"
 #include "TObjString.h"
 #include "TSystem.h"
+#include "TDatime.h"
 #include "TDirectory.h"
 #include "TSystemDirectory.h"
 #include "TMultiGraph.h"
@@ -21,6 +22,7 @@ std::vector<TString> fileList;
 std::vector<double> filenum;
 std::vector<double> efilenum;
 std::vector<double> fileTime;
+std::vector<TDatime> fileDatime;
 TBFile *bf;
 std::vector<vector<double>> vecQsum;
 std::vector<vector<double>> vecEQsum;
@@ -222,6 +224,8 @@ int main(int argc, char *argv[])
     exit(0);
   TString tag("run");
 
+  TDatime dopeTime(2023,3,9,12,0,0);
+
   countFiles();
   unsigned nchan = 13;
   vecQsum.resize(nchan);
@@ -306,6 +310,7 @@ int main(int argc, char *argv[])
     filenum.push_back(double(ifile));
     efilenum.push_back(0);
     TDatime datetime = getTime();
+    fileDatime.push_back(datetime);
     fileTime.push_back(datetime.Convert());
     efilenum.push_back(0);
 
@@ -451,6 +456,12 @@ int main(int argc, char *argv[])
   fout->Append(canqpe);
   fout->ls();
   fout->Write();
-  cout << "summary finished " << maxFiles << " " << fout->GetName() << endl;
+
+  for (unsigned it = 0; it < fileTime.size(); ++it)
+    if(fileDatime[it].Convert()<dopeTime.Convert()) 
+    cout << " before " << fileDatime[it].AsString() << endl;
+    else
+    cout << " afterf "<< fileDatime[it].AsString() << endl;
+  cout  << "summary finished " << maxFiles << " " << fout->GetName() << endl;
   exit(0);
 }
