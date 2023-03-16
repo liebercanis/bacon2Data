@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import os
-import scp
+import subprocess
 from subprocess import Popen, PIPE
 import pprint
 
@@ -14,9 +14,6 @@ def main(args):
         return;
         
     myEnv = os.environ.copy()
-    # init scp
-    client = SCPClient(host="64.106.62.27", user="gold")
-    client.use_system_keys()
     #print(myEnv)
     files = []
     tag =sys.argv[1] 
@@ -39,7 +36,12 @@ def main(args):
     print(" number of files to run  %i ", n)
     for i in range(0, n):
         print(" file ", i, " file ", files[i])
-       # scp rootData/files[i]  gold@64.106.62.27:/data3/bacon/rootData/
+        process = Popen(["scp", theDir+files[i], "gold@64.106.62.27:bacon2Data/rootData"],
+                        stdout=PIPE, stderr=PIPE, env=myEnv)
+        stdout, stderr = process.communicate()
+        process.wait()
+        print(stdout)
+        print(stderr)
 
 
 if __name__ == '__main__':
