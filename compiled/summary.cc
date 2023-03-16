@@ -358,7 +358,7 @@ int main(int argc, char *argv[])
     { // ave over before doping
       double beforeSum = 0;
       int normCount = 0;
-      for (unsigned jt = 0; jt < vecQsum[ic].size(); ++jt)
+      for (unsigned jt = 0; jt < 20; ++jt)
       {
         if (!isinf(vecQsum[ic][jt]) && vecQsum[ic][jt] > 0 && fileDatime[jt].Convert() < dopeTime.Convert())
         {
