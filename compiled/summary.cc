@@ -44,7 +44,6 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
   mg->GetXaxis()->SetTimeFormat("%d:%H");
   mg->GetXaxis()->SetTimeOffset(0, "gmt");
   mg->GetYaxis()->SetTitle(ylabel);
-  mg->Draw("ap");
 }
 
 Int_t get_month_index(TString name)
@@ -341,8 +340,15 @@ int main(int argc, char *argv[])
       // now overflow is every event and qsum bin is
       if (eventCount)
         norm = eventCount->GetBinContent(i) / eventCount->GetBinContent(0);
-      vecQsum[i].push_back(hqsum->GetBinContent(i + 1) / norm);
-      vecEQsum[i].push_back(hqsum->GetBinError(i + 1) / norm);
+      double val = 0;
+      double eval = 0;
+      if (!isnan(hqsum->GetBinContent(i + 1)) && !isinf(hqsum->GetBinContent(i + 1)))
+      {
+        val = hqsum->GetBinContent(i + 1) / norm;
+        eval = hqsum->GetBinError(i + 1) / norm;
+      }
+      vecQsum[i].push_back(val);
+      vecEQsum[i].push_back(eval);
       cout << "chan " << i + 1 << " qsum " << hqsum->GetBinContent(i + 1) << " norm " << norm << " size " << vecQsum[i].size() << endl;
     }
   } // end loop over files
@@ -402,30 +408,34 @@ int main(int argc, char *argv[])
   {
     // cout << " add " << ic << endl;
     gqsumUn.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEQsum[ic][0])));
-    gqsumUn[ic]->SetName(Form("qsumChan%i", ic));
-    gqsumUn[ic]->SetTitle(Form("qsum-chan-%i", ic));
+    gqsumUn[ic]->SetName(Form("qsumChanUn%i", ic));
+    gqsumUn[ic]->SetTitle(Form("qsum-unnormalized-chan-%i", ic));
     gqsumUn[ic]->SetMarkerSize(1);
     gqsumUn[ic]->SetMarkerColor(myColor[ic]);
     gqsumUn[ic]->SetMarkerStyle(myStyle[ic]);
     fout->Add(gqsumUn[ic]);
   }
+  ylabel.Form("integrated charge");
   TMultiGraph *mgL1 = new TMultiGraph();
   mgL1->Add(gqsumUn[6]);
   mgL1->Add(gqsumUn[7]);
   mgL1->Add(gqsumUn[8]);
-  ylabel.Form("integrated charge");
   setTimeGraph(mgL1, ylabel);
   TCanvas *canL1 = new TCanvas(Form("QsummaryL1-%s", sdate.c_str()), Form("QsummaryL1-%s", sdate.c_str()));
+  mgL1->Draw("ap");
+  gPad->Update();
   canL1->BuildLegend();
   canL1->SetGrid();
   fout->Append(canL1);
 
   TMultiGraph *mgL2 = new TMultiGraph();
   mgL2->Add(gqsumUn[3]);
-  mgL2->Add(gqsumUn[4]);
+  //mgL2->Add(gqsumUn[4]);
   mgL2->Add(gqsumUn[5]);
   setTimeGraph(mgL2, ylabel);
   TCanvas *canL2 = new TCanvas(Form("QsummaryL2-%s", sdate.c_str()), Form("QsummaryL2-%s", sdate.c_str()));
+  mgL2->Draw("ap");
+  gPad->Update();
   canL2->BuildLegend();
   canL2->SetGrid();
   fout->Append(canL2);
@@ -434,7 +444,10 @@ int main(int argc, char *argv[])
   mgL3->Add(gqsumUn[0]);
   mgL3->Add(gqsumUn[1]);
   mgL3->Add(gqsumUn[2]);
+  setTimeGraph(mgL3, ylabel);
   TCanvas *canL3 = new TCanvas(Form("QsummaryL3-%s", sdate.c_str()), Form("QsummaryL3-%s", sdate.c_str()));
+  mgL3->Draw("ap");
+  gPad->Update();
   canL3->BuildLegend();
   canL3->SetGrid();
   fout->Append(canL3);
@@ -515,9 +528,13 @@ int main(int argc, char *argv[])
   canqpe->BuildLegend();
   canqpe->SetGrid();
   fout->Append(canqpe);
+
+// finish
+FINI:
   fout->ls();
   fout->Write();
 
+  // report
   for (unsigned it = 0; it < fileTime.size(); ++it)
     if (fileDatime[it].Convert() < dopeTime.Convert())
       cout << " before " << fileDatime[it].AsString() << "  " << fileList[it] << endl;
