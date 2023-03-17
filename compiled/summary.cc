@@ -456,6 +456,7 @@ int main(int argc, char *argv[])
   gPad->Update();
   can->BuildLegend();
   can->SetGrid();
+  can->Print(".png");
   fout->Append(can);
 
   mgQPE->GetXaxis()->SetTimeDisplay(1);
