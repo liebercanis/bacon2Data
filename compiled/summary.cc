@@ -447,7 +447,7 @@ int main(int argc, char *argv[])
     n = n1 + 100 * n2 + 10000 * n3 Where n1 is the number of primary divisions, n2 is the number of second order divisions and n3 is the number of third order divisions. n < 0, the axis will be forced to use exactly n divisions.
   */
   int ndiv = 10 + 100 * 5 + 10000 * 3;
-  mg->GetXaxis()->SetNdivisions(220);
+  mg->GetXaxis()->SetNdivisions(-220);
   mg->GetXaxis()->SetTimeFormat("%d:%H");
   mg->GetXaxis()->SetTimeOffset(0, "gmt");
   mg->GetYaxis()->SetTitle("integrated charge (normed)");
@@ -461,7 +461,7 @@ int main(int argc, char *argv[])
 
   mgQPE->GetXaxis()->SetTimeDisplay(1);
   mgQPE->GetXaxis()->SetNdivisions(ndiv);
-  mgQPE->GetXaxis()->SetNdivisions(220);
+  mgQPE->GetXaxis()->SetNdivisions(-220);
   mgQPE->GetXaxis()->SetTimeFormat("%d:%H");
   mgQPE->GetXaxis()->SetTimeOffset(0, "gmt");
   mgQPE->GetYaxis()->SetTitle(" single photon charge (normed)");
