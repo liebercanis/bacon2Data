@@ -37,6 +37,16 @@ bool first = true;
 TH1D *hQPEChan;
 TH1D *eventCount;
 
+void setTimeGraph(TMultiGraph *mg, TString ylabel)
+{
+  mg->GetXaxis()->SetTimeDisplay(1);
+  mg->GetXaxis()->SetNdivisions(-220);
+  mg->GetXaxis()->SetTimeFormat("%d:%H");
+  mg->GetXaxis()->SetTimeOffset(0, "gmt");
+  mg->GetYaxis()->SetTitle(ylabel);
+  mg->Draw("ap");
+}
+
 Int_t get_month_index(TString name)
 {
   int imonth;
@@ -385,6 +395,49 @@ int main(int argc, char *argv[])
     }
     printf("\t normQPE =  %f  \n", normQPE[ic]);
   }
+  // graphs without norm  one graph per channel
+  TString ylabel;
+  vector<TGraphErrors *> gqsumUn;
+  for (unsigned ic = 0; ic < nchan; ++ic)
+  {
+    // cout << " add " << ic << endl;
+    gqsumUn.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEQsum[ic][0])));
+    gqsumUn[ic]->SetName(Form("qsumChan%i", ic));
+    gqsumUn[ic]->SetTitle(Form("qsum-chan-%i", ic));
+    gqsumUn[ic]->SetMarkerSize(1);
+    gqsumUn[ic]->SetMarkerColor(myColor[ic]);
+    gqsumUn[ic]->SetMarkerStyle(myStyle[ic]);
+    fout->Add(gqsumUn[ic]);
+  }
+  TMultiGraph *mgL1 = new TMultiGraph();
+  mgL1->Add(gqsumUn[6]);
+  mgL1->Add(gqsumUn[7]);
+  mgL1->Add(gqsumUn[8]);
+  ylabel.Form("integrated charge");
+  setTimeGraph(mgL1, ylabel);
+  TCanvas *canL1 = new TCanvas(Form("QsummaryL1-%s", sdate.c_str()), Form("QsummaryL1-%s", sdate.c_str()));
+  canL1->BuildLegend();
+  canL1->SetGrid();
+  fout->Append(canL1);
+
+  TMultiGraph *mgL2 = new TMultiGraph();
+  mgL2->Add(gqsumUn[3]);
+  mgL2->Add(gqsumUn[4]);
+  mgL2->Add(gqsumUn[5]);
+  setTimeGraph(mgL2, ylabel);
+  TCanvas *canL2 = new TCanvas(Form("QsummaryL2-%s", sdate.c_str()), Form("QsummaryL2-%s", sdate.c_str()));
+  canL2->BuildLegend();
+  canL2->SetGrid();
+  fout->Append(canL2);
+
+  TMultiGraph *mgL3 = new TMultiGraph();
+  mgL3->Add(gqsumUn[0]);
+  mgL3->Add(gqsumUn[1]);
+  mgL3->Add(gqsumUn[2]);
+  TCanvas *canL3 = new TCanvas(Form("QsummaryL3-%s", sdate.c_str()), Form("QsummaryL3-%s", sdate.c_str()));
+  canL3->BuildLegend();
+  canL3->SetGrid();
+  fout->Append(canL3);
 
   // apply norms
   for (unsigned ic = 0; ic < vecQsum.size(); ++ic)
@@ -426,7 +479,6 @@ int main(int argc, char *argv[])
   // QPE graphs one graph per channel
   vector<TGraphErrors *> gqpe;
   TMultiGraph *mgQPE = new TMultiGraph();
-
   for (unsigned ic = 0; ic < nchan; ++ic)
   {
     // cout << " add " << ic << endl;
@@ -441,17 +493,14 @@ int main(int argc, char *argv[])
       mgQPE->Add(gqpe[ic]);
   }
   // overlay all channel graphs on canvas
-  mg->GetXaxis()->SetTimeDisplay(1);
   // mg->GetXaxis()->SetNdivisions(1010);
   /*
     n = n1 + 100 * n2 + 10000 * n3 Where n1 is the number of primary divisions, n2 is the number of second order divisions and n3 is the number of third order divisions. n < 0, the axis will be forced to use exactly n divisions.
   */
   int ndiv = 10 + 100 * 5 + 10000 * 3;
-  mg->GetXaxis()->SetNdivisions(-220);
-  mg->GetXaxis()->SetTimeFormat("%d:%H");
-  mg->GetXaxis()->SetTimeOffset(0, "gmt");
-  mg->GetYaxis()->SetTitle("integrated charge (normed)");
-  TCanvas *can = new TCanvas("Qsummary", "Qsummary");
+  ylabel.Form("integrated charge (normed) ");
+  setTimeGraph(mg, ylabel);
+  TCanvas *can = new TCanvas(Form("Qsummary-%s", sdate.c_str()), Form("Qsummary-%s", sdate.c_str()));
   mg->Draw("ap");
   gPad->Update();
   can->BuildLegend();
@@ -459,12 +508,8 @@ int main(int argc, char *argv[])
   can->Print(".png");
   fout->Append(can);
 
-  mgQPE->GetXaxis()->SetTimeDisplay(1);
-  mgQPE->GetXaxis()->SetNdivisions(ndiv);
-  mgQPE->GetXaxis()->SetNdivisions(-220);
-  mgQPE->GetXaxis()->SetTimeFormat("%d:%H");
-  mgQPE->GetXaxis()->SetTimeOffset(0, "gmt");
-  mgQPE->GetYaxis()->SetTitle(" single photon charge (normed)");
+  ylabel.Form("single photon charge (normed)");
+  setTimeGraph(mgQPE, ylabel);
   TCanvas *canqpe = new TCanvas("QPE", "QPE");
   mgQPE->Draw("ap");
   canqpe->BuildLegend();
