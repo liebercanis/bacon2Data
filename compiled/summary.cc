@@ -224,7 +224,7 @@ int main(int argc, char *argv[])
     exit(0);
   TString tag("run");
 
-  TDatime dopeTime(2023,3,9,22,0,0);
+  TDatime dopeTime(2023, 3, 9, 22, 0, 0);
 
   countFiles();
   unsigned nchan = 13;
@@ -314,7 +314,7 @@ int main(int argc, char *argv[])
     fileTime.push_back(datetime.Convert());
     efilenum.push_back(0);
 
-    cout << " TIME FILE  " << ifile << " " << fileList[ifile] << " modified " << bf->modified << " TDatime " << datetime.AsString() <<  " as int " << datetime.Convert() << endl;
+    cout << " TIME FILE  " << ifile << " " << fileList[ifile] << " modified " << bf->modified << " TDatime " << datetime.AsString() << " as int " << datetime.Convert() << endl;
 
     if (eventCount)
     {
@@ -366,7 +366,7 @@ int main(int argc, char *argv[])
           ++normCount;
         }
       }
-      normQsum[ic] = beforeSum /double(normCount);
+      normQsum[ic] = beforeSum / double(normCount);
     }
     printf("\t  normQsum =  %f  \n", normQsum[ic]);
   }
@@ -447,7 +447,7 @@ int main(int argc, char *argv[])
     n = n1 + 100 * n2 + 10000 * n3 Where n1 is the number of primary divisions, n2 is the number of second order divisions and n3 is the number of third order divisions. n < 0, the axis will be forced to use exactly n divisions.
   */
   int ndiv = 10 + 100 * 5 + 10000 * 3;
-  mg->GetXaxis()->SetNdivisions(-219);
+  mg->GetXaxis()->SetNdivisions(220);
   mg->GetXaxis()->SetTimeFormat("%d:%H");
   mg->GetXaxis()->SetTimeOffset(0, "gmt");
   mg->GetYaxis()->SetTitle("integrated charge (normed)");
@@ -460,7 +460,7 @@ int main(int argc, char *argv[])
 
   mgQPE->GetXaxis()->SetTimeDisplay(1);
   mgQPE->GetXaxis()->SetNdivisions(ndiv);
-  mgQPE->GetXaxis()->SetNdivisions(-219);
+  mgQPE->GetXaxis()->SetNdivisions(220);
   mgQPE->GetXaxis()->SetTimeFormat("%d:%H");
   mgQPE->GetXaxis()->SetTimeOffset(0, "gmt");
   mgQPE->GetYaxis()->SetTitle(" single photon charge (normed)");
@@ -473,10 +473,10 @@ int main(int argc, char *argv[])
   fout->Write();
 
   for (unsigned it = 0; it < fileTime.size(); ++it)
-    if(fileDatime[it].Convert()<dopeTime.Convert()) 
-    cout << " before " << fileDatime[it].AsString() << "  " << fileList[it] << endl;
+    if (fileDatime[it].Convert() < dopeTime.Convert())
+      cout << " before " << fileDatime[it].AsString() << "  " << fileList[it] << endl;
     else
-    cout << " after  " << fileDatime[it].AsString() << "  " << fileList[it] << endl;
-  cout  << "summary finished " << maxFiles << " " << fout->GetName() << endl;
+      cout << " after  " << fileDatime[it].AsString() << "  " << fileList[it] << endl;
+  cout << "summary finished " << maxFiles << " " << fout->GetName() << endl;
   exit(0);
 }
