@@ -28,6 +28,8 @@ std::vector<vector<double>> vecQsum;
 std::vector<vector<double>> vecEQsum;
 std::vector<vector<double>> vecQPE;
 std::vector<vector<double>> vecEQPE;
+std::vector<vector<double>> vSlope;
+std::vector<vector<double>> vESlope;
 std::vector<TH1D *> runQSum;
 std::map<int, TH1D *> histMap;
 TDirectory *sumDir;
@@ -241,6 +243,8 @@ int main(int argc, char *argv[])
   vecEQsum.resize(nchan);
   vecQPE.resize(nchan);
   vecEQPE.resize(nchan);
+  vSlope.resize(nchan);
+  vESlope.resize(nchan);
   // for (unsigned ic = 0; ic < nchan; ++ic)
   //   printf(" chan %u vecQsum %lu \n",ic,vecQsum[ic].size());
 
@@ -264,7 +268,7 @@ int main(int argc, char *argv[])
     cout << " starting anaRunFile " << fileList[ifile] << endl;
     TString fullName = TString("myData/") + fileList[ifile];
     fin = new TFile(fullName);
-    TGraph *gslope;
+    TGraphErrors *gslope;
     fin->GetObject("tbfile", bf);
     fin->GetObject("slope-graph", gslope);
     if (!bf)
@@ -278,6 +282,34 @@ int main(int argc, char *argv[])
       continue;
     }
     cout << bf->GetTitle() << " modified " << bf->modified << " slope graph " << gslope->GetTitle() << endl;
+
+    // get slopes from graph
+    unsigned nslope = gslope->GetN();
+    printf(" nslope %u \n", nslope);
+    // the graph starts with ichn = 3
+    for (unsigned ic = 0; ic < nchan;  ++ic)
+    {
+      vSlope[ic].push_back(0.);
+      vESlope[ic].push_back(0);
+    }
+    for (unsigned ic = 0; ic < nslope ; ++ic)
+    {
+      unsigned ilast = vSlope[ic].size()-1;
+      unsigned ichan = unsigned(gslope->GetPointX(ic));
+      double yval = gslope->GetPointY(ic);
+      double yerr = gslope->GetErrorY(ic);
+      printf("filling chan %u file %u %f %f \n", ichan, ilast , yval, yerr);
+
+      vSlope[ichan][ilast] = gslope->GetPointY(ic);
+      vESlope[ichan][ilast] = gslope->GetErrorY(ic);
+    }
+
+    printf("\t slopes %lu \n", vSlope.size());
+    for (unsigned j = 0; j < vSlope.size(); ++j)
+    {
+      for (unsigned k = 0; k < vSlope[j].size(); ++k)
+        printf("chan %u file %u %f %f \n", j, k, vSlope[j][k], vESlope[j][k]);
+    }
 
     fin->GetObject("sumDir", sumDir);
     if (!sumDir)
@@ -321,7 +353,6 @@ int main(int argc, char *argv[])
     TDatime datetime = getTime();
     fileDatime.push_back(datetime);
     fileTime.push_back(datetime.Convert());
-    efilenum.push_back(0);
 
     cout << " TIME FILE  " << ifile << " " << fileList[ifile] << " modified " << bf->modified << " TDatime " << datetime.AsString() << " as int " << datetime.Convert() << endl;
 
@@ -374,15 +405,17 @@ int main(int argc, char *argv[])
     { // ave over before doping
       double beforeSum = 0;
       int normCount = 0;
-      for (unsigned jt = 0; jt < 20; ++jt)
-      {
-        if (!isinf(vecQsum[ic][jt]) && vecQsum[ic][jt] > 0 && fileDatime[jt].Convert() < dopeTime.Convert())
+      if(vecQsum[ic].size()>20){
+        for (unsigned jt = 0; jt < 20; ++jt)
         {
-          beforeSum += vecQsum[ic][jt];
-          ++normCount;
-        }
+          if (!isinf(vecQsum[ic][jt]) && vecQsum[ic][jt] > 0 && fileDatime[jt].Convert() < dopeTime.Convert())
+          {
+            beforeSum += vecQsum[ic][jt];
+            ++normCount;
+          }
       }
-      normQsum[ic] = beforeSum / double(normCount);
+      }
+      if(normCount>0) normQsum[ic] = beforeSum / double(normCount);
     }
     printf("\t  normQsum =  %f  \n", normQsum[ic]);
   }
@@ -430,7 +463,7 @@ int main(int argc, char *argv[])
 
   TMultiGraph *mgL2 = new TMultiGraph();
   mgL2->Add(gqsumUn[3]);
-  //mgL2->Add(gqsumUn[4]);
+  // mgL2->Add(gqsumUn[4]);
   mgL2->Add(gqsumUn[5]);
   setTimeGraph(mgL2, ylabel);
   TCanvas *canL2 = new TCanvas(Form("QsummaryL2-%s", sdate.c_str()), Form("QsummaryL2-%s", sdate.c_str()));
@@ -529,8 +562,35 @@ int main(int argc, char *argv[])
   canqpe->SetGrid();
   fout->Append(canqpe);
 
-// finish
-FINI:
+  // slope graphs
+  printf(" \t\t make slope graph %lu \n", filenum.size());
+  // one graph per channel
+  vector<TGraphErrors *> graphSlope;
+  TMultiGraph *mgslope = new TMultiGraph();
+  for (unsigned ic = 6; ic < 9; ++ic)
+  {
+    cout << " add " << ic << " size " << vSlope[ic].size() << " size " << vESlope[ic].size() << endl;
+    cout << "     " << ic << " size " << fileTime.size() << " size " << efilenum.size() << endl;
+    graphSlope.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vSlope[ic][0]), &efilenum[0], &(vESlope[ic][0])));
+    unsigned ilast = graphSlope.size() - 1;
+    graphSlope[ilast]->SetName(Form("slopehan%i", ic));
+    graphSlope[ilast]->SetTitle(Form("qslope-chan-%i", ic));
+    graphSlope[ilast]->SetMarkerSize(1);
+    graphSlope[ilast]->SetMarkerColor(myColor[ic]);
+    graphSlope[ilast]->SetMarkerStyle(myStyle[ic]);
+    fout->Add(graphSlope[ilast]);
+    mgslope->Add(graphSlope[ilast]);
+  }
+  ylabel.Form(" slope fit value (?) ");
+  setTimeGraph(mgslope, ylabel);
+  TCanvas *canSlope = new TCanvas(Form("Slope-%s", sdate.c_str()), Form("Slope-%s", sdate.c_str()));
+  mgslope->Draw("ap");
+  gPad->Update();
+  canSlope->BuildLegend();
+  canSlope->SetGrid();
+  fout->Append(canSlope);
+
+  // finish
   fout->ls();
   fout->Write();
 
