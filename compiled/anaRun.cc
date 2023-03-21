@@ -70,7 +70,7 @@ public:
   vector<TH1D *> hEvGaus;
   TH1D *evCount;
   TH1D *histQSum;
-  //TH1D *histQPE;
+  // TH1D *histQPE;
   TH1D *histQPrompt;
   vector<double> digi;
   vector<double> ddigi;
@@ -108,10 +108,10 @@ public:
   TDirectory *sumDir;
   TDirectory *anaDir;
   Long64_t nentries;
-
 };
 
-void anaRun::clear(){
+void anaRun::clear()
+{
   hQSum.clear();
   hQPeak.clear();
   treeList.clear();
@@ -156,7 +156,7 @@ bool anaRun::openFile(TString theFile)
     fclose(aFile);
     exists = true;
   }
-  if (!exists) 
+  if (!exists)
   {
     printf(" couldnt open file %s\n", fileName.Data());
     return false;
@@ -174,7 +174,8 @@ unsigned anaRun::getTrees()
   //
   TIter next(fin->GetListOfKeys());
   TKey *key;
-  while (TKey *key = (TKey *)next()) {
+  while (TKey *key = (TKey *)next())
+  {
     TClass *cl = gROOT->GetClass(key->GetClassName());
 
     if (!cl->InheritsFrom("TTree"))
@@ -206,11 +207,11 @@ void anaRun::getSummedHists()
     TClass *cl = gROOT->GetClass(key->GetClassName());
     if (!cl->InheritsFrom("TH1D"))
       continue;
-    TH1D *h = (TH1D *) key->ReadObj();
+    TH1D *h = (TH1D *)key->ReadObj();
     TString name;
-    name.Form("SumWave-%s-%s",h->GetName(),tag.Data());
+    name.Form("SumWave-%s-%s", h->GetName(), tag.Data());
     TH1D *hsave = (TH1D *)h->Clone(name);
-    //rawSumDir->Add(hsave);
+    // rawSumDir->Add(hsave);
   }
   fout->cd();
   return;
@@ -328,7 +329,7 @@ bool anaRun::anaEvent(Long64_t entry)
       ++currentBufferCount;
     if (ib == 0 && currentBuffer != rawBr[ib]->buffer)
     {
-      if (currentBuffer>-1)
+      if (currentBuffer > -1)
         printf("finishedbuffer %d count %lld \n", currentBuffer, currentBufferCount);
       currentBuffer = rawBr[ib]->buffer;
       currentBufferCount = 0;
@@ -354,7 +355,6 @@ bool anaRun::anaEvent(Long64_t entry)
     unsigned diffStep = 3;
     differentiate(diffStep);     // fill ddigi
     derivativeCount(idet, 10.0); // use ddigi
-   
 
     idet->thresholds = int(thresholds.size());
     idet->crossings = int(crossings.size());
@@ -362,7 +362,7 @@ bool anaRun::anaEvent(Long64_t entry)
     crossHist[ib]->Fill(idet->crossings);
 
     ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peak), float(sum2), float(sum), float(crossings.size()), float(thresholds.size()), float(cut));
-    // set cut 
+    // set cut
     idet->pass = true;
     if (idet->crossings > 50)
       idet->pass = false;
@@ -389,7 +389,7 @@ bool anaRun::anaEvent(Long64_t entry)
     if (idet->pass && idet->thresholds > 0 && evDir->GetList()->GetEntries() < 100)
     {
       evDir->cd();
-      hname.Form("EvRawWaveEv%ich%i-thresh%i", int(entry), ichan,idet->thresholds);
+      hname.Form("EvRawWaveEv%ich%i-thresh%i", int(entry), ichan, idet->thresholds);
       hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
       {
@@ -422,28 +422,27 @@ bool anaRun::anaEvent(Long64_t entry)
   {
     unsigned ichan = chanList[ib];
     int nbins = rawBr[ib]->rdigi.size();
-    //if (nbins != 1024)
-    //  continue;
+    // if (nbins != 1024)
+    //   continue;
     TDet *idet = tbrun->getDet(ichan);
     if (idet == NULL)
     {
       printf("!!!!!NULL idet br %u ichan %i\n", ib, ichan);
       continue;
     }
-   
-    
 
     /* fill the summed histogram*/
     digi.clear();
 
-   // histogram bad events 
-    if(idet->thresholds <1 ) {  
+    // histogram bad events
+    if (idet->thresholds < 1)
+    {
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
       {
         double val = (double)rawBr[ib]->rdigi[j] - idet->base;
         sumWaveB[ib]->SetBinContent(j + 1, sumWaveB[ib]->GetBinContent(j + 1) + val);
         valHistB[ib]->Fill(val);
-     }
+      }
     }
 
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
@@ -454,24 +453,25 @@ bool anaRun::anaEvent(Long64_t entry)
       valHist[ib]->Fill(val);
     }
 
-    //if (idet->thresholds < 1)
-    //     continue;
+    // if (idet->thresholds < 1)
+    //      continue;
 
     evCount->Fill(ichan); // chan 0 from GetBinContent(0)
 
     /* pulse finding
       hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,double thresh, unsigned step)
     */
-    finder->event(ichan, entry, digi, 5. , 1 );
-    TDirectory* fftDir = (TDirectory*) fout->FindObject("fftDir");
-    if(!fftDir){
+    finder->event(ichan, entry, digi, 5., 1);
+    TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
+    if (!fftDir)
+    {
       cout << " Error no fftDir" << endl;
       fout->ls();
       return false;
     }
     // add some event plots
-    if (fftDir->GetList()->GetEntries()<200)
-          finder->plotEvent(ichan, entry);
+    if (fftDir->GetList()->GetEntries() < 1000)
+      finder->plotEvent(ichan, entry);
   } // second channel loop
 
   // fill sumHitWave and Q sums
@@ -483,14 +483,13 @@ bool anaRun::anaEvent(Long64_t entry)
     histQSum->Fill(tdet->channel, tdet->qSum);
     histQPrompt->Fill(tdet->channel, tdet->qPrompt);
 
-    
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
     {
       TDetHit thit = tdet->hits[ihit];
       hQSum[idet]->Fill(thit.qsum);
       hQPeak[idet]->Fill(thit.qpeak);
       // do threshold for summed waveform
-      if(thit.qsum > hitQThreshold) 
+      if (thit.qsum > hitQThreshold)
         sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
     }
   }
@@ -517,10 +516,10 @@ void anaRun::differentiate(unsigned diffStep)
     //
     sump = 0;
     for (unsigned j = 0; j < maxSum; ++j)
-      sump += digi[i+1+j];
+      sump += digi[i + 1 + j];
     summ = 0;
     for (unsigned j = 0; j < maxSum; ++j)
-      summ = digi[i-1-j];
+      summ = digi[i - 1 - j];
     ddigi.push_back(sump - summ);
   }
 }
@@ -623,34 +622,35 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   }
   getTrees();
   cout << "treeList size " << treeList.size() << endl;
-  
 
   if (treeList.size() < 1)
-    {
-      printf("EXIT no trees\n");
-      return 0;
+  {
+    printf("EXIT no trees\n");
+    return 0;
   }
   rawBr.clear();
   rawBr.resize(treeList.size());
   getEvent(0);
   string sfilename(theFile.Data());
   string shortName = sfilename.substr(0, sfilename.find_last_of("."));
-  cout << " instance of anaRun with shortName= " << shortName  << endl;
+  cout << " instance of anaRun with shortName= " << shortName << endl;
   fout = new TFile(Form("myData/anaRun-%s-%llu.root", shortName.c_str(), maxEntries), "recreate");
   evDir = fout->mkdir("evDir");
   badDir = fout->mkdir("badDir");
   fout->cd();
   cout << " opened output file " << fout->GetName() << endl;
   getSummedHists();
-  //fout->ls();
+  // fout->ls();
 
   // fin->ls();
   TBFile *bf;
   fin->GetObject("tbfile", bf);
-  if(bf){
-  bf->print();
-  fout->Append(bf);
-  } else
+  if (bf)
+  {
+    bf->print();
+    fout->Append(bf);
+  }
+  else
     printf("anaRun ERROR!! no tbfile in input file \n");
 
   tbrun = new TBRun(tag);
@@ -664,11 +664,11 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
            ic, chanList[ic], chanMap.at(chanList[ic]), treeList[ic]->GetName(), tbrun->detList[ic]->GetName());
 
   // fout->Append(tbrun->btree);
-  int totalChannels = 13; 
+  int totalChannels = 13;
   ntChan = new TNtuple("ntChan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peak:sum2:sum:crossings:thresholds:cut");
   evCount = new TH1D("eventCount", "event count", totalChannels, 0, totalChannels);
   histQSum = new TH1D("histQsum", "qsum by channel", totalChannels, 0, totalChannels);
-  //nn/histQPE = new TH1D("histQPE", "QPE by channel", totalChannels, 0, totalChannels);
+  // nn/histQPE = new TH1D("histQPE", "QPE by channel", totalChannels, 0, totalChannels);
   histQPrompt = new TH1D("histQprompt", "qprompt by channel", totalChannels, 0, totalChannels);
   histQSum->Sumw2();
   histQPrompt->Sumw2();
@@ -701,16 +701,16 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
     unsigned ichan = chanList[i];
-   
+
     bool trigger = ichan == 9 || ichan == 10 || ichan == 11;
     if (trigger)
       limit = 200000;
     // else if(ichan==12) limit = 10000;
-    else if(ichan==12)
+    else if (ichan == 12)
       limit = 10000;
     else
       limit = 20000;
-    
+
     hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 1000, 0, limit));
     hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 1000, 0, limit));
     sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
@@ -719,8 +719,8 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   }
   fout->cd();
 
-  //fout->ls();
-  cout << " make hitFinder " << endl;
+  // fout->ls();
+  cout << " make hitFinder dets = " << rawBr.size() << endl;
   finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList);
   Long64_t nentries = treeList[0]->GetEntries();
   if (maxEntries > 0)
@@ -748,7 +748,8 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   printf(" \n \n At END OF FILE scale by %E\n", scaleFactor);
   histQSum->Scale(scaleFactor);
   histQPrompt->Scale(scaleFactor);
-  for (unsigned i = 0; i < sumHitWave.size(); ++i) {
+  for (unsigned i = 0; i < sumHitWave.size(); ++i)
+  {
     sumHitWave[i]->Scale(scaleFactor);
     hQSum[i]->Scale(scaleFactor);
     hQPeak[i]->Scale(scaleFactor);
@@ -760,20 +761,23 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   /* do fits at end of run */
 
   TString graphName = TString("slope-graph");
-  TString graphTitle  = TString(Form("slope-graph-%s", shortName.c_str()));
-  printf(" making slope graph %s \n",graphName.Data());
-  
+  TString graphTitle = TString(Form("slope-graph-%s", shortName.c_str()));
+  printf(" making slope graph %s \n", graphName.Data());
+
   for (unsigned i = 0; i < sumHitWave.size(); ++i)
   {
     sumHitWave[i]->Fit("expo", "Q", "", 200, 600);
     TF1 *g = (TF1 *)sumHitWave[i]->GetListOfFunctions()->FindObject("expo");
     chan.push_back(chanList[i]);
     echan.push_back(0);
-    if(g){
+    if (g)
+    {
       printf("%s %E %E \n", sumHitWave[i]->GetName(), g->GetParameter(1), g->GetParError(1));
       slope.push_back(g->GetParameter(1));
       eslope.push_back(g->GetParError(1));
-    } else {
+    }
+    else
+    {
       slope.push_back(0);
       eslope.push_back(0);
     }
@@ -786,7 +790,7 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   fout->Write();
   fout->Close();
   printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
-  
+
   return nentries;
 }
 

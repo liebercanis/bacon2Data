@@ -43,7 +43,7 @@ typedef std::map<Double_t, TDetHit, std::less<Double_t>> hitMap;
 typedef std::map<Double_t, TDetHit, std::less<Double_t>>::iterator hitMapIter;
 
 const Double_t qnorm = 1.0;
-static double hitQThreshold=1000;
+static double hitQThreshold = 1000;
 
 class hitFinder
 {
@@ -66,6 +66,7 @@ public:
   TDirectory *splitDir;
   Long64_t theEvent;
   bool verbose;
+  bool splitVerbose;
   bool smoothing;
   hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan);
   virtual ~hitFinder() { chanMap.clear(); }
@@ -76,15 +77,15 @@ public:
   double peakThreshold;
   unsigned maxPeakLength;
   std::map<int, int> chanMap;
-
+  vector<int> vChannel;
   TNtuple *ntFinder;
   TNtuple *ntSplit;
-  std::vector<double> rdigi; //
-  std::vector<double> digi;  // baseline subtracted
-  std::vector<double> ddigi; // derivative
-  std::vector<double> sdigi; // smoothed
-  std::vector<double> hdigi; // hits
-  std::vector< Double_t > fdigi; // filtered
+  std::vector<double> rdigi;   //
+  std::vector<double> digi;    // baseline subtracted
+  std::vector<double> ddigi;   // derivative
+  std::vector<double> sdigi;   // smoothed
+  std::vector<double> hdigi;   // hits
+  std::vector<Double_t> fdigi; // filtered
   std::vector<unsigned> crossings;
   std::vector<unsigned> crossingBin;
   std::vector<double> crossingTime;
@@ -94,9 +95,10 @@ public:
   hitMap detHits;
   peakType peakList;
   std::vector<Int_t> peakKind;
+  std::vector<unsigned> splitCount;
   double timeUnit;
   double microSec;
-  void event(int idet, Long64_t ievent, vector<double> rdigi, double thresh, unsigned step=3);
+  void event(int idet, Long64_t ievent, vector<double> rdigi, double thresh, unsigned step = 3);
   void differentiate();
   void findThresholdCrossings(Int_t idet);
   void findDerivativeCrossings(Int_t idet);
@@ -104,7 +106,9 @@ public:
   void makePeaks(int idet, std::vector<Double_t> v);
   hitMap makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge);
   void plotWave(int idet, Long64_t jentry);
-  void plotEvent(unsigned idet, Long64_t ievent);
+  void plotEvent(unsigned ichan, Long64_t ievent);
+  // careful with indicies ichan and idet!
+  void plotSplitEvent(unsigned idet, Long64_t ievent);
   void trimPeaks(int idet, std::vector<Double_t> v);
   void splitPeaks(int idet);
   void printPeakList();
@@ -131,6 +135,7 @@ public:
   std::vector<TH1D *> hInvFFT;
   std::vector<TH1D *> hFFTFilt;
   std::vector<TH1D *> hEvWave;
+  std::vector<TH1D *> hEvHitPeakWave;
   std::vector<TH1D *> hEvSmooth;
   std::vector<TH1D *> hEvCross;
   std::vector<TH1D *> hEvPeakCross;
@@ -139,5 +144,4 @@ public:
   std::vector<TH1D *> hEvFiltWave;
   std::vector<TH1D *> hDigiVal;
   std::vector<TH1D *> hHitSum;
-
-  };
+};
