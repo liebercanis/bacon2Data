@@ -36,7 +36,7 @@ std::vector<TH1D *> hSumWave;
 std::vector<TH1D *> hSumHitWave;
 std::map<int, TH1D *> histMap;
 TDirectory *sumDir;
-TDirectory *foutSumDir;
+TDirectory *waveSumDir;
 TFile *fin;
 TFile *fout;
 bool first = true;
@@ -129,14 +129,14 @@ void QPEFits(unsigned ifile)
     if (name.find("sumWave") != std::string::npos && name.find("Bad") == std::string::npos)
     {
       hAdd = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
-      cout << " add to foutSumDir " << hAdd->GetName() << endl;
-      foutSumDir->Add(hAdd);
+      cout << " add to waveSumDir " << hAdd->GetName() << endl;
+      waveSumDir->Add(hAdd);
       hSumWave.push_back(hAdd);
     }
     if(name.find("sumHitWave") != std::string::npos){
       hAdd = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
       hSumHitWave.push_back(hAdd);
-      foutSumDir->Add(hAdd);
+      waveSumDir->Add(hAdd);
     }
     fout->cd();
     // channel qsum
@@ -219,6 +219,38 @@ void addSumHistos()
   first = false;
 }
 
+void fitSlopes()
+{
+  cout << "ssssssss  summed hits    " << hSumWave.size() << " , " << hSumHitWave.size() << endl;
+  for (unsigned ih = 0; ih < hSumWave.size(); ++ih) {
+   std::string name = string(hSumWave[ih]->GetName());
+   string chan = name.substr(name.find("sumWave") + 7);
+   string file = name.substr(name.find("file") + 4);
+   int ichan = stoi(chan);
+   int ifile = stoi(file);
+   printf(" %u %s %s chan %i file %i \n", ih, hSumWave[ih]->GetName(), hSumHitWave[ih]->GetName(),ichan,ifile);
+
+   double xlow = 150.;
+   double xhigh = 300;
+   hSumWave[ih]->Fit("expo", " ", " ", xlow, xhigh);
+   TF1 *gfit = (TF1 *)hSumWave[ih]->GetListOfFunctions()->FindObject("expo");
+   double MicroSecPerDac = 8./ 1000.; // 8 ns bins
+   if (gfit)
+   {
+      double mfit  = gfit->GetParameter(1);  // 8ns per bin
+      double time = -1.0*MicroSecPerDac / mfit;
+      double etime = gfit->GetParError(1)*time/mfit;
+      vSlope[ichan].push_back(time);
+      vESlope[ichan].push_back(etime);
+   }
+   else
+   {
+      vSlope[ichan].push_back(0);
+      vSlope[ichan].push_back(0);
+   }
+  }
+}
+
 string currentDate()
 {
   time_t rawtime;
@@ -282,7 +314,7 @@ int main(int argc, char *argv[])
   cout << " starting summary for  " << maxFiles << " files on " << sdate << endl;
 
   fout = new TFile(Form("summary-%s.root", sdate.c_str()), "recreate");
-  foutSumDir = fout->mkdir("sumDir");
+  waveSumDir = fout->mkdir("WaveSumDir");
   fout->cd();
 
   hQPEChan = new TH1D("QPEChan", "QPE  by channel", 12, 0, 12);
@@ -309,6 +341,7 @@ int main(int argc, char *argv[])
     cout << bf->GetTitle() << " modified " << bf->modified << " slope graph " << gslope->GetTitle() << endl;
 
     // get slopes from graph
+    /*
     unsigned nslope = gslope->GetN();
     printf(" nslope %u \n", nslope);
     // the graph starts with ichn = 3
@@ -335,6 +368,7 @@ int main(int argc, char *argv[])
       for (unsigned k = 0; k < vSlope[j].size(); ++k)
         printf("chan %u file %u %f %f \n", j, k, vSlope[j][k], vESlope[j][k]);
     }
+    */
 
     fin->GetObject("sumDir", sumDir);
     if (!sumDir)
@@ -372,9 +406,7 @@ int main(int argc, char *argv[])
       continue;
 
     cout << "for file  " << ifile << " " << fileList[ifile] << " " << hqsum->GetName() << " " << hqsum->GetNbinsX() << endl;
-    cout << "ssssssss  summed hits    " << hSumWave.size() << " , " << hSumHitWave.size() << endl;
-    for (unsigned ih = 0; ih<hSumWave.size(); ++ih)
-      printf(" %u %s %s \n", ih, hSumWave[ih]->GetName(), hSumHitWave[ih]->GetName());
+    
 
     filenum.push_back(double(ifile));
     efilenum.push_back(0);
@@ -590,6 +622,8 @@ int main(int argc, char *argv[])
   canqpe->SetGrid();
   fout->Append(canqpe);
 
+  // call function to fit slopes and fill vSlope, vESlope
+  fitSlopes();
   // slope graphs
   printf(" \t\t make slope graph %lu \n", filenum.size());
   // one graph per channel
@@ -609,7 +643,7 @@ int main(int argc, char *argv[])
     fout->Add(graphSlope[ilast]);
     mgslope->Add(graphSlope[ilast]);
   }
-  ylabel.Form(" slope fit value (?) ");
+  ylabel.Form(" fitted time [microsec] ");
   setTimeGraph(mgslope, ylabel);
   TCanvas *canSlope = new TCanvas(Form("Slope-%s", sdate.c_str()), Form("Slope-%s", sdate.c_str()));
   mgslope->Draw("ap");
