@@ -31,8 +31,12 @@ std::vector<vector<double>> vecEQPE;
 std::vector<vector<double>> vSlope;
 std::vector<vector<double>> vESlope;
 std::vector<TH1D *> runQSum;
+// summed waves
+std::vector<TH1D *> hSumWave;
+std::vector<TH1D *> hSumHitWave;
 std::map<int, TH1D *> histMap;
 TDirectory *sumDir;
+TDirectory *foutSumDir;
 TFile *fin;
 TFile *fout;
 bool first = true;
@@ -98,7 +102,7 @@ TDatime getTime()
   printf("FileYear = %u , FileMonth = %u , FileDay = %u , FileHour = %u , FileMin = %u , FileSec = %u \n", fileYear, fileMonth, fileDay, fileHour, fileMin, fileSec);
   return datime;
 }
-void QPEFits()
+void QPEFits(unsigned ifile)
 {
   if (!sumDir)
   {
@@ -119,12 +123,31 @@ void QPEFits()
       continue;
     TH1D *h = (TH1D *)key->ReadObj();
     std::string name = string(h->GetName());
+
+    // summed waves
+    TH1D *hAdd;
+    if (name.find("sumWave") != std::string::npos && name.find("Bad") == std::string::npos)
+    {
+      hAdd = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
+      cout << " add to foutSumDir " << hAdd->GetName() << endl;
+      foutSumDir->Add(hAdd);
+      hSumWave.push_back(hAdd);
+    }
+    if(name.find("sumHitWave") != std::string::npos){
+      hAdd = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
+      hSumHitWave.push_back(hAdd);
+      foutSumDir->Add(hAdd);
+    }
+    fout->cd();
+    // channel qsum
     if (name.find("QSumChan") == std::string::npos)
       continue;
     string chan = name.substr(name.find_last_of("n") + 1);
     int ichan = stoi(chan);
     cout << " addSumHistos clone " << name << " chan " << ichan << endl;
     TH1D *hclone = (TH1D *)h->Clone(Form("fitQSumCh%i", ichan));
+
+    // fit QPE
     double xlow = 2000.;
     double xhigh = 5000;
     if (ichan == 9 || ichan == 10 || ichan == 11)
@@ -259,6 +282,8 @@ int main(int argc, char *argv[])
   cout << " starting summary for  " << maxFiles << " files on " << sdate << endl;
 
   fout = new TFile(Form("summary-%s.root", sdate.c_str()), "recreate");
+  foutSumDir = fout->mkdir("sumDir");
+  fout->cd();
 
   hQPEChan = new TH1D("QPEChan", "QPE  by channel", 12, 0, 12);
   hQPEChan->Sumw2();
@@ -341,12 +366,15 @@ int main(int argc, char *argv[])
     }
 
     // addSumHistos();
-    QPEFits();
+    QPEFits(ifile);
 
     if (!hqsum || !hqprompt)
       continue;
 
     cout << "for file  " << ifile << " " << fileList[ifile] << " " << hqsum->GetName() << " " << hqsum->GetNbinsX() << endl;
+    cout << "ssssssss  summed hits    " << hSumWave.size() << " , " << hSumHitWave.size() << endl;
+    for (unsigned ih = 0; ih<hSumWave.size(); ++ih)
+      printf(" %u %s %s \n", ih, hSumWave[ih]->GetName(), hSumHitWave[ih]->GetName());
 
     filenum.push_back(double(ifile));
     efilenum.push_back(0);
@@ -591,7 +619,7 @@ int main(int argc, char *argv[])
   fout->Append(canSlope);
 
   // finish
-  fout->ls();
+  //fout->ls();
   fout->Write();
 
   // report
