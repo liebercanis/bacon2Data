@@ -766,7 +766,7 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
 
   for (unsigned i = 0; i < sumHitWave.size(); ++i)
   {
-    sumHitWave[i]->Fit("expo", "Q", "", 200, 600);
+    sumHitWave[i]->Fit("expo", "Q", "", 150, 300);
     TF1 *g = (TF1 *)sumHitWave[i]->GetListOfFunctions()->FindObject("expo");
     chan.push_back(chanList[i]);
     echan.push_back(0);
