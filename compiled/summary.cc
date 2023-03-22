@@ -205,7 +205,7 @@ void addSumHistos()
       TH1D *hclone = (TH1D *)h->Clone(Form("runQSumCh%i", ichan));
       runQSum.push_back(hclone);
       histMap.insert(std::pair<int, TH1D *>(ichan, hclone));
-      fout->Add(hclone);
+      //fout->Add(hclone);
     }
     else
     {
@@ -653,7 +653,7 @@ int main(int argc, char *argv[])
   fout->Append(canSlope);
 
   // finish
-  //fout->ls();
+  fout->ls();
   fout->Write();
   fout->Close();
 
