@@ -733,7 +733,7 @@ void hitFinder::splitPeaks(int idet)
         }
 
         // split peak at largest subBin
-        if (subBin > binAtr && binAtr > 0)
+        if (subBin > binAtr && binAtr > 0 && ratio<0.5 )
         {
           isplit.push_back(peakCrossingBin[ipc]);
           indexSplit.push_back(ip);
