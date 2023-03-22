@@ -655,6 +655,7 @@ int main(int argc, char *argv[])
   // finish
   //fout->ls();
   fout->Write();
+  fout->Close();
 
   // report
   for (unsigned it = 0; it < fileTime.size(); ++it)
