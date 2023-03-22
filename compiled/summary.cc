@@ -645,7 +645,7 @@ int main(int argc, char *argv[])
   }
   ylabel.Form(" fitted time [microsec] ");
   setTimeGraph(mgslope, ylabel);
-  TCanvas *canSlope = new TCanvas(Form("Slope-%s", sdate.c_str()), Form("Slope-%s", sdate.c_str()));
+  TCanvas *canSlope = new TCanvas(Form("SlopeFit-%s", sdate.c_str()), Form("SlopeFit-%s", sdate.c_str()));
   mgslope->Draw("ap");
   gPad->Update();
   canSlope->BuildLegend();
