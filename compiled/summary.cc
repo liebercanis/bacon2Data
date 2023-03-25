@@ -129,14 +129,13 @@ void QPEFits(unsigned ifile)
     if (name.find("sumWave") != std::string::npos && name.find("Bad") == std::string::npos)
     {
       hAdd = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
-      cout << " add to waveSumDir " << hAdd->GetName() << endl;
-      waveSumDir->Add(hAdd);
+      //cout << " \t\t AAAAAAA add to waveSumDir " << hAdd->GetName() << endl;
       hSumWave.push_back(hAdd);
     }
-    if(name.find("sumHitWave") != std::string::npos){
+    if (name.find("sumHitWave") != std::string::npos)
+    {
       hAdd = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
       hSumHitWave.push_back(hAdd);
-      waveSumDir->Add(hAdd);
     }
     fout->cd();
     // channel qsum
@@ -144,8 +143,8 @@ void QPEFits(unsigned ifile)
       continue;
     string chan = name.substr(name.find_last_of("n") + 1);
     int ichan = stoi(chan);
-    cout << " addSumHistos clone " << name << " chan " << ichan << endl;
-    TH1D *hclone = (TH1D *)h->Clone(Form("fitQSumCh%i", ichan));
+    //cout << " addSumHistos clone " << name << " chan " << ichan << endl;
+    TH1D *hclone = (TH1D *)h->Clone(Form("fitQSumChan%i-file%i", ichan, ifile));
 
     // fit QPE
     double xlow = 2000.;
@@ -157,20 +156,19 @@ void QPEFits(unsigned ifile)
     }
     hclone->Fit("gaus", " ", " ", xlow, xhigh);
     TF1 *gfit = (TF1 *)hclone->GetListOfFunctions()->FindObject("gaus");
+    double par1=0;
+    double epar1=0;
     if (gfit)
     {
-      hQPEChan->SetBinContent(ichan, gfit->GetParameter(1));
-      hQPEChan->SetBinError(ichan, gfit->GetParError(1));
-      printf(" ****** chan %i low %E hight %E QPE %E\n", ichan, xlow, xhigh, gfit->GetParameter(1));
-      vecQPE[ichan].push_back(gfit->GetParameter(1));
-      vecEQPE[ichan].push_back(gfit->GetParError(1));
+      par1 = gfit->GetParameter(1);
+      epar1 = gfit->GetParError(1);
     }
-    else
-    {
-      vecQPE[ichan].push_back(0);
-      vecEQPE[ichan].push_back(0);
-    }
-    // fout->Add(hclone);
+    
+    printf(" QPE %u %f %f \n",ichan,par1,epar1);
+    hQPEChan->SetBinContent(ichan,par1);
+    hQPEChan->SetBinError(ichan,epar1);
+    vecQPE[ichan].push_back(par1);
+    vecEQPE[ichan].push_back(epar1);
   }
 }
 
@@ -205,7 +203,7 @@ void addSumHistos()
       TH1D *hclone = (TH1D *)h->Clone(Form("runQSumCh%i", ichan));
       runQSum.push_back(hclone);
       histMap.insert(std::pair<int, TH1D *>(ichan, hclone));
-      //fout->Add(hclone);
+      // fout->Add(hclone);
     }
     else
     {
@@ -221,33 +219,37 @@ void addSumHistos()
 
 void fitSlopes()
 {
-  cout << "ssssssss  summed hits    " << hSumWave.size() << " , " << hSumHitWave.size() << endl;
-  for (unsigned ih = 0; ih < hSumWave.size(); ++ih) {
-   std::string name = string(hSumWave[ih]->GetName());
-   string chan = name.substr(name.find("sumWave") + 7);
-   string file = name.substr(name.find("file") + 4);
-   int ichan = stoi(chan);
-   int ifile = stoi(file);
-   printf(" %u %s %s chan %i file %i \n", ih, hSumWave[ih]->GetName(), hSumHitWave[ih]->GetName(),ichan,ifile);
-
-   double xlow = 150.;
-   double xhigh = 300;
-   hSumWave[ih]->Fit("expo", " ", " ", xlow, xhigh);
-   TF1 *gfit = (TF1 *)hSumWave[ih]->GetListOfFunctions()->FindObject("expo");
-   double MicroSecPerDac = 8./ 1000.; // 8 ns bins
-   if (gfit)
-   {
-      double mfit  = gfit->GetParameter(1);  // 8ns per bin
-      double time = -1.0*MicroSecPerDac / mfit;
-      double etime = gfit->GetParError(1)*time/mfit;
-      vSlope[ichan].push_back(time);
-      vESlope[ichan].push_back(etime);
-   }
-   else
-   {
-      vSlope[ichan].push_back(0);
-      vSlope[ichan].push_back(0);
-   }
+  //cout << "ssssssss  summed hits    " << hSumWave.size() << " , " << hSumHitWave.size() << endl;
+  for (unsigned ih = 0; ih < hSumWave.size(); ++ih)
+  {
+    std::string name = string(hSumWave[ih]->GetName());
+    string chan = name.substr(name.find("sumWave") + 7);
+    string file = name.substr(name.find("file") + 4);
+    int ichan = stoi(chan);
+    int ifile = stoi(file);
+    double xlow = 150.;
+    double xhigh = 300;
+    TH1D *hfitwave = (TH1D *)hSumWave[ih]->Clone("fitwave");
+    hfitwave->GetListOfFunctions()->Clear();
+    hfitwave->SetDirectory(nullptr);
+    TF1 *gslopefit = NULL;
+    hfitwave->Fit("expo", "Q", " ", xlow, xhigh);
+    gslopefit= (TF1 *)hfitwave->GetListOfFunctions()->FindObject("expo");
+    double MicroSecPerDac = 8. / 1000.; // 8 ns bins
+    double mfit = 0;
+    double time = 0;
+    double etime = 0;
+    if (gslopefit)
+    {
+      mfit = gslopefit->GetParameter(1); // 8ns per bin
+      time = -1.0 * MicroSecPerDac / mfit;
+      etime = gslopefit->GetParError(1) * time / mfit;
+      //printf(" slope %u %f %f \n", ih,mfit,time);
+    }
+    vSlope[ichan].push_back(time);
+    vESlope[ichan].push_back(etime);
+    //printf(" %u %s %s chan %i file %i time %f %f\n", ih, hSumWave[ih]->GetName(), hSumHitWave[ih]->GetName(), ichan, ifile,time,etime);
+    delete hfitwave;
   }
 }
 
@@ -289,6 +291,8 @@ int main(int argc, char *argv[])
   if (argc < 1)
     exit(0);
   TString tag("run");
+  int myColor[13] = {41, 42, 43, 44, 45, 46, 2, 3, 4, 31, 32, 33, 34};
+  int myStyle[13] = {21, 22, 23, 24, 25, 26, 21, 22, 23, 31, 32, 33, 34};
 
   TDatime dopeTime(2023, 3, 9, 22, 0, 0);
 
@@ -399,50 +403,57 @@ int main(int argc, char *argv[])
       fout->Add(hevcount);
     }
 
-    // addSumHistos();
-    QPEFits(ifile);
-
     if (!hqsum || !hqprompt)
       continue;
 
     cout << "for file  " << ifile << " " << fileList[ifile] << " " << hqsum->GetName() << " " << hqsum->GetNbinsX() << endl;
-    
 
-    filenum.push_back(double(ifile));
-    efilenum.push_back(0);
-    TDatime datetime = getTime();
-    fileDatime.push_back(datetime);
-    fileTime.push_back(datetime.Convert());
+      filenum.push_back(double(ifile));
+      efilenum.push_back(0);
+      TDatime datetime = getTime();
+      fileDatime.push_back(datetime);
+      fileTime.push_back(datetime.Convert());
 
-    cout << " TIME FILE  " << ifile << " " << fileList[ifile] << " modified " << bf->modified << " TDatime " << datetime.AsString() << " as int " << datetime.Convert() << endl;
+      cout << " TIME FILE  " << ifile << " " << fileList[ifile] << " modified " << bf->modified << " TDatime " << datetime.AsString() << " as int " << datetime.Convert() << endl;
 
-    if (eventCount)
-    {
-      for (int i = 0; i <= eventCount->GetNbinsX(); ++i)
+      // addSumHistos();
+      QPEFits(ifile);
+
+      /*
+      for (unsigned ic = 0; ic < vecQPE.size() ; ++ic)
       {
-        double norm = eventCount->GetBinContent(i + 1) / eventCount->GetBinContent(1);
-        printf(" %i count %0f norm %f \n", i - 1, eventCount->GetBinContent(i + 1), norm);
+        for (int ifile = 0; ifile < vecQPE[ic].size(); ++ifile) 
+          printf(" chan %u file %i %f\n", ic, ifile, vecQPE[ic][ifile]);
       }
-    }
+      */
 
-    for (int i = 0; i < hqsum->GetNbinsX() - 1; ++i)
-    {
-      double norm = 1.0;
-      // now overflow is every event and qsum bin is
       if (eventCount)
-        norm = eventCount->GetBinContent(i) / eventCount->GetBinContent(0);
-      double val = 0;
-      double eval = 0;
-      if (!isnan(hqsum->GetBinContent(i + 1)) && !isinf(hqsum->GetBinContent(i + 1)))
       {
-        val = hqsum->GetBinContent(i + 1) / norm;
-        eval = hqsum->GetBinError(i + 1) / norm;
+        for (int i = 0; i <= eventCount->GetNbinsX(); ++i)
+        {
+          double norm = eventCount->GetBinContent(i + 1) / eventCount->GetBinContent(1);
+          printf(" %i count %0f norm %f \n", i - 1, eventCount->GetBinContent(i + 1), norm);
+        }
       }
-      vecQsum[i].push_back(val);
-      vecEQsum[i].push_back(eval);
-      cout << "chan " << i + 1 << " qsum " << hqsum->GetBinContent(i + 1) << " norm " << norm << " size " << vecQsum[i].size() << endl;
-    }
-  } // end loop over files
+
+      for (int i = 0; i < hqsum->GetNbinsX() - 1; ++i)
+      {
+        double norm = 1.0;
+        // now overflow is every event and qsum bin is
+        if (eventCount)
+          norm = eventCount->GetBinContent(i) / eventCount->GetBinContent(0);
+        double val = 0;
+        double eval = 0;
+        if (!isnan(hqsum->GetBinContent(i + 1)) && !isinf(hqsum->GetBinContent(i + 1)))
+        {
+          val = hqsum->GetBinContent(i + 1) / norm;
+          eval = hqsum->GetBinError(i + 1) / norm;
+        }
+        vecQsum[i].push_back(val);
+        vecEQsum[i].push_back(eval);
+        cout << "chan " << i + 1 << " qsum " << hqsum->GetBinContent(i + 1) << " norm " << norm << " size " << vecQsum[i].size() << endl;
+      }
+    } // end loop over files
   printf(" files %lu \n", filenum.size());
   // for (unsigned ic = 0; ic < nchan; ++ic)
   //  printf(" chan %u vecQsum %lu  \n", ic, vecQsum[ic].size());
@@ -451,21 +462,21 @@ int main(int argc, char *argv[])
     int ifile = int(filenum[jfile]);
     printf("  summary file %u  %s chan6 %f  \n", ifile, fileList[ifile].Data(), vecQsum[7][ifile]);
   }
-  int myColor[13] = {41, 42, 43, 44, 45, 46, 2, 3, 4, 31, 32, 33, 34};
-  int myStyle[13] = {21, 22, 23, 24, 25, 26, 21, 22, 23, 31, 32, 33, 34};
+  
 
   // normalize to first file
   vector<double> normQsum;
   normQsum.resize(vecQsum.size());
   for (unsigned ic = 0; ic < vecQsum.size(); ++ic)
   {
-    printf(" vecQsum %i %lu \n", ic, vecQsum[ic].size());
+    //printf(" vecQsum %i %lu \n", ic, vecQsum[ic].size());
     normQsum[ic] = 1;
     if (vecQsum[ic].size() > 0)
     { // ave over before doping
       double beforeSum = 0;
       int normCount = 0;
-      if(vecQsum[ic].size()>20){
+      if (vecQsum[ic].size() > 20)
+      {
         for (unsigned jt = 0; jt < 20; ++jt)
         {
           if (!isinf(vecQsum[ic][jt]) && vecQsum[ic][jt] > 0 && fileDatime[jt].Convert() < dopeTime.Convert())
@@ -473,29 +484,123 @@ int main(int argc, char *argv[])
             beforeSum += vecQsum[ic][jt];
             ++normCount;
           }
+        }
       }
-      }
-      if(normCount>0) normQsum[ic] = beforeSum / double(normCount);
+      if (normCount > 0)
+        normQsum[ic] = beforeSum / double(normCount);
     }
-    printf("\t  normQsum =  %f  \n", normQsum[ic]);
+    //printf("\t  normQsum =  %f  \n", normQsum[ic]);
   }
 
   vector<double> normQPE;
   normQPE.resize(vecQPE.size());
   for (unsigned ic = 0; ic < vecQPE.size(); ++ic)
   {
-    printf(" vecQPE %i %lu \n", ic, vecQPE[ic].size());
+    //printf(" vecQPE %i %lu \n", ic, vecQPE[ic].size());
     normQPE[ic] = 1;
     if (vecQPE[ic].size() > 0)
     {
-      printf("\t vecQPE =  %f  \n", vecQPE[ic][0]);
+      //printf("\t vecQPE =  %f  \n", vecQPE[ic][0]);
       if (!isinf(vecQPE[ic][0]) && vecQPE[ic][0] > 0)
         normQPE[ic] = vecQPE[ic][0];
     }
-    printf("\t normQPE =  %f  \n", normQPE[ic]);
+    //printf("\t normQPE =  %f  \n", normQPE[ic]);
   }
-  // graphs without norm  one graph per channel
+  
+
+  // call function to fit slopes and fill vSlope, vESlope
+  printf(" \t\t make slope graph %lu \n", filenum.size());
+  fitSlopes();
+  // slope graphs
+  // one graph per channel
   TString ylabel;
+  vector<TGraphErrors *> graphSlope;
+  TMultiGraph *mgslope = new TMultiGraph();
+  for (unsigned ic = 6; ic < 9; ++ic)
+  {
+    cout << " add " << ic << " size " << vSlope[ic].size() << " size " << vESlope[ic].size() << endl;
+    cout << "     " << ic << " size " << fileTime.size() << " size " << efilenum.size() << endl;
+    graphSlope.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vSlope[ic][0]), &efilenum[0], &(vESlope[ic][0])));
+    unsigned ilast = graphSlope.size() - 1;
+    graphSlope[ilast]->SetName(Form("slopeChan%i", ic));
+    graphSlope[ilast]->SetTitle(Form("slope-chan-%i", ic));
+    graphSlope[ilast]->SetMarkerSize(1);
+    graphSlope[ilast]->SetMarkerColor(myColor[ic]);
+    graphSlope[ilast]->SetMarkerStyle(myStyle[ic]);
+    fout->Add(graphSlope[ilast]);
+    mgslope->Add(graphSlope[ilast]);
+  }
+  ylabel.Form(" fitted time [microsec] ");
+  setTimeGraph(mgslope, ylabel);
+  TCanvas *canSlope = new TCanvas(Form("SlopeFit-%s", sdate.c_str()), Form("SlopeFit-%s", sdate.c_str()));
+  mgslope->Draw("ap");
+  gPad->Update();
+  canSlope->BuildLegend();
+  canSlope->SetGrid();
+  canSlope->Print(".png");
+  fout->Append(canSlope);
+
+  // one graph per channel
+  vector<TGraphErrors *> gqsum;
+  TMultiGraph *mgsum = new TMultiGraph();
+  for (unsigned ic = 0; ic < vecQsum.size(); ++ic)
+  {
+    // cout << " add " << ic << endl;
+    gqsum.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEQsum[ic][0])));
+    gqsum[ic]->SetName(Form("qsumChan%i", ic));
+    gqsum[ic]->SetTitle(Form("qsum-chan-%i", ic));
+    gqsum[ic]->SetMarkerSize(1);
+    gqsum[ic]->SetMarkerColor(myColor[ic]);
+    gqsum[ic]->SetMarkerStyle(myStyle[ic]);
+    fout->Add(gqsum[ic]);
+    if (ic == 6 || ic == 7 || ic == 8)
+      mgsum->Add(gqsum[ic]);
+  }
+  // overlay all channel graphs on canvas
+  int ndiv = 10 + 100 * 5 + 10000 * 3;
+  ylabel.Form("integrated charge (normed) ");
+  setTimeGraph(mgsum, ylabel);
+  TCanvas *can = new TCanvas(Form("Qsummary-%s", sdate.c_str()), Form("Qsummary-%s", sdate.c_str()));
+  mgsum->Draw("ap");
+  gPad->Update();
+  can->BuildLegend();
+  can->SetGrid();
+  can->Print(".png");
+  fout->Append(can);
+
+  // QPE graphs one graph per channel
+  vector<TGraphErrors *> gqpe;
+  TMultiGraph *mgQPE = new TMultiGraph();
+  for (unsigned ic = 0; ic < vecQPE.size(); ++ic)
+  {
+    // for (int ifile = 0; ifile < vecQPE[ic].size(); ++ifile)
+    //   printf(" chan %u file %i %f\n" , ic,ifile,vecQPE[ic][ifile]);
+    //  cout << " add " << ic << endl;
+    gqpe.push_back(new TGraphErrors(vecQPE[ic].size(), &fileTime[0], &(vecQPE[ic][0]), &efilenum[0], &(vecEQPE[ic][0])));
+    gqpe[ic]->SetName(Form("GraphQPEChan%i", ic));
+    gqpe[ic]->SetTitle(Form("Graph-QPE-chan-%i", ic));
+    gqpe[ic]->SetMarkerSize(1);
+    gqpe[ic]->SetMarkerColor(myColor[ic]);
+    gqpe[ic]->SetMarkerStyle(myStyle[ic]);
+    fout->Add(gqpe[ic]);
+    if (ic == 6 || ic == 7 || ic == 8)
+      mgQPE->Add(gqpe[ic]);
+  }
+  // overlay all channel graphs on canvas
+  // mg->GetXaxis()->SetNdivisions(1010);
+
+  //    n = n1 + 100 * n2 + 10000 * n3 Where n1 is the number of primary divisions, n2 is the number of second order divisions and n3 is the number of third order divisions. n < 0, the axis will be forced to use exactly n divisions.
+  ylabel.Form("single photon charge (normed)");
+  setTimeGraph(mgQPE, ylabel);
+  TCanvas *canqpe = new TCanvas(Form("Graph-QPE-%s", sdate.c_str()), Form("Graph-QPE-%s", sdate.c_str()));
+  mgQPE->Draw("ap");
+  canqpe->BuildLegend();
+  canqpe->SetGrid();
+  canqpe->Print(".png");
+  fout->Append(canqpe);
+
+  // graphs without norm  one graph per channel
+  
   vector<TGraphErrors *> gqsumUn;
   for (unsigned ic = 0; ic < nchan; ++ic)
   {
@@ -564,105 +669,15 @@ int main(int argc, char *argv[])
     }
   }
 
-  // one graph per channel
-  vector<TGraphErrors *> gqsum;
-  TMultiGraph *mg = new TMultiGraph();
-  for (unsigned ic = 0; ic < nchan; ++ic)
-  {
-    // cout << " add " << ic << endl;
-    gqsum.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEQsum[ic][0])));
-    gqsum[ic]->SetName(Form("qsumChan%i", ic));
-    gqsum[ic]->SetTitle(Form("qsum-chan-%i", ic));
-    gqsum[ic]->SetMarkerSize(1);
-    gqsum[ic]->SetMarkerColor(myColor[ic]);
-    gqsum[ic]->SetMarkerStyle(myStyle[ic]);
-    fout->Add(gqsum[ic]);
-    if (ic == 6 || ic == 7 || ic == 8)
-      mg->Add(gqsum[ic]);
-  }
-  // overlay all channel graphs on canvas
-
-  // QPE graphs one graph per channel
-  vector<TGraphErrors *> gqpe;
-  TMultiGraph *mgQPE = new TMultiGraph();
-  for (unsigned ic = 0; ic < nchan; ++ic)
-  {
-    // cout << " add " << ic << endl;
-    gqpe.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQPE[ic][0]), &efilenum[0], &(vecEQPE[ic][0])));
-    gqpe[ic]->SetName(Form("QPEChan%i", ic));
-    gqpe[ic]->SetTitle(Form("QPE-chan-%i", ic));
-    gqpe[ic]->SetMarkerSize(1);
-    gqpe[ic]->SetMarkerColor(myColor[ic]);
-    gqpe[ic]->SetMarkerStyle(myStyle[ic]);
-    fout->Add(gqpe[ic]);
-    if (ic == 6 || ic == 7 || ic == 8)
-      mgQPE->Add(gqpe[ic]);
-  }
-  // overlay all channel graphs on canvas
-  // mg->GetXaxis()->SetNdivisions(1010);
-  /*
-    n = n1 + 100 * n2 + 10000 * n3 Where n1 is the number of primary divisions, n2 is the number of second order divisions and n3 is the number of third order divisions. n < 0, the axis will be forced to use exactly n divisions.
-  */
-  int ndiv = 10 + 100 * 5 + 10000 * 3;
-  ylabel.Form("integrated charge (normed) ");
-  setTimeGraph(mg, ylabel);
-  TCanvas *can = new TCanvas(Form("Qsummary-%s", sdate.c_str()), Form("Qsummary-%s", sdate.c_str()));
-  mg->Draw("ap");
-  gPad->Update();
-  can->BuildLegend();
-  can->SetGrid();
-  can->Print(".png");
-  fout->Append(can);
-
-  ylabel.Form("single photon charge (normed)");
-  setTimeGraph(mgQPE, ylabel);
-  TCanvas *canqpe = new TCanvas("QPE", "QPE");
-  mgQPE->Draw("ap");
-  canqpe->BuildLegend();
-  canqpe->SetGrid();
-  fout->Append(canqpe);
-
-  // call function to fit slopes and fill vSlope, vESlope
-  fitSlopes();
-  // slope graphs
-  printf(" \t\t make slope graph %lu \n", filenum.size());
-  // one graph per channel
-  vector<TGraphErrors *> graphSlope;
-  TMultiGraph *mgslope = new TMultiGraph();
-  for (unsigned ic = 6; ic < 9; ++ic)
-  {
-    cout << " add " << ic << " size " << vSlope[ic].size() << " size " << vESlope[ic].size() << endl;
-    cout << "     " << ic << " size " << fileTime.size() << " size " << efilenum.size() << endl;
-    graphSlope.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vSlope[ic][0]), &efilenum[0], &(vESlope[ic][0])));
-    unsigned ilast = graphSlope.size() - 1;
-    graphSlope[ilast]->SetName(Form("slopehan%i", ic));
-    graphSlope[ilast]->SetTitle(Form("qslope-chan-%i", ic));
-    graphSlope[ilast]->SetMarkerSize(1);
-    graphSlope[ilast]->SetMarkerColor(myColor[ic]);
-    graphSlope[ilast]->SetMarkerStyle(myStyle[ic]);
-    fout->Add(graphSlope[ilast]);
-    mgslope->Add(graphSlope[ilast]);
-  }
-  ylabel.Form(" fitted time [microsec] ");
-  setTimeGraph(mgslope, ylabel);
-  TCanvas *canSlope = new TCanvas(Form("SlopeFit-%s", sdate.c_str()), Form("SlopeFit-%s", sdate.c_str()));
-  mgslope->Draw("ap");
-  gPad->Update();
-  canSlope->BuildLegend();
-  canSlope->SetGrid();
-  fout->Append(canSlope);
-
-  // finish
-  fout->ls();
-  fout->Write();
-  fout->Close();
-
   // report
-  for (unsigned it = 0; it < fileTime.size(); ++it)
+  /*for (unsigned it = 0; it < fileTime.size(); ++it)
     if (fileDatime[it].Convert() < dopeTime.Convert())
       cout << " before " << fileDatime[it].AsString() << "  " << fileList[it] << endl;
     else
       cout << " after  " << fileDatime[it].AsString() << "  " << fileList[it] << endl;
+      */
   cout << "summary finished " << maxFiles << " " << fout->GetName() << endl;
+  fout->Write();
+  fout->Close();
   exit(0);
 }
