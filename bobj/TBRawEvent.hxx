@@ -8,6 +8,7 @@
 #include <string>
 #include <TNamed.h>
 #include <vector>
+#include <TTimeStamp.h>
 
 using namespace std;
 
@@ -18,8 +19,8 @@ class TBRawEvent: public TNamed {
     TBRawEvent(unsigned  ichannel = 0);
 	//		~TBRawEvent();
 	// data elements
-	unsigned   channel;
-	unsigned   buffer;
+	unsigned  channel;
+	TTimeStamp eventTime ;
 	unsigned   trigger;
 	Long64_t time;
 	std::vector<unsigned short> rdigi;
@@ -28,18 +29,17 @@ class TBRawEvent: public TNamed {
 	void clear()
 	{
 		channel = 0;
-		buffer = 0;
 		trigger = 0;
 		time = 0;
 		rdigi.clear();
 	}
 
 	void print() {
-		printf(" TBRawRunEvent chan %u buff %u trigger %u time %lld rdigi size %lu \n", 
-		channel, buffer, trigger, time, rdigi.size()); 
+		printf(" TBRawRunEvent chan %u event time  %s trigger %u time %lld rdigi size %lu \n", 
+		channel, eventTime.AsString(), trigger, time, rdigi.size()); 
 	}
 
-	ClassDef(TBRawEvent,2)
+	ClassDef(TBRawEvent,3)
 };
 #endif
 
