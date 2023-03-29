@@ -390,7 +390,7 @@ std::uint64_t processFile(TString fullName)
               wave.resize(sample_length);
               getWave(&gl_ch_data[header_length], wave);
               rawEvent[i_ch]->channel = i_ch;
-              rawEvent[i_ch]->buffer = buffer_no;
+              //rawEvent[i_ch]->buffer = buffer_no;
               rawEvent[i_ch]->trigger = i_event;
               rawEvent[i_ch]->time = time;
               rawEvent[i_ch]->rdigi = wave;
@@ -403,8 +403,9 @@ std::uint64_t processFile(TString fullName)
                 base += double(wave[ib]);
               base /= double(nsum);
               // hChan[i_ch]->Reset("ICESM");
+              // remove  baseline sub 
               for (unsigned ib = 0; ib < wave.size(); ++ib)
-                hChan[i_ch]->SetBinContent(ib + 1, double(wave[ib]) - base + hChan[i_ch]->GetBinContent(ib + 1));
+                hChan[i_ch]->SetBinContent(ib + 1, double(wave[ib])  + hChan[i_ch]->GetBinContent(ib + 1));
 
               // if (i_event == nof_events - 1)
               //	printf("\t ...chan %i i_event %i length %lu  baseline %f (%f) \n", i_ch, i_event + 1, wave.size(), base, double(wave[0]));
