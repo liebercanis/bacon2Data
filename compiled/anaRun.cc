@@ -368,7 +368,7 @@ bool anaRun::anaEvent(Long64_t entry)
       idet->crossings = int(crossings.size());
       crossHist[ib]->Fill(idet->crossings);
       if(trig) thresholdCrossingCount(15.);
-      else thresholdCrossingCount(2.);
+      else thresholdCrossingCount(1.);
       idet->thresholds = int(thresholds.size());
       threshHist[ib]->Fill(idet->thresholds);
 
