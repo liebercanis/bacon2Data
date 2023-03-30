@@ -99,15 +99,19 @@ public:
   void getBranches();
   void getEvent(Long64_t entry);
   bool anaEvent(Long64_t entry);
-  void differentiate(unsigned diffStep);
-  void derivativeCount(TDet *idet, Double_t rms);
-  void thresholdCount(TDet *idet, Double_t rms);
+  void differentiate(unsigned diffStep); // not used
+  void derivativeCount(TDet *idet, Double_t rms); // not used
+  void negativeCrossingCount(double thresh);
+  void thresholdCrossingCount(double thresh);
+
   TDirectory *rawSumDir;
   TDirectory *badDir;
+  TDirectory *badTrigDir;
   TDirectory *evDir;
   TDirectory *sumDir;
   TDirectory *anaDir;
   Long64_t nentries;
+  double QPEPeak;
 };
 
 void anaRun::clear()
@@ -251,6 +255,7 @@ void anaRun::getEvent(Long64_t entry)
 /* analyze rawBr */
 bool anaRun::anaEvent(Long64_t entry)
 {
+  QPEPeak = 100;
   tbrun->clear();
   // loop over channels
   for (int ib = 0; ib < rawBr.size(); ++ib)
@@ -262,145 +267,156 @@ bool anaRun::anaEvent(Long64_t entry)
       continue;
 
     // simple baseline
-    // double base = std::accumulate(rawBr[ichan]->rdigi.begin(), rawBr[ichan]->rdigi.end(), 0) / rawBr[ichan]->rdigi.size();
-    unsigned baseLength = 30;
-
+    std::vector<unsigned short> orderDigi = rawBr[ib]->rdigi;
+    std::sort(orderDigi.begin(), orderDigi.end());
+    unsigned baseLength = orderDigi.size()/4;
     double base = 0;
     for (unsigned j = 0; j < baseLength; ++j)
     {
-      base += (double)rawBr[ib]->rdigi[j];
+      base += orderDigi[j];
     }
     base /= double(baseLength);
-
-    double peak = 0;
-    unsigned peakWidth = 100;
-    for (unsigned j = baseLength; j < baseLength + peakWidth; ++j)
-    {
-      peak += (double)rawBr[ib]->rdigi[j] - base;
-    }
-    // peak /= double(peakWidth);
-    double sum2 = 0;
-    for (unsigned j = baseLength + peakWidth; j < rawBr[ib]->rdigi.size(); ++j)
-      sum2 += (double)rawBr[ib]->rdigi[j] - base;
-    // sum2 /= double(rawBr[ib]->rdigi.size() - baseLength - peakWidth);
-
-    double sum = 0;
-    for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
-      sum += (double)rawBr[ib]->rdigi[j] - base;
-    // sum /= double(rawBr[ib]->rdigi.size());
-
-    TString hname;
-    hEvRawWave = NULL;
-
-    // baseline correction from fitted Gaussian
-    hEvGaus[ib]->Reset("ICES");
-    for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
-      hEvGaus[ib]->Fill((double)rawBr[ib]->rdigi[j] - base);
-    hEvGaus[ib]->Fit("gaus", "QO");
-    TF1 *gfit = (TF1 *)hEvGaus[ib]->GetListOfFunctions()->FindObject("gaus");
-    double ave = hEvGaus[ib]->GetMean();
-    double sigma = hEvGaus[ib]->GetRMS();
-    double skew = 0;
-    if (!isnan(hEvGaus[ib]->GetSkewness()))
-      skew = hEvGaus[ib]->GetSkewness();
-    if (gfit != nullptr)
-    {
-      ave = gfit->GetParameter(1);
-      sigma = gfit->GetParameter(2);
-    }
-
-    // fitptr->Print();
-    noiseHist[ib]->Fill(sigma);
-    skewHist[ib]->Fill(skew);
-    double sign = TMath::Sign(1., skew);
-    TDet *idet = tbrun->getDet(ichan);
-    if (idet == NULL)
-    {
-      printf("!!!!!NULL idet br %u ichan %i\n", ib, ichan);
-      continue;
-    }
-    idet->ave = ave;
-    idet->sigma = sigma;
-    idet->skew = skew;
-    idet->event = entry;
-    idet->trigger = rawBr[ib]->trigger;
-    idet->buffer = rawBr[ib]->buffer;
-    if (ib == 0)
-      ++currentBufferCount;
-    if (ib == 0 && currentBuffer != rawBr[ib]->buffer)
-    {
-      if (currentBuffer > -1)
-        printf("finishedbuffer %d count %lld \n", currentBuffer, currentBufferCount);
-      currentBuffer = rawBr[ib]->buffer;
-      currentBufferCount = 0;
-    }
-    idet->base = base;
-    idet->peak = peak;
-    idet->sum2 = sum2;
-    idet->sum = sum;
-
-    // cout << "tree " << ib << " ch " << ichan << " "
-    //     << " ave " << ave << " sigma " << sigma << " skew " << skew << " base " << base << endl;
 
     /* fill baseline subtracted vector */
     digi.clear();
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
-      double val = sign * ((double)rawBr[ib]->rdigi[j] - base);
+      double val = double(rawBr[ib]->rdigi[j]) - base;
       digi.push_back(val);
     }
-    double thresholdValue = 10.0;
-    Double_t cut = idet->sigma * thresholdValue;
-    thresholdCount(idet, thresholdValue);
-    unsigned diffStep = 3;
-    differentiate(diffStep);     // fill ddigi
-    derivativeCount(idet, 10.0); // use ddigi
 
-    idet->thresholds = int(thresholds.size());
-    idet->crossings = int(crossings.size());
-    threshHist[ib]->Fill(idet->thresholds);
-    crossHist[ib]->Fill(idet->crossings);
-
-    ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peak), float(sum2), float(sum), float(crossings.size()), float(thresholds.size()), float(cut));
-    // set cut
-    idet->pass = true;
-    if (idet->crossings > 50)
-      idet->pass = false;
-    bool trig = ichan == 9 || ichan == 10 || ichan == 11;
-    if (trig && idet->thresholds > 1)
-      idet->pass = false;
-
-    // plot some events
-    if (!(idet->pass) && badDir->GetList()->GetEntries() < 100)
+    // find first peak maximum and sum
+    double peak = 0;
+    double peakMax = 0;
+    for (unsigned j = 0; j < digi.size(); ++j)
     {
-      badDir->cd();
-      hname.Form("EvRawWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
-      // cout << " failed " << hname << endl;
-      hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
+        peak += digi[j];
+        if (digi[j] > peakMax)
+        peakMax = digi[j];
+    }
+      
+      // some sums 
+      double sum2 = 0;
+      double sum = 0;
+      unsigned peakWidth = 100;
+      for (unsigned j = 0; j < digi.size(); ++j){
+        if(j>peakWidth) sum2 += digi[j];
+        sum += digi[j];
+      }
+      sum2 /= double(digi.size() - peakWidth);
+      sum /= double(digi.size());
+
+      TString hname;
+      hEvRawWave = NULL;
+
+      // baseline correction from fitted Gaussian
+      hEvGaus[ib]->Reset("ICES");
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+        hEvGaus[ib]->Fill((double)rawBr[ib]->rdigi[j] - base);
+      hEvGaus[ib]->Fit("gaus", "QO");
+      TF1 *gfit = (TF1 *)hEvGaus[ib]->GetListOfFunctions()->FindObject("gaus");
+      double ave = hEvGaus[ib]->GetMean();
+      double sigma = hEvGaus[ib]->GetRMS();
+      double skew = 0;
+      if (!isnan(hEvGaus[ib]->GetSkewness()))
+        skew = hEvGaus[ib]->GetSkewness();
+      if (gfit != nullptr)
       {
-        // double val = sign * ((double)rawBr[ichan]->rdigi[j] - base - ave - valHist[ichan]->GetMean());
-        double val = (double)rawBr[ib]->rdigi[j] - base;
-        hEvRawWave->SetBinContent(j + 1, val);
+        ave = gfit->GetParameter(1);
+        sigma = gfit->GetParameter(2);
+      }
+
+      // fitptr->Print();
+      noiseHist[ib]->Fill(sigma);
+      skewHist[ib]->Fill(skew);
+      double sign = TMath::Sign(1., skew);
+      TDet *idet = tbrun->getDet(ichan);
+      if (idet == NULL)
+      {
+        printf("!!!!!NULL idet br %u ichan %i\n", ib, ichan);
+        continue;
+      }
+      idet->ave = ave;
+      idet->sigma = sigma;
+      idet->skew = skew;
+      idet->event = entry;
+      idet->trigger = rawBr[ib]->trigger;
+      //idet->buffer = rawBr[ib]->buffer;
+      /*
+      if (ib == 0)
+        ++currentBufferCount;
+      if (ib == 0 && currentBuffer != rawBr[ib]->buffer)
+      {
+        if (currentBuffer > -1)
+          printf("finishedbuffer %d count %lld \n", currentBuffer, currentBufferCount);
+        currentBuffer = rawBr[ib]->buffer;
+        currentBufferCount = 0;
+      }
+      */
+      idet->base = base;
+      idet->peak = peakMax;
+      idet->sum2 = sum2;
+      idet->sum = sum;
+
+      // cout << "tree " << ib << " ch " << ichan << " "
+      //     << " ave " << ave << " sigma " << sigma << " skew " << skew << " base " << base << endl;
+
+      bool trig = ichan == 9 || ichan == 10 || ichan == 11;
+      // these 2 functions use didi and crossings,threshold vectors
+      // i admit ugly
+      negativeCrossingCount(10.);
+      idet->crossings = int(crossings.size());
+      crossHist[ib]->Fill(idet->crossings);
+      if(trig) thresholdCrossingCount(15.);
+      else thresholdCrossingCount(2.);
+      idet->thresholds = int(thresholds.size());
+      threshHist[ib]->Fill(idet->thresholds);
+
+      ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peakMax), float(peak), float(sum2), float(sum), float(crossings.size()), float(thresholds.size()));
+      // set cut
+      unsigned maxCrossings = 1;
+      unsigned maxThresholds = 1;
+      idet->pass = true;
+      if (idet->crossings > maxCrossings)
+        idet->pass = false;
+      if (trig && idet->thresholds > maxThresholds)
+        idet->pass = false;
+
+      // plot some events
+      if (!trig&&!(idet->pass) && badDir->GetList()->GetEntries() < 100)
+      {
+        badDir->cd();
+        hname.Form("EvRawWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
+        // cout << " failed " << hname << endl;
+        hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
+        for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+        hEvRawWave->SetBinContent(j + 1, digi[j]);
       }
       fout->cd();
-    }
 
-    if (idet->pass && idet->thresholds > 0 && evDir->GetList()->GetEntries() < 100)
-    {
-      evDir->cd();
-      hname.Form("EvRawWaveEv%ich%i-thresh%i", int(entry), ichan, idet->thresholds);
-      hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
-      for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+      // plot some events
+      if (trig&&!(idet->pass) && badTrigDir->GetList()->GetEntries() < 100)
       {
-        // double val = sign * ((double)rawBr[ichan]->rdigi[j] - base - ave - valHist[ichan]->GetMean());
-        double val = (double)rawBr[ib]->rdigi[j] - base;
-        hEvRawWave->SetBinContent(j + 1, val);
+        badTrigDir->cd();
+        hname.Form("EvRawWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
+        // cout << " failed " << hname << endl;
+        hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
+        for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+        hEvRawWave->SetBinContent(j + 1, digi[j]);
       }
-    }
-    fout->cd();
+      fout->cd();
 
-  } // channel loop
+      if (idet->pass && evDir->GetList()->GetEntries() < 100)
+      {
+        evDir->cd();
+        hname.Form("EvRawWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
+        hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
+        for (unsigned j = 0; j < digi.size(); ++j)
+        hEvRawWave->SetBinContent(j + 1, digi[j]);
+      }
+      fout->cd();
+
+    } // channel loop
   // fill output Tree for each event
   // cout << "finished " << entry << endl;
   tbrun->fill();
@@ -410,8 +426,10 @@ bool anaRun::anaEvent(Long64_t entry)
   {
     unsigned ichan = chanList[ib];
     TDet *idet = tbrun->getDet(ichan);
-    if (!idet->pass)
+    if (!idet->pass&&ichan!=12) {
+      //printf(" %llu bad chan %u thresh %u crossing %u \n ", entry,ichan, idet->thresholds, idet->crossings);
       eventPass = false;
+    }
   }
 
   evCount->Fill(-1); // underflow bin
@@ -435,7 +453,7 @@ bool anaRun::anaEvent(Long64_t entry)
     digi.clear();
 
     // histogram bad events
-    if (idet->thresholds < 1)
+    if (!idet->pass)
     {
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
       {
@@ -524,22 +542,24 @@ void anaRun::differentiate(unsigned diffStep)
   }
 }
 
-void anaRun::thresholdCount(TDet *idet, Double_t rms)
+void anaRun::negativeCrossingCount(double thresh)
 {
-  thresholds.clear();
-  Double_t cut = idet->sigma * rms;
-  unsigned step = 10;
-  unsigned ibin = 0;
-  while (ibin < digi.size() - step)
+  crossings.clear();
+  Double_t cut = QPEPeak*thresh;
+  for (unsigned ibin = 0; ibin < digi.size(); ++ibin)
   {
     Double_t vi = digi[ibin];
-    Double_t vj = digi[ibin + step];
-    if (vi > 0 && vi < cut && vj > cut)
-    {
-      thresholds.push_back(UPCROSS);
-    }
-    ibin += step;
+    if (vi < -cut ) crossings.push_back(ibin);
   }
+}
+// count threshold crossings
+void anaRun::thresholdCrossingCount(double thresh)
+{
+  thresholds.clear();
+  Double_t cut = QPEPeak*thresh;
+  for (unsigned ibin = 0; ibin < digi.size(); ++ibin) {
+      if (digi[ibin] < cut && digi[ibin+1] > cut) thresholds.push_back(ibin);
+    }
 }
 
 void anaRun::derivativeCount(TDet *idet, Double_t rms)
@@ -609,6 +629,7 @@ void anaRun::derivativeCount(TDet *idet, Double_t rms)
   return;
 }
 
+
 Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
 {
   clear();
@@ -637,6 +658,7 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   fout = new TFile(Form("myData/anaRun-%s-%llu.root", shortName.c_str(), maxEntries), "recreate");
   evDir = fout->mkdir("evDir");
   badDir = fout->mkdir("badDir");
+  badTrigDir = fout->mkdir("badTrigDir");
   fout->cd();
   cout << " opened output file " << fout->GetName() << endl;
   getSummedHists();
@@ -665,7 +687,7 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
 
   // fout->Append(tbrun->btree);
   int totalChannels = 13;
-  ntChan = new TNtuple("ntChan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peak:sum2:sum:crossings:thresholds:cut");
+  ntChan = new TNtuple("ntChan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peakMax:peak:sum2:sum:negcrossings:thresholds");
   evCount = new TH1D("eventCount", "event count", totalChannels, 0, totalChannels);
   histQSum = new TH1D("histQsum", "qsum by channel", totalChannels, 0, totalChannels);
   // nn/histQPE = new TH1D("histQPE", "QPE by channel", totalChannels, 0, totalChannels);
@@ -698,21 +720,26 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   sumDir = fout->mkdir("sumDir");
   sumDir->cd();
   double limit;
+  double plimit;
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
     unsigned ichan = chanList[i];
 
     bool trigger = ichan == 9 || ichan == 10 || ichan == 11;
-    if (trigger)
+    if (trigger) {
       limit = 200000;
+      plimit = 10000;
+    } else {
+      plimit = 2000;
+    }
+
     // else if(ichan==12) limit = 10000;
-    else if (ichan == 12)
+    if (ichan == 12){
       limit = 10000;
-    else
-      limit = 20000;
+    }
 
     hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 1000, 0, limit));
-    hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 1000, 0, limit));
+    hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 1000, 0,plimit));
     sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
     sumWaveB.push_back(new TH1D(Form("sumWaveBad%i", ichan), Form("sumWaveBad%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
     sumHitWave.push_back(new TH1D(Form("sumHitWave%i", ichan), Form("sumHitWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
