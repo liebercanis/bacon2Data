@@ -20,7 +20,7 @@ class TBRawEvent: public TNamed {
 	//		~TBRawEvent();
 	// data elements
 	unsigned  channel;
-	TTimeStamp eventTime ;
+	unsigned   buffer;
 	unsigned   trigger;
 	Long64_t time;
 	std::vector<unsigned short> rdigi;
@@ -35,8 +35,8 @@ class TBRawEvent: public TNamed {
 	}
 
 	void print() {
-		printf(" TBRawRunEvent chan %u event time  %s trigger %u time %lld rdigi size %lu \n", 
-		channel, eventTime.AsString(), trigger, time, rdigi.size()); 
+		printf(" TBRawRunEvent chan  %u trigger %u time %lld rdigi size %lu \n", 
+		channel, trigger, time, rdigi.size()); 
 	}
 
 	ClassDef(TBRawEvent,3)
