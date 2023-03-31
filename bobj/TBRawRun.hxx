@@ -9,6 +9,7 @@
 #include <TNamed.h>
 #include <TTree.h>
 #include "TBRawEvent.hxx"
+#include "TBEventData.hxx"
 
 using namespace std;
 
@@ -23,7 +24,7 @@ public:
 
   void clear();
   TTree *btree;
-  // TBEvent *bevent;
+  TBEventData *eventData;
 
   vector<TBRawEvent *> detList;
   void detListClear();
@@ -32,7 +33,11 @@ public:
     return btree->Fill();
   }
 
-  TBRawEvent* addDet(unsigned  ichan)
+  void updateTime(TTimeStamp tstamp) {
+    eventData->update(tstamp);
+  }
+
+  TBRawEvent *addDet(unsigned ichan)
   {
     TBRawEvent *det = new TBRawEvent(ichan);
     detList.push_back(det);

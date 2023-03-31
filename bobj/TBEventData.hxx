@@ -15,21 +15,11 @@ class TBEventData : public TNamed
 {
 public:
   TBEventData();
-  TBEventData(TString name);
-  void update(TString name);
-  
-  //~TBEventData();
-  string created;
-  string modified;
-  TTimeStamp tsm; // modified time in seconds
-  TTimeStamp tsc; // created time in seconds
-
-  void
-  print()
-  {
-    cout << " TBEventData  " << this->GetTitle() << endl << " created " << created << " modified " << modified << endl;
+  TTimeStamp evtime; // eventtime in seconds
+  void update(TTimeStamp tstamp){
+    evtime = tstamp;
   }
 
-  ClassDef(TBEventData, 2)
+  ClassDef(TBEventData, 1)
 };
 #endif

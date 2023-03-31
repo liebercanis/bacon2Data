@@ -3,6 +3,8 @@ ClassImp(TBRawRun)
 
 TBRawRun::TBRawRun(TString runName ): TNamed(runName,runName){
   btree = new TTree("RawTree"," bacon raw data " );
+  eventData = new TBEventData();
+  btree->Branch("eventData", eventData);
 }
 
 void TBRawRun::clear()
