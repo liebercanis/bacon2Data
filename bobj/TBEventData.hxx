@@ -7,7 +7,6 @@
 #include <string>
 #include <time.h>
 #include<TNamed.h>
-#include<TTimeStamp.h>
 using namespace std;
 // class to store file info
 
@@ -15,11 +14,18 @@ class TBEventData : public TNamed
 {
 public:
   TBEventData();
-  TTimeStamp evtime; // eventtime in seconds
-  void update(TTimeStamp tstamp){
-    evtime = tstamp;
-  }
+  void update(time_t time);
 
-  ClassDef(TBEventData, 1)
+  time_t evtime; // event time;
+  int sec;
+  int min;
+  int hour;
+  int day;
+  int mon;
+  int year;
+  int isdst;
+
+
+  ClassDef(TBEventData, 2)
 };
 #endif
