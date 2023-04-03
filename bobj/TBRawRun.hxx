@@ -33,8 +33,8 @@ public:
     return btree->Fill();
   }
 
-  void updateTime(TTimeStamp tstamp) {
-    eventData->update(tstamp);
+  void updateTime(time_t evtime) {
+    eventData->update(evtime);
   }
 
   TBRawEvent *addDet(unsigned ichan)
