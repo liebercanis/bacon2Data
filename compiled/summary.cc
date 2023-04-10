@@ -28,6 +28,8 @@ std::vector<vector<double>> vecQsum;
 std::vector<vector<double>> vecEQsum;
 std::vector<vector<double>> vecQPE;
 std::vector<vector<double>> vecEQPE;
+std::vector<vector<double>> vecQPESigma;
+std::vector<vector<double>> vecEQPESigma;
 std::vector<vector<double>> vSlope;
 std::vector<vector<double>> vESlope;
 std::vector<TH1D *> runQSum;
@@ -41,6 +43,7 @@ TFile *fin;
 TFile *fout;
 bool first = true;
 TH1D *hQPEChan;
+TH1D *hQPESigmaChan;
 TH1D *eventCount;
 
 void setTimeGraph(TMultiGraph *mg, TString ylabel)
@@ -50,6 +53,7 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
   mg->GetXaxis()->SetTimeFormat("%d:%H");
   mg->GetXaxis()->SetTimeOffset(0, "gmt");
   mg->GetYaxis()->SetTitle(ylabel);
+  mg->GetXaxis()->SetTitle("day:hour");
 }
 
 Int_t get_month_index(TString name)
@@ -110,7 +114,7 @@ void QPEFits(unsigned ifile)
     return;
   }
 
-  // sumDir->ls();
+  sumDir->ls();
 
   TList *sumList = sumDir->GetListOfKeys();
   TIter next(sumList);
@@ -158,17 +162,25 @@ void QPEFits(unsigned ifile)
     TF1 *gfit = (TF1 *)hclone->GetListOfFunctions()->FindObject("gaus");
     double par1=0;
     double epar1=0;
+    double par2 = 0;
+    double epar2 = 0;
     if (gfit)
     {
       par1 = gfit->GetParameter(1);
       epar1 = gfit->GetParError(1);
+      par2 = gfit->GetParameter(2);
+      epar2 = gfit->GetParError(2);
     }
-    
-    printf(" QPE %u %f %f \n",ichan,par1,epar1);
-    hQPEChan->SetBinContent(ichan,par1);
+
+    printf(" QPE %u  mean %f %f  sigma %f %f  \n", ichan, par1, epar1, par2, epar2);
+    hQPEChan->SetBinContent(ichan, par1);
     hQPEChan->SetBinError(ichan,epar1);
+    hQPESigmaChan->SetBinContent(ichan, par2);
+    hQPESigmaChan->SetBinError(ichan, epar2);
     vecQPE[ichan].push_back(par1);
     vecEQPE[ichan].push_back(epar1);
+    vecQPESigma[ichan].push_back(par2);
+    vecEQPESigma[ichan].push_back(epar2);
   }
 }
 
@@ -302,6 +314,8 @@ int main(int argc, char *argv[])
   vecEQsum.resize(nchan);
   vecQPE.resize(nchan);
   vecEQPE.resize(nchan);
+  vecQPESigma.resize(nchan);
+  vecEQPESigma.resize(nchan);
   vSlope.resize(nchan);
   vESlope.resize(nchan);
   // for (unsigned ic = 0; ic < nchan; ++ic)
@@ -322,7 +336,9 @@ int main(int argc, char *argv[])
   fout->cd();
 
   hQPEChan = new TH1D("QPEChan", "QPE  by channel", 12, 0, 12);
+  hQPESigmaChan = new TH1D("QPESigmaChan", "QPE  by channel", 12, 0, 12);
   hQPEChan->Sumw2();
+  hQPESigmaChan->Sumw2();
 
   for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
   {
@@ -381,20 +397,25 @@ int main(int argc, char *argv[])
       continue;
     }
     printf(" sumDir for file %s \n", fin->GetName());
+    sumDir->ls();
 
     // use bf->modified a std string
     /* migrate fit from post.C:        TF1 *g = (TF1*)hHitSum[i]->GetListOfFunctions()->FindObject("expo");*/
 
-    TH1D *hqsum;
-    TH1D *hqprompt;
+    TH1D *hqsum=NULL;
+    TH1D *hqprompt=NULL;
     fin->GetObject("histQsum", hqsum);
     fin->GetObject("histQprompt", hqprompt);
 
+    if (!hqsum || !hqprompt)
+      continue;
+
     TH1D *hq = (TH1D *)hqsum->Clone(Form("hqsum%i", ifile));
-    TH1D *hp = (TH1D *)hqsum->Clone(Form("hqprompt%i", ifile));
     fout->Add(hq);
+    TH1D *hp = (TH1D *)hqsum->Clone(Form("hqprompt%i", ifile));
     fout->Add(hp);
     eventCount = NULL;
+    cout << " get event Count " << endl;
     fin->GetObject("eventCount", eventCount);
     if (eventCount)
     {
@@ -402,9 +423,6 @@ int main(int argc, char *argv[])
       TH1D *hevcount = (TH1D *)eventCount->Clone(Form("eventCount%i", ifile));
       fout->Add(hevcount);
     }
-
-    if (!hqsum || !hqprompt)
-      continue;
 
     cout << "for file  " << ifile << " " << fileList[ifile] << " " << hqsum->GetName() << " " << hqsum->GetNbinsX() << endl;
 
@@ -530,7 +548,7 @@ int main(int argc, char *argv[])
     fout->Add(graphSlope[ilast]);
     mgslope->Add(graphSlope[ilast]);
   }
-  ylabel.Form(" fitted time [microsec] ");
+  ylabel.Form(" fitted Lifetime [microsec] ");
   setTimeGraph(mgslope, ylabel);
   TCanvas *canSlope = new TCanvas(Form("SlopeFit-%s", sdate.c_str()), Form("SlopeFit-%s", sdate.c_str()));
   mgslope->Draw("ap");
@@ -588,7 +606,6 @@ int main(int argc, char *argv[])
   }
   // overlay all channel graphs on canvas
   // mg->GetXaxis()->SetNdivisions(1010);
-
   //    n = n1 + 100 * n2 + 10000 * n3 Where n1 is the number of primary divisions, n2 is the number of second order divisions and n3 is the number of third order divisions. n < 0, the axis will be forced to use exactly n divisions.
   ylabel.Form("single photon charge (normed)");
   setTimeGraph(mgQPE, ylabel);
@@ -598,6 +615,37 @@ int main(int argc, char *argv[])
   canqpe->SetGrid();
   canqpe->Print(".png");
   fout->Append(canqpe);
+
+  // QPE sigma graphs one graph per channel
+  vector<TGraphErrors *> gqpeSigma;
+  TMultiGraph *mgQPESigma = new TMultiGraph();
+  for (unsigned ic = 0; ic < vecQPESigma.size(); ++ic)
+  {
+    // for (int ifile = 0; ifile < vecQPE[ic].size(); ++ifile)
+    //   printf(" chan %u file %i %f\n" , ic,ifile,vecQPE[ic][ifile]);
+    //  cout << " add " << ic << endl;
+    gqpeSigma.push_back(new TGraphErrors(vecQPESigma[ic].size(), &fileTime[0], &(vecQPESigma[ic][0]), &efilenum[0], &(vecEQPESigma[ic][0])));
+    gqpeSigma[ic]->SetName(Form("GraphQPESigmaChan%i", ic));
+    gqpeSigma[ic]->SetTitle(Form("Graph-QPE-Sigma-chan-%i", ic));
+    gqpeSigma[ic]->SetMarkerSize(1);
+    gqpeSigma[ic]->SetMarkerColor(myColor[ic]);
+    gqpeSigma[ic]->SetMarkerStyle(myStyle[ic]);
+    fout->Add(gqpeSigma[ic]);
+    if (ic == 6 || ic == 7 || ic == 8)
+      mgQPESigma->Add(gqpeSigma[ic]);
+  }
+  // overlay all channel graphs on canvas
+  // mg->GetXaxis()->SetNdivisions(1010);
+
+  //    n = n1 + 100 * n2 + 10000 * n3 Where n1 is the number of primary divisions, n2 is the number of second order divisions and n3 is the number of third order divisions. n < 0, the axis will be forced to use exactly n divisions.
+  ylabel.Form("single photon sigma ");
+  setTimeGraph(mgQPESigma, ylabel);
+  TCanvas *canqpesigma = new TCanvas(Form("Graph-QPESigma-%s", sdate.c_str()), Form("Graph-QPESigma-%s", sdate.c_str()));
+  mgQPESigma->Draw("ap");
+  canqpesigma->BuildLegend();
+  canqpesigma->SetGrid();
+  canqpesigma->Print(".png");
+  fout->Append(canqpesigma);
 
   // graphs without norm  one graph per channel
   
