@@ -71,6 +71,7 @@ public:
   vector<TH1D *> hEvGaus;
   TH1D *evCount;
   TH1D *histQSum;
+  TH1D *hEventPass;
   // TH1D *histQPE;
   TH1D *histQPrompt;
   vector<double> digi;
@@ -91,6 +92,7 @@ public:
   int currentBuffer;
   Long64_t currentBufferCount;
   anaRun(TString theTag = TString("dirName"));
+  ~anaRun(){}
   Long64_t anaRunFile(TString theFile, Long64_t maxEntries);
   void clear();
   bool openFile(TString fileName);
@@ -385,16 +387,16 @@ bool anaRun::anaEvent(Long64_t entry)
     if (trig && idet->thresholds > maxThresholds)
       idet->pass = false;
 
-    // plot some events
-    if (!trig && !(idet->pass) && badDir->GetList()->GetEntries() < 100)
-    {
-      badDir->cd();
-      hname.Form("EvRawWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
-      // cout << " failed " << hname << endl;
-      hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
-      for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
-        hEvRawWave->SetBinContent(j + 1, digi[j]);
-    }
+      // plot some events
+      if (!trig && !(idet->pass) && badDir->GetList()->GetEntries() < 100)
+      {
+        badDir->cd();
+        hname.Form("EvRawWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
+        // cout << " failed " << hname << endl;
+        hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
+        for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+          hEvRawWave->SetBinContent(j + 1, digi[j]);
+      }
     fout->cd();
 
     // plot some events
@@ -426,6 +428,7 @@ bool anaRun::anaEvent(Long64_t entry)
 
   vector<float> fsum;
   fsum.resize(14);
+  int passBit = 0;
   bool eventPass = true;
   for (int ib = 0; ib < rawBr.size(); ++ib)
   {
@@ -437,12 +440,18 @@ bool anaRun::anaEvent(Long64_t entry)
     {
       // printf(" %llu bad chan %u thresh %u crossing %u \n ", entry,ichan, idet->thresholds, idet->crossings);
       eventPass = false;
+      passBit |= 0x1;
+    }
+    if(ichan == 12 && idet->sum>20){  // cosmic cut 
+      passBit |= 0x2;
+      eventPass = false;
     }
   }
   fsum[13] = float(eventPass);
   ntChanSum->Fill(&fsum[0]);
 
   evCount->Fill(-1); // underflow bin
+  hEventPass->Fill(passBit);
   if (!eventPass)
     return eventPass;
 
@@ -521,6 +530,8 @@ bool anaRun::anaEvent(Long64_t entry)
         sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
     }
   }
+
+  //printf(" event %llu  pass %i fail 1 %i cosmic only %i fail both %i \n",entry, int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));
 
   return eventPass;
 } // anaEvent
@@ -701,15 +712,17 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   int totalchannels = 13;
   ntChan = new TNtuple("ntchan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peakmax:sum2:sum:negcrossings:thresholds");
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
+  hEventPass = new TH1D("EventPass", " event failures",4,0,4);
   evCount = new TH1D("eventcount", "event count", totalchannels, 0, totalchannels);
   histQSum = new TH1D("histqsum", "qsum by channel", totalchannels, 0, totalchannels);
   // nn/histqpe = new th1d("histqpe", "qpe by channel", totalchannels, 0, totalchannels);
   histQPrompt = new TH1D("histqprompt", "qprompt by channel", totalchannels, 0, totalchannels);
   histQSum->Sumw2();
   histQPrompt->Sumw2();
+
+  //
   anaDir = fout->mkdir("anadir");
   anaDir->cd();
-
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
     unsigned ichan = chanList[i];
@@ -832,10 +845,12 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   grslope->SetTitle(graphTitle);
   fout->Append(grslope);
 
+  printf(" FINISHED pass %i fail 1 %i cosmic only %i fail both %i \n", int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));
+
   fout->Write();
   fout->Close();
   printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
-
+  
   return nentries;
 }
 

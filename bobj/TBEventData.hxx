@@ -26,6 +26,6 @@ public:
   int isdst;
 
 
-  ClassDef(TBEventData, 2)
+  ClassDef(TBEventData, 3)
 };
 #endif
