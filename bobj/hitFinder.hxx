@@ -76,6 +76,7 @@ public:
   double threshold;
   double peakThreshold;
   unsigned maxPeakLength;
+  double QPEPeak;
   std::map<int, int> chanMap;
   vector<int> vChannel;
   TNtuple *ntFinder;
@@ -100,7 +101,7 @@ public:
   double microSec;
   void event(int idet, Long64_t ievent, vector<double> rdigi, double thresh, unsigned step = 3);
   void differentiate();
-  void findThresholdCrossings(Int_t idet);
+  void findThresholdCrossings(Int_t idet, double thresh);
   void findDerivativeCrossings(Int_t idet);
   void findPeakCrossings(Int_t idet, unsigned peakStart, unsigned peakEnd);
   void makePeaks(int idet, std::vector<Double_t> v);

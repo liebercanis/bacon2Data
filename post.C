@@ -10,18 +10,21 @@ TString tag;
 
 
 
-TCanvas *plot1(int iev = 0, int ichan = 12)
+TCanvas *plot1(int iev = 0, int ichan = 6)
 {
   TString tchan; 
   TString tev;
   TString thit;
   TString tder;
   TString tcross;
+  TString thitpeak;
   tchan.Form("chan%i",ichan);
   tev.Form("EvWave%i_",iev);
   thit.Form("EvHitWave%i_",iev);
   tder.Form("EvDerWave%i_",iev);
   tcross.Form("EvCross%i_",iev);
+  thitpeak.Form("EvHitPeakWave%i_chan%i",iev,ichan);
+  
 
 
   TString twave = tev+tchan;
@@ -31,6 +34,7 @@ TCanvas *plot1(int iev = 0, int ichan = 12)
   TH1D* hhit=NULL;
   TH1D* hder=NULL;
   TH1D *hcross = NULL;
+  TH1D *hitpeak = NULL;
   for (unsigned i = 0; i < hFFT.size(); ++i)
   {
         TString tname = TString(hFFT[i]->GetName());
@@ -38,6 +42,9 @@ TCanvas *plot1(int iev = 0, int ichan = 12)
             hwave = hFFT[i];
         if (tname == thwave)
             hhit = hFFT[i];
+        if (tname == thitpeak)
+            hitpeak = hFFT[i];
+
         
         /*
         if (tname.Contains(tchan) && tname.Contains(tder))
@@ -48,7 +55,10 @@ TCanvas *plot1(int iev = 0, int ichan = 12)
   }
 
   if(hwave) cout << "got " << hwave->GetName() << endl ;
-  //else cout << tev << " not found " << endl;
+  else cout << tev << " not found " << endl;
+  if(hitpeak) cout << "got " << hwave->GetName() << endl ;
+  else cout << tev << " not found " << endl;
+
 
   if(hhit) cout << "got "  << hhit->GetName() << endl ;
   //else cout << thit << " not found " << endl;
@@ -69,8 +79,9 @@ TCanvas *plot1(int iev = 0, int ichan = 12)
   //can1->Divide(1,2);
   //can1->cd(1);
   hwave->Draw();
-  hhit->SetFillColor(kRed);
-  hhit->Draw("same");
+  hitpeak->SetLineColor(kRed);
+  hitpeak->SetFillColor(kRed);
+  hitpeak->Draw("same");
   //can1->cd(2);
   //hcross->SetFillColor(kRed);
   //hder->Draw();
@@ -145,7 +156,7 @@ void multiPlot(int max=20) {
     }
 }
 
-void post(TString fileName = TString("anaRun-run-01_28_2023-nev0_1-1000.root"))
+void post(TString fileName = TString("anaRun-run-01_12_2023-file0-100.root"))
 {
     tag = fileName;
     gStyle->SetOptStat(1001101);

@@ -22,7 +22,7 @@ TCanvas *plot1(unsigned iev=0)
   return can1;
 }
 
-void plotSplit(TString fileName = TString("anaRun-run-01_12_2023-file0-100.root"))
+void plotSplit(TString fileName = TString("anaRun-run-01_12_2023-file0-500.root"))
 {
     tag = fileName;
     gStyle->SetOptStat(1001101);

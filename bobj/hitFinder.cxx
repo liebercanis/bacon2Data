@@ -40,6 +40,7 @@
 hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan)
 {
   verbose = false;
+  QPEPeak = 100;
   // save vchan
   vChannel = vchan;
   if (verbose)
@@ -149,6 +150,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi, doub
     else
       verbose = false;
       */
+  bool trig = ichan == 9 || ichan == 10 || ichan == 11;
+  
   theEvent = ievent;
   threshold = thresh;
   diffStep = step;
@@ -219,7 +222,10 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi, doub
   Int_t windowSize = 10;
   unsigned maxWidth = 100000;
   unsigned minWidth = 10;
-  findThresholdCrossings(idet);
+  if (trig)
+    findThresholdCrossings(idet,15.);
+  else
+    findThresholdCrossings(idet,1.);
   makePeaks(idet, digi);
   splitPeaks(idet);
   detHits = makeHits(idet, triggerTime, firstCharge);
@@ -331,7 +337,7 @@ void hitFinder::differentiate()
 }
 
 // threshold crossings
-void hitFinder::findThresholdCrossings(Int_t idet)
+void hitFinder::findThresholdCrossings(Int_t idet, double thresh)
 {
   crossings.clear();
   crossingBin.clear();
@@ -339,23 +345,18 @@ void hitFinder::findThresholdCrossings(Int_t idet)
   unsigned vsize = digi.size();
   // Double_t cut = tbrun->detList[idet]->sigma * threshold;
   //  fixed cut value
-  Double_t cut = 9.0 * threshold;
-  unsigned step = thresholdStepSize;
-  unsigned ibin = 0;
-  while (ibin < digi.size() - step)
+  Double_t cut = QPEPeak * threshold;
+  for (unsigned ibin = 0;  ibin < digi.size(); ++ibin)
   {
-    Double_t vi = digi[ibin];
-    Double_t vj = digi[ibin + step];
     Double_t u = double(ibin) * timeUnit;
-    if (vi < cut && vj > cut)
+    if (digi[ibin] < cut && digi[ibin+1] > cut)
     {
       crossings.push_back(PUP);
-      crossingBin.push_back(ibin + step);
+      crossingBin.push_back(ibin + 1);
       crossingTime.push_back(u);
       if (verbose)
-        printf(" PUP det %i  bin %i %f %f  \n", idet, ibin, vi, vj);
+        printf(" PUP det %i  bin %i %f %f  \n", idet, ibin, digi[ibin], digi[ibin+1]);
     }
-    ibin += step;
   }
   if (verbose)
     printf(" findTresholdCrossings det %i  crossings %lu \n", idet, crossings.size());

@@ -227,9 +227,9 @@ void fitSlopes()
     string file = name.substr(name.find("file") + 4);
     int ichan = stoi(chan);
     int ifile = stoi(file);
-    double xlow = 150.;
+    double xlow = 100.;
     double xhigh = 300;
-    TH1D *hfitwave = (TH1D *)hSumWave[ih]->Clone("fitwave");
+    TH1D *hfitwave = (TH1D *)hSumHitWave[ih]->Clone("fitwave");
     hfitwave->GetListOfFunctions()->Clear();
     hfitwave->SetDirectory(nullptr);
     TF1 *gslopefit = NULL;
