@@ -45,6 +45,7 @@ std::vector<TH1D *> hSumHitWave;
 std::map<int, TH1D *> histMap;
 TDirectory *sumDir;
 TDirectory *waveSumDir;
+TDirectory *qpeSumDir;
 TFile *fin;
 TFile *fout;
 bool first = true;
@@ -196,14 +197,14 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
           hAdd = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
           // cout << " \t\t AAAAAAA add to waveSumDir " << hAdd->GetName() << endl;
           hSumWave.push_back(hAdd);
-          fout->Add(hAdd);
+          waveSumDir->Add(hAdd);
         }
         if (name.find("sumHitWave") != std::string::npos)
         {
           //cout << " sumHitWave clone " << name << " file  " << ifile  << endl;
           hAdd = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
           hSumHitWave.push_back(hAdd);
-          fout->Add(hAdd);
+          waveSumDir->Add(hAdd);
         }
 
 
@@ -221,9 +222,9 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
           nbinsx= hclone->GetNbinsX();
           runQSum.push_back(hclone);
           histMap.insert(std::pair<int, TH1D *>(ichan, hclone));
-          fout->Add(hclone);
+          qpeSumDir->Add(hclone);
         }
-        else if (hclone->GetNbinsX()==nbinx) // add
+        else if (hclone->GetNbinsX()==nbinsx) // add
         {
           cout << " add QSumChan  " << name << " chan " << ichan << " NbinsX " <<  hclone->GetNbinsX() << endl;
           //cout << " QSumChan  add  " << name << " chan " << ichan << endl;
@@ -337,6 +338,7 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
 
     fout = new TFile(Form("summary-%s.root", sdate.c_str()), "recreate");
     waveSumDir = fout->mkdir("WaveSumDir");
+    qpeSumDir = fout->mkdir("qpeSumDir");
     fout->cd();
 
     hQPEChan = new TH1D("QPEChan", "QPE  by channel", 12, 0, 12);
@@ -469,10 +471,11 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
     else
       cout << " after  " << fileDatime[it].AsString() << "  " << fileList[it] << endl;
       */
-  cout << "summary finished " << maxFiles << " " << fout->GetName() << endl;
   //fout->ls();
+  cout << "summary closing .... "  << endl;
   fout->Write();
   fout->Close();
+  cout << "summary finished " << maxFiles << " " << fout->GetName() << endl;
   exit(0);
 }
 
