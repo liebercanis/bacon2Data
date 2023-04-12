@@ -40,6 +40,7 @@ std::vector<vector<double>> vSlope;
 std::vector<vector<double>> vESlope;
 // summed waves
 std::vector<TH1D *> hSumWave;
+std::vector<vector<TH1D *>> vRunQSum;
 std::vector<TH1D *> hSumHitWave;
 std::map<int, TH1D *> histMap;
 TDirectory *sumDir;
@@ -52,6 +53,129 @@ TH1D *hQPEChan;
 TH1D *hQPESigmaChan;
 TH1D *eventCount;
 void makeGraphs();
+
+
+  void getSumHistos()
+  {
+    int nbinsx = 0;
+    bool first = true;
+    for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
+    {
+
+      TString fullName = TString("myData/") + fileList[ifile];
+      fin = new TFile(fullName);
+      fin->GetObject("sumDir", sumDir);
+      if (!sumDir)
+      {
+        printf("addSumHistos file %s no sumDir!!! \n",fileList[ifile].Data());
+        continue;
+      }
+
+      TList *sumList = sumDir->GetListOfKeys();
+      cout << " >>>>> addSumHistos file  " << fileList[ifile] << " sumDir size " <<  sumList->GetSize() <<endl;
+      // sumDir->ls();
+
+      TIter next(sumList);
+      TKey *key;
+      //printf("addSumHistos %u \n", sumList->GetEntries());
+      while (TKey *key = (TKey *)next())
+      {
+        TClass *cl = gROOT->GetClass(key->GetClassName());
+        if (!cl->InheritsFrom("TH1D"))
+          continue;
+        TH1D *h = (TH1D *)key->ReadObj();
+        std::string name = string(h->GetName());
+
+        // save summed waves
+        // summed waves
+        TH1D *hClone;
+        if (name.find("sumWave") != std::string::npos && name.find("Bad") == std::string::npos)
+        {
+          //cout << " sumWave clone " << name << " file " << ifile << endl;
+          hClone= (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
+          // cout << " \t\t AAAAAAA add to waveSumDir " << hAdd->GetName() << endl;
+          hSumWave.push_back(hClone);
+          waveSumDir->Add(hClone);
+        }
+        if (name.find("sumHitWave") != std::string::npos)
+        {
+          //cout << " sumHitWave clone " << name << " file  " << ifile  << endl;
+          hClone = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
+          hSumHitWave.push_back(hClone);
+          waveSumDir->Add(hClone);
+        }
+
+
+        // get QSumChan by channel
+        if (name.find("QSumChan") == std::string::npos)
+          continue;
+        string chan = name.substr(name.find_last_of("n") + 1);
+        int ichan = stoi(chan);
+        TString cloneName;
+        cloneName.Form("runQSumCh%i-file%i", ichan,ifile);
+        TH1D *hAdd = (TH1D *)h->Clone(cloneName);
+        cout << " +vRunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName()  << " " << hAdd->GetName() << endl;
+        hAdd->SetMarkerStyle(20);
+        hAdd->SetMarkerSize(0.5);
+        vRunQSum[ichan].push_back(hAdd);
+        qpeSumDir->Add(hAdd);
+        // fin->Close();
+    }
+  }
+}
+
+  void QPEFits()
+  {
+
+    cout << " ***** QPEFits ***** " << endl;
+
+    //for (unsigned ichan = 0; ichan < vRunQSum.size(); ++ichan)
+    for (unsigned ichan = 0; ichan < 9; ++ichan)
+    {
+    cout << " QPEFits " << ichan << " num histos "  << vRunQSum[ichan].size() << endl;
+    for (unsigned ihist = 0; ihist < vRunQSum[ichan].size(); ++ihist)
+    {
+        TH1D *hclone = vRunQSum[ichan][ihist];
+
+        // fit QPE
+        double xlow = 2000.;
+        double xhigh = 4000;
+        if (ichan < 3)
+        {
+          xlow = 1000.;
+          xhigh = 1300.;
+        }
+        if (ichan>8)
+        {
+          xlow = 4.E4;
+          xhigh = 9.E4;
+        }
+        hclone->Fit("gaus", " ", " ", xlow, xhigh);
+        TF1 *gfit = (TF1 *)hclone->GetListOfFunctions()->FindObject("gaus");
+        double par1 = 0;
+        double epar1 = 0;
+        double par2 = 0;
+        double epar2 = 0;
+        if (gfit)
+        {
+          par1 = gfit->GetParameter(1);
+          epar1 = gfit->GetParError(1);
+          par2 = gfit->GetParameter(2);
+          epar2 = gfit->GetParError(2);
+        }
+
+        printf(" fit QPE %u  mean %f %f  sigma %f %f  \n", ichan, par1, epar1, par2, epar2);
+        hQPEChan->SetBinContent(ichan, par1);
+        hQPEChan->SetBinError(ichan, epar1);
+        hQPESigmaChan->SetBinContent(ichan, par2);
+        hQPESigmaChan->SetBinError(ichan, epar2);
+        vecQPE[ichan].push_back(par1);
+        vecEQPE[ichan].push_back(epar1);
+        vecQPESigma[ichan].push_back(par2);
+        vecEQPESigma[ichan].push_back(epar2);
+        }
+    }
+  }
 
 void setTimeGraph(TMultiGraph *mg, TString ylabel)
 {
@@ -193,7 +317,7 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
         for (int i = 0; i <= eventCount->GetNbinsX(); ++i)
         {
           double norm = eventCount->GetBinContent(i + 1) / eventCount->GetBinContent(1);
-          printf(" %i count %0f norm %f \n", i - 1, eventCount->GetBinContent(i + 1), norm);
+          printf(" %i count %0f norm %f \n", i , eventCount->GetBinContent(i + 1), norm);
         }
       }
 
@@ -219,7 +343,7 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
     } // end loop over files
   }
 
-  void QPEFits()
+  void QPESumFits()
   {
 
     cout << " ***** QPEFits ***** " << histMap.size() << endl;
@@ -463,6 +587,7 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
   vecEQPESigma.resize(nchan);
   vSlope.resize(nchan);
   vESlope.resize(nchan);
+  vRunQSum.resize(nchan);
 
   fileLoop();
   // for (unsigned ic = 0; ic < nchan; ++ic)
@@ -473,16 +598,17 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
     
   }
 
-  addSumHistos();
-  printf(" list of summed histos %lu : \n ",histMap.size());
-  for (std::map<int, TH1D *>::iterator it = histMap.begin(); it != histMap.end(); ++it)
-    std::cout << it->first << " => " << it->second->GetName() << '\n';
+  //addSumHistos();
+  getSumHistos();
+  //for (std::map<int, TH1D *>::iterator it = histMap.begin(); it != histMap.end(); ++it)
+  //  std::cout << it->first << " => " << it->second->GetName() << '\n';
   QPEFits();
 
   // call function to fit slopes and fill vSlope, vESlope
-  //printf(" \t\t make slope graph %lu \n", filenum.size());
-  //fitSlopes();
-  //makeGraphs();
+  printf(" \t\t make slope graph %lu \n", filenum.size());
+  fitSlopes();
+  printf(" \t\t make graphs %lu \n", filenum.size());
+  makeGraphs();
 
   // report
   /*for (unsigned it = 0; it < fileTime.size(); ++it)
@@ -618,8 +744,8 @@ void makeGraphs() {
     gqpe[ic]->SetMarkerColor(myColor[ic]);
     gqpe[ic]->SetMarkerStyle(myStyle[ic]);
     fout->Add(gqpe[ic]);
-    if (ic == 6 || ic == 7 || ic == 8)
-      mgQPE->Add(gqpe[ic]);
+    //if (ic == 6 || ic == 7 || ic == 8)
+    mgQPE->Add(gqpe[ic]);
   }
   // overlay all channel graphs on canvas
   // mg->GetXaxis()->SetNdivisions(1010);
