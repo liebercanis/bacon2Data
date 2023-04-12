@@ -464,7 +464,7 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
   vSlope.resize(nchan);
   vESlope.resize(nchan);
 
-  //fileLoop();
+  fileLoop();
   // for (unsigned ic = 0; ic < nchan; ++ic)
   //  printf(" chan %u vecQsum %lu  \n", ic, vecQsum[ic].size());
   for (unsigned jfile = 0; jfile < filenum.size(); ++jfile)
