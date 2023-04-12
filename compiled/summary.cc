@@ -214,14 +214,16 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
         string chan = name.substr(name.find_last_of("n") + 1);
         int ichan = stoi(chan);
         TH1D *hclone = (TH1D *)h->Clone(Form("runQSumCh%i", ichan));
-        if (first)  // create summed histos in runQSum array with map
+        int nbinsx = 0;
+        if (first) // create summed histos in runQSum array with map
         {
           cout << " QSumChan clone " << name << " chan " << ichan << " NbinsX " <<  hclone->GetNbinsX() << endl;
+          nbinsx= hclone->GetNbinsX();
           runQSum.push_back(hclone);
           histMap.insert(std::pair<int, TH1D *>(ichan, hclone));
           fout->Add(hclone);
         }
-        else // add 
+        else if (hclone->GetNbinsX()==nbinx) // add
         {
           cout << " add QSumChan  " << name << " chan " << ichan << " NbinsX " <<  hclone->GetNbinsX() << endl;
           //cout << " QSumChan  add  " << name << " chan " << ichan << endl;
