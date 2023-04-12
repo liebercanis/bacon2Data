@@ -164,7 +164,7 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
     
     for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
     {
-      cout << " addSumHistos file  " << fileList[ifile] << endl;
+      cout << " >>>>> addSumHistos file  " << fileList[ifile] << endl;
       TString fullName = TString("myData/") + fileList[ifile];
       fin = new TFile(fullName);
       fin->GetObject("sumDir", sumDir);
@@ -234,6 +234,7 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
        
       }
       first = false;
+      fin->Close();
     }
   }
 
@@ -461,8 +462,8 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
   QPEFits();
 
   // call function to fit slopes and fill vSlope, vESlope
-  printf(" \t\t make slope graph %lu \n", filenum.size());
-  fitSlopes();
+  //printf(" \t\t make slope graph %lu \n", filenum.size());
+  //fitSlopes();
   //makeGraphs();
 
   // report
