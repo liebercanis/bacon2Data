@@ -38,7 +38,6 @@ std::vector<vector<double>> vecQPESigma;
 std::vector<vector<double>> vecEQPESigma;
 std::vector<vector<double>> vSlope;
 std::vector<vector<double>> vESlope;
-std::vector<TH1D *> runQSum;
 // summed waves
 std::vector<TH1D *> hSumWave;
 std::vector<TH1D *> hSumHitWave;
@@ -114,14 +113,120 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
     printf("FileYear = %u , FileMonth = %u , FileDay = %u , FileHour = %u , FileMin = %u , FileSec = %u \n", fileYear, fileMonth, fileDay, fileHour, fileMin, fileSec);
     return datime;
   }
+
+  void fileLoop() {
+   
+    for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
+    {
+      cout << " starting anaRunFile " << fileList[ifile] << endl;
+      TString fullName = TString("myData/") + fileList[ifile];
+      fin = new TFile(fullName);
+      TGraphErrors *gslope;
+      fin->GetObject("tbfile", bf);
+      fin->GetObject("slope-graph", gslope);
+      if (!bf)
+      {
+        // printf(" no timestamp in file %s \n",fileList[i].Data());
+        continue;
+      }
+      if (!gslope)
+      {
+        // printf(" no timestamp in file %s \n",fileList[i].Data());
+        continue;
+      }
+      cout << bf->GetTitle() << " modified " << bf->modified << " slope graph " << gslope->GetTitle() << endl;
+
+      fin->GetObject("sumDir", sumDir);
+      if (!sumDir)
+      {
+        printf(" sumDir not found in file %s \n", fin->GetName());
+        continue;
+      }
+      printf(" sumDir for file %s \n", fin->GetName());
+      // sumDir->ls();
+
+      // use bf->modified a std string
+      /* migrate fit from post.C:        TF1 *g = (TF1*)hHitSum[i]->GetListOfFunctions()->FindObject("expo");*/
+
+      TH1D *hqsum = NULL;
+      TH1D *hqprompt = NULL;
+      fin->GetObject("histQsum", hqsum);
+      fin->GetObject("histQprompt", hqprompt);
+
+      if (!hqsum || !hqprompt)
+        continue;
+
+      TH1D *hq = (TH1D *)hqsum->Clone(Form("hqsum%i", ifile));
+      fout->Add(hq);
+      TH1D *hp = (TH1D *)hqsum->Clone(Form("hqprompt%i", ifile));
+      fout->Add(hp);
+      eventCount = NULL;
+      cout << " get event Count " << endl;
+      fin->GetObject("eventCount", eventCount);
+      if (eventCount)
+      {
+        printf(" eventCount for file %s  entries %E \n", fin->GetName(), eventCount->GetEntries());
+        TH1D *hevcount = (TH1D *)eventCount->Clone(Form("eventCount%i", ifile));
+        fout->Add(hevcount);
+      }
+
+      cout << "for file  " << ifile << " " << fileList[ifile] << " " << hqsum->GetName() << " " << hqsum->GetNbinsX() << endl;
+
+      filenum.push_back(double(ifile));
+      efilenum.push_back(0);
+      TDatime datetime = getTime();
+      fileDatime.push_back(datetime);
+      fileTime.push_back(datetime.Convert());
+
+      cout << " TIME FILE  " << ifile << " " << fileList[ifile] << " modified " << bf->modified << " TDatime " << datetime.AsString() << " as int " << datetime.Convert() << endl;
+
+      /*
+      for (unsigned ic = 0; ic < vecQPE.size() ; ++ic)
+      {
+        for (int ifile = 0; ifile < vecQPE[ic].size(); ++ifile)
+          printf(" chan %u file %i %f\n", ic, ifile, vecQPE[ic][ifile]);
+      }
+      */
+
+      if (eventCount)
+      {
+        for (int i = 0; i <= eventCount->GetNbinsX(); ++i)
+        {
+          double norm = eventCount->GetBinContent(i + 1) / eventCount->GetBinContent(1);
+          printf(" %i count %0f norm %f \n", i - 1, eventCount->GetBinContent(i + 1), norm);
+        }
+      }
+
+      for (int i = 0; i < hqsum->GetNbinsX() - 1; ++i)
+      {
+        double norm = 1.0;
+        // now overflow is every event and qsum bin is
+        if (eventCount)
+          norm = eventCount->GetBinContent(i) / eventCount->GetBinContent(0);
+        double val = 0;
+        double eval = 0;
+        if (!isnan(hqsum->GetBinContent(i + 1)) && !isinf(hqsum->GetBinContent(i + 1)))
+        {
+          val = hqsum->GetBinContent(i + 1) / norm;
+          eval = hqsum->GetBinError(i + 1) / norm;
+        }
+        vecQsum[i].push_back(val);
+        vecEQsum[i].push_back(eval);
+        cout << "chan " << i << " qsum " << hqsum->GetBinContent(i + 1) << " norm " << norm << " size " << vecQsum[i].size() << endl;
+      }
+      printf("  summary file %u  %s chan 6 %f  \n", ifile, fileList[ifile].Data(), vecQsum[6][ifile]);
+      fin->Close();
+    } // end loop over files
+  }
+
   void QPEFits()
   {
 
-    cout << " ***** QPEFits ***** " << endl;
+    cout << " ***** QPEFits ***** " << histMap.size() << endl;
 
     for (std::map<int, TH1D *>::iterator it = histMap.begin(); it != histMap.end(); ++it)
     {
-      std::cout << it->first << " => " << it->second << '\n';
+      std::cout << it->first << " => " << it->second->GetName()  << '\n';
       int ichan = it->first;
       TH1D *hclone = (TH1D*) it->second;
 
@@ -161,10 +266,11 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
 
   void addSumHistos()
   {
-    
+    int nbinsx = 0;
+    bool first = true;
     for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
     {
-      cout << " >>>>> addSumHistos file  " << fileList[ifile] << endl;
+
       TString fullName = TString("myData/") + fileList[ifile];
       fin = new TFile(fullName);
       fin->GetObject("sumDir", sumDir);
@@ -174,12 +280,13 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
         continue;
       }
 
+      TList *sumList = sumDir->GetListOfKeys();
+      cout << " >>>>> addSumHistos file  " << fileList[ifile] << " sumDir size " <<  sumList->GetSize() <<endl;
       // sumDir->ls();
 
-      TList *sumList = sumDir->GetListOfKeys();
       TIter next(sumList);
       TKey *key;
-      printf("addSumHistos %u \n", sumList->GetEntries());
+      //printf("addSumHistos %u \n", sumList->GetEntries());
       while (TKey *key = (TKey *)next())
       {
         TClass *cl = gROOT->GetClass(key->GetClassName());
@@ -209,32 +316,36 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
 
 
         // Add QSumChan by channel
-        TH1D *hAdd;
         if (name.find("QSumChan") == std::string::npos)
           continue;
         //cout << fileList[ifile] << " " << h->GetName() << endl;
         string chan = name.substr(name.find_last_of("n") + 1);
         int ichan = stoi(chan);
-        hAdd = (TH1D *)h->Clone(Form("runQSumCh%i", ichan));
-        int nbinsx = 0;
+        TString cloneName;
+        cloneName.Form("runQSumCh%i", ichan);
+        TH1D *hAdd = (TH1D *)h->Clone(cloneName);
         if (first) // create summed histos in runQSum array with map
         {
-          cout << " QSumChan clone " << name << " chan " << ichan << " NbinsX " <<  hAdd->GetNbinsX() << endl;
-          nbinsx= hAdd->GetNbinsX();
-          runQSum.push_back(hAdd);
-          histMap.insert(std::pair<int, TH1D *>(ichan, hAdd));
+          if(nbinsx==0) nbinsx= hAdd->GetNbinsX();
           qpeSumDir->Add(hAdd);
+          TH1D *fileHist = NULL;
+          qpeSumDir->GetObject(cloneName, fileHist);
+          histMap.insert(std::pair<int, TH1D *>(ichan,fileHist));
+          cout << " QSumChan clone " << name << " chan " << ichan << " NbinsX " << hAdd->GetNbinsX() << " integral " << histMap.at(ichan)->Integral() << endl;
         }
         else if (hAdd->GetNbinsX()==nbinsx) // add
         {
-          cout << " add QSumChan  " << name << " chan " << ichan << " NbinsX " <<  hAdd->GetNbinsX() << endl;
-          //cout << " QSumChan  add  " << name << " chan " << ichan << endl;
           histMap.at(ichan)->Add(hAdd);
+          cout << " add QSumChan " << name << " chan " << ichan << " NbinsX " << hAdd->GetNbinsX() << " integral " << histMap.at(ichan)->Integral() << endl;
+        } else {
+          cout << " Warning! skip QSumChan  " << name << " chan " << ichan << " NbinsX " <<  nbinsx << " , " <<  hAdd->GetNbinsX() << endl;
         }
        
-      }
+      } // loop over sumDir
+      if(first) for (std::map<int, TH1D *>::iterator it = histMap.begin(); it != histMap.end(); ++it)
+        std::cout << it->first << " => " << it->second->GetName() << '\n';
       first = false;
-      fin->Close();
+      //fin->Close();
     }
   }
 
@@ -317,14 +428,7 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
     dopeTime = TDatime(2023, 3, 9, 22, 0, 0);
 
     countFiles();
-    vecQsum.resize(nchan);
-    vecEQsum.resize(nchan);
-    vecQPE.resize(nchan);
-    vecEQPE.resize(nchan);
-    vecQPESigma.resize(nchan);
-    vecEQPESigma.resize(nchan);
-    vSlope.resize(nchan);
-    vESlope.resize(nchan);
+  
     // for (unsigned ic = 0; ic < nchan; ++ic)
     //   printf(" chan %u vecQsum %lu \n",ic,vecQsum[ic].size());
 
@@ -348,117 +452,31 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
     hQPEChan->Sumw2();
     hQPESigmaChan->Sumw2();
 
-    for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
-    {
-      cout << " starting anaRunFile " << fileList[ifile] << endl;
-      TString fullName = TString("myData/") + fileList[ifile];
-      fin = new TFile(fullName);
-      TGraphErrors *gslope;
-      fin->GetObject("tbfile", bf);
-      fin->GetObject("slope-graph", gslope);
-      if (!bf)
-      {
-        // printf(" no timestamp in file %s \n",fileList[i].Data());
-        continue;
-      }
-      if (!gslope)
-      {
-        // printf(" no timestamp in file %s \n",fileList[i].Data());
-        continue;
-      }
-      cout << bf->GetTitle() << " modified " << bf->modified << " slope graph " << gslope->GetTitle() << endl;
-
-      fin->GetObject("sumDir", sumDir);
-      if (!sumDir)
-      {
-        printf(" sumDir not found in file %s \n", fin->GetName());
-        continue;
-      }
-      printf(" sumDir for file %s \n", fin->GetName());
-      //sumDir->ls();
-
-      // use bf->modified a std string
-      /* migrate fit from post.C:        TF1 *g = (TF1*)hHitSum[i]->GetListOfFunctions()->FindObject("expo");*/
-
-      TH1D *hqsum = NULL;
-      TH1D *hqprompt = NULL;
-      fin->GetObject("histQsum", hqsum);
-      fin->GetObject("histQprompt", hqprompt);
-
-      if (!hqsum || !hqprompt)
-        continue;
-
-      TH1D *hq = (TH1D *)hqsum->Clone(Form("hqsum%i", ifile));
-      fout->Add(hq);
-      TH1D *hp = (TH1D *)hqsum->Clone(Form("hqprompt%i", ifile));
-      fout->Add(hp);
-      eventCount = NULL;
-      cout << " get event Count " << endl;
-      fin->GetObject("eventCount", eventCount);
-      if (eventCount)
-      {
-        printf(" eventCount for file %s  entries %E \n", fin->GetName(), eventCount->GetEntries());
-        TH1D *hevcount = (TH1D *)eventCount->Clone(Form("eventCount%i", ifile));
-        fout->Add(hevcount);
-      }
-
-      cout << "for file  " << ifile << " " << fileList[ifile] << " " << hqsum->GetName() << " " << hqsum->GetNbinsX() << endl;
-
-      filenum.push_back(double(ifile));
-      efilenum.push_back(0);
-      TDatime datetime = getTime();
-      fileDatime.push_back(datetime);
-      fileTime.push_back(datetime.Convert());
-
-      cout << " TIME FILE  " << ifile << " " << fileList[ifile] << " modified " << bf->modified << " TDatime " << datetime.AsString() << " as int " << datetime.Convert() << endl;
-
     
-      /*
-      for (unsigned ic = 0; ic < vecQPE.size() ; ++ic)
-      {
-        for (int ifile = 0; ifile < vecQPE[ic].size(); ++ifile) 
-          printf(" chan %u file %i %f\n", ic, ifile, vecQPE[ic][ifile]);
-      }
-      */
-
-      if (eventCount)
-      {
-        for (int i = 0; i <= eventCount->GetNbinsX(); ++i)
-        {
-          double norm = eventCount->GetBinContent(i + 1) / eventCount->GetBinContent(1);
-          printf(" %i count %0f norm %f \n", i - 1, eventCount->GetBinContent(i + 1), norm);
-        }
-      }
-
-      for (int i = 0; i < hqsum->GetNbinsX() - 1; ++i)
-      {
-        double norm = 1.0;
-        // now overflow is every event and qsum bin is
-        if (eventCount)
-          norm = eventCount->GetBinContent(i) / eventCount->GetBinContent(0);
-        double val = 0;
-        double eval = 0;
-        if (!isnan(hqsum->GetBinContent(i + 1)) && !isinf(hqsum->GetBinContent(i + 1)))
-        {
-          val = hqsum->GetBinContent(i + 1) / norm;
-          eval = hqsum->GetBinError(i + 1) / norm;
-        }
-        vecQsum[i].push_back(val);
-        vecEQsum[i].push_back(eval);
-        cout << "chan " << i  << " qsum " << hqsum->GetBinContent(i + 1) << " norm " << norm << " size " << vecQsum[i].size() << endl;
-      }
-      fin->Close();
-    } // end loop over files
   printf(" files %lu \n", filenum.size());
+
+  vecQsum.resize(nchan);
+  vecEQsum.resize(nchan);
+  vecQPE.resize(nchan);
+  vecEQPE.resize(nchan);
+  vecQPESigma.resize(nchan);
+  vecEQPESigma.resize(nchan);
+  vSlope.resize(nchan);
+  vESlope.resize(nchan);
+
+  //fileLoop();
   // for (unsigned ic = 0; ic < nchan; ++ic)
   //  printf(" chan %u vecQsum %lu  \n", ic, vecQsum[ic].size());
   for (unsigned jfile = 0; jfile < filenum.size(); ++jfile)
   {
     int ifile = int(filenum[jfile]);
-    printf("  summary file %u  %s chan6 %f  \n", ifile, fileList[ifile].Data(), vecQsum[7][ifile]);
+    
   }
 
   addSumHistos();
+  printf(" list of summed histos %lu : \n ",histMap.size());
+  for (std::map<int, TH1D *>::iterator it = histMap.begin(); it != histMap.end(); ++it)
+    std::cout << it->first << " => " << it->second->GetName() << '\n';
   QPEFits();
 
   // call function to fit slopes and fill vSlope, vESlope
