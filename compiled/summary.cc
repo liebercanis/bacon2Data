@@ -190,45 +190,46 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
 
         // save summed waves
         // summed waves
-        TH1D *hAdd;
+        TH1D *hClone;
         if (name.find("sumWave") != std::string::npos && name.find("Bad") == std::string::npos)
         {
           //cout << " sumWave clone " << name << " file " << ifile << endl;
-          hAdd = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
+          hClone= (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
           // cout << " \t\t AAAAAAA add to waveSumDir " << hAdd->GetName() << endl;
-          hSumWave.push_back(hAdd);
-          waveSumDir->Add(hAdd);
+          hSumWave.push_back(hClone);
+          waveSumDir->Add(hClone);
         }
         if (name.find("sumHitWave") != std::string::npos)
         {
           //cout << " sumHitWave clone " << name << " file  " << ifile  << endl;
-          hAdd = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
-          hSumHitWave.push_back(hAdd);
-          waveSumDir->Add(hAdd);
+          hClone = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
+          hSumHitWave.push_back(hClone);
+          waveSumDir->Add(hClone);
         }
 
 
         // Add QSumChan by channel
+        TH1D *hAdd;
         if (name.find("QSumChan") == std::string::npos)
           continue;
         //cout << fileList[ifile] << " " << h->GetName() << endl;
         string chan = name.substr(name.find_last_of("n") + 1);
         int ichan = stoi(chan);
-        TH1D *hclone = (TH1D *)h->Clone(Form("runQSumCh%i", ichan));
+        hAdd = (TH1D *)h->Clone(Form("runQSumCh%i", ichan));
         int nbinsx = 0;
         if (first) // create summed histos in runQSum array with map
         {
-          cout << " QSumChan clone " << name << " chan " << ichan << " NbinsX " <<  hclone->GetNbinsX() << endl;
-          nbinsx= hclone->GetNbinsX();
-          runQSum.push_back(hclone);
-          histMap.insert(std::pair<int, TH1D *>(ichan, hclone));
-          qpeSumDir->Add(hclone);
+          cout << " QSumChan clone " << name << " chan " << ichan << " NbinsX " <<  hAdd->GetNbinsX() << endl;
+          nbinsx= hAdd->GetNbinsX();
+          runQSum.push_back(hAdd);
+          histMap.insert(std::pair<int, TH1D *>(ichan, hAdd));
+          qpeSumDir->Add(hAdd);
         }
-        else if (hclone->GetNbinsX()==nbinsx) // add
+        else if (hAdd->GetNbinsX()==nbinsx) // add
         {
-          cout << " add QSumChan  " << name << " chan " << ichan << " NbinsX " <<  hclone->GetNbinsX() << endl;
+          cout << " add QSumChan  " << name << " chan " << ichan << " NbinsX " <<  hAdd->GetNbinsX() << endl;
           //cout << " QSumChan  add  " << name << " chan " << ichan << endl;
-          histMap.at(ichan)->Add(hclone);
+          histMap.at(ichan)->Add(hAdd);
         }
        
       }
