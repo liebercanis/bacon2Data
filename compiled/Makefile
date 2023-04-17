@@ -38,7 +38,7 @@ endif
 #CPP+=-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
 
 
-all: sis build ana1 ana summary sisana 
+all: sis build ana1 ana summary sisana anac1
 
 sis: sis.cc
 	$(CPP) $< $(LIBS)  -o $@
@@ -53,6 +53,9 @@ ana: ana.cc anaRun.cc
 	$(CPP) $< $(LIBS)  -o $@
 
 ana1: ana1.cc anaRun.cc
+	$(CPP) $< $(LIBS)  -o $@
+
+anac1: anac1.cc anaCRun.cc
 	$(CPP) $< $(LIBS)  -o $@
 
 summary: summary.cc 
