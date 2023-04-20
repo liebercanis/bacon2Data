@@ -361,7 +361,6 @@ bool anaCRun::anaEvent(Long64_t entry)
     idet->thresholds = int(thresholds.size());
     threshHist[ib]->Fill(idet->thresholds);
 
-    ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peakMax), float(sum2), float(sum), float(crossings.size()), float(thresholds.size()));
     // set cut
     unsigned maxCrossings = 1;
     unsigned maxThresholds = 1;
@@ -370,6 +369,8 @@ bool anaCRun::anaEvent(Long64_t entry)
       idet->pass = false;
     if (trig && idet->thresholds > maxThresholds)
       idet->pass = false;
+
+    ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peakMax), float(sum2), float(sum), float(crossings.size()), float(thresholds.size()), float(idet->pass));
 
     // plot some events
     if (!trig && !(idet->pass) && badDir->GetList()->GetEntries() < 100)
@@ -420,7 +421,8 @@ bool anaCRun::anaEvent(Long64_t entry)
     TDet *idet = tbrun->getDet(ichan);
     // cout << ichan << " " << idet->sum << endl;
     fsum[ichan] = idet->sum;
-    if (!idet->pass && ichan != 12)
+    //if (!idet->pass && ichan != 12)
+    if (!idet->pass && ichan<9)
     {
       // printf(" %llu bad chan %u thresh %u crossing %u \n ", entry,ichan, idet->thresholds, idet->crossings);
       eventPass = false;
@@ -483,6 +485,9 @@ bool anaCRun::anaEvent(Long64_t entry)
     /* pulse finding
       hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,double thresh, unsigned step)
     */
+
+    return true;
+
     finder->event(ichan, entry, digi, 10., 1); // DEG suggests 10
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
     if (!fftDir)
@@ -702,7 +707,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
 
   // fout->append(tbrun->btree);
   int totalchannels = rawBr.size() + 1;
-  ntChan = new TNtuple("ntchan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peakmax:sum2:sum:negcrossings:thresholds");
+  ntChan = new TNtuple("ntchan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peakmax:sum2:sum:negcrossings:thresholds:pass");
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
   hEventPass = new TH1D("EventPass", " event failures", 4, 0, 4);
   evCount = new TH1D("eventcount", "event count", totalchannels, 0, totalchannels);
