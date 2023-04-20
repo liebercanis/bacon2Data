@@ -67,12 +67,12 @@ void makeGraphs();
       fin->GetObject("sumDir", sumDir);
       if (!sumDir)
       {
-        printf("addSumHistos file %s no sumDir!!! \n",fileList[ifile].Data());
+        printf("getSumHistos file %s no sumDir!!! \n",fileList[ifile].Data());
         continue;
       }
 
       TList *sumList = sumDir->GetListOfKeys();
-      cout << " >>>>> addSumHistos file  " << fileList[ifile] << " sumDir size " <<  sumList->GetSize() <<endl;
+      cout << " >>>>> getSumHistos file  " << fileList[ifile] << " sumDir size " <<  sumList->GetSize() <<endl;
       // sumDir->ls();
 
       TIter next(sumList);
@@ -419,26 +419,6 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
         TH1D *h = (TH1D *)key->ReadObj();
         std::string name = string(h->GetName());
 
-        // save summed waves
-        // summed waves
-        TH1D *hClone;
-        if (name.find("sumWave") != std::string::npos && name.find("Bad") == std::string::npos)
-        {
-          //cout << " sumWave clone " << name << " file " << ifile << endl;
-          hClone= (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
-          // cout << " \t\t AAAAAAA add to waveSumDir " << hAdd->GetName() << endl;
-          hSumWave.push_back(hClone);
-          waveSumDir->Add(hClone);
-        }
-        if (name.find("sumHitWave") != std::string::npos)
-        {
-          //cout << " sumHitWave clone " << name << " file  " << ifile  << endl;
-          hClone = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
-          hSumHitWave.push_back(hClone);
-          waveSumDir->Add(hClone);
-        }
-
-
         // Add QSumChan by channel
         if (name.find("QSumChan") == std::string::npos)
           continue;
@@ -446,7 +426,7 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
         string chan = name.substr(name.find_last_of("n") + 1);
         int ichan = stoi(chan);
         TString cloneName;
-        cloneName.Form("runQSumCh%i", ichan);
+        cloneName.Form("AddQSumCh%i", ichan);
         TH1D *hAdd = (TH1D *)h->Clone(cloneName);
         if (first) // create summed histos in runQSum array with map
         {
@@ -598,7 +578,7 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
     
   }
 
-  //addSumHistos();
+  addSumHistos();
   getSumHistos();
   //for (std::map<int, TH1D *>::iterator it = histMap.begin(); it != histMap.end(); ++it)
   //  std::cout << it->first << " => " << it->second->GetName() << '\n';

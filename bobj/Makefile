@@ -9,14 +9,17 @@ LOCAL        := $(shell pwd)
 ROOTCFLAGS   := $(shell root-config --cflags)
 ROOTLIBS     := $(shell root-config --libs)
 ROOTGLIBS    := $(shell root-config --glibs)
+ROOTINCS     := $(shell root-config --incdir)
+XCODEDIR =/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1
+XCODEDIR2=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/
+ROOT_INCLUDE_PATH += $(XCODEDIR) $(XCODEDIR2)
 
 CXXFLAGS     :=  $(ROOTCFLAGS) -fPIC -I$(LOCAL) 
 LIBS         :=  $(ROOTLIBS) $(CINTFLAGS)
 
 
 ifeq ($(ARCH),macosx64)
-				CXXFLAGS += -fPIC 
-				CXX := clang++ -arch x86_64
+				CXX := clang++ -arch x86_64 $(CXXFLAGS)
 				LD :=  clang++ -arch x86_64
 				SOFLAGS := -dynamiclib -single_module
 
@@ -26,7 +29,9 @@ else
 endif 
 
 LIBRARY := lib$(LIBNAME).so
-CINTFLAGS   := -I$(ROOTSYS)/include -I/. 
+CINTFLAGS   := -I$(ROOTINCS) 
+#-I/usr/local/Cellar/llvm/16.0.1/include/c++/v1 -I/usr/local/Cellar/llvm/16.0.1/./lib/clang/16/include -I/usr/local/Cellar/llvm/16.0.1/./Toolchains/LLVM16.0.1.xctoolchain/usr/include -I/usr/local/Cellar/gcc/12.2.0 
+#-I$(XCODEDIR) -I$(XCODEDIR2) -I/. 
 
 
 #------------------------------------------------------------------------------
@@ -46,8 +51,8 @@ lib: $(DICTS) $(OBJS)
 
 
 %_Dict.cxx: %.hxx %_LinkDef.h
-	@echo "rootcint -f $@ -c $(CINTCFLAGS) $^"
-	@rootcint -f $@ -c $(CINTFLAGS) $^
+	@echo "rootcint -f  $@ -c $(CINTFLAGS) $^"
+	@rootcint -f   $@ -c $(CINTFLAGS) $^
 	@echo "$@ done"
 
 	
@@ -72,6 +77,7 @@ show:
 	@echo CINTFLAGS= $(CINTFLAGS)
 	@echo CXXFLAGS= $(CXXFLAGS)
 	@echo ROOTCFLAGS= $(ROOTCFLAGS)
+	@echo ROOTINCS= $(ROOTINCS)
 	@echo LIBRARY= $(LIBRARY)
 	@echo LIBNAME=$(LIBNAME)	
 

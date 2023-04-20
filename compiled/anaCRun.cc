@@ -1,6 +1,6 @@
-//////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
 //  M.Gold April 2023 read CAEN files
-//////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
 #include <sstream>
 #include <unistd.h>
 #include <iostream>
@@ -47,11 +47,17 @@ public:
     DOUBLEUPCROSS,
     DOUBLEDOWNCROSS
   };
-  enum{CHANNELS=13};
+  enum
+  {
+    CHANNELS = 13
+  };
+  enum
+  {
+    WAVELENGTH = 7500
+  };
   TFile *fout;
   TFile *fin;
   TTree *rawTree;
-  vector<int> chanList;
   std::map<int, int> chanMap;
   vector<TBRawEvent *> rawBr;
   TBEventData *eventData;
@@ -94,7 +100,7 @@ public:
   int currentBuffer;
   Long64_t currentBufferCount;
   anaCRun(TString theTag = TString("dirName"));
-  ~anaCRun(){}
+  ~anaCRun() {}
   Long64_t anaCRunFile(TString theFile, Long64_t maxEntries);
   void clear();
   bool openFile(TString fileName);
@@ -121,9 +127,7 @@ void anaCRun::clear()
 {
   hQSum.clear();
   hQPeak.clear();
-  chanList.clear();
   chanMap.clear();
-  rawBr.clear();
   noiseHist.clear();
   skewHist.clear();
   sumWave.clear();
@@ -171,19 +175,46 @@ bool anaCRun::openFile(TString theFile)
   fin = new TFile(fileName, "readonly");
   printf(" opened file %s\n", fileName.Data());
   rawTree = NULL;
-  fin->GetObject("RawTree",rawTree);
-  if(!rawTree) {
-    printf(" no RawTree in file %s\n", fileName.Data() );
+  fin->GetObject("RawTree", rawTree);
+  if (!rawTree)
+  {
+    printf(" no RawTree in file %s\n", fileName.Data());
     return false;
-
   }
-  cout << "  RawTree has " << rawTree->GetEntries() <<" entries " << endl;
-  printf(" rawTree has %u channels stored in rawBr \n",getBranches());
-  for(unsigned i=0; i< rawBr.size(); ++i) printf(" branch %s chan %i \n",rawBr[i]->GetName(),chanList[i]);
+  cout << "  RawTree has " << rawTree->GetEntries() << " entries " << endl;
+  eventData = new TBEventData();
+  rawTree->SetBranchAddress("eventData", &eventData);
+  if (!eventData)
+  {
+    printf(" eventData not found in file  %s\n", fileName.Data());
+    return false;
+  }
+  printf(" rawTree has %u channels stored in rawBr \n", getBranches());
+  for (unsigned i = 0; i < rawBr.size(); ++i)
+    printf(" branch %s chan %i \n", rawBr[i]->GetName(), i);
 
   return true;
 }
 
+/* get rawBr */
+unsigned anaCRun::getBranches()
+{
+  TObjArray *brList = rawTree->GetListOfBranches();
+  TString cname;
+  TIter next(brList);
+  TBranch *aBranch = NULL;
+  while ((aBranch = (TBranch *)next()))
+    {
+      TString s(aBranch->GetName());
+      if (s != TString("eventData"))
+      {
+        int ichan = TString(s(s.Last('n') + 1, s.Length())).Atoi();
+        // rawTree->GetBranch(aBranch->GetName())->SetAutoDelete(kTRUE);
+        cout << s << "  " << aBranch->GetName() << " return val =  " << rawTree->SetBranchAddress(aBranch->GetName(), &rawBr[ichan]) << endl;
+      }
+    }
+    return rawBr.size();
+}
 
 // get summed histos
 void anaCRun::getSummedHists()
@@ -203,57 +234,9 @@ void anaCRun::getSummedHists()
     TH1D *hsave = (TH1D *)h->Clone(name);
     // rawSumDir->Add(hsave);
   }
+  cout << " found " << rawSumDir->GetList()->GetEntries() << " summed histos " << endl;
   fout->cd();
   return;
-}
-
-/* get rawBr */
-unsigned anaCRun::getBranches()
-{
-  rawBr.clear();
-  chanList.clear();
-  TObjArray *brList = rawTree->GetListOfBranches();
-  brList->ls();
-
-  eventData=NULL;
-  eventData = (TBEventData*) rawTree->GetBranch("eventData");
-  if(!eventData) return 0;
-
-  TString cname;
-
-  for(int i=0; i<CHANNELS; ++i){
-    cname.Form("chan%i",i);
-    TBRawEvent *chan =(TBRawEvent*) rawTree->GetBranch(cname); 
-    if(!chan) continue;
-    TString s(chan->GetName());
-    int ichan = TString(s(s.Last('n')+1,s.Length())).Atoi();
-    rawBr.push_back(chan);
-    chanList.push_back(ichan);
-  }
-
- /*
-  TIter next(brList);
-  TBranchElement *aBranch = NULL;
-  while ((aBranch = (TBranchElement *)next()))
-  {
-    if(TString(aBranch->GetName()).Contains("chan")) {
-      cout << aBranch->GetName() << endl;
-      TBRawEvent *chan = (TBRawEvent *) aBranch->GetAddress();
-      if (!chan)
-      {
-        cout << " \t\t !!!! NULL chan " << endl;
-        continue;
-      }
-      cout << "  chan  "<< chan->GetName() << endl;
-      TString s(chan->GetName());
-      cout << s << endl;
-      int ichan = TString(s(s.Last('n')+1,s.Length())).Atoi();
-      rawBr.push_back(chan);
-      chanList.push_back(ichan);
-    }
-  }
-  */
-  return rawBr.size();
 }
 
 /* analyze rawBr */
@@ -262,14 +245,14 @@ bool anaCRun::anaEvent(Long64_t entry)
   QPEPeak = 100;
   tbrun->clear();
   // loop over channels
-  for (int ib = 0; ib < rawBr.size(); ++ib)
+  for (unsigned ib = 0; ib < rawBr.size(); ++ib)
   {
-    unsigned ichan = chanList[ib];
+    unsigned ichan = ib;
     int nbins = rawBr[ib]->rdigi.size();
     //cout << ib << " nbins " << nbins << " max hist " << hEvGaus.size() << " rawBr.size() " << rawBr.size() << endl;
-    if (nbins != 1024)
-      continue;
 
+    if (rawBr[ib]->rdigi.size() != WAVELENGTH)
+      continue;
     // simple baseline
     std::vector<unsigned short> orderDigi = rawBr[ib]->rdigi;
     std::sort(orderDigi.begin(), orderDigi.end());
@@ -388,16 +371,16 @@ bool anaCRun::anaEvent(Long64_t entry)
     if (trig && idet->thresholds > maxThresholds)
       idet->pass = false;
 
-      // plot some events
-      if (!trig && !(idet->pass) && badDir->GetList()->GetEntries() < 100)
-      {
-        badDir->cd();
-        hname.Form("EvRawWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
-        // cout << " failed " << hname << endl;
-        hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
-        for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
-          hEvRawWave->SetBinContent(j + 1, digi[j]);
-      }
+    // plot some events
+    if (!trig && !(idet->pass) && badDir->GetList()->GetEntries() < 100)
+    {
+      badDir->cd();
+      hname.Form("EvRawWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
+      // cout << " failed " << hname << endl;
+      hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
+      for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+        hEvRawWave->SetBinContent(j + 1, digi[j]);
+    }
     fout->cd();
 
     // plot some events
@@ -431,11 +414,11 @@ bool anaCRun::anaEvent(Long64_t entry)
   fsum.resize(14);
   int passBit = 0;
   bool eventPass = true;
-  for (int ib = 0; ib < rawBr.size(); ++ib)
+  for (unsigned ib = 0; ib < rawBr.size(); ++ib)
   {
-    unsigned ichan = chanList[ib];
+    unsigned ichan = ib;
     TDet *idet = tbrun->getDet(ichan);
-    //cout << ichan << " " << idet->sum << endl;
+    // cout << ichan << " " << idet->sum << endl;
     fsum[ichan] = idet->sum;
     if (!idet->pass && ichan != 12)
     {
@@ -443,7 +426,8 @@ bool anaCRun::anaEvent(Long64_t entry)
       eventPass = false;
       passBit |= 0x1;
     }
-    if(ichan == 12 && idet->sum>20){  // cosmic cut 
+    if (ichan == 12 && idet->sum > 20)
+    { // cosmic cut
       passBit |= 0x2;
       eventPass = false;
     }
@@ -456,9 +440,9 @@ bool anaCRun::anaEvent(Long64_t entry)
   if (!eventPass)
     return eventPass;
 
-  for (int ib = 0; ib < rawBr.size(); ++ib)
+  for (unsigned  ib = 0; ib < rawBr.size(); ++ib)
   {
-    unsigned ichan = chanList[ib];
+    unsigned ichan = ib;
     int nbins = rawBr[ib]->rdigi.size();
     // if (nbins != 1024)
     //   continue;
@@ -499,7 +483,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     /* pulse finding
       hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,double thresh, unsigned step)
     */
-    finder->event(ichan, entry, digi, 10., 1); //DEG suggests 10
+    finder->event(ichan, entry, digi, 10., 1); // DEG suggests 10
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
     if (!fftDir)
     {
@@ -532,7 +516,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     }
   }
 
-  //printf(" event %llu  pass %i fail 1 %i cosmic only %i fail both %i \n",entry, int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));
+  // printf(" event %llu  pass %i fail 1 %i cosmic only %i fail both %i \n",entry, int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));
 
   return eventPass;
 } // anaEvent
@@ -660,33 +644,67 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   currentBuffer = -1;
   currentBufferCount = 0;
   cout << " starting anaCRun entries = " << maxEntries << " file =  " << theFile << endl;
-  if (!openFile(theFile))  // and get branches
+  if (!openFile(theFile)) // and get branches
   {
     printf("cannot open file!\n");
     return 0;
   }
-  
+
   string sfilename(theFile.Data());
   string shortName = sfilename.substr(0, sfilename.find_last_of("."));
   cout << " instance of anaCRun with shortName= " << shortName << endl;
+
+  // need to fill rawBr[0]->rdigi.size()
+  printf("Read zeroth entry from tree \n");
+  rawTree->GetEntry(0);
+  printf("\t\t start of file %i %i %i : %i\n", eventData->day, eventData->mon, eventData->year, eventData->hour);
+  printf("\t\t SIZE OF WAVEFORM = %lu \n", rawBr[0]->rdigi.size());
+  if (rawBr[0]->rdigi.size() != WAVELENGTH)
+  {
+    printf(" \n\n\n\n ERROR rdigi size %lu !!! \n", rawBr[0]->rdigi.size());
+    //return 0;
+  }
+  Long64_t nentries = rawTree->GetEntries();
+  if (maxEntries > 0)
+    nentries = TMath::Min(maxEntries, nentries);
+  printf("... total entries  %llu looping over %llu \n ", rawTree->GetEntries(), nentries);
+
+/* test 
+  for (Long64_t entry = 0; entry < nentries; ++entry)
+  {
+    cout << " entry " << entry << " ";
+    rawTree->GetEntry(entry);
+    for (unsigned i = 0; i < rawBr.size(); ++i)
+      cout << i << " " << rawBr[i]->rdigi[0] << " ; ";
+    cout << endl;
+  }
+
+  return nentries;
+  */
+
+  // open outout file and make histograms
+
   fout = new TFile(Form("myData/anaCRun-%s-%llu.root", shortName.c_str(), maxEntries), "recreate");
   evDir = fout->mkdir("evDir");
   badDir = fout->mkdir("badDir");
   badTrigDir = fout->mkdir("badTrigDir");
   fout->cd();
   cout << " opened output file " << fout->GetName() << endl;
-  // getSummedHists();
+  getSummedHists();
   // fout->ls();
 
+  // make output tree
   tbrun = new TBRun(tag);
-  for (unsigned it = 0; it < chanList.size(); ++it)
-    tbrun->addDet(chanList[it]);
+  for (unsigned it = 0; it < rawBr.size(); ++it)
+  {
+    tbrun->addDet(it);
+  }
 
   // fout->append(tbrun->btree);
-  int totalchannels = rawBr.size()+1;
+  int totalchannels = rawBr.size() + 1;
   ntChan = new TNtuple("ntchan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peakmax:sum2:sum:negcrossings:thresholds");
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
-  hEventPass = new TH1D("EventPass", " event failures",4,0,4);
+  hEventPass = new TH1D("EventPass", " event failures", 4, 0, 4);
   evCount = new TH1D("eventcount", "event count", totalchannels, 0, totalchannels);
   histQSum = new TH1D("histqsum", "qsum by channel", totalchannels, 0, totalchannels);
   // nn/histqpe = new th1d("histqpe", "qpe by channel", totalchannels, 0, totalchannels);
@@ -699,7 +717,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   anaDir->cd();
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
-    unsigned ichan = chanList[i];
+    unsigned ichan = i;
     noiseHist.push_back(new TH1D(Form("noiseChan%i", ichan), Form("noiseChan%i", ichan), 1000, 0, 1000));
     skewHist.push_back(new TH1D(Form("skewChan%i", ichan), Form("skewChan%i", ichan), 200, -3, 7));
     threshHist.push_back(new TH1D(Form("threshChan%i", ichan), Form("threshChan%i", ichan), 20, 0, 20));
@@ -719,11 +737,11 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   }
   sumDir = fout->mkdir("sumDir");
   sumDir->cd();
-  double limit=10000;
-  double plimit=2000;
+  double limit = 10000;
+  double plimit = 2000;
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
-    unsigned ichan = chanList[i];
+    unsigned ichan = i;
 
     bool trigger = ichan == 9 || ichan == 10 || ichan == 11;
     if (trigger)
@@ -743,23 +761,28 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   fout->cd();
 
   // fout->ls();
-  cout << " make hitFinder dets = " << rawBr.size() << endl;
-  finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList);
-  Long64_t nentries = rawTree->GetEntries();
-  if (maxEntries > 0)
-    nentries = TMath::Min(maxEntries, nentries);
-  printf("... total entries  %llu looping over %llu \n ", rawTree->GetEntries(), nentries);
+  cout << " make hitFinder dets = " << rawBr.size() << "  size " << rawBr[0]->rdigi.size() << endl;
+  finder = NULL;
+  // finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList);
+
   unsigned npass = 0;
   unsigned nfail = 0;
+  printf("... total entries  %llu looping over %llu \n ", rawTree->GetEntries(), nentries);
   for (Long64_t entry = 0; entry < nentries; ++entry)
   {
     if (entry / 1000 * 1000 == entry)
       printf("... %llu pass %u fail %u \n", entry, npass, nfail);
     rawTree->GetEntry(entry);
-    /* test
-    for (unsigned it = 0; it < treeList.size(); ++it)
-      printf("tree %u chan %i event %i time %lld \n", it, rawBr[it]->channel, rawBr[it]->trigger, rawBr[it]->time);
-    */
+
+    /*
+    for (unsigned it = 0; it < rawBr.size(); ++it)
+      if (rawBr[it])
+        printf("branch %u chan %i trigger %i time %lld digi0 %u \n",
+               it, rawBr[it]->channel, rawBr[it]->trigger, rawBr[it]->time, rawBr[it]->rdigi[0]);
+      else
+        printf("NULL branch %i \n", it);
+      */
+
     if (anaEvent(entry))
       ++npass;
     else
@@ -768,12 +791,12 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   // normailize to number of nentries.
   // loop over detector channels
   double scaleFactor = 1. / double(nentries);
-  printf(" \n \n At END OF FILE scale by %E\n", scaleFactor); 
+  printf(" \n \n At END OF FILE scale by %E\n", scaleFactor);
   histQSum->Scale(scaleFactor);
   histQPrompt->Scale(scaleFactor);
   for (unsigned i = 0; i < sumHitWave.size(); ++i)
   {
-    sumWave[i]->Scale(scaleFactor); // DEF added 
+    sumWave[i]->Scale(scaleFactor); // DEF added
     sumHitWave[i]->Scale(scaleFactor);
     hQSum[i]->Scale(scaleFactor);
     hQPeak[i]->Scale(scaleFactor);
@@ -792,7 +815,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   {
     sumHitWave[i]->Fit("expo", "Q", "", 100, 300); // DEG suggests
     TF1 *g = (TF1 *)sumHitWave[i]->GetListOfFunctions()->FindObject("expo");
-    chan.push_back(chanList[i]);
+    chan.push_back(i);
     echan.push_back(0);
     if (g)
     {
@@ -816,12 +839,21 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   fout->Write();
   fout->Close();
   printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
-  
+
   return nentries;
 }
 
 anaCRun::anaCRun(TString theTag)
 {
   tag = theTag;
-  cout << " instance of anaCRun with tag= " << tag << endl;
+  cout << " instance of anaCRun with tag= " << tag << "CHANNELS" << CHANNELS << endl;
+
+  rawBr.clear();
+  for (int ichan = 0; ichan < CHANNELS; ++ichan)
+  {
+    TBRawEvent *rawEv = new TBRawEvent(ichan);
+    rawEv->rdigi.resize(7500);
+    rawEv->SetName(Form("rawChan%i", ichan));
+    rawBr.push_back(rawEv);
+  }
 }
