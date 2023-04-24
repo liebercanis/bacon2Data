@@ -482,12 +482,10 @@ bool anaCRun::anaEvent(Long64_t entry)
 
     evCount->Fill(ichan); // chan 0 from GetBinContent(0)
 
-    /* pulse finding
-      hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,double thresh, unsigned step)
-    */
-
-    return true;
-
+    //pulse finding
+    // hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,double thresh, unsigned step)
+    
+    //return true;
     finder->event(ichan, entry, digi, 10., 1); // DEG suggests 10
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
     if (!fftDir)
@@ -767,8 +765,11 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
 
   // fout->ls();
   cout << " make hitFinder dets = " << rawBr.size() << "  size " << rawBr[0]->rdigi.size() << endl;
-  finder = NULL;
-  // finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList);
+  //finder = NULL;
+  vector<int> chanList;
+  for (int ichan = 0; ichan<rawBr.size(); ++ichan)
+    chanList.push_back(ichan);
+  finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList);
 
   unsigned npass = 0;
   unsigned nfail = 0;

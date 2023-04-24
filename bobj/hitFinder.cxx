@@ -41,6 +41,25 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
 {
   verbose = false;
   QPEPeak = 100;
+  for (unsigned i = 0; i < vchan.size(); ++i){
+    vsign.push_back(1.0);
+    QPEnominal.push_back(QPEPeak);
+  }
+  // CAEN case
+  if(nSamples==CAENLENGTH) {
+    for (unsigned i = 9; i < vchan.size(); ++i)
+    {
+      vsign[i] = -1.0;
+    }
+    for (unsigned i = 0; i < 9; ++i)
+    {
+      QPEnominal[i] = 10.0;
+    }
+    QPEnominal[9] = 50.0;
+    QPEnominal[10] = 50.0;
+    QPEnominal[11] = 50.0;
+    QPEnominal[12] = 3.5;
+  }
   // save vchan
   vChannel = vchan;
   if (verbose)
@@ -150,13 +169,17 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi, doub
     else
       verbose = false;
       */
+  QPEPeak = QPEnominal[ichan];
+  digi = eventDigi;
+  // flip sign if needed
+  if(vsign[ichan]<1) for (unsigned i = 0; i < digi.size(); ++i)
+    digi[i]=double(vsign[ichan]) * digi[i];
   bool trig = ichan == 9 || ichan == 10 || ichan == 11;
-  
+
   theEvent = ievent;
   threshold = thresh;
   diffStep = step;
   int idet = chanMap.at(ichan);
-  digi = eventDigi;
   splitCount.clear();
   for (int i = 0; i < vChannel.size(); ++i)
     splitCount.push_back(0);

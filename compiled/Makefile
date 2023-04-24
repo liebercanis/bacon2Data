@@ -27,7 +27,6 @@ ifeq ($(ARCH),macosx64)
 				CXX := clang++ -arch x86_64 -ggdb 
 				CXXFLAGS += -fPIC
 				CPP= $(CXX) $(CXXFLAGS)
-				#-install_name "@loader_path/../bobj/libBaconAna.so" -dynamiclib -o libBaconAna.so
 else
 				CXX := g++ -ggdb 
 				CXXFLAGS += -O -Wall -fPIC 
@@ -75,6 +74,8 @@ clean:
 	rm -rf ana.dSYM
 	rm -f ana1
 	rm -rf ana1.dSYM
+	rm -f anac1
+	rm -f anac1.dSYM
 	rm -f sis
 	rm -rf sis.dSYM
 	rm -f build

@@ -57,7 +57,10 @@ public:
     PDOWN,
     NDOWN
   };
-
+  enum
+  {
+    CAENLENGTH = 7500
+  };
   TFile *fout;
   TBRun *tbrun;
   TString tag;
@@ -81,6 +84,8 @@ public:
   vector<int> vChannel;
   TNtuple *ntFinder;
   TNtuple *ntSplit;
+  std::vector<int> vsign;      // pulse sign
+  std::vector<double> QPEnominal;  // nominal QPE 
   std::vector<double> rdigi;   //
   std::vector<double> digi;    // baseline subtracted
   std::vector<double> ddigi;   // derivative
