@@ -242,11 +242,14 @@ void anaCRun::getSummedHists()
 /* analyze rawBr */
 bool anaCRun::anaEvent(Long64_t entry)
 {
+  double vsign = 1.0;
   QPEPeak = 100;
   tbrun->clear();
   // loop over channels
   for (unsigned ib = 0; ib < rawBr.size(); ++ib)
   {
+    if (ib > 8)
+      vsign = -1.0;
     unsigned ichan = ib;
     int nbins = rawBr[ib]->rdigi.size();
     //cout << ib << " nbins " << nbins << " max hist " << hEvGaus.size() << " rawBr.size() " << rawBr.size() << endl;
@@ -266,9 +269,10 @@ bool anaCRun::anaEvent(Long64_t entry)
 
     /* fill baseline subtracted vector */
     digi.clear();
+    
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
-      double val = double(rawBr[ib]->rdigi[j]) - base;
+      double val = vsign*(double(rawBr[ib]->rdigi[j]) - base);
       digi.push_back(val);
     }
 
@@ -418,6 +422,7 @@ bool anaCRun::anaEvent(Long64_t entry)
   for (unsigned ib = 0; ib < rawBr.size(); ++ib)
   {
     unsigned ichan = ib;
+    
     TDet *idet = tbrun->getDet(ichan);
     // cout << ichan << " " << idet->sum << endl;
     fsum[ichan] = idet->sum;
@@ -441,9 +446,11 @@ bool anaCRun::anaEvent(Long64_t entry)
   hEventPass->Fill(passBit);
   if (!eventPass)
     return eventPass;
-
-  for (unsigned  ib = 0; ib < rawBr.size(); ++ib)
+  vsign = 1.0;
+  for (unsigned ib = 0; ib < rawBr.size(); ++ib)
   {
+    if (ib > 8)
+      vsign = -1.0;
     unsigned ichan = ib;
     int nbins = rawBr[ib]->rdigi.size();
     // if (nbins != 1024)
@@ -463,7 +470,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     {
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
       {
-        double val = (double)rawBr[ib]->rdigi[j] - idet->base;
+        double val = vsign * (double(rawBr[ib]->rdigi[j]) - idet->base);
         sumWaveB[ib]->SetBinContent(j + 1, sumWaveB[ib]->GetBinContent(j + 1) + val);
         valHistB[ib]->Fill(val);
       }
@@ -471,7 +478,7 @@ bool anaCRun::anaEvent(Long64_t entry)
 
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
-      double val = (double)rawBr[ib]->rdigi[j] - idet->base;
+      double val = vsign * (double(rawBr[ib]->rdigi[j]) - idet->base);
       digi.push_back(val);
       sumWave[ib]->SetBinContent(j + 1, sumWave[ib]->GetBinContent(j + 1) + val);
       valHist[ib]->Fill(val);

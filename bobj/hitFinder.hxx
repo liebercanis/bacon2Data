@@ -84,7 +84,6 @@ public:
   vector<int> vChannel;
   TNtuple *ntFinder;
   TNtuple *ntSplit;
-  std::vector<int> vsign;      // pulse sign
   std::vector<double> QPEnominal;  // nominal QPE 
   std::vector<double> rdigi;   //
   std::vector<double> digi;    // baseline subtracted
