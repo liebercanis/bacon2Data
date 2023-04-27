@@ -67,10 +67,11 @@ public:
   vector<TH1D *> crossHist;
   vector<TH1D *> hQSum;
   vector<TH1D *> hQPeak;
-  TH1D *hEvRawWave;
+  TH1D *hEvBaseWave;
   vector<TH1D *> hEvGaus;
   TH1D *evCount;
   TH1D *histQSum;
+  TH1D *histHitCount;
   TH1D *hEventPass;
   // TH1D *histQPE;
   TH1D *histQPrompt;
@@ -264,6 +265,7 @@ bool anaRun::anaEvent(Long64_t entry)
   for (int ib = 0; ib < rawBr.size(); ++ib)
   {
     unsigned ichan = chanList[ib];
+    bool trig = ichan == 9 || ichan == 10 || ichan == 11;
     int nbins = rawBr[ib]->rdigi.size();
     //cout << ib << " nbins " << nbins << " max hist " << hEvGaus.size() << " rawBr.size() " << rawBr.size() << endl;
     if (nbins != 1024)
@@ -280,11 +282,55 @@ bool anaRun::anaEvent(Long64_t entry)
     }
     base /= double(baseLength);
 
+    // baseline correction from fitted Gaussian
+    hEvGaus[ib]->Reset("ICES");
+    for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+      hEvGaus[ib]->Fill((double)rawBr[ib]->rdigi[j] - base);
+    hEvGaus[ib]->Fit("gaus", "QO", "", hEvGaus[ib]->GetMean() - 100, hEvGaus[ib]->GetMean() + 100);
+    TF1 *gfit = (TF1 *)hEvGaus[ib]->GetListOfFunctions()->FindObject("gaus");
+    double ave = hEvGaus[ib]->GetMean();
+    double sigma = hEvGaus[ib]->GetRMS();
+    double skew = 0;
+    double gausFitMean = 0;
+    if (!isnan(hEvGaus[ib]->GetSkewness()))
+      skew = hEvGaus[ib]->GetSkewness();
+    if (gfit != nullptr)
+    {
+      ave = gfit->GetParameter(1);
+      gausFitMean = ave;
+      sigma = gfit->GetParameter(2);
+    }
+
+    evDir->cd();
+    if (evDir->GetList()->GetEntries() < 100)
+    {
+      TH1D *EvGaussEvent = (TH1D *)hEvGaus[ib]->Clone(Form("EvGaussEvent%lld-Ch%i", entry, ichan));
+    }
+    fout->cd();
+
+    // fitptr->Print();
+    noiseHist[ib]->Fill(sigma);
+    skewHist[ib]->Fill(skew);
+    double sign = TMath::Sign(1., skew);
+    TDet *idet = tbrun->getDet(ichan);
+    if (idet == NULL)
+    {
+      printf("!!!!!NULL idet br %u ichan %i\n", ib, ichan);
+      continue;
+    }
+
+    idet->ave = ave;
+    idet->sigma = sigma;
+    idet->skew = skew;
+    idet->event = entry;
+    idet->trigger = rawBr[ib]->trigger;
+    idet->base = base+gausFitMean;
+
     /* fill baseline subtracted vector */
     digi.clear();
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
-      double val = double(rawBr[ib]->rdigi[j]) - base;
+      double val = double(rawBr[ib]->rdigi[j]) - idet->base;
       digi.push_back(val);
     }
 
@@ -309,54 +355,7 @@ bool anaRun::anaEvent(Long64_t entry)
     sum2 /= double(digi.size() - peakWidth);
     sum /= double(digi.size());
 
-    TString hname;
-    hEvRawWave = NULL;
-
-    // baseline correction from fitted Gaussian
-    hEvGaus[ib]->Reset("ICES");
-    for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
-      hEvGaus[ib]->Fill((double)rawBr[ib]->rdigi[j] - base);
-    hEvGaus[ib]->Fit("gaus", "QO");
-    TF1 *gfit = (TF1 *)hEvGaus[ib]->GetListOfFunctions()->FindObject("gaus");
-    double ave = hEvGaus[ib]->GetMean();
-    double sigma = hEvGaus[ib]->GetRMS();
-    double skew = 0;
-    if (!isnan(hEvGaus[ib]->GetSkewness()))
-      skew = hEvGaus[ib]->GetSkewness();
-    if (gfit != nullptr)
-    {
-      ave = gfit->GetParameter(1);
-      sigma = gfit->GetParameter(2);
-    }
-
-    // fitptr->Print();
-    noiseHist[ib]->Fill(sigma);
-    skewHist[ib]->Fill(skew);
-    double sign = TMath::Sign(1., skew);
-    TDet *idet = tbrun->getDet(ichan);
-    if (idet == NULL)
-    {
-      printf("!!!!!NULL idet br %u ichan %i\n", ib, ichan);
-      continue;
-    }
-    idet->ave = ave;
-    idet->sigma = sigma;
-    idet->skew = skew;
-    idet->event = entry;
-    idet->trigger = rawBr[ib]->trigger;
-    // idet->buffer = rawBr[ib]->buffer;
-    /*
-    if (ib == 0)
-      ++currentBufferCount;
-    if (ib == 0 && currentBuffer != rawBr[ib]->buffer)
-    {
-      if (currentBuffer > -1)
-        printf("finishedbuffer %d count %lld \n", currentBuffer, currentBufferCount);
-      currentBuffer = rawBr[ib]->buffer;
-      currentBufferCount = 0;
-    }
-    */
-    idet->base = base;
+   
     idet->peak = peakMax;
     idet->sum2 = sum2;
     idet->sum = sum;
@@ -364,7 +363,7 @@ bool anaRun::anaEvent(Long64_t entry)
     //cout << "tree " << ib << " ch " << ichan << " "
     //     << " ave " << ave << " sigma " << sigma << " skew " << skew << " base " << base << endl;
 
-    bool trig = ichan == 9 || ichan == 10 || ichan == 11;
+
     // these 2 functions use didi and crossings,threshold vectors
     // i admit ugly
     negativeCrossingCount(10.);
@@ -388,14 +387,16 @@ bool anaRun::anaEvent(Long64_t entry)
       idet->pass = false;
 
       // plot some events
-      if (!trig && !(idet->pass) && badDir->GetList()->GetEntries() < 100)
-      {
-        badDir->cd();
-        hname.Form("EvRawWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
-        // cout << " failed " << hname << endl;
-        hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
-        for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
-          hEvRawWave->SetBinContent(j + 1, digi[j]);
+    TString hname;
+    hEvBaseWave = NULL;
+    if (!trig && !(idet->pass) && badDir->GetList()->GetEntries() < 100)
+    {
+      badDir->cd();
+      hname.Form("EvBaseWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
+      // cout << " failed " << hname << endl;
+      hEvBaseWave = new TH1D(hname, hname, nbins, 0, nbins);
+      for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+        hEvBaseWave->SetBinContent(j + 1, digi[j]);
       }
     fout->cd();
 
@@ -403,21 +404,21 @@ bool anaRun::anaEvent(Long64_t entry)
     if (trig && !(idet->pass) && badTrigDir->GetList()->GetEntries() < 100)
     {
       badTrigDir->cd();
-      hname.Form("EvRawWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
+      hname.Form("EvBaseWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
       // cout << " failed " << hname << endl;
-      hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
+      hEvBaseWave = new TH1D(hname, hname, nbins, 0, nbins);
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
-        hEvRawWave->SetBinContent(j + 1, digi[j]);
+        hEvBaseWave->SetBinContent(j + 1, digi[j]);
     }
     fout->cd();
 
     if (idet->pass && evDir->GetList()->GetEntries() < 100)
     {
       evDir->cd();
-      hname.Form("EvRawWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
-      hEvRawWave = new TH1D(hname, hname, nbins, 0, nbins);
+      hname.Form("EvBaseWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
+      hEvBaseWave = new TH1D(hname, hname, nbins, 0, nbins);
       for (unsigned j = 0; j < digi.size(); ++j)
-        hEvRawWave->SetBinContent(j + 1, digi[j]);
+        hEvBaseWave->SetBinContent(j + 1, digi[j]);
     }
     fout->cd();
 
@@ -425,7 +426,6 @@ bool anaRun::anaEvent(Long64_t entry)
   // fill output Tree for each event
   // cout << "finished " << entry << endl;
   tbrun->fill();
-
   vector<float> fsum;
   fsum.resize(14);
   int passBit = 0;
@@ -467,16 +467,21 @@ bool anaRun::anaEvent(Long64_t entry)
       printf("!!!!!NULL idet br %u ichan %i\n", ib, ichan);
       continue;
     }
+    // construct digi for channel
+    digi.clear();
+    for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+    {
+      double val = (double)rawBr[ib]->rdigi[j] - idet->base;
+      digi.push_back(val);
+    }
 
     /* fill the summed histogram*/
-    digi.clear();
-
     // histogram bad events
     if (!idet->pass)
     {
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
       {
-        double val = (double)rawBr[ib]->rdigi[j] - idet->base;
+        double val = digi[j];
         sumWaveB[ib]->SetBinContent(j + 1, sumWaveB[ib]->GetBinContent(j + 1) + val);
         valHistB[ib]->Fill(val);
       }
@@ -484,7 +489,7 @@ bool anaRun::anaEvent(Long64_t entry)
 
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
-      double val = (double)rawBr[ib]->rdigi[j] - idet->base;
+      double val = digi[j];
       digi.push_back(val);
       sumWave[ib]->SetBinContent(j + 1, sumWave[ib]->GetBinContent(j + 1) + val);
       valHist[ib]->Fill(val);
@@ -519,7 +524,10 @@ bool anaRun::anaEvent(Long64_t entry)
     // hit threshold cut done in hitFinder
     histQSum->Fill(tdet->channel, tdet->qSum);
     histQPrompt->Fill(tdet->channel, tdet->qPrompt);
+    int ichan = tdet->channel;
 
+    // printf("ev %llu chan %i nhits %lu\n", entry, tdet->channel, tdet->hits.size());
+    histHitCount->SetBinContent(ichan, histHitCount->GetBinContent(ichan) + tdet->hits.size());
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
     {
       TDetHit thit = tdet->hits[ihit];
@@ -715,6 +723,7 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   hEventPass = new TH1D("EventPass", " event failures",4,0,4);
   evCount = new TH1D("eventcount", "event count", totalchannels, 0, totalchannels);
   histQSum = new TH1D("histqsum", "qsum by channel", totalchannels, 0, totalchannels);
+  histHitCount = new TH1D("hitCount", "hit count by channel", totalchannels, 0, totalchannels);
   // nn/histqpe = new th1d("histqpe", "qpe by channel", totalchannels, 0, totalchannels);
   histQPrompt = new TH1D("histqprompt", "qprompt by channel", totalchannels, 0, totalchannels);
   histQSum->Sumw2();
@@ -847,10 +856,14 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
 
   printf(" FINISHED pass %i fail 1 %i cosmic only %i fail both %i \n", int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));
 
+  printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
+  printf(" hit count \n");
+  for (int ibin = 0; ibin <= histHitCount->GetNbinsX(); ++ ibin)
+    printf(" bin %i count %i ;", ibin, int(histHitCount->GetBinContent(ibin)));
+  printf("  \n");
+
   fout->Write();
   fout->Close();
-  printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
-  
   return nentries;
 }
 
