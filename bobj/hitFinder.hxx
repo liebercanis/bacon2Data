@@ -91,6 +91,7 @@ public:
   std::vector<double> sdigi;   // smoothed
   std::vector<double> hdigi;   // hits
   std::vector<Double_t> fdigi; // filtered
+  std::vector<Double_t> SPEdigi; // filtered
   std::vector<unsigned> crossings;
   std::vector<unsigned> crossingBin;
   std::vector<double> crossingTime;
@@ -118,7 +119,12 @@ public:
   void splitPeaks(int idet);
   void printPeakList();
   bool getTransforms();
+  TH1D *getTemplate(int ichan);
+  std::vector<std::complex<double>> templateTransform;
+  std::vector<std::complex<double>> templateFFT(std::vector<double> rdigi);
   // hist
+  TH1D *htemplate;
+  TH1D *htemplateFFT;
   TH1D *hPeakCount;
   TH1D *hPeakValue;
   TH1I *hHitLength;

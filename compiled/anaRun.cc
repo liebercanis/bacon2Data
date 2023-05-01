@@ -49,6 +49,7 @@ public:
   };
   TFile *fout;
   TFile *fin;
+  TDirectory *fftDir;
   vector<TTree *> treeList;
   vector<int> chanList;
   std::map<int, int> chanMap;
@@ -67,6 +68,7 @@ public:
   vector<TH1D *> crossHist;
   vector<TH1D *> hQSum;
   vector<TH1D *> hQPeak;
+  vector<TH1D *> hQPEShape;
   TH1D *hEvBaseWave;
   vector<TH1D *> hEvGaus;
   TH1D *evCount;
@@ -121,6 +123,7 @@ public:
 void anaRun::clear()
 {
   hQSum.clear();
+  hQPEShape.clear();
   hQPeak.clear();
   treeList.clear();
   chanList.clear();
@@ -490,7 +493,6 @@ bool anaRun::anaEvent(Long64_t entry)
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
       double val = digi[j];
-      digi.push_back(val);
       sumWave[ib]->SetBinContent(j + 1, sumWave[ib]->GetBinContent(j + 1) + val);
       valHist[ib]->Fill(val);
     }
@@ -504,7 +506,7 @@ bool anaRun::anaEvent(Long64_t entry)
       hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,double thresh, unsigned step)
     */
     finder->event(ichan, entry, digi, 10., 1); //DEG suggests 10
-    TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
+    fftDir = (TDirectory *)fout->FindObject("fftDir");
     if (!fftDir)
     {
       cout << " Error no fftDir" << endl;
@@ -512,31 +514,57 @@ bool anaRun::anaEvent(Long64_t entry)
       return false;
     }
     // add some event plots
-    if (fftDir->GetList()->GetEntries() < 1000)
+    if (fftDir->GetList()->GetEntries() < -1)
       finder->plotEvent(ichan, entry);
   } // second channel loop
 
   // fill sumHitWave and Q sums
   // loop over detector channels
+  bool plotThisEvent=false;
   for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
   {
+    plotThisEvent = false;
     TDet *tdet = tbrun->detList[idet];
     // hit threshold cut done in hitFinder
     histQSum->Fill(tdet->channel, tdet->qSum);
     histQPrompt->Fill(tdet->channel, tdet->qPrompt);
     int ichan = tdet->channel;
 
-    // printf("ev %llu chan %i nhits %lu\n", entry, tdet->channel, tdet->hits.size());
+    //if (ichan == 6)
+      //printf("ev %llu chan %i nhits %lu\n", entry, tdet->channel, tdet->hits.size());
     histHitCount->SetBinContent(ichan, histHitCount->GetBinContent(ichan) + tdet->hits.size());
+    // loop over hits
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
     {
       TDetHit thit = tdet->hits[ihit];
-      hQSum[idet]->Fill(thit.qsum);
-      hQPeak[idet]->Fill(thit.qpeak);
+      // fill QPE shape
+      if(thit.qsum>7000&&thit.qsum<10000&&thit.startTime>65) {
+        plotThisEvent = true;
+        hQSum[idet]->Fill(thit.qsum);
+        hQPeak[idet]->Fill(thit.qpeak);
+        printf(" \t %lli 1QPE hit %i start,peak,end (%i,%i,%i)  peak val %f \n",entry,ihit, thit.firstBin, thit.peakBin, thit.lastBin, thit.qpeak);
+        //  loop over ADC values
+        for (unsigned jbin = thit.firstBin; jbin < thit.lastBin; ++jbin)
+        {
+          int fillBin = hQPEShape[idet]->GetNbinsX() / 2 + jbin - thit.peakBin;
+          double val = double(rawBr[idet]->rdigi[jbin]) - tdet->base;
+          hQPEShape[idet]->SetBinContent(fillBin, hQPEShape[idet]->GetBinContent(fillBin) + val);
+          //if (ichan == 6)
+            //printf("\t\t  fill val at %i val %f binval %f \n", jbin - thit.peakBin, val, hQPEShape[idet]->GetBinContent(fillBin));
+          }
+      /*} else {
+        if (ichan == 6) printf(" \t other hit %i start %i end %i peak bin %i peak val %f \n", ihit, thit.firstBin, thit.lastBin, thit.peakBin, thit.qpeak);
+        */
+      } 
       // do threshold for summed waveform
       if (thit.qsum > hitQThreshold)
         sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
     }
+    if (plotThisEvent &&  fftDir->GetList()->GetEntries() < 100)
+      {
+        printf("plot event %lld nhits %lu \n", entry, tdet->hits.size());
+        finder->plotEvent(ichan, entry);
+      }
   }
 
   //printf(" event %llu  pass %i fail 1 %i cosmic only %i fail both %i \n",entry, int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));
@@ -778,6 +806,8 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
     }
 
     hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 1000, 0, limit));
+    hQPEShape.push_back(new TH1D(Form("QPEShapeChan%i", ichan), Form("QPEShapeChan%i", ichan), 200, -100, 100));
+    hQPEShape[hQPEShape.size() - 1]->SetMarkerStyle(20);
     hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 1000, 0, plimit));
     sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
     sumWaveB.push_back(new TH1D(Form("sumWaveBad%i", ichan), Form("sumWaveBad%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
