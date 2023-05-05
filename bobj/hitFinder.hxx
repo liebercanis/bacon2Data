@@ -121,7 +121,7 @@ public:
   bool getTransforms();
   TH1D *getTemplate(int ichan);
   std::vector<std::complex<double>> templateTransform;
-  std::vector<std::complex<double>> templateFFT(std::vector<double> rdigi);
+  void templateFFT(std::vector<double> rdigi);
   // hist
   TH1D *htemplate;
   TH1D *htemplateFFT;
@@ -137,9 +137,10 @@ public:
   /// The fft class to take the inverse fourier transform.
   TVirtualFFT *fInverseFFT;
 
-  std::vector<std::complex<double>> FFT(Int_t idet, std::vector<double> rdigi, bool first = true);
-  std::vector<Double_t> inverseFFT(Int_t idet, std::vector<std::complex<double>> VectorComplex, std::vector<double> rdigi);
+  std::vector<std::complex<double>> forwardFFT(std::vector<double> rdigi);
+  std::vector<Double_t> backwardFFT(std::vector<std::complex<double>> VectorComplex);
   bool gotTransforms;
+  bool gotTemplate;
 
   std::vector<TGraph *> gTransform;
   std::vector<TH1D *> hFFT;

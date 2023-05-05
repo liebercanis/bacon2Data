@@ -7,6 +7,7 @@
 #include <string>
 #include <TNamed.h>
 #include <vector>
+#include <TH1D.h>
 
 using namespace std;
 
@@ -27,7 +28,9 @@ class TDetHit: public TNamed {
       for(Int_t i=peakBin-nwid; i<= peakBin+nwid; ++i) pulse.push_back(v[i]);
       return pulse;
     }
-    void print(){
+    TH1D *plot();
+    void print()
+    {
       printf(" hit name %s title  %s  (%i,%i) qsum %f kind %i \n",this->GetName(), this->GetTitle() , firstBin, lastBin, qsum, kind);
     }
     // data elements
@@ -43,8 +46,9 @@ class TDetHit: public TNamed {
     Double_t qerr;
     Int_t good;
     Int_t kind;
+    std::vector<double> digi;  // baseline subtracted
 
-    ClassDef(TDetHit,1)
+    ClassDef(TDetHit,2)
 };
 #endif
 
