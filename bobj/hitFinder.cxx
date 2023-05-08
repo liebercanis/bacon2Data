@@ -280,10 +280,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi, doub
   Int_t windowSize = 10;
   unsigned maxWidth = 100000;
   unsigned minWidth = 10;
-  if (trig)
-    findThresholdCrossings(idet, 15.);
-  else
-    findThresholdCrossings(idet, 1.);
+  findThresholdCrossings(idet,threshold);
   makePeaks(idet, digi);
   // splitPeaks(idet);
   detHits = makeHits(idet, triggerTime, firstCharge);

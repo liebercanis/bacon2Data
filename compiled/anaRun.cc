@@ -508,7 +508,7 @@ bool anaRun::anaEvent(Long64_t entry)
     */
     double hitThreshold = 10.0;
     if (ichan == 12)
-      hitThreshold = 200;
+      hitThreshold = 100;
     finder->event(ichan, entry, digi, hitThreshold, 1); // DEG suggests 10
     fftDir = (TDirectory *)fout->FindObject("fftDir");
     if (!fftDir)
