@@ -143,6 +143,8 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   else
     cout << " SPE Template not found ! " << endl;
 
+  if(gotTemplate) {
+
   SPEdigi.resize(nsamples);
   // fill SPEdigi
   for (int ibin = 0; ibin < SPETemplate->GetNbinsX(); ++ibin)
@@ -157,9 +159,9 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     if (SPEdigi[isample] != 0)
       htemplate->SetBinContent(jbin++, SPEdigi[isample]);
   }
-
-  if (gotTemplate)
     printf(" ********   complex transform  size %lu ******** \n", templateTransform.size());
+  }
+
   /*for (unsigned iw = 0; iw < 100; ++iw)
     cout << templateTransform[iw].real() << " " << templateTransform[iw].imag() << " ; ";
   cout << endl;
