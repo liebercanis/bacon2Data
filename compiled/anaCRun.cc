@@ -509,10 +509,7 @@ bool anaCRun::anaEvent(Long64_t entry)
       cout << " Error no fftDir" << endl;
       fout->ls();
       return false;
-    }
-    // add some event plots
-    if (!trig && fftDir->GetList()->GetEntries() < 2000)
-        finder->plotEvent(ichan, entry);
+    } 
   } // second channel loop
 
   // fill sumHitWave and Q sums
@@ -523,6 +520,12 @@ bool anaCRun::anaEvent(Long64_t entry)
     // hit threshold cut done in hitFinder
     histQSum->Fill(tdet->channel, tdet->qSum);
     histQPrompt->Fill(tdet->channel, tdet->qPrompt);
+
+    // add some event plots
+    bool trig = tdet->channel == 9 || tdet->channel == 10 || tdet->channel == 11;
+    TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
+    if (!trig && tdet->hits.size()>0 &&  fftDir->GetList()->GetEntries() < 2000)
+      finder->plotEvent(tdet->channel, entry);
 
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
     {
