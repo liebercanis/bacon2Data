@@ -1052,12 +1052,13 @@ void hitFinder::plotEvent(unsigned ichan, Long64_t ievent)
   histName.Form("EvFiltWave%lli_%s", ievent, detName.Data());
   TH1D *hfiltwave = (TH1D *)hEvFiltWave[idet]->Clone(histName);
 */
-
+ /*
   histName.Form("EvFFT%lli_%s", ievent, detName.Data());
   TH1D *hfft = (TH1D *)hFFT[idet]->Clone(histName);
 
   histName.Form("EvInvFFT%lli_%s", ievent, detName.Data());
   TH1D *hinvfft = (TH1D *)hInvFFT[idet]->Clone(histName);
+  */
 
   histName.Form("EvHitWave%lli_%s", ievent, detName.Data());
   TH1D *hhitWave = (TH1D *)hEvHitWave[idet]->Clone(histName);
