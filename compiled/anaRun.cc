@@ -531,8 +531,10 @@ bool anaRun::anaEvent(Long64_t entry)
     // add some event plots
     bool trig = tdet->channel == 9 || tdet->channel == 10 || tdet->channel == 11;
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
-    if (!trig && tdet->hits.size() > 0 && fftDir->GetList()->GetEntries() < 2000)
+    if (!trig && tdet->hits.size() > 0 && fftDir->GetList()->GetEntries() < 2000){
       finder->plotEvent(tdet->channel, entry);
+      printf("ev %llu chan %i nhits %lu\n", entry, tdet->channel, tdet->hits.size());
+    }
 
     //if (ichan == 6)
       //printf("ev %llu chan %i nhits %lu\n", entry, tdet->channel, tdet->hits.size());
