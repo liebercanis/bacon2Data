@@ -461,6 +461,7 @@ bool anaRun::anaEvent(Long64_t entry)
   for (int ib = 0; ib < rawBr.size(); ++ib)
   {
     unsigned ichan = chanList[ib];
+    bool trig = ichan == 9 || ichan == 10 || ichan == 11;
     int nbins = rawBr[ib]->rdigi.size();
     // if (nbins != 1024)
     //   continue;
@@ -514,7 +515,7 @@ bool anaRun::anaEvent(Long64_t entry)
       return false;
     }
     // add some event plots
-    if (fftDir->GetList()->GetEntries() < -1)
+    if (!trig && fftDir->GetList()->GetEntries() < 2000)
       finder->plotEvent(ichan, entry);
   } // second channel loop
 
@@ -562,11 +563,8 @@ bool anaRun::anaEvent(Long64_t entry)
       if (thit.qsum > hitQThreshold)
         sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
     }
-    if (plotThisEvent &&  fftDir->GetList()->GetEntries() < 100)
-      {
-        printf("plot event %lld nhits %lu \n", entry, tdet->hits.size());
-        finder->plotEvent(ichan, entry);
-      }
+    //if (fftDir->GetList()->GetEntries() < 2000)
+    //    finder->plotEvent(ichan, entry);
   }
 
   //printf(" event %llu  pass %i fail 1 %i cosmic only %i fail both %i \n",entry, int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));

@@ -511,8 +511,8 @@ bool anaCRun::anaEvent(Long64_t entry)
       return false;
     }
     // add some event plots
-    if (fftDir->GetList()->GetEntries() < 2000)
-      if(!trig) finder->plotEvent(ichan, entry);
+    if (!trig && fftDir->GetList()->GetEntries() < 2000)
+        finder->plotEvent(ichan, entry);
   } // second channel loop
 
   // fill sumHitWave and Q sums
