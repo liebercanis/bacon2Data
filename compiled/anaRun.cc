@@ -506,7 +506,10 @@ bool anaRun::anaEvent(Long64_t entry)
     /* pulse finding
       hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,double thresh, unsigned step)
     */
-    finder->event(ichan, entry, digi, 10., 1); //DEG suggests 10
+    double hitThreshold = 10.0;
+    if (ichan == 12)
+      hitThreshold = 100;
+    finder->event(ichan, entry, digi, hitThreshold, 1); // DEG suggests 10
     fftDir = (TDirectory *)fout->FindObject("fftDir");
     if (!fftDir)
     {
