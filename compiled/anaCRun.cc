@@ -1,4 +1,3 @@
-/////////////////////////////////////////////////////////
 //  M.Gold April 2023 read CAEN files
 /////////////////////////////////////////////////////////
 #include <sstream>
@@ -430,7 +429,8 @@ bool anaCRun::anaEvent(Long64_t entry)
   for (unsigned ib = 0; ib < rawBr.size(); ++ib)
   {
     unsigned ichan = ib;
-    
+    bool trig = ichan == 9 || ichan == 10 || ichan == 11;
+
     TDet *idet = tbrun->getDet(ichan);
     // cout << ichan << " " << idet->sum << endl;
     fsum[ichan] = idet->sum;
@@ -460,6 +460,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     if (ib > 8)
       vsign = -1.0;
     unsigned ichan = ib;
+    bool trig = ichan == 9 || ichan == 10 || ichan == 11;
     int nbins = rawBr[ib]->rdigi.size();
     // if (nbins != 1024)
     //   continue;
@@ -511,7 +512,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     }
     // add some event plots
     if (fftDir->GetList()->GetEntries() < 2000)
-      if(ichan<9) finder->plotEvent(ichan, entry);
+      if(!trig) finder->plotEvent(ichan, entry);
   } // second channel loop
 
   // fill sumHitWave and Q sums
