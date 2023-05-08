@@ -514,9 +514,7 @@ bool anaRun::anaEvent(Long64_t entry)
       fout->ls();
       return false;
     }
-    // add some event plots
-    if (!trig && fftDir->GetList()->GetEntries() < 2000)
-      finder->plotEvent(ichan, entry);
+   
   } // second channel loop
 
   // fill sumHitWave and Q sums
@@ -530,6 +528,11 @@ bool anaRun::anaEvent(Long64_t entry)
     histQSum->Fill(tdet->channel, tdet->qSum);
     histQPrompt->Fill(tdet->channel, tdet->qPrompt);
     int ichan = tdet->channel;
+    // add some event plots
+    bool trig = tdet->channel == 9 || tdet->channel == 10 || tdet->channel == 11;
+    TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
+    if (!trig && tdet->hits.size() > 0 && fftDir->GetList()->GetEntries() < 2000)
+      finder->plotEvent(tdet->channel, entry);
 
     //if (ichan == 6)
       //printf("ev %llu chan %i nhits %lu\n", entry, tdet->channel, tdet->hits.size());
