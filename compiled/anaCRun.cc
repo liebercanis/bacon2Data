@@ -844,7 +844,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   // fout->ls();
   /* do fits at end of run */
 
-  TString graphName = TString("slope-graph");
+  TString graphName = TString("slopeGraph");
   TString graphTitle = TString(Form("slope-graph-%s", shortName.c_str()));
   printf(" making slope graph %s \n", graphName.Data());
 
@@ -898,7 +898,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
 
   if (hChannelGaus.size() > 0)
   {
-    graphName = TString("channel-sigma-graph");
+    graphName = TString("channelSigmaGraph");
     graphTitle = TString(Form("channel sigma graph-%s", shortName.c_str()));
     printf(" making channel sigma graph %s %lu %lu \n", graphName.Data(), chan.size(), channelSigma.size());
     TGraphErrors *grChannelSigma = new TGraphErrors(channelSigma.size(), &chan[0], &channelSigma[0], &echan[0], &channelSigmaErr[0]);
