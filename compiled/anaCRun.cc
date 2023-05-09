@@ -85,6 +85,7 @@ public:
   TH1D *histHitCount;
   // TH1D *histQPE;
   TH1D *histQPrompt;
+  vector<double> channelSigmaValue;
   vector<double> channelSigma;
   vector<double> channelSigmaErr;
   vector<double> digi;
@@ -156,6 +157,21 @@ void anaCRun::clear()
   eslope.clear();
   chan.clear();
   echan.clear();
+  // fill channel sigma in order of branches
+  channelSigmaValue.resize(13);
+  channelSigmaValue[0] = 12.6634;
+  channelSigmaValue[1] = 11.7833;
+  channelSigmaValue[2] = 11.9779;
+  channelSigmaValue[3] = 0.247759;
+  channelSigmaValue[4] = 14.1827;
+  channelSigmaValue[5] = 12.4958;
+  channelSigmaValue[6] = 12.346;
+  channelSigmaValue[7] = 11.9752;
+  channelSigmaValue[8] = 12.4379;
+  channelSigmaValue[9] = 474.388;
+  channelSigmaValue[10] = 450.223;
+  channelSigmaValue[11] = 426.53;
+  channelSigmaValue[12] = 3.50614;
 }
 
 bool anaCRun::openFile(TString theFile)
@@ -509,7 +525,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     // hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,double thresh, unsigned step)
     
     //return true;
-    double hitThreshold = 50.0;
+    double hitThreshold = 5.0*channelSigmaValue[ib];
     finder->event(ichan, entry, digi,hitThreshold, 1); // DEG suggests 10
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
     if (!fftDir)

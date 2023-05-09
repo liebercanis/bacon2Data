@@ -81,6 +81,7 @@ public:
   vector<double> digi;
   vector<double> ddigi;
   vector<double> hdigi;
+  vector<double> channelSigmaValue;
   vector<double> channelSigma;
   vector<double> channelSigmaErr;
   std::vector<unsigned> thresholds;
@@ -112,6 +113,7 @@ public:
   void derivativeCount(TDet *idet, Double_t rms); // not used
   void negativeCrossingCount(double thresh);
   void thresholdCrossingCount(double thresh);
+
 
   TDirectory *rawSumDir;
   TDirectory *badDir;
@@ -154,6 +156,20 @@ void anaRun::clear()
   eslope.clear();
   chan.clear();
   echan.clear();
+  // fill channel sigma in order of branches
+  channelSigmaValue.resize(12);
+  channelSigmaValue[0] = 37.1615;
+  channelSigmaValue[1] = 39.3794;
+  channelSigmaValue[2] = 37.7625;
+  channelSigmaValue[3] = 11.432;
+  channelSigmaValue[4] = 9.98729;
+  channelSigmaValue[5] = 9.5458;
+  channelSigmaValue[6] = 9.7148;
+  channelSigmaValue[7] = 9.46905;
+  channelSigmaValue[8] = 9.8042;
+  channelSigmaValue[9] = 9.79406;
+  channelSigmaValue[10] = 9.77642;
+  channelSigmaValue[11] = 7.39387;
 }
 
 bool anaRun::openFile(TString theFile)
@@ -510,7 +526,7 @@ bool anaRun::anaEvent(Long64_t entry)
     /* pulse finding
       hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi,double thresh, unsigned step)
     */
-    double hitThreshold = 50.0;
+    double hitThreshold = 5.0*channelSigmaValue[ib];
     finder->event(ichan, entry, digi, hitThreshold, 1); // DEG suggests 10
     fftDir = (TDirectory *)fout->FindObject("fftDir");
     if (!fftDir)
