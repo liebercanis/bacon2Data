@@ -399,7 +399,7 @@ void hitFinder::findThresholdCrossings(Int_t idet, double thresh)
   unsigned vsize = digi.size();
   // Double_t cut = tbrun->detList[idet]->sigma * threshold;
   //  fixed cut value
-  Double_t cut = QPEPeak * threshold;
+  Double_t cut = threshold;
   for (unsigned ibin = 0; ibin < digi.size(); ++ibin)
   {
     Double_t u = double(ibin) * timeUnit;
