@@ -72,7 +72,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
 
   microSec = 1.0E-3;
   timeUnit = 8.0; // ns per count
-  maxPeakLength = 100;
+  maxPeakLength = 10000;
   thresholdStepSize = 1;
 
   fout->cd();
@@ -541,8 +541,8 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     }
     if (verbose)
       printf(" cross det %i  imax %i val %f icross %u from (%u,%u) \n", idet, imax, maxVal, crossingBin[icross], ilow, ihigh);
-    if (ihigh - ilow > maxPeakLength)
-      ihigh = ilow + maxPeakLength;
+    //if (ihigh - ilow > maxPeakLength)
+    //  ihigh = ilow + maxPeakLength;
 
     // check that this hit has not already been found.
     bool found = false;
