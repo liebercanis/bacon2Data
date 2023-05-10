@@ -76,6 +76,7 @@ public:
   vector<TH1D *> crossHist;
   vector<TH1D *> hQSum;
   vector<TH1D *> hQPeak;
+  vector<TH1D *> hQPEShape;
   TH1D *hEvBaseWave;
   vector<TH1D *> hEvGaus;
   vector<TH1D *> hChannelGaus;
@@ -132,6 +133,7 @@ public:
 void anaCRun::clear()
 {
   hQSum.clear();
+  hQPEShape.clear();
   hQPeak.clear();
   chanMap.clear();
   baseHist.clear();
@@ -552,17 +554,28 @@ bool anaCRun::anaEvent(Long64_t entry)
     if (!trig && tdet->hits.size()>0 &&  fftDir->GetList()->GetEntries() < 2000)
       finder->plotEvent(tdet->channel, entry);
 
+  // loop over hits
+    double hitThreshold = 5.0 * channelSigmaValue[idet];
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
     {
       TDetHit thit = tdet->hits[ihit];
       hQSum[idet]->Fill(thit.qsum);
       hQPeak[idet]->Fill(thit.qpeak);
       // do threshold for summed waveform
-      if (thit.qsum > hitQThreshold)
+      if (thit.qsum > hitThreshold)
         sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
+
+      if (thit.qsum > 7000 && thit.qsum < 10000 && thit.startTime > 65)
+      {
+        for (unsigned jbin = thit.firstBin; jbin < thit.lastBin; ++jbin)
+        {
+          int fillBin = hQPEShape[idet]->GetNbinsX() / 2 + jbin - thit.peakBin;
+          double val = double(rawBr[idet]->rdigi[jbin]) - tdet->base;
+          hQPEShape[idet]->SetBinContent(fillBin, hQPEShape[idet]->GetBinContent(fillBin) + val);
+        }
+      }
     }
   }
-
   //printf(" event %llu  pass %i fail 1 %i cosmic only %i fail both %i \n",entry, int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));
 
   return eventPass;
@@ -801,6 +814,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
     }
 
     // else if(ichan==12) limit = 10000;
+    hQPEShape.push_back(new TH1D(Form("QPEShapeChan%i", ichan), Form("QPEShapeChan%i", ichan), 200, -100, 100));
+    hQPEShape[hQPEShape.size() - 1]->SetMarkerStyle(20);
 
     hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 1000, 0, limit));
     hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 1000, 0, plimit));
