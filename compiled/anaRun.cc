@@ -571,10 +571,12 @@ bool anaRun::anaEvent(Long64_t entry)
         plotThisEvent = true;
         hQSum[idet]->Fill(thit.qsum);
         hQPeak[idet]->Fill(thit.qpeak);
+        /*
         TH1D *hitPlot = thit.plot();
         if (hitPlot)
           fftDir->Append(hitPlot);
         printf(" \t %lli 1QPE hit %i start,peak,end (%i,%i,%i)  peak val %f \n", entry, ihit, thit.firstBin, thit.peakBin, thit.lastBin, thit.qpeak);
+        */
         //  loop over ADC values
         for (unsigned jbin = thit.firstBin; jbin < thit.lastBin; ++jbin)
         {
