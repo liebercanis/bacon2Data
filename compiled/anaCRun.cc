@@ -565,7 +565,7 @@ bool anaCRun::anaEvent(Long64_t entry)
       if (thit.qsum > hitThreshold)
         sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
 
-      if (thit.qsum > 7000 && thit.qsum < 10000 && thit.startTime > 65)
+      if (thit.qsum > 100 && thit.qsum < 300 && thit.startTime > 65)
       {
         for (unsigned jbin = thit.firstBin; jbin < thit.lastBin; ++jbin)
         {
