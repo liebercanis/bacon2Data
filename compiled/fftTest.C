@@ -89,7 +89,8 @@ void fftTest(int npoints = 10)
     vector<double> wfilter;
     for (int i = 0; i < nsamples; ++i)
     {
-        double val = TMath::Max( double(0), fsig->Eval(double(i)));
+        //double val = TMath::Max( double(0), fsig->Eval(double(i)));
+        double val = htemplateFFT->GetBinContent(i);
         double w = val / (val + noiseVal);
         wfilter.push_back(w);
     }
@@ -122,7 +123,9 @@ void fftTest(int npoints = 10)
     for (unsigned i = 0; i < fdigi.size(); ++i)
         fdigi[i] /= double(nsamples);
 
-
+    for (int ibin = 0; ibin < fdigi.size(); ++ibin)
+        hsignalNoWave->SetBinContent(ibin, fdigi[ibin]);
+    
     // simple baseline
     std::vector<double> orderDigi = fdigi;
     std::sort(orderDigi.begin(), orderDigi.end());
@@ -141,8 +144,7 @@ void fftTest(int npoints = 10)
 
     printf("fdigi 0 %f fdigi last %f \n",fdigi[0],fdigi[fdigi.size()-1] );
 
-    for (int ibin = 0; ibin < fdigi.size(); ++ibin)
-            hsignalNoWave->SetBinContent(ibin, fdigi[ibin]);
+    
     //hsignalNoWave->Print("all");
     // add noise
     for (int i = 0; i < fdigi.size(); ++i)
