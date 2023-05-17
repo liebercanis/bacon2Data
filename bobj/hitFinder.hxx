@@ -71,7 +71,7 @@ public:
   bool verbose;
   bool splitVerbose;
   bool smoothing;
-  hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan);
+  hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan, vector<double> sigmaValue);
   virtual ~hitFinder() { chanMap.clear(); }
   int nsamples;
   unsigned diffStep;
@@ -102,6 +102,7 @@ public:
   peakType peakList;
   std::vector<Int_t> peakKind;
   std::vector<unsigned> splitCount;
+  vector<double> wfilter;
   double timeUnit;
   double microSec;
   void event(int idet, Long64_t ievent, vector<double> rdigi, double thresh, unsigned step = 3);
@@ -118,9 +119,7 @@ public:
   void trimPeaks(int idet, std::vector<Double_t> v);
   void splitPeaks(int idet);
   void printPeakList();
-  bool getTransforms();
-  TH1D *getTemplate(int ichan);
-  std::vector<std::complex<double>> templateTransform;
+  bool getTemplate(int ichan);
   void templateFFT(std::vector<double> rdigi);
   // hist
   TH1D *htemplate;
@@ -139,10 +138,9 @@ public:
 
   std::vector<std::complex<double>> forwardFFT(std::vector<double> rdigi);
   std::vector<Double_t> backwardFFT(std::vector<std::complex<double>> VectorComplex);
-  bool gotTransforms;
+  std::vector<std::complex<double>> templateTransform;
   bool gotTemplate;
 
-  std::vector<TGraph *> gTransform;
   std::vector<TH1D *> hFFT;
   std::vector<TH1D *> hInvFFT;
   std::vector<TH1D *> hFFTFilt;

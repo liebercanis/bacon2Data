@@ -37,7 +37,7 @@
 #include "TBRun.hxx"
 #include "hitFinder.hxx"
 
-hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan)
+hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan, vector<double> sigmaValue)
 {
   verbose = false;
   QPEPeak = 50;
@@ -66,9 +66,10 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   tag = theTag;
   tbrun = brun;
   nsamples = nSamples;
+  int nSize = nsamples + 100;
   // initialize fft
-  fFFT = TVirtualFFT::FFT(1, &nsamples, "R2C M K");
-  fInverseFFT = TVirtualFFT::FFT(1, &nsamples, "C2R M K");
+  fFFT = TVirtualFFT::FFT(1, &nSize, "R2C M K");
+  fInverseFFT = TVirtualFFT::FFT(1, &nSize, "C2R M K");
 
   microSec = 1.0E-3;
   timeUnit = 8.0; // ns per count
@@ -76,6 +77,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   thresholdStepSize = 1;
 
   fout->cd();
+  htemplate = new TH1D("template", "template", nsamples, 0, nsamples);
   hPeakCount = new TH1D("PeakCount", " peaks by det ", vchan.size(), 0, vchan.size());
   hHitLength = new TH1I("HitLength", " hit length", 1000, 0, 1000);
   hPeakNWidth = new TH1I("PeakNWidth", "PeakNWidth", 1000, 0, 1000);
@@ -131,43 +133,36 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   ntFinder = new TNtuple("finder", " hit finder ", "chan:ncross:npeak");
   ntSplit = new TNtuple("split", " split for finder ", "event:chan:cross:nsplit:bin:ratio:batr:width");
 
-  // gotTransforms = getTransforms();
-  TH1D *SPETemplate = getTemplate(6);
-  gotTemplate = false;
-  if (SPETemplate)
-    gotTemplate = true;
+  bool gotTemplate = getTemplate(6);
 
   cout << " created hitFinder with " << tbrun->GetName() << " nsamples =  " << nsamples << " ndet " << hEvWave.size() << " ";
   if (gotTemplate)
-    cout << " SPE Template " << SPETemplate->GetName() << endl;
+    cout << " SPE Template " << htemplate->GetName() << endl;
   else
     cout << " SPE Template not found ! " << endl;
 
-  if(gotTemplate) {
-
-  SPEdigi.resize(nsamples);
-  // fill SPEdigi
-  for (int ibin = 0; ibin < SPETemplate->GetNbinsX(); ++ibin)
-    SPEdigi[ibin] = SPETemplate->GetBinContent(ibin);
-
-  // make transorm
-  templateFFT(SPEdigi);
-  // start with first nonzero bin;
-  unsigned jbin = 1;
-  for (unsigned isample = 0; isample < SPEdigi.size(); isample++)
+  wfilter.resize(nsamples);
+  for (int i = 0; i < nsamples; ++i) wfilter[i]=1.;
+  if (gotTemplate)
   {
-    if (SPEdigi[isample] != 0)
-      htemplate->SetBinContent(jbin++, SPEdigi[isample]);
-  }
+    // make transorm
+    templateTransform = forwardFFT(SPEdigi);
+    // fill htemplateFFT start with first nonzero bin;
     printf(" ********   complex transform  size %lu ******** \n", templateTransform.size());
+    for (int i = 0; i < nsamples / 2; ++i)
+    {
+      htemplateFFT->SetBinContent(i, std::abs(templateTransform[i]));
+    }
+
+    // make filter
+    double noiseVal = sigmaValue[6];
+    for (int i = 0; i < nsamples; ++i)
+    {
+      double val = htemplateFFT->GetBinContent(i);
+      double w = val / (val + noiseVal);
+      wfilter[i]=w;
+    }
   }
-
-  /*for (unsigned iw = 0; iw < 100; ++iw)
-    cout << templateTransform[iw].real() << " " << templateTransform[iw].imag() << " ; ";
-  cout << endl;
-  */
-
-  //
 
   printf(" channel mapping \n");
   for (unsigned index = 0; index < vchan.size(); ++index)
@@ -180,6 +175,60 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   for (unsigned ichan = 0; ichan < QPEnominal.size(); ++ichan)
     printf("chan %i QPEnominal %f ; ", ichan, QPEnominal[ichan]);
   printf("\n");
+}
+
+bool hitFinder::getTemplate(int ichan)
+{
+  TH1D *hist = NULL;
+  TString fileName = TString("../bobj/templates-2023-05-01-15-06.root");
+  TFile *f1 = new TFile(fileName, "readonly");
+  if (f1->IsZombie())
+  {
+    printf(" no  file for %s \n", fileName.Data());
+    return false;
+  }
+  f1->GetObject(Form("QPEShapeChan%i", ichan), hist);
+  if (!hist)
+    return false;
+
+  printf(" got template %s  from file %s \n", hist->GetName(), fileName.Data());
+
+  // fill SPEdigi;
+  SPEdigi.resize(nsamples);
+  if (0)
+  {
+    int maxBin = hist->GetMaximumBin();
+    for (int ibin = 0; ibin < hist->GetNbinsX(); ++ibin)
+    {
+    if (hist->GetBinContent(ibin) == 0)
+    {
+      continue;
+    }
+    if (ibin >= maxBin)
+      SPEdigi[ibin - maxBin] = hist->GetBinContent(ibin);
+    else
+    {
+      printf(" %i %i %i \n", ibin, -maxBin + ibin, int(SPEdigi.size()) - maxBin + ibin);
+      SPEdigi[int(SPEdigi.size()) - maxBin + ibin] = hist->GetBinContent(ibin);
+    }
+    }
+  }
+  else
+  {
+    int fillBin = 0;
+    for (int ibin = 0; ibin < hist->GetNbinsX(); ++ibin)
+    {
+    if (hist->GetBinContent(ibin) == 0)
+      continue;
+    SPEdigi[fillBin++] = hist->GetBinContent(ibin);
+    }
+  }
+
+  // fill template
+  for (int ibin = 0; ibin < SPEdigi.size(); ++ibin)
+    htemplate->SetBinContent(ibin, SPEdigi[ibin]);
+
+  return true;
 }
 
 void hitFinder::printPeakList()
@@ -235,22 +284,18 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi, doub
   // apply FFT convolution here
   for (unsigned iw = 1; iw < maxFrequency; ++iw)
   {
-    if (gotTransforms) {
-      int ipoint = iw - 1;
-      if (iw > maxFrequency / 2)
-        ipoint = maxFrequency - iw - 1;
-      double xpoint, ypoint;
-      gTransform[0]->GetPoint(ipoint, xpoint, ypoint);
-      inputWaveTransform[iw] *= ypoint;
-    }
+    
     // divide out the SPE shape
-    if (gotTemplate)
-      if(iw<50) inputWaveTransform[iw] = inputWaveTransform[iw] / templateTransform[iw];
+    inputWaveTransform[iw] = wfilter[iw] * inputWaveTransform[iw]; // templateTransform[iw];
     }
-    fdigi = backwardFFT(inputWaveTransform);
+  fdigi = backwardFFT(inputWaveTransform);
 
-    for (unsigned isample = 0; isample < digi.size(); isample++)
-    {
+  // use filtered waveforms
+  if (gotTemplate)
+    digi = fdigi;
+
+  for(unsigned isample = 0; isample < digi.size(); isample++)
+  {
     hEvWave[idet]->SetBinContent(isample + 1, digi[isample]);
     hEvSmooth[idet]->SetBinContent(isample + 1, digi[isample]);
     hEvFiltWave[idet]->SetBinContent(isample + 1, fdigi[isample]);
@@ -262,12 +307,9 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi, doub
   for (unsigned ibin = 1; ibin < hEvSmooth[idet]->GetNbinsX(); ibin++)
     sdigi[ibin - 1] = hEvSmooth[idet]->GetBinContent(ibin);
 
-  // use filtered waveforms
-  if (gotTransforms)
-    digi = fdigi;
-
+  // use smooth wave if smoothing
   if (!smoothing)
-    sdigi = digi;
+    digi = sdigi;
 
   differentiate();
   for (unsigned isample = 0; isample < ddigi.size(); isample++)
@@ -889,31 +931,6 @@ void hitFinder::trimPeaks(int idet, std::vector<Double_t> v)
     }
   }
 }
-void hitFinder::templateFFT(std::vector<double> rdigi)
-{
-  for (int is = 0; is < nsamples; ++is)
-    fFFT->SetPoint(is, rdigi[is]);
-  fFFT->Transform(); //
-  // cout << " FFT histogram " << hFFT[id]->GetName() << endl;
-
-  std::vector<Double_t> realVec, imVec;
-  for (int i = 0; i < nsamples; ++i)
-  {
-    double rl, im;
-    fFFT->GetPointComplex(i, rl, im);
-    std::complex<double> c(rl, im); //.real or .imag accessors
-    templateTransform.push_back(c);
-    // skip first bin which is pedestal
-    if (i < nsamples / 2)
-    {
-      htemplateFFT->SetBinContent(i, std::abs(c));
-    }
-
-    // realVec.push_back(VectorComplex[i].real());
-    // imVec.push_back(VectorComplex[i].imag());
-  }
-  return;
-}
 
 std::vector<std::complex<double>> hitFinder::forwardFFT(std::vector<double> rdigi)
 {
@@ -1088,52 +1105,4 @@ void hitFinder::plotEvent(unsigned ichan, Long64_t ievent)
   */
 
   fout->cd();
-}
-bool hitFinder::getTransforms()
-{
-  TGraph *gw = NULL;
-  TString fileName = TString("../bobj/WienerTransforms.root");
-  TFile *f1 = new TFile(fileName, "readonly");
-  if (f1->IsZombie())
-  {
-    printf(" no  file for %s \n", tag.Data());
-    return false;
-  }
-
-  bool val = true;
-  int idet = 0;
-  while (val)
-  {
-    gTransform.clear();
-    f1->GetObject(Form("WienerTransDet%i", idet), gw);
-    if (!gw)
-    {
-      val = false;
-      break;
-    }
-    gTransform.push_back((TGraph *)gw->Clone(Form("WeinerForDet%i-%s", idet, tag.Data())));
-    unsigned itran = gTransform.size() - 1;
-    printf(" got transform %s points %i for run %s \n", gTransform[itran]->GetName(), gTransform[itran]->GetN(), tag.Data());
-    fftDir->Append(gTransform[itran]);
-  }
-  if (val)
-    printf(" got transforms for file %s %i \n", fileName.Data(), val);
-  return val;
-}
-
-TH1D *hitFinder::getTemplate(int ichan)
-{
-  TH1D *hist = NULL;
-  TString fileName = TString("../bobj/templates-2023-05-01-15-06.root");
-  TFile *f1 = new TFile(fileName, "readonly");
-  if (f1->IsZombie())
-  {
-    printf(" no  file for %s \n", tag.Data());
-    return hist;
-  }
-
-  f1->GetObject(Form("QPEShapeChan%i", ichan), hist);
-  if (hist)
-    printf(" got template %s  from file %s \n", hist->GetName(), fileName.Data());
-  return hist;
 }

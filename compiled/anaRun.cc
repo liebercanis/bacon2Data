@@ -226,6 +226,8 @@ unsigned anaRun::getTrees()
   }
   return treeList.size();
 }
+
+
 // get summed histos
 void anaRun::getSummedHists()
 {
@@ -543,6 +545,7 @@ bool anaRun::anaEvent(Long64_t entry)
   bool plotThisEvent = false;
   for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
   {
+    double hitThreshold = 5.0 * channelSigmaValue[idet];
     plotThisEvent = false;
     TDet *tdet = tbrun->detList[idet];
     // hit threshold cut done in hitFinder
@@ -591,7 +594,7 @@ bool anaRun::anaEvent(Long64_t entry)
           */
       }
       // do threshold for summed waveform
-      if (thit.qsum > hitQThreshold)
+      if (thit.qsum > hitThreshold)
         sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
     }
     // if (fftDir->GetList()->GetEntries() < 2000)
@@ -776,6 +779,7 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
            ic, chanList[ic], chanMap.at(chanList[ic]), treeList[ic]->GetName(), tbrun->detList[ic]->GetName());
 
   // fout->append(tbrun->btree);
+ 
   int totalchannels = 13;
   ntChan = new TNtuple("ntchan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peakmax:sum2:sum:negcrossings:thresholds");
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
@@ -846,10 +850,10 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
     sumHitWave.push_back(new TH1D(Form("sumHitWave%i", ichan), Form("sumHitWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
   }
   fout->cd();
-
+  getTemplate(6,rawBr[0]->rdigi.size());
   // fout->ls();
   cout << " make hitFinder dets = " << rawBr.size() << endl;
-  finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList);
+  finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList, channelSigmaValue);
   Long64_t nentries = treeList[0]->GetEntries();
   if (maxEntries > 0)
     nentries = TMath::Min(maxEntries, nentries);
