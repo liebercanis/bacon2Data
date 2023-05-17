@@ -850,7 +850,6 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
     sumHitWave.push_back(new TH1D(Form("sumHitWave%i", ichan), Form("sumHitWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
   }
   fout->cd();
-  getTemplate(6,rawBr[0]->rdigi.size());
   // fout->ls();
   cout << " make hitFinder dets = " << rawBr.size() << endl;
   finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList, channelSigmaValue);

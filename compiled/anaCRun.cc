@@ -831,7 +831,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   vector<int> chanList;
   for (int ichan = 0; ichan<rawBr.size(); ++ichan)
     chanList.push_back(ichan);
-  finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList);
+  finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList, channelSigmaValue);
 
   unsigned npass = 0;
   unsigned nfail = 0;
