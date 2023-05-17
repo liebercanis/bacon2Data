@@ -84,14 +84,14 @@ public:
   vector<int> vChannel;
   TNtuple *ntFinder;
   TNtuple *ntSplit;
-  std::vector<double> QPEnominal;  // nominal QPE 
-  std::vector<double> rdigi;   //
-  std::vector<double> digi;    // baseline subtracted
-  std::vector<double> ddigi;   // derivative
-  std::vector<double> sdigi;   // smoothed
-  std::vector<double> hdigi;   // hits
-  std::vector<Double_t> fdigi; // filtered
-  std::vector<Double_t> SPEdigi; // filtered
+  std::vector<double> QPEnominal; // nominal QPE
+  std::vector<double> rdigi;      //
+  std::vector<double> digi;       // baseline subtracted
+  std::vector<double> ddigi;      // derivative
+  std::vector<double> sdigi;      // smoothed
+  std::vector<double> hdigi;      // hits
+  std::vector<Double_t> fdigi;    // filtered
+  std::vector<Double_t> SPEdigi;  // filtered
   std::vector<unsigned> crossings;
   std::vector<unsigned> crossingBin;
   std::vector<double> crossingTime;
@@ -102,6 +102,7 @@ public:
   peakType peakList;
   std::vector<Int_t> peakKind;
   std::vector<unsigned> splitCount;
+  vector<double> channelSigmaValue;
   vector<double> wfilter;
   double timeUnit;
   double microSec;
@@ -119,39 +120,43 @@ public:
   void trimPeaks(int idet, std::vector<Double_t> v);
   void splitPeaks(int idet);
   void printPeakList();
-  bool getTemplate(int ichan);
-  void templateFFT(std::vector<double> rdigi);
-  // hist
-  TH1D *htemplate;
-  TH1D *htemplateFFT;
-  TH1D *hPeakCount;
-  TH1D *hPeakValue;
-  TH1I *hHitLength;
-  TH1I *hPeakNWidth;
-  TH1D *hPeakCrossingBin;
-  TH1D *hPeakCrossingRatio;
-
-  /// The fft class to take the fourier transform.
-  TVirtualFFT *fFFT;
-  /// The fft class to take the inverse fourier transform.
-  TVirtualFFT *fInverseFFT;
-
-  std::vector<std::complex<double>> forwardFFT(std::vector<double> rdigi);
-  std::vector<Double_t> backwardFFT(std::vector<std::complex<double>> VectorComplex);
-  std::vector<std::complex<double>> templateTransform;
   bool gotTemplate;
+  bool getTemplate(int ichan);
+  //void templateFFT(std::vector<double> rdigi);
+  void fillWFilter(int ichan);
+  // hist
+    TH1D *htemplate;
+    TH1D *htemplateFFT;
+    TH1D *hPeakCount;
+    TH1D *hPeakValue;
+    TH1I *hHitLength;
+    TH1I *hPeakNWidth;
+    TH1D *hPeakCrossingBin;
+    TH1D *hPeakCrossingRatio;
 
-  std::vector<TH1D *> hFFT;
-  std::vector<TH1D *> hInvFFT;
-  std::vector<TH1D *> hFFTFilt;
-  std::vector<TH1D *> hEvWave;
-  std::vector<TH1D *> hEvHitPeakWave;
-  std::vector<TH1D *> hEvSmooth;
-  std::vector<TH1D *> hEvCross;
-  std::vector<TH1D *> hEvPeakCross;
-  std::vector<TH1D *> hEvHitWave;
-  std::vector<TH1D *> hEvDerWave;
-  std::vector<TH1D *> hEvFiltWave;
-  std::vector<TH1D *> hDigiVal;
-  std::vector<TH1D *> hHitSum;
-};
+    /// The fft class to take the fourier transform.
+    TVirtualFFT *fFFT;
+    /// The fft class to take the inverse fourier transform.
+    TVirtualFFT *fInverseFFT;
+
+    std::vector<std::complex<double>> forwardFFT(std::vector<double> rdigi);
+    std::vector<Double_t> backwardFFT(std::vector<std::complex<double>> VectorComplex);
+    std::vector<std::complex<double>> templateTransform;
+
+    TH1D *hWFilter;
+    std::vector<TH1D *> hFFT;
+    std::vector<TH1D *> hInvFFT;
+    std::vector<TH1D *> hFFTFilt;
+    std::vector<TH1D *> hEvWave;
+    std::vector<TH1D *> hEvHitPeakWave;
+    std::vector<TH1D *> hEvSmooth;
+    std::vector<TH1D *> hEvCross;
+    std::vector<TH1D *> hEvPeakCross;
+    std::vector<TH1D *> hEvHitWave;
+    std::vector<TH1D *> hEvDerWave;
+    std::vector<TH1D *> hEvFiltWave;
+    std::vector<TH1D *> hDigiVal;
+    std::vector<TH1D *> hHitSum;
+    std::vector<TH1D *> hUnFilteredSummedWave;
+    std::vector<TH1D *> hFilteredSummedWave;
+  };

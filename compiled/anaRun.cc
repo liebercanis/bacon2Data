@@ -820,6 +820,7 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   sumDir->cd();
   double limit;
   double plimit;
+  int nsamples = rawBr[0]->rdigi.size();
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
     unsigned ichan = chanList[i];
@@ -845,9 +846,9 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
     hQPEShape.push_back(new TH1D(Form("QPEShapeChan%i", ichan), Form("QPEShapeChan%i", ichan), 200, -100, 100));
     hQPEShape[hQPEShape.size() - 1]->SetMarkerStyle(20);
     hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 1000, 0, plimit));
-    sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
-    sumWaveB.push_back(new TH1D(Form("sumWaveBad%i", ichan), Form("sumWaveBad%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
-    sumHitWave.push_back(new TH1D(Form("sumHitWave%i", ichan), Form("sumHitWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+    sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), nsamples, 0, nsamples));
+    sumWaveB.push_back(new TH1D(Form("sumWaveBad%i", ichan), Form("sumWaveBad%i", ichan), nsamples, 0, nsamples));
+    sumHitWave.push_back(new TH1D(Form("sumHitWave%i", ichan), Form("sumHitWave%i", ichan),nsamples, 0, nsamples)); 
   }
   fout->cd();
   // fout->ls();

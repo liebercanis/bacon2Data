@@ -39,6 +39,7 @@
 
 hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan, vector<double> sigmaValue)
 {
+  channelSigmaValue = sigmaValue;
   verbose = false;
   QPEPeak = 50;
   for (unsigned i = 0; i < vchan.size(); ++i)
@@ -102,6 +103,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
 
   htemplate = new TH1D("template", "template", nsamples, 0, nsamples);
   htemplateFFT = new TH1D("templateFFT", "templateFFT", nsamples / 2, 0, nsamples / 2);
+  hWFilter = new TH1D("WFilter","WFilter", nsamples / 2, 0, nsamples / 2);
 
   fout->cd();
   finderDir->cd();
@@ -129,11 +131,21 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     printf(" create  index %i vchan %i %s %s \n", index, id, hEvWave[index]->GetName(), hEvWave[index]->GetTitle());
   }
 
+  fout->cd("sumDir");
+  for (unsigned index = 0; index < vchan.size(); ++index)
+  {
+    int id = vchan[index];
+    TDet *deti = tbrun->getDet(id);
+    hUnFilteredSummedWave.push_back(new TH1D(Form("UnFilteredSummedWave%s", deti->GetName()), Form(" un filtered summed wave%s", deti->GetName()), nsamples, 0, nsamples));
+    hFilteredSummedWave.push_back(new TH1D(Form("FilteredSummedWave%s", deti->GetName()), Form("filtered summed wave%s", deti->GetName()), nsamples, 0, nsamples));
+  }
   fout->cd();
+
   ntFinder = new TNtuple("finder", " hit finder ", "chan:ncross:npeak");
   ntSplit = new TNtuple("split", " split for finder ", "event:chan:cross:nsplit:bin:ratio:batr:width");
 
-  bool gotTemplate = getTemplate(6);
+  int templateChan = 8;
+  gotTemplate = getTemplate(templateChan);
 
   cout << " created hitFinder with " << tbrun->GetName() << " nsamples =  " << nsamples << " ndet " << hEvWave.size() << " ";
   if (gotTemplate)
@@ -141,29 +153,26 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   else
     cout << " SPE Template not found ! " << endl;
 
+  // set wfilter size
   wfilter.resize(nsamples);
   for (int i = 0; i < nsamples; ++i) wfilter[i]=1.;
+  //
   if (gotTemplate)
   {
     // make transorm
     templateTransform = forwardFFT(SPEdigi);
     // fill htemplateFFT start with first nonzero bin;
     printf(" ********   complex transform  size %lu ******** \n", templateTransform.size());
-    for (int i = 0; i < nsamples / 2; ++i)
-    {
-      htemplateFFT->SetBinContent(i, std::abs(templateTransform[i]));
-    }
-
+    
     // make filter
-    double noiseVal = sigmaValue[6];
-    for (int i = 0; i < nsamples; ++i)
-    {
-      double val = htemplateFFT->GetBinContent(i);
-      double w = val / (val + noiseVal);
-      wfilter[i]=w;
-    }
+    fillWFilter(templateChan);
   }
-
+  for (int i = 0; i < nsamples / 2; ++i)
+  {
+    hWFilter->SetBinContent(i, wfilter[i]);
+    //printf(" wfilter %i %f \n", i, wfilter[i]);
+    htemplateFFT->SetBinContent(i, std::abs(templateTransform[i]));
+  }
   printf(" channel mapping \n");
   for (unsigned index = 0; index < vchan.size(); ++index)
   {
@@ -175,6 +184,15 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   for (unsigned ichan = 0; ichan < QPEnominal.size(); ++ichan)
     printf("chan %i QPEnominal %f ; ", ichan, QPEnominal[ichan]);
   printf("\n");
+}
+//
+void hitFinder::fillWFilter(int ichan){
+  double noiseVal = channelSigmaValue[ichan];
+  for (int i = 0; i < nsamples; ++i)
+  {
+    double val = std::abs(templateTransform[i]);
+    wfilter[i] = val / (val + noiseVal);
+  }
 }
 
 bool hitFinder::getTemplate(int ichan)
@@ -282,17 +300,25 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi, doub
 
   unsigned maxFrequency = inputWaveTransform.size(); 
   // apply FFT convolution here
+  fillWFilter(ichan); // use channel noise
   for (unsigned iw = 1; iw < maxFrequency; ++iw)
   {
     
     // divide out the SPE shape
     inputWaveTransform[iw] = wfilter[iw] * inputWaveTransform[iw]; // templateTransform[iw];
-    }
+  }
   fdigi = backwardFFT(inputWaveTransform);
-
+  for (unsigned isample = 0; isample < digi.size(); isample++)
+  {
+    hUnFilteredSummedWave[idet]->SetBinContent(isample + 1, digi[isample] + hUnFilteredSummedWave[idet]->GetBinContent(isample + 1));
+    hFilteredSummedWave[idet]->SetBinContent(isample + 1, fdigi[isample] + hFilteredSummedWave[idet]->GetBinContent(isample+1));
+  }
   // use filtered waveforms
-  if (gotTemplate)
+  //for (unsigned isample = 0; isample < 20; isample++)
+    //printf(" wfilter ??? %i %f %f ?? %f \n", isample, wfilter[isample], digi[isample], fdigi[isample]);
+  if (gotTemplate) {
     digi = fdigi;
+  }
 
   for(unsigned isample = 0; isample < digi.size(); isample++)
   {
