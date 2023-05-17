@@ -565,7 +565,7 @@ bool anaCRun::anaEvent(Long64_t entry)
       if (thit.qsum > hitThreshold)
         sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
 
-      if (thit.qsum > 100 && thit.qsum < 300 && thit.startTime > 800)
+      if (thit.qpeak > 100 && thit.qpeak  < 300 && thit.startTime > 800)
       {
         for (unsigned jbin = thit.firstBin; jbin < thit.lastBin; ++jbin)
         {
@@ -800,7 +800,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   }
   sumDir = fout->mkdir("sumDir");
   sumDir->cd();
-  double limit = 10000;
+  double limit = 100000;
   double plimit = 2000;
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
