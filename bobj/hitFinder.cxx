@@ -316,9 +316,9 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi, doub
   // use filtered waveforms
   //for (unsigned isample = 0; isample < 20; isample++)
     //printf(" wfilter ??? %i %f %f ?? %f \n", isample, wfilter[isample], digi[isample], fdigi[isample]);
-  if (gotTemplate) {
-    digi = fdigi;
-  }
+  //if (gotTemplate) {
+ //   digi = fdigi;
+  //}
 
   for(unsigned isample = 0; isample < digi.size(); isample++)
   {
@@ -1088,10 +1088,11 @@ void hitFinder::plotEvent(unsigned ichan, Long64_t ievent)
 
   histName.Form("EvPeakCross%lli_%s", ievent, detName.Data());
   TH1D *hpeakCross = (TH1D *)hEvPeakCross[idet]->Clone(histName);
+  */
 
   histName.Form("EvFiltWave%lli_%s", ievent, detName.Data());
   TH1D *hfiltwave = (TH1D *)hEvFiltWave[idet]->Clone(histName);
-*/
+
  /*
   histName.Form("EvFFT%lli_%s", ievent, detName.Data());
   TH1D *hfft = (TH1D *)hFFT[idet]->Clone(histName);
