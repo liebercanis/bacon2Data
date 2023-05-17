@@ -814,7 +814,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
     }
 
     // else if(ichan==12) limit = 10000;
-    hQPEShape.push_back(new TH1D(Form("QPEShapeChan%i", ichan), Form("QPEShapeChan%i", ichan), 200, -100, 100));
+    hQPEShape.push_back(new TH1D(Form("QPEShapeChan%i", ichan), Form("QPEShapeChan%i", ichan), 400, -100, 300));
     hQPEShape[hQPEShape.size() - 1]->SetMarkerStyle(20);
 
     hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 1000, 0, limit));
