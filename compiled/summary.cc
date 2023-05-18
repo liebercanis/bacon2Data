@@ -530,7 +530,7 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
       string exten = name.substr(name.find_last_of(".") + 1);
       if (exten != string("root"))
         continue;
-      if (name.find("anaRun-run") != std::string::npos)
+      if (name.find("root") != std::string::npos)
         fileList.push_back(TString(name.c_str()));
     }
     return fileList.size();
@@ -599,8 +599,8 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
 
   addSumHistos();
   getSumHistos();
-  //for (std::map<int, TH1D *>::iterator it = histMap.begin(); it != histMap.end(); ++it)
-  //  std::cout << it->first << " => " << it->second->GetName() << '\n';
+  // for (std::map<int, TH1D *>::iterator it = histMap.begin(); it != histMap.end(); ++it)
+  //   std::cout << it->first << " => " << it->second->GetName() << '\n';
   QPEFits();
 
   // call function to fit slopes and fill vSlope, vESlope
