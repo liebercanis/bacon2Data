@@ -42,6 +42,7 @@ std::vector<vector<double>> vESlope;
 std::vector<TH1D *> hSumWave;
 std::vector<vector<TH1D *>> vRunQSum;
 std::vector<TH1D *> hSumHitWave;
+std::vector<TH1D *> hRunSumHitWave;
 std::map<int, TH1D *> histMap;
 TDirectory *sumDir;
 TDirectory *waveSumDir;
@@ -85,7 +86,7 @@ void makeGraphs();
           continue;
         TH1D *h = (TH1D *)key->ReadObj();
         std::string name = string(h->GetName());
-
+      
         // save summed waves
         // summed waves
         TH1D *hClone;
@@ -99,9 +100,22 @@ void makeGraphs();
         }
         if (name.find("sumHitWave") != std::string::npos)
         {
-          //cout << " sumHitWave clone " << name << " file  " << ifile  << endl;
+          string chan = name.substr(name.find_last_of("e") + 1);
+          int ichan = stoi(chan);
+          cout << name << " string chan " << chan << " int " << ichan<< " size " << hRunSumHitWave.size()<<  endl;
+
+          //cout << " sHitWave clone " << name << " file  " << ifile  << endl;
           hClone = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
           hSumHitWave.push_back(hClone);
+          // add to hRunSumHitWave;
+          if (hRunSumHitWave[ichan]==NULL) {
+            hRunSumHitWave[ichan] = (TH1D *)h->Clone(Form("RunSumHitWave-%lli-chan%i", maxFiles, ichan));
+            waveSumDir->Add(hRunSumHitWave[ichan]);
+          }
+
+          //cout << " clone bins " << hClone->GetNbinsX() << " RunSum " << hRunSumHitWave[ichan]->GetNbinsX() << endl;
+          for (int ibin = 0; ibin < hClone->GetNbinsX(); ++ibin)
+            hRunSumHitWave[ichan]->SetBinContent(ibin, hClone->GetBinContent(ibin) + hRunSumHitWave[ichan]->GetBinContent(ibin));
           waveSumDir->Add(hClone);
         }
 
@@ -111,10 +125,12 @@ void makeGraphs();
           continue;
         string chan = name.substr(name.find_last_of("n") + 1);
         int ichan = stoi(chan);
+        cout << name << "string chan" << chan << " int " << ichan<< endl;
+
         TString cloneName;
         cloneName.Form("runQSumCh%i-file%i", ichan,ifile);
         TH1D *hAdd = (TH1D *)h->Clone(cloneName);
-        cout << " +vRunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName()  << " " << hAdd->GetName() << endl;
+        //cout << " +vRunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName()  << " " << hAdd->GetName() << endl;
         hAdd->SetMarkerStyle(20);
         hAdd->SetMarkerSize(0.5);
         vRunQSum[ichan].push_back(hAdd);
@@ -568,8 +584,11 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
   vSlope.resize(nchan);
   vESlope.resize(nchan);
   vRunQSum.resize(nchan);
+  hRunSumHitWave.resize(nchan);
+  for(unsigned ichan=0; ichan<nchan; ++ichan)
+      hRunSumHitWave[ichan] = NULL;
 
-  fileLoop();
+      fileLoop();
   // for (unsigned ic = 0; ic < nchan; ++ic)
   //  printf(" chan %u vecQsum %lu  \n", ic, vecQsum[ic].size());
   for (unsigned jfile = 0; jfile < filenum.size(); ++jfile)
