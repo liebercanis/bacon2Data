@@ -44,11 +44,11 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   QPEPeak = 50;
   for (unsigned i = 0; i < vchan.size(); ++i)
     QPEnominal.push_back(QPEPeak);
-  templateFileName = TString("../bobj/templates-2023-05-01-15-06.root");
+  templateFileName = TString("$HOME/bacon2Data/bobj/templates-2023-05-01-15-06.root");
   // CAEN casN
   if (nSamples == CAENLENGTH)
   {
-    templateFileName = TString("../bobj/templatesCaen-2023-05-17-12-00.root");
+    templateFileName = TString("$HOME/bacon2Data/bobj/templatesCaen-2023-05-17-12-00.root");
     for (unsigned i = 0; i < 9; ++i)
       QPEnominal[i] = 10.0;
     QPEnominal[9] = 50.0;
