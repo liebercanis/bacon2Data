@@ -879,7 +879,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   }
   // normailize to number of nentries.
   // loop over detector channels
-  double scaleFactor = 1. / double(nentries);
+  double scaleFactor = 1. / double(npass);
   printf(" \n \n At END OF FILE scale by %E\n", scaleFactor);
   histQSum->Scale(scaleFactor);
   histQPrompt->Scale(scaleFactor);
