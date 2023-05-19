@@ -48,7 +48,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   // CAEN casN
   if (nSamples == CAENLENGTH)
   {
-    templateFileName = TString("../bobj/templatesCaen-2023-05-17-12-00.roo");
+    templateFileName = TString("../bobj/templatesCaen-2023-05-17-12-00.root");
     for (unsigned i = 0; i < 9; ++i)
       QPEnominal[i] = 10.0;
     QPEnominal[9] = 50.0;
