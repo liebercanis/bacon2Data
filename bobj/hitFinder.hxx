@@ -123,6 +123,7 @@ public:
   bool gotTemplate;
   bool getTemplate(int ichan);
   //void templateFFT(std::vector<double> rdigi);
+  TString templateFileName;
   void fillWFilter(int ichan);
   // hist
     TH1D *htemplate;
