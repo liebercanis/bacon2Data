@@ -460,7 +460,7 @@ bool anaRun::anaEvent(Long64_t entry)
     TDet *idet = tbrun->getDet(ichan);
     // cout << ichan << " " << idet->sum << endl;
     fsum[ichan] = idet->sum;
-    if (!idet->pass && ichan != 12)
+    if (!idet->pass)
     {
       // printf(" %llu bad chan %u thresh %u crossing %u \n ", entry,ichan, idet->thresholds, idet->crossings);
       eventPass = false;

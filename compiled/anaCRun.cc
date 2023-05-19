@@ -84,6 +84,7 @@ public:
   TH1D *histQSum;
   TH1D *hEventPass;
   TH1D *histHitCount;
+  TH1D *hSumPMT;
   // TH1D *histQPE;
   TH1D *histQPrompt;
   vector<double> channelSigmaValue;
@@ -117,7 +118,7 @@ public:
   bool anaEvent(Long64_t entry);
   void differentiate(unsigned diffStep);          // not used
   void derivativeCount(TDet *idet, Double_t rms); // not used
-  void negativeCrossingCount(double thresh);
+  void negativeCrossingCount(int ichan);
   void thresholdCrossingCount(double thresh);
 
   TDirectory *rawSumDir;
@@ -126,6 +127,7 @@ public:
   TDirectory *evDir;
   TDirectory *sumDir;
   TDirectory *anaDir;
+  TDirectory *pmtDir;
   Long64_t nentries;
   double QPEPeak;
 };
@@ -267,16 +269,17 @@ void anaCRun::getSummedHists()
 /* analyze rawBr */
 bool anaCRun::anaEvent(Long64_t entry)
 {
-  double vsign = 1.0;
   QPEPeak = 100;
   tbrun->clear();
   // loop over channels
+  double vsign = 1.0;
   for (unsigned ib = 0; ib < rawBr.size(); ++ib)
   {
     unsigned ichan = ib;
     // define trigger sipms
     bool trig = ichan == 9 || ichan == 10 || ichan == 11;
     // set sign of waveform
+    vsign = 1.0;
     if (ib > 8)
       vsign = -1.0;
     int nbins = rawBr[ib]->rdigi.size();
@@ -299,7 +302,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     // baseline correction from fitted Gaussian
     hEvGaus[ib]->Reset("ICES");
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j){
-      double val = vsign * (double(rawBr[ib]->rdigi[j])-base);
+      double val = vsign * (double(rawBr[ib]->rdigi[j])-base); // base is > digi value!
       hEvGaus[ib]->Fill(val);
     }
     
@@ -340,19 +343,20 @@ bool anaCRun::anaEvent(Long64_t entry)
     idet->skew = skew;
     idet->event = entry;
     idet->trigger = rawBr[ib]->trigger;
-    idet->base = base+fitMean; // add in fit mean if fit succeeded
-    
+    idet->base = base+vsign*fitMean; // add in fit mean if fit succeeded
+
     /*********
      *  fill baseline subtracted vector digi
      *********/
     digi.clear();
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
-      double val = vsign * (double(rawBr[ib]->rdigi[j]) - idet->base);
+      double val = vsign * (double(rawBr[ib]->rdigi[j])-idet->base);
       baseHist[ichan]->Fill(val);
       digi.push_back(val);
       if (hChannelGaus.size()>0) hChannelGaus[ib]->Fill(val);
     }
+
 
     // find first peak maximum
     double peakMax = 0;
@@ -379,19 +383,21 @@ bool anaCRun::anaEvent(Long64_t entry)
     idet->sum2 = sum2;
     idet->sum = sum;
 
-    //cout << "tree " << ib << " ch " << ichan << " "
-    //     << " ave " << ave << " sigma " << sigma << " skew " << skew << " base " << base << endl;
+    if (ichan == 12)
+      hSumPMT->Fill(sum);
 
-    /*** 
-     * these 2 functions use didi and crossings,threshold vectors  i admit ugly 
-    ****/
-    negativeCrossingCount(10.);
+      //printf("chan %i %f sum %f \n", ichan, fitMean, sum);
+
+      // cout << "tree " << ib << " ch " << ichan << " "
+      //      << " ave " << ave << " sigma " << sigma << " skew " << skew << " base " << base << endl;
+
+      /***
+       * these 2 functions use didi and crossings,threshold vectors  i admit ugly
+       ****/
+    negativeCrossingCount(ichan); // multiples of QPEPeak
     idet->crossings = int(crossings.size());
     crossHist[ib]->Fill(idet->crossings);
-    if (trig)
-      thresholdCrossingCount(15.);
-    else
-      thresholdCrossingCount(1.);
+    thresholdCrossingCount(1000.);
     idet->thresholds = int(thresholds.size());
     threshHist[ib]->Fill(idet->thresholds);
 
@@ -399,7 +405,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     unsigned maxCrossings = 1;
     unsigned maxThresholds = 1;
     idet->pass = true;
-    if (idet->crossings > maxCrossings)
+    if (!trig && idet->crossings > maxCrossings)
       idet->pass = false;
     if (trig && idet->thresholds > maxThresholds)
       idet->pass = false;
@@ -430,9 +436,21 @@ bool anaCRun::anaEvent(Long64_t entry)
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
         hEvBaseWave->SetBinContent(j + 1, digi[j]);
     }
+    // plot PMT
+    if (ichan == 12 && pmtDir->GetList()->GetEntries() < 100)
+    {
+      pmtDir->cd();
+      hname.Form("EvBaseWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
+      // cout << " failed " << hname << endl;
+      hEvBaseWave = new TH1D(hname, hname, nbins, 0, nbins);
+      for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+        hEvBaseWave->SetBinContent(j + 1, digi[j]);
+    }
+
     fout->cd();
 
-    if (idet->pass && idet->thresholds>0  && evDir->GetList()->GetEntries() < 100)
+    // events with hits only data
+    if (idet->pass && idet->thresholds>0  && evDir->GetList()->GetEntries() < 500)
     {
       evDir->cd();
       hname.Form("EvBaseWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
@@ -460,7 +478,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     // cout << ichan << " " << idet->sum << endl;
     fsum[ichan] = idet->sum;
     //if (!idet->pass && ichan != 12)
-    if (!idet->pass && ichan<9)
+    if (!idet->pass)
     {
       // printf(" %llu bad chan %u thresh %u crossing %u \n ", entry,ichan, idet->thresholds, idet->crossings);
       eventPass = false;
@@ -479,9 +497,9 @@ bool anaCRun::anaEvent(Long64_t entry)
   hEventPass->Fill(passBit);
   if (!eventPass)
     return eventPass;
-  vsign = 1.0;
   for (unsigned ib = 0; ib < rawBr.size(); ++ib)
   {
+    vsign = 1.0;
     if (ib > 8)
       vsign = -1.0;
     unsigned ichan = ib;
@@ -608,10 +626,10 @@ void anaCRun::differentiate(unsigned diffStep)
   }
 }
 
-void anaCRun::negativeCrossingCount(double thresh)
+void anaCRun::negativeCrossingCount(int ichan)
 {
   crossings.clear();
-  Double_t cut = QPEPeak * thresh;
+  Double_t cut = 10. * channelSigmaValue[ichan];
   for (unsigned ibin = 0; ibin < digi.size(); ++ibin)
   {
     Double_t vi = digi[ibin];
@@ -623,7 +641,7 @@ void anaCRun::negativeCrossingCount(double thresh)
 void anaCRun::thresholdCrossingCount(double thresh)
 {
   thresholds.clear();
-  Double_t cut = QPEPeak * thresh;
+  Double_t cut = thresh;
   for (unsigned ibin = 0; ibin < digi.size(); ++ibin)
   {
     if (digi[ibin] < cut && digi[ibin + 1] > cut)
@@ -746,6 +764,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
 
   fout = new TFile(Form("myData/anaCRun-%s-%llu.root", shortName.c_str(), maxEntries), "recreate");
   evDir = fout->mkdir("evDir");
+  pmtDir = fout->mkdir("pmtDir");
   badDir = fout->mkdir("badDir");
   badTrigDir = fout->mkdir("badTrigDir");
   fout->cd();
@@ -772,6 +791,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   histQPrompt = new TH1D("histqprompt", "qprompt by channel", totalchannels, 0, totalchannels);
   histQSum->Sumw2();
   histQPrompt->Sumw2();
+  hSumPMT = new TH1D("SumPMT","SumPMT",1100,-100,2000);
 
   //
   anaDir = fout->mkdir("anadir");
@@ -780,19 +800,20 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   {
     unsigned ichan = i;
     hChannelGaus.push_back(new TH1D(Form("channelGaus%i", ichan), Form("channelGaus%i", ichan ), 600, -100, 500));
-    baseHist.push_back(new TH1D(Form("baseChan%i", ichan), Form("baseChan%i", ichan), 2000,-1000, 1000));
     noiseHist.push_back(new TH1D(Form("noiseChan%i", ichan), Form("noiseChan%i", ichan), 1000, 0, 1000));
     skewHist.push_back(new TH1D(Form("skewChan%i", ichan), Form("skewChan%i", ichan), 200, -3, 7));
     threshHist.push_back(new TH1D(Form("threshChan%i", ichan), Form("threshChan%i", ichan), 20, 0, 20));
     crossHist.push_back(new TH1D(Form("crossChan%i", ichan), Form("crossChan%i", ichan), 100, 0, 100));
-    if (ichan > 8 && ichan < 12)
+    if (ichan > 8 && ichan<12)
     {
       valHist.push_back(new TH1D(Form("valChan%i", ichan), Form("valChan%i", ichan), 1500, -500, 1000));
       valHistB.push_back(new TH1D(Form("valBadChan%i", ichan), Form("valBadChan%i", ichan), 1500, -500, 1000));
       hEvGaus.push_back(new TH1D(Form("evGaus%i", ichan), Form("evGaus%i", ichan), 200, -500, 500));
+      baseHist.push_back(new TH1D(Form("baseChan%i", ichan), Form("baseChan%i", ichan), 200,-10000, 1000));
     }
     else
     {
+      baseHist.push_back(new TH1D(Form("baseChan%i", ichan), Form("baseChan%i", ichan), 200,-100, 100));
       valHist.push_back(new TH1D(Form("valChan%i", ichan), Form("valChan%i", ichan), 1000, -200, 200));
       valHistB.push_back(new TH1D(Form("valBadChan%i", ichan), Form("valBadChan%i", ichan), 1000, -200, 200));
       hEvGaus.push_back(new TH1D(Form("evGaus%i", ichan), Form("evGaus%i", ichan), 200, -100, 100));
@@ -946,7 +967,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
 
   
   //printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
-  printf(" FINISHED pass %i fail 1 %i cosmic only %i fail both %i output file %s  \n", int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)), fout->GetName());
+  printf(" FINISHED pass %i fail %i cosmic only %i fail both %i output file %s  \n", int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)), fout->GetName());
   fout->Write();
   fout->Close();
   return nentries;
