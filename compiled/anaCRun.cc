@@ -69,6 +69,7 @@ public:
   vector<TH1D *> skewHist;
   vector<TH1D *> sumWave;
   vector<TH1D *> sumHitWave;
+  vector<TH1D *> sumPeakWave;
   vector<TH1D *> valHist;
   vector<TH1D *> sumWaveB;
   vector<TH1D *> valHistB;
@@ -143,6 +144,7 @@ void anaCRun::clear()
   skewHist.clear();
   sumWave.clear();
   sumHitWave.clear();
+  sumPeakWave.clear();
   valHist.clear();
   sumWaveB.clear();
   valHistB.clear();
@@ -580,8 +582,10 @@ bool anaCRun::anaEvent(Long64_t entry)
       hQSum[idet]->Fill(thit.qsum);
       hQPeak[idet]->Fill(thit.qpeak);
       // do threshold for summed waveform
-      if (thit.qsum > hitThreshold)
+      if (thit.qsum > hitThreshold){
         sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
+        sumPeakWave[idet]->SetBinContent(thit.firstBin + 1, sumPeakWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
+      }
 
       if (thit.qpeak > 100 && thit.qpeak  < 300 && thit.startTime > 800)
       {
@@ -843,6 +847,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
     sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
     sumWaveB.push_back(new TH1D(Form("sumWaveBad%i", ichan), Form("sumWaveBad%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
     sumHitWave.push_back(new TH1D(Form("sumHitWave%i", ichan), Form("sumHitWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+    sumPeakWave.push_back(new TH1D(Form("sumPeakWave%i", ichan), Form("sumPeakWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
   }
   fout->cd();
 
