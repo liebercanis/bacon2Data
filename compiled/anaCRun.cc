@@ -61,6 +61,7 @@ public:
   std::map<int, int> chanMap;
   vector<TBRawEvent *> rawBr;
   TBEventData *eventData;
+  TBEventData *rawEventData;
   TBRun *tbrun;
   TNtuple *ntChan;
   TNtuple *ntChanSum;
@@ -211,9 +212,9 @@ bool anaCRun::openFile(TString theFile)
     return false;
   }
   cout << "  RawTree has " << rawTree->GetEntries() << " entries " << endl;
-  eventData = new TBEventData();
-  rawTree->SetBranchAddress("eventData", &eventData);
-  if (!eventData)
+  rawEventData = new TBEventData();
+  rawTree->SetBranchAddress("eventData", &rawEventData);
+  if (!rawEventData)
   {
     printf(" eventData not found in file  %s\n", fileName.Data());
     return false;
@@ -271,6 +272,15 @@ void anaCRun::getSummedHists()
 /* analyze rawBr */
 bool anaCRun::anaEvent(Long64_t entry)
 {
+  // copy event data
+  eventData->evtime = rawEventData->evtime;
+  eventData->sec  = rawEventData->sec;
+  eventData->min  = rawEventData->min;
+  eventData->hour = rawEventData->hour;
+  eventData->day  = rawEventData->day;
+  eventData->mon  = rawEventData->mon;
+  eventData->year = rawEventData->year;
+  eventData->isdst = rawEventData->isdst;
   QPEPeak = 100;
   tbrun->clear();
   // loop over channels
@@ -739,7 +749,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   // need to fill rawBr[0]->rdigi.size()
   printf("Read zeroth entry from tree \n");
   rawTree->GetEntry(0);
-  printf("\t\t start of file %i %i %i : %i\n", eventData->day, eventData->mon, eventData->year, eventData->hour);
+  printf("\t\t start of file %i %i %i : %i\n", rawEventData->day, rawEventData->mon, rawEventData->year, rawEventData->hour);
   printf("\t\t SIZE OF WAVEFORM = %lu \n", rawBr[0]->rdigi.size());
   if (rawBr[0]->rdigi.size() != WAVELENGTH)
   {
@@ -778,6 +788,10 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
 
   // make output tree
   tbrun = new TBRun(tag);
+  // and event time
+  eventData = new TBEventData();
+  tbrun->btree->Branch("eventData",&eventData);
+
   for (unsigned it = 0; it < rawBr.size(); ++it)
   {
     tbrun->addDet(it);
