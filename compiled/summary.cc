@@ -455,7 +455,7 @@ void addRunSumHistos()
     for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
     {
 
-      TString fullName = dirName + TString("/") + fileList[ifile];
+      TString fullName = dirName + fileList[ifile];
       fin = new TFile(fullName);
       fin->GetObject("sumDir", sumDir);
       if (!sumDir)
@@ -620,7 +620,7 @@ void addRunSumHistos()
     else
       theDataType = SIS;
 
-    dirName = TString(argv[2]);
+    dirName = TString(argv[2]) + TString("/");
 
     printf(" >>>> datatype %i (0=sis,1=caen) dir %s <<<<\n", theDataType, dirName.Data());
 
