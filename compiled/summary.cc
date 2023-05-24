@@ -676,7 +676,7 @@ void addRunSumHistos()
     printf(" \t\t make slope graph %lu \n", filenum.size());
     fitSlopes();
     printf(" \t\t make graphs %lu \n", filenum.size());
-    makeGraphs();
+    if(fileum.size>0) makeGraphs();
 
     // report
     /*for (unsigned it = 0; it < fileTime.size(); ++it)
