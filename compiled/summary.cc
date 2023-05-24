@@ -583,7 +583,8 @@ void addRunSumHistos()
   // count subruns and channels
   unsigned long countFiles()
   {
-    TSystemDirectory dir(dirName, dirName); // TSystemDirectory
+    cout << " count files in dir " << dirName << endl;
+    TSystemDirectory dir(dirName, dirName);  // TSystemDirectory
     TList *files = dir.GetListOfFiles();     //
     TIter next(files);
     TSystemFile *file;
@@ -628,7 +629,8 @@ void addRunSumHistos()
 
     dopeTime = TDatime(2023, 3, 9, 22, 0, 0);
 
-    countFiles();
+    if(countFiles()==0)
+      exit(0);
 
     // for (unsigned ic = 0; ic < nchan; ++ic)
     //   printf(" chan %u vecQsum %lu \n",ic,vecQsum[ic].size());
