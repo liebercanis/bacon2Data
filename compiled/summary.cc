@@ -134,7 +134,6 @@ void addRunSumHistos()
       {
         string chan = name.substr(name.find_last_of("e") + 1);
         int ichan = stoi(chan);
-        // cout << name << " string chan " << chan << " int " << ichan << " size " << hRunSumPeakWave.size() << endl;
 
         // cout << " sHitWave clone " << name << " file  " << ifile  << endl;
         hClone = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
@@ -144,7 +143,8 @@ void addRunSumHistos()
       if (name.find("sumPeakWave") != std::string::npos) {
         string chan = name.substr(name.find_last_of("e") + 1);
         int ichan = stoi(chan);
-        if (hRunSumPeakWave[ichan] != NULL)
+        cout << name << " string chan " << chan << " int " << ichan << " size " << h->GetName() << " " << hRunSumPeakWave.size()<< endl;
+        if (hRunSumPeakWave[ichan] == NULL)
         {
           hRunSumPeakWave[ichan] = (TH1D *)h->Clone(Form("RunSumPeakWave-%lli-chan%i", maxFiles, ichan));
           waveSumDir->Add(hRunSumPeakWave[ichan]);
@@ -527,14 +527,11 @@ void addRunSumHistos()
         printf("skipping hRunSumPeakWave %i \n", ih);
         continue;
       }
-      cout << ih << endl;
-      cout << hRunSumPeakWave[ih]->GetName() << endl;
       std::string name = string(hRunSumPeakWave[ih]->GetName());
-      string chan = name.substr(name.find("SumWave") + 7);
-      string file = name.substr(name.find("file") + 4);
-      cout << file << " "<< chan << endl;
+      cout << " fitSlopes hist " <<  ih <<  " " << hRunSumPeakWave[ih]->GetName() << " " << name << endl;
+      string chan = name.substr(name.find_last_of("n") + 1);
+      cout << "fitSlopes chan   "<< chan << endl;
       int ichan = stoi(chan);
-      int ifile = stoi(file);
       double xlow = 0.;
       double xhigh = 0;
       if (theDataType == SIS)
