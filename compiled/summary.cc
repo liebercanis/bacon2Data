@@ -332,13 +332,12 @@ void addRunSumHistos()
       fin->GetObject("histQsum", hqsum);
       fin->GetObject("histQprompt", hqprompt);
 
-      if (!hqsum || !hqprompt)
-        continue;
-
-      TH1D *hq = (TH1D *)hqsum->Clone(Form("hqsum%i", ifile));
-      fout->Add(hq);
-      TH1D *hp = (TH1D *)hqsum->Clone(Form("hqprompt%i", ifile));
-      fout->Add(hp);
+      if (hqsum && hqprompt) {
+        TH1D *hq = (TH1D *)hqsum->Clone(Form("hqsum%i", ifile));
+        fout->Add(hq);
+        TH1D *hp = (TH1D *)hqsum->Clone(Form("hqprompt%i", ifile));
+        fout->Add(hp);
+      }
       eventCount = NULL;
       cout << " get event Count " << endl;
       fin->GetObject("eventCount", eventCount);
