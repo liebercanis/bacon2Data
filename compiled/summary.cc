@@ -678,8 +678,8 @@ void addRunSumHistos()
     printf(" \t\t make slope graph %lu \n", filenum.size());
     printf(" \t\t make graphs %lu \n", filenum.size());
     if(filenum.size()>0) {
-    fitSlopes();
-    makeGraphs();
+      fitSlopes();
+      makeGraphs();
     }
 
     // report
@@ -701,7 +701,8 @@ void addRunSumHistos()
   /*  put this all at bottom */
   void makeGraphs()
   {
-    cout << " \n\t ******* makeGraphs ***** vecQsum "<< vecQsum.size() << " vecQPE  "<< vecQPE.size()<< endl;
+    cout << " \n\t ******* makeGraphs *****  "<< endl;
+    cout << " \n\t vecQsum "<< vecQsum.size() << " vecQPE  "<< vecQPE.size()<< endl;
     if (vecQsum.size() == 0)
       return;
     int myColor[13] = {41, 42, 43, 44, 45, 46, 2, 3, 4, 31, 32, 33, 34};
