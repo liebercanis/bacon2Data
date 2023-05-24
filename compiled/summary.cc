@@ -674,9 +674,9 @@ void addRunSumHistos()
 
     // call function to fit slopes and fill vSlope, vESlope
     printf(" \t\t make slope graph %lu \n", filenum.size());
-    if (fileum.size > 0)  fitSlopes();
+    if (filenum.size > 0)  fitSlopes();
     printf(" \t\t make graphs %lu \n", filenum.size());
-    if(fileum.size>0) makeGraphs();
+    if(filenum.size>0) makeGraphs();
 
     // report
     /*for (unsigned it = 0; it < fileTime.size(); ++it)
