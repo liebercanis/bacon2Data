@@ -518,7 +518,7 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
   void fitSlopes()
   {
     // cout << "ssssssss  summed hits    " << hSumWave.size() << " , " << hSumHitWave.size() << endl;
-    for (unsigned ih = 0; ih < hSumWave.size(); ++ih)
+    for (unsigned ih = 0; ih < hRunSumHitWave.size() ; ++ih)
     {
       std::string name = string(hSumWave[ih]->GetName());
       string chan = name.substr(name.find("sumWave") + 7);
@@ -536,7 +536,7 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
         double xhigh = 1000.;
       }
 
-      TH1D *hfitwave = (TH1D *)hSumHitWave[ih]->Clone("fitwave");
+      TH1D *hfitwave = (TH1D *)hRunSumHitWave[ih]->Clone("fitwave");
       hfitwave->GetListOfFunctions()->Clear();
       hfitwave->SetDirectory(nullptr);
       TF1 *gslopefit = NULL;
@@ -666,8 +666,8 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
   for (unsigned jfile = 0; jfile < filenum.size(); ++jfile)
   {
     int ifile = int(filenum[jfile]);
-    
-  }
+    printf(" %i %s \n",ifile, fileList[ifile].Data());
+    }
 
   addSumHistos();
   getSumHistos();
@@ -677,8 +677,8 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
 
   // call function to fit slopes and fill vSlope, vESlope
   printf(" \t\t make slope graph %lu \n", filenum.size());
-  fitSlopes();
   printf(" \t\t make graphs %lu \n", filenum.size());
+  fitSlopes();
   makeGraphs();
 
   // report
