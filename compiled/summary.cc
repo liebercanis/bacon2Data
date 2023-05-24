@@ -143,11 +143,10 @@ void addRunSumHistos()
         {
           hRunSumHitWave[ichan] = (TH1D *)h->Clone(Form("RunSumHitWave-%lli-chan%i", maxFiles, ichan));
           waveSumDir->Add(hRunSumHitWave[ichan]);
-
-          // cout << " clone bins " << hClone->GetNbinsX() << " RunSum " << hRunSumHitWave[ichan]->GetNbinsX() << endl;
-          for (int ibin = 0; ibin < hClone->GetNbinsX(); ++ibin)
-            hRunSumHitWave[ichan]->SetBinContent(ibin, hClone->GetBinContent(ibin) + hRunSumHitWave[ichan]->GetBinContent(ibin));
         }
+        // cout << " clone bins " << hClone->GetNbinsX() << " RunSum " << hRunSumHitWave[ichan]->GetNbinsX() << endl;
+        for (int ibin = 0; ibin < hClone->GetNbinsX(); ++ibin)
+            hRunSumHitWave[ichan]->SetBinContent(ibin, hClone->GetBinContent(ibin) + hRunSumHitWave[ichan]->GetBinContent(ibin));
       }
 
         // get QSumChan by channel
@@ -395,7 +394,7 @@ void addRunSumHistos()
         printf("  summary file %u  %s chan 6 %f  \n", ifile, fileList[ifile].Data(), vecQsum[6][ifile]);
       
       }
-      //fin->Close();
+      fin->Close();
     } // end loop over files
   }
 
