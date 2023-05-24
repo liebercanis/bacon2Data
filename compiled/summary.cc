@@ -348,7 +348,6 @@ void addRunSumHistos()
         fout->Add(hevcount);
       }
 
-      cout << "for file  " << ifile << " " << fileList[ifile] << " " << hqsum->GetName() << " " << hqsum->GetNbinsX() << endl;
 
       filenum.push_back(double(ifile));
       efilenum.push_back(0);
@@ -375,26 +374,28 @@ void addRunSumHistos()
           printf(" %i count %0f norm %f \n", i, eventCount->GetBinContent(i + 1), norm);
         }
       }
-
-      for (int i = 0; i < hqsum->GetNbinsX() - 1; ++i)
-      {
-        double norm = 1.0;
-        // now overflow is every event and qsum bin is
-        if (eventCount)
+      if (hqsum && hqprompt) {
+        for (int i = 0; i < hqsum->GetNbinsX() - 1; ++i)
+        {
+          double norm = 1.0;
+          // now overflow is every event and qsum bin is
+          if (eventCount)
           norm = eventCount->GetBinContent(i) / eventCount->GetBinContent(0);
         double val = 0;
         double eval = 0;
         if (!isnan(hqsum->GetBinContent(i + 1)) && !isinf(hqsum->GetBinContent(i + 1)))
-        {
-          val = hqsum->GetBinContent(i + 1) / norm;
-          eval = hqsum->GetBinError(i + 1) / norm;
+          {
+            val = hqsum->GetBinContent(i + 1) / norm;
+            eval = hqsum->GetBinError(i + 1) / norm;
+          }
+          vecQsum[i].push_back(val);
+          vecEQsum[i].push_back(eval);
+          cout << "chan " << i << " qsum " << hqsum->GetBinContent(i + 1) << " norm " << norm << " size " << vecQsum[i].size() << endl;
         }
-        vecQsum[i].push_back(val);
-        vecEQsum[i].push_back(eval);
-        cout << "chan " << i << " qsum " << hqsum->GetBinContent(i + 1) << " norm " << norm << " size " << vecQsum[i].size() << endl;
+        printf("  summary file %u  %s chan 6 %f  \n", ifile, fileList[ifile].Data(), vecQsum[6][ifile]);
+      
       }
-      printf("  summary file %u  %s chan 6 %f  \n", ifile, fileList[ifile].Data(), vecQsum[6][ifile]);
-      fin->Close();
+    fin->Close();
     } // end loop over files
   }
 
