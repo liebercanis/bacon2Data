@@ -515,7 +515,7 @@ void addRunSumHistos()
 
   void fitSlopes()
   {
-    printf(" \t\t make slope graph %lu \n", filenum.size());
+    printf(" \t\t make slope graph %lu RunSum size %lu \n", filenum.size(), hRunSumHitWave.size());
     // cout << "ssssssss  summed hits    " << hSumWave.size() << " , " << hSumHitWave.size() << endl;
     if (hRunSumHitWave.size()==0)
       return;
