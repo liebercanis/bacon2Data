@@ -521,7 +521,7 @@ void addRunSumHistos()
       return;
     for (unsigned ih = 0; ih < hRunSumHitWave.size(); ++ih)
     {
-      std::string name = string(hSumWave[ih]->GetName());
+      std::string name = string(hRunSumWave[ih]->GetName());
       string chan = name.substr(name.find("sumWave") + 7);
       string file = name.substr(name.find("file") + 4);
       int ichan = stoi(chan);
