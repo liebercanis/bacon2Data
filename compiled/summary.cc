@@ -315,8 +315,8 @@ void addRunSumHistos()
     printf("fileLoop over %lld files \n", maxFiles);
     for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
     {
-      cout << " starting anaRunFile " << fileList[ifile] << endl;
-      TString fullName =  + fileList[ifile];
+      TString fullName =  dirNameSlash + fileList[ifile];
+      cout << " starting anaRunFile " << fullName << endl;
       fin = new TFile(fullName);
 
       fin->GetObject("sumDir", sumDir);
@@ -630,11 +630,11 @@ void addRunSumHistos()
     dopeTime = TDatime(2023, 3, 9, 22, 0, 0);
 
     unsigned nfiles = countFiles();
-    if (nfiles  == 0)
+    if (countFiles() == 0)
       exit(0);
 
     // for (unsigned ic = 0; ic < nchan; ++ic)
-    printf(" number of files %u \n",nfiles);
+    //   printf(" chan %u vecQsum %lu \n",ic,vecQsum[ic].size());
 
     printf(" for %s found %lu files \n", tag.Data(), fileList.size());
     maxFiles = fileList.size();
