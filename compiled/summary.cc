@@ -87,7 +87,7 @@ enum dataType
 int theDataType;
 TString dirName;
 
-void getSumHistos()
+void addRunSumHistos()
 {
   int nbinsx = 0;
   bool first = true;
@@ -99,17 +99,17 @@ void getSumHistos()
     fin->GetObject("sumDir", sumDir);
     if (!sumDir)
     {
-      printf("getSumHistos file %s no sumDir!!! \n", fileList[ifile].Data());
+      printf("addRunSumHistos file %s no sumDir!!! \n", fileList[ifile].Data());
       continue;
     }
 
     TList *sumList = sumDir->GetListOfKeys();
-    cout << " >>>>> getSumHistos file  " << fileList[ifile] << " sumDir size " << sumList->GetSize() << endl;
+    cout << " >>>>> addRunSumHistos file  " << fileList[ifile] << " sumDir size " << sumList->GetSize() << endl;
     // sumDir->ls();
 
     TIter next(sumList);
     TKey *key;
-    // printf("addSumHistos %u \n", sumList->GetEntries());
+    // printf("addsumDirHistos %u \n", sumList->GetEntries());
     while (TKey *key = (TKey *)next())
     {
       TClass *cl = gROOT->GetClass(key->GetClassName());
@@ -197,7 +197,7 @@ void getSumHistos()
           xlow = 4.E4;
           xhigh = 9.E4;
         }
-        hclone->Fit("gaus", " ", " ", xlow, xhigh);
+        hclone->Fit("gaus", "Q", " ", xlow, xhigh);
         TF1 *gfit = (TF1 *)hclone->GetListOfFunctions()->FindObject("gaus");
         double par1 = 0;
         double epar1 = 0;
@@ -311,16 +311,6 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
       cout << " starting anaRunFile " << fileList[ifile] << endl;
       TString fullName = TString("myData/") + fileList[ifile];
       fin = new TFile(fullName);
-      TGraphErrors *gslope;
-
-      fin->GetObject("gslope",gslope);
-      if (!gslope)
-      {
-        printf(" no gslope graph in file %s \n",fileList[ifile].Data());
-        //continue;
-      } else {
-        cout <<  " slope graph " << gslope->GetTitle() << endl;
-      }
 
       fin->GetObject("sumDir", sumDir);
       if (!sumDir)
@@ -424,7 +414,7 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
         xlow = 4.E4;
         xhigh = 8.E4;
       }
-      hclone->Fit("gaus", " ", " ", xlow, xhigh);
+      hclone->Fit("gaus", "Q", " ", xlow, xhigh);
       TF1 *gfit = (TF1 *)hclone->GetListOfFunctions()->FindObject("gaus");
       double par1 = 0;
       double epar1 = 0;
@@ -450,7 +440,7 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
     }
   }
 
-  void addSumHistos()
+  void addsumDirHistos()
   {
     int nbinsx = 0;
     bool first = true;
@@ -462,17 +452,17 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
       fin->GetObject("sumDir", sumDir);
       if (!sumDir)
       {
-        printf("addSumHistos file %s no sumDir!!! \n",fileList[ifile].Data());
+        printf("addsumDirHistos file %s no sumDir!!! \n",fileList[ifile].Data());
         continue;
       }
 
       TList *sumList = sumDir->GetListOfKeys();
-      cout << " >>>>> addSumHistos file  " << fileList[ifile] << " sumDir size " <<  sumList->GetSize() <<endl;
+      cout << " >>>>> addsumDirHistos file  " << fileList[ifile] << " sumDir size " <<  sumList->GetSize() <<endl;
       // sumDir->ls();
 
       TIter next(sumList);
       TKey *key;
-      //printf("addSumHistos %u \n", sumList->GetEntries());
+      //printf("addsumDirHistos %u \n", sumList->GetEntries());
       while (TKey *key = (TKey *)next())
       {
         TClass *cl = gROOT->GetClass(key->GetClassName());
@@ -669,16 +659,16 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
     printf(" %i %s \n",ifile, fileList[ifile].Data());
     }
 
-  addSumHistos();
-  getSumHistos();
+  addsumDirHistos();
+  addRunSumHistos();
   // for (std::map<int, TH1D *>::iterator it = histMap.begin(); it != histMap.end(); ++it)
   //   std::cout << it->first << " => " << it->second->GetName() << '\n';
   QPEFits();
 
   // call function to fit slopes and fill vSlope, vESlope
   printf(" \t\t make slope graph %lu \n", filenum.size());
-  printf(" \t\t make graphs %lu \n", filenum.size());
   fitSlopes();
+  printf(" \t\t make graphs %lu \n", filenum.size());
   makeGraphs();
 
   // report
