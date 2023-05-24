@@ -308,7 +308,7 @@ void addRunSumHistos()
 
   void fileLoop()
   {
-
+    printf("fileLoop over %lld files \n", maxFiles);
     for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
     {
       cout << " starting anaRunFile " << fileList[ifile] << endl;
