@@ -95,7 +95,7 @@ void addRunSumHistos()
   for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
   {
 
-    TString fullName = TString("myData/") + fileList[ifile];
+    TString fullName = dirName + fileList[ifile];
     fin = new TFile(fullName);
     fin->GetObject("sumDir", sumDir);
     if (!sumDir)
@@ -315,7 +315,7 @@ void addRunSumHistos()
     for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
     {
       cout << " starting anaRunFile " << fileList[ifile] << endl;
-      TString fullName = TString("myData/") + fileList[ifile];
+      TString fullName =  + fileList[ifile];
       fin = new TFile(fullName);
 
       fin->GetObject("sumDir", sumDir);
@@ -455,7 +455,7 @@ void addRunSumHistos()
     for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
     {
 
-      TString fullName = TString("myData/") + fileList[ifile];
+      TString fullName = dirName + TString("/") + fileList[ifile];
       fin = new TFile(fullName);
       fin->GetObject("sumDir", sumDir);
       if (!sumDir)
@@ -760,7 +760,7 @@ void addRunSumHistos()
       normQPE[ic] = 1;
       if (vecQPE[ic].size() > 0)
       {
-        // printf("\t vecQPE =  %f  \n", vecQPE[ic][0]);
+          printf("\t vecQPE =  %f  \n", vecQPE[ic][0]);
         if (!isinf(vecQPE[ic][0]) && vecQPE[ic][0] > 0)
           normQPE[ic] = vecQPE[ic][0];
       }
