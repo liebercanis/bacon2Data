@@ -302,7 +302,6 @@ void addRunSumHistos()
       datime.Set(eventData->year, eventData->mon, eventData->day, eventData->hour, eventData->min, eventData->sec);
     }
 
-    return datime;
   }
 
   void fileLoop()
@@ -460,7 +459,7 @@ void addRunSumHistos()
       }
 
       TList *sumList = sumDir->GetListOfKeys();
-      cout << " >>>>> addsumDirHistos file  " << fileList[ifile] << " sumDir size " << sumList->GetSize() << endl;
+      //cout << " >>>>> addsumDirHistos file  " << fileList[ifile] << " sumDir size " << sumList->GetSize() << endl;
       // sumDir->ls();
 
       TIter next(sumList);
@@ -623,7 +622,7 @@ void addRunSumHistos()
 
     printf(" for %s found %lu files \n", tag.Data(), fileList.size());
     maxFiles = fileList.size();
-    if (argc > 4)
+    if (argc > 2)
     {
       maxFiles = atoi(argv[3]);
     }
