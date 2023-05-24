@@ -104,7 +104,7 @@ void addRunSumHistos()
     }
 
     TList *sumList = sumDir->GetListOfKeys();
-    cout << " >>>>> addRunSumHistos file  " << fileList[ifile] << " sumDir size " << sumList->GetSize() << endl;
+    //cout << " >>>>> addRunSumHistos file  " << fileList[ifile] << " sumDir size " << sumList->GetSize() << endl;
     // sumDir->ls();
 
     TIter next(sumList);
@@ -139,16 +139,14 @@ void addRunSumHistos()
         hClone = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
         hSumHitWave.push_back(hClone);
         // add to hRunSumHitWave;
-        if (hRunSumHitWave[ichan] == NULL)
+        if (hRunSumHitWave[ichan] != NULL)
         {
           hRunSumHitWave[ichan] = (TH1D *)h->Clone(Form("RunSumHitWave-%lli-chan%i", maxFiles, ichan));
           waveSumDir->Add(hRunSumHitWave[ichan]);
-        }
 
         // cout << " clone bins " << hClone->GetNbinsX() << " RunSum " << hRunSumHitWave[ichan]->GetNbinsX() << endl;
         for (int ibin = 0; ibin < hClone->GetNbinsX(); ++ibin)
           hRunSumHitWave[ichan]->SetBinContent(ibin, hClone->GetBinContent(ibin) + hRunSumHitWave[ichan]->GetBinContent(ibin));
-          waveSumDir->Add(hClone);
       }
 
       // get QSumChan by channel
