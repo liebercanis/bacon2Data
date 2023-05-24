@@ -67,7 +67,7 @@ std::vector<vector<double>> vESlope;
 std::vector<TH1D *> hSumWave;
 std::vector<vector<TH1D *>> vRunQSum;
 std::vector<TH1D *> hSumHitWave;
-std::vector<TH1D *> hRunSumHitWave;
+std::vector<TH1D *> hRunSumPeakWave;
 std::map<int, TH1D *> histMap;
 TDirectory *sumDir;
 TDirectory *waveSumDir;
@@ -134,24 +134,24 @@ void addRunSumHistos()
       {
         string chan = name.substr(name.find_last_of("e") + 1);
         int ichan = stoi(chan);
-        // cout << name << " string chan " << chan << " int " << ichan << " size " << hRunSumHitWave.size() << endl;
+        // cout << name << " string chan " << chan << " int " << ichan << " size " << hRunSumPeakWave.size() << endl;
 
         // cout << " sHitWave clone " << name << " file  " << ifile  << endl;
         hClone = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
         hSumHitWave.push_back(hClone);
+        // add to hRunSumPeakWave;
       }
-        // add to hRunSumHitWave;
-      if (name.find("RunSumHitWave") != std::string::npos) {
+      if (name.find("sumPeakWave") != std::string::npos) {
         string chan = name.substr(name.find_last_of("e") + 1);
         int ichan = stoi(chan);
-        if (hRunSumHitWave[ichan] != NULL)
+        if (hRunSumPeakWave[ichan] != NULL)
         {
-          hRunSumHitWave[ichan] = (TH1D *)h->Clone(Form("RunSumHitWave-%lli-chan%i", maxFiles, ichan));
-          waveSumDir->Add(hRunSumHitWave[ichan]);
-          cout << " clone bins " << hClone->GetNbinsX() << " RunSum " << hRunSumHitWave[ichan]->GetNbinsX() << endl;
+          hRunSumPeakWave[ichan] = (TH1D *)h->Clone(Form("RunSumPeakWave-%lli-chan%i", maxFiles, ichan));
+          waveSumDir->Add(hRunSumPeakWave[ichan]);
+          cout << " clone bins " << hClone->GetNbinsX() << " RunSum " << hRunSumPeakWave[ichan]->GetNbinsX() << endl;
         }
         for (int ibin = 0; ibin < hClone->GetNbinsX(); ++ibin)
-            hRunSumHitWave[ichan]->SetBinContent(ibin, hClone->GetBinContent(ibin) + hRunSumHitWave[ichan]->GetBinContent(ibin));
+            hRunSumPeakWave[ichan]->SetBinContent(ibin, hClone->GetBinContent(ibin) + hRunSumPeakWave[ichan]->GetBinContent(ibin));
       }
       // get QSumChan by channel
       if (name.find("QSumChan") != std::string::npos) {
@@ -519,17 +519,17 @@ void addRunSumHistos()
 
   void fitSlopes()
   {
-    printf(" \t\t make slope graph %lu RunSum size %lu \n", filenum.size(), hRunSumHitWave.size());
+    printf(" \t\t make slope graph %lu RunSum size %lu \n", filenum.size(), hRunSumPeakWave.size());
     // cout << "ssssssss  summed hits    " << hSumWave.size() << " , " << hSumHitWave.size() << endl;
-    for (unsigned ih = 0; ih < hRunSumHitWave.size(); ++ih)
+    for (unsigned ih = 0; ih < hRunSumPeakWave.size(); ++ih)
     {
-      if(hRunSumHitWave[ih]==NULL){
-        printf("skipping hRunSumHitWave %i \n", ih);
+      if(hRunSumPeakWave[ih]==NULL){
+        printf("skipping hRunSumPeakWave %i \n", ih);
         continue;
       }
       cout << ih << endl;
-      cout << hRunSumHitWave[ih]->GetName() << endl;
-      std::string name = string(hRunSumHitWave[ih]->GetName());
+      cout << hRunSumPeakWave[ih]->GetName() << endl;
+      std::string name = string(hRunSumPeakWave[ih]->GetName());
       string chan = name.substr(name.find("SumWave") + 7);
       string file = name.substr(name.find("file") + 4);
       cout << file << " "<< chan << endl;
@@ -548,7 +548,7 @@ void addRunSumHistos()
         double xhigh = 1000.;
       }
 
-      TH1D *hfitwave = (TH1D *)hRunSumHitWave[ih]->Clone("fitwave");
+      TH1D *hfitwave = (TH1D *)hRunSumPeakWave[ih]->Clone("fitwave");
       hfitwave->GetListOfFunctions()->Clear();
       hfitwave->SetDirectory(nullptr);
       TF1 *gslopefit = NULL;
@@ -665,9 +665,9 @@ void addRunSumHistos()
     vSlope.resize(nchan);
     vESlope.resize(nchan);
     vRunQSum.resize(nchan);
-    hRunSumHitWave.resize(nchan);
+    hRunSumPeakWave.resize(nchan);
     for (unsigned ichan = 0; ichan < nchan; ++ichan)
-      hRunSumHitWave[ichan] = NULL;
+      hRunSumPeakWave[ichan] = NULL;
 
     fileLoop();
     // for (unsigned ic = 0; ic < nchan; ++ic)
