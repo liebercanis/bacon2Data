@@ -515,6 +515,7 @@ void addRunSumHistos()
 
   void fitSlopes()
   {
+    printf(" \t\t make slope graph %lu \n", filenum.size());
     // cout << "ssssssss  summed hits    " << hSumWave.size() << " , " << hSumHitWave.size() << endl;
     if (hRunSumHitWave.size()==0)
       return;
@@ -675,8 +676,6 @@ void addRunSumHistos()
     QPEFits();
 
     // call function to fit slopes and fill vSlope, vESlope
-    printf(" \t\t make slope graph %lu \n", filenum.size());
-    printf(" \t\t make graphs %lu \n", filenum.size());
     if(filenum.size()>0) {
       fitSlopes();
       makeGraphs();
@@ -701,6 +700,7 @@ void addRunSumHistos()
   /*  put this all at bottom */
   void makeGraphs()
   {
+    printf(" \t\t make graphs %lu \n", filenum.size());
     cout << " \n\t ******* makeGraphs *****  "<< endl;
     cout << " \n\t vecQsum "<< vecQsum.size() << " vecQPE  "<< vecQPE.size()<< endl;
     if (vecQsum.size() == 0)
