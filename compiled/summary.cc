@@ -86,6 +86,7 @@ enum dataType
 };
 int theDataType;
 TString dirName;
+TString dirNameSlash;
 
 void addRunSumHistos()
 {
@@ -95,7 +96,7 @@ void addRunSumHistos()
   for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
   {
 
-    TString fullName = dirName + fileList[ifile];
+    TString fullName = dirNameSlash + fileList[ifile];
     fin = new TFile(fullName);
     fin->GetObject("sumDir", sumDir);
     if (!sumDir)
@@ -455,7 +456,7 @@ void addRunSumHistos()
     for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
     {
 
-      TString fullName = dirName + fileList[ifile];
+      TString fullName = dirNameSlash + fileList[ifile];
       fin = new TFile(fullName);
       fin->GetObject("sumDir", sumDir);
       if (!sumDir)
@@ -582,7 +583,7 @@ void addRunSumHistos()
   // count subruns and channels
   unsigned long countFiles()
   {
-    TSystemDirectory dir("mydata", dirName); // TSystemDirectory
+    TSystemDirectory dir(dirName, dirName); // TSystemDirectory
     TList *files = dir.GetListOfFiles();     //
     TIter next(files);
     TSystemFile *file;
@@ -620,7 +621,8 @@ void addRunSumHistos()
     else
       theDataType = SIS;
 
-    dirName = TString(argv[2]) + TString("/");
+    dirName = TString(argv[2]);
+    dirNameSlash = TString(argv[2]) + TString("/");
 
     printf(" >>>> datatype %i (0=sis,1=caen) dir %s <<<<\n", theDataType, dirName.Data());
 
