@@ -133,7 +133,7 @@ void addRunSumHistos()
       {
         string chan = name.substr(name.find_last_of("e") + 1);
         int ichan = stoi(chan);
-        cout << name << " string chan " << chan << " int " << ichan << " size " << hRunSumHitWave.size() << endl;
+        //cout << name << " string chan " << chan << " int " << ichan << " size " << hRunSumHitWave.size() << endl;
 
         // cout << " sHitWave clone " << name << " file  " << ifile  << endl;
         hClone = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
@@ -156,7 +156,7 @@ void addRunSumHistos()
         continue;
       string chan = name.substr(name.find_last_of("n") + 1);
       int ichan = stoi(chan);
-      cout << name << "string chan" << chan << " int " << ichan << endl;
+      //cout << name << "string chan" << chan << " int " << ichan << endl;
 
       TString cloneName;
       cloneName.Form("runQSumCh%i-file%i", ichan, ifile);
@@ -487,12 +487,12 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
           TH1D *fileHist = NULL;
           qpeSumDir->GetObject(cloneName, fileHist);
           histMap.insert(std::pair<int, TH1D *>(ichan,fileHist));
-          cout << " QSumChan clone " << name << " chan " << ichan << " NbinsX " << hAdd->GetNbinsX() << " integral " << histMap.at(ichan)->Integral() << endl;
+          //cout << " QSumChan clone " << name << " chan " << ichan << " NbinsX " << hAdd->GetNbinsX() << " integral " << histMap.at(ichan)->Integral() << endl;
         }
         else if (hAdd->GetNbinsX()==nbinsx) // add
         {
           histMap.at(ichan)->Add(hAdd);
-          cout << " add QSumChan " << name << " chan " << ichan << " NbinsX " << hAdd->GetNbinsX() << " integral " << histMap.at(ichan)->Integral() << endl;
+          // cout << " add QSumChan " << name << " chan " << ichan << " NbinsX " << hAdd->GetNbinsX() << " integral " << histMap.at(ichan)->Integral() << endl;
         } else {
           cout << " Warning! skip QSumChan  " << name << " chan " << ichan << " NbinsX " <<  nbinsx << " , " <<  hAdd->GetNbinsX() << endl;
         }
@@ -570,7 +570,7 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
     while ((file = (TSystemFile *)next()))
     {
       string name = string(file->GetName());
-      cout << name << endl;
+      //cout << name << endl;
       string exten = name.substr(name.find_last_of(".") + 1);
       if (exten != string("root"))
         continue;
@@ -650,9 +650,9 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
   for(unsigned ichan=0; ichan<nchan; ++ichan)
       hRunSumHitWave[ichan] = NULL;
 
-      fileLoop();
+  fileLoop();
   // for (unsigned ic = 0; ic < nchan; ++ic)
-  //  printf(" chan %u vecQsum %lu  \n", ic, vecQsum[ic].size());
+  printf(" >>> files processed <<  \n",filenum.size());
   for (unsigned jfile = 0; jfile < filenum.size(); ++jfile)
   {
     int ifile = int(filenum[jfile]);
@@ -680,6 +680,7 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
       */
   //fout->ls();
   cout << "summary closing .... "  << endl;
+  fout->ls();
   fout->Write();
   fout->Close();
   cout << "summary finished " << maxFiles << " " << fout->GetName() << endl;
