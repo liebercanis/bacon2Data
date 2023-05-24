@@ -89,6 +89,7 @@ TString dirName;
 
 void addRunSumHistos()
 {
+  cout << "in addRunSumHistos" << endl;
   int nbinsx = 0;
   bool first = true;
   for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
@@ -138,20 +139,22 @@ void addRunSumHistos()
         // cout << " sHitWave clone " << name << " file  " << ifile  << endl;
         hClone = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
         hSumHitWave.push_back(hClone);
+      }
         // add to hRunSumHitWave;
+      if (name.find("RunSumHitWave") != std::string::npos) {
+        string chan = name.substr(name.find_last_of("e") + 1);
+        int ichan = stoi(chan);
         if (hRunSumHitWave[ichan] != NULL)
         {
           hRunSumHitWave[ichan] = (TH1D *)h->Clone(Form("RunSumHitWave-%lli-chan%i", maxFiles, ichan));
           waveSumDir->Add(hRunSumHitWave[ichan]);
+          cout << " clone bins " << hClone->GetNbinsX() << " RunSum " << hRunSumHitWave[ichan]->GetNbinsX() << endl;
         }
-        // cout << " clone bins " << hClone->GetNbinsX() << " RunSum " << hRunSumHitWave[ichan]->GetNbinsX() << endl;
         for (int ibin = 0; ibin < hClone->GetNbinsX(); ++ibin)
             hRunSumHitWave[ichan]->SetBinContent(ibin, hClone->GetBinContent(ibin) + hRunSumHitWave[ichan]->GetBinContent(ibin));
       }
-
-        // get QSumChan by channel
-        if (name.find("QSumChan") == std::string::npos)
-          continue;
+      // get QSumChan by channel
+      if (name.find("QSumChan") != std::string::npos) {
         string chan = name.substr(name.find_last_of("n") + 1);
         int ichan = stoi(chan);
         // cout << name << "string chan" << chan << " int " << ichan << endl;
@@ -164,6 +167,7 @@ void addRunSumHistos()
         hAdd->SetMarkerSize(0.5);
         vRunQSum[ichan].push_back(hAdd);
         qpeSumDir->Add(hAdd);
+      }
         // fin->Close();
       }
     }
@@ -445,6 +449,7 @@ void addRunSumHistos()
 
   void addsumDirHistos()
   {
+    cout << "in addsumDirHistos" << endl;
     int nbinsx = 0;
     bool first = true;
     for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
@@ -516,10 +521,12 @@ void addRunSumHistos()
   {
     printf(" \t\t make slope graph %lu RunSum size %lu \n", filenum.size(), hRunSumHitWave.size());
     // cout << "ssssssss  summed hits    " << hSumWave.size() << " , " << hSumHitWave.size() << endl;
-    if (hRunSumHitWave.size()==0)
-      return;
     for (unsigned ih = 0; ih < hRunSumHitWave.size(); ++ih)
     {
+      if(hRunSumHitWave[ih]==NULL){
+        printf("skipping hRunSumHitWave %i \n", ih);
+        continue;
+      }
       cout << ih << endl;
       cout << hRunSumHitWave[ih]->GetName() << endl;
       std::string name = string(hRunSumHitWave[ih]->GetName());
@@ -606,7 +613,7 @@ void addRunSumHistos()
     }
     TString tag("run");
 
-    printf(" input args ");
+    printf(" input args %i \n ",argc);
     for (int jarg = 1; jarg < argc; ++jarg)
       printf(" %i= %s ", jarg, argv[jarg]);
     printf("\n");
@@ -629,7 +636,7 @@ void addRunSumHistos()
 
     printf(" for %s found %lu files \n", tag.Data(), fileList.size());
     maxFiles = fileList.size();
-    if (argc > 2)
+    if (argc > 3)
     {
       maxFiles = atoi(argv[3]);
     }
