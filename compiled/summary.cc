@@ -681,6 +681,17 @@ void addRunSumHistos()
     //   std::cout << it->first << " => " << it->second->GetName() << '\n';
     QPEFits();
 
+    //normalize
+    if(eventCount) {
+      double runNorm = eventCount->GetBinContent(1);
+      cout << "   ***  runNorm *** " << runNorm << endl;
+      for (int ihist = 0; ihist < hRunSumPeakWave.size(); ++ihist) {
+        double binNorm = runNorm/hRunSumPeakWave[ihist]->Integral();
+          for (int ibin = 0; ibin < hRunSumPeakWave[ihist]->GetNbinsX() ; ++ ibin)
+          hRunSumPeakWave[ihist]->SetBinContent(ibin, hRunSumPeakWave[ihist]->GetBinContent(ibin) * binNorm);
+      }
+    }
+
     // call function to fit slopes and fill vSlope, vESlope
     if(filenum.size()>0) {
       fitSlopes();
