@@ -395,7 +395,7 @@ void addRunSumHistos()
         printf("  summary file %u  %s chan 6 %f  \n", ifile, fileList[ifile].Data(), vecQsum[6][ifile]);
       
       }
-    fin->Close();
+      //fin->Close();
     } // end loop over files
   }
 
