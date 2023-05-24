@@ -701,13 +701,14 @@ void addRunSumHistos()
   /*  put this all at bottom */
   void makeGraphs()
   {
-    cout << " \n\t ******* makeGraphs ***** " << endl;
+    cout << " \n\t ******* makeGraphs ***** vecQsum "<< vecQsum.size() << " vecQPE  "<< vecQPE.size()<< endl;
+    if (vecQsum.size() == 0)
+      return;
     int myColor[13] = {41, 42, 43, 44, 45, 46, 2, 3, 4, 31, 32, 33, 34};
     int myStyle[13] = {21, 22, 23, 24, 25, 26, 21, 22, 23, 31, 32, 33, 34};
 
     // normalize to first file
-    if (vecQsum.size()==0)
-      return;
+    
     normQsum.resize(vecQsum.size());
     for (unsigned ic = 0; ic < vecQsum.size(); ++ic)
     {
