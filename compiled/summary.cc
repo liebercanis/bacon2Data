@@ -14,9 +14,33 @@
 #include "TGraphErrors.h"
 #include "TList.h"
 #include "TF1.h"
+#include <TROOT.h>
+#include <TKey.h>
+#include <TBranch.h>
+#include <TBranchElement.h>
+#include <TVirtualFFT.h>
+#include <TChain.h>
+#include <TMath.h>
+#include <TNtuple.h>
+#include <TBranchElement.h>
+#include <TFile.h>
+#include <Rtypes.h>
+#include <TH1D.h>
+#include <TH2D.h>
+#include <TF1.h>
+#include <TFormula.h>
+#include <TStyle.h>
+#include <TCanvas.h>
+#include <TGraphErrors.h>
+// bobj classes
+#include "TBWave.hxx"
+#include "TBRun.hxx"
+#include "TBRawEvent.hxx"
+#include "hitFinder.hxx"
+#include "TBFile.hxx"
+#include "TBEventData.hxx"
 
 //
-#include "anaRun.cc"
 std::string sdate;
 unsigned nchan = 13;
 vector<double> normQsum;
@@ -30,6 +54,7 @@ std::vector<double> efilenum;
 std::vector<double> fileTime;
 std::vector<TDatime> fileDatime;
 TBFile *bf;
+TBEventData *eventData;
 std::vector<vector<double>> vecQsum;
 std::vector<vector<double>> vecEQsum;
 std::vector<vector<double>> vecQPE;
@@ -54,88 +79,94 @@ TH1D *hQPEChan;
 TH1D *hQPESigmaChan;
 TH1D *eventCount;
 void makeGraphs();
+enum dataType
+{
+  SIS = 0,
+  CAEN = 1
+};
+int theDataType;
+TString dirName;
 
-
-  void getSumHistos()
+void getSumHistos()
+{
+  int nbinsx = 0;
+  bool first = true;
+  for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
   {
-    int nbinsx = 0;
-    bool first = true;
-    for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
-    {
 
-      TString fullName = TString("myData/") + fileList[ifile];
-      fin = new TFile(fullName);
-      fin->GetObject("sumDir", sumDir);
-      if (!sumDir)
-      {
-        printf("getSumHistos file %s no sumDir!!! \n",fileList[ifile].Data());
+    TString fullName = TString("myData/") + fileList[ifile];
+    fin = new TFile(fullName);
+    fin->GetObject("sumDir", sumDir);
+    if (!sumDir)
+    {
+      printf("getSumHistos file %s no sumDir!!! \n", fileList[ifile].Data());
+      continue;
+    }
+
+    TList *sumList = sumDir->GetListOfKeys();
+    cout << " >>>>> getSumHistos file  " << fileList[ifile] << " sumDir size " << sumList->GetSize() << endl;
+    // sumDir->ls();
+
+    TIter next(sumList);
+    TKey *key;
+    // printf("addSumHistos %u \n", sumList->GetEntries());
+    while (TKey *key = (TKey *)next())
+    {
+      TClass *cl = gROOT->GetClass(key->GetClassName());
+      if (!cl->InheritsFrom("TH1D"))
         continue;
+      TH1D *h = (TH1D *)key->ReadObj();
+      std::string name = string(h->GetName());
+
+      // save summed waves
+      // summed waves
+      TH1D *hClone;
+      if (name.find("sumWave") != std::string::npos && name.find("Bad") == std::string::npos)
+      {
+        // cout << " sumWave clone " << name << " file " << ifile << endl;
+        hClone = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
+        // cout << " \t\t AAAAAAA add to waveSumDir " << hAdd->GetName() << endl;
+        hSumWave.push_back(hClone);
+        waveSumDir->Add(hClone);
+      }
+      if (name.find("sumHitWave") != std::string::npos)
+      {
+        string chan = name.substr(name.find_last_of("e") + 1);
+        int ichan = stoi(chan);
+        cout << name << " string chan " << chan << " int " << ichan << " size " << hRunSumHitWave.size() << endl;
+
+        // cout << " sHitWave clone " << name << " file  " << ifile  << endl;
+        hClone = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
+        hSumHitWave.push_back(hClone);
+        // add to hRunSumHitWave;
+        if (hRunSumHitWave[ichan] == NULL)
+        {
+          hRunSumHitWave[ichan] = (TH1D *)h->Clone(Form("RunSumHitWave-%lli-chan%i", maxFiles, ichan));
+          waveSumDir->Add(hRunSumHitWave[ichan]);
+        }
+
+        // cout << " clone bins " << hClone->GetNbinsX() << " RunSum " << hRunSumHitWave[ichan]->GetNbinsX() << endl;
+        for (int ibin = 0; ibin < hClone->GetNbinsX(); ++ibin)
+          hRunSumHitWave[ichan]->SetBinContent(ibin, hClone->GetBinContent(ibin) + hRunSumHitWave[ichan]->GetBinContent(ibin));
+          waveSumDir->Add(hClone);
       }
 
-      TList *sumList = sumDir->GetListOfKeys();
-      cout << " >>>>> getSumHistos file  " << fileList[ifile] << " sumDir size " <<  sumList->GetSize() <<endl;
-      // sumDir->ls();
+      // get QSumChan by channel
+      if (name.find("QSumChan") == std::string::npos)
+        continue;
+      string chan = name.substr(name.find_last_of("n") + 1);
+      int ichan = stoi(chan);
+      cout << name << "string chan" << chan << " int " << ichan << endl;
 
-      TIter next(sumList);
-      TKey *key;
-      //printf("addSumHistos %u \n", sumList->GetEntries());
-      while (TKey *key = (TKey *)next())
-      {
-        TClass *cl = gROOT->GetClass(key->GetClassName());
-        if (!cl->InheritsFrom("TH1D"))
-          continue;
-        TH1D *h = (TH1D *)key->ReadObj();
-        std::string name = string(h->GetName());
-      
-        // save summed waves
-        // summed waves
-        TH1D *hClone;
-        if (name.find("sumWave") != std::string::npos && name.find("Bad") == std::string::npos)
-        {
-          //cout << " sumWave clone " << name << " file " << ifile << endl;
-          hClone= (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
-          // cout << " \t\t AAAAAAA add to waveSumDir " << hAdd->GetName() << endl;
-          hSumWave.push_back(hClone);
-          waveSumDir->Add(hClone);
-        }
-        if (name.find("sumHitWave") != std::string::npos)
-        {
-          string chan = name.substr(name.find_last_of("e") + 1);
-          int ichan = stoi(chan);
-          cout << name << " string chan " << chan << " int " << ichan<< " size " << hRunSumHitWave.size()<<  endl;
-
-          //cout << " sHitWave clone " << name << " file  " << ifile  << endl;
-          hClone = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
-          hSumHitWave.push_back(hClone);
-          // add to hRunSumHitWave;
-          if (hRunSumHitWave[ichan]==NULL) {
-            hRunSumHitWave[ichan] = (TH1D *)h->Clone(Form("RunSumHitWave-%lli-chan%i", maxFiles, ichan));
-            waveSumDir->Add(hRunSumHitWave[ichan]);
-          }
-
-          //cout << " clone bins " << hClone->GetNbinsX() << " RunSum " << hRunSumHitWave[ichan]->GetNbinsX() << endl;
-          for (int ibin = 0; ibin < hClone->GetNbinsX(); ++ibin)
-            hRunSumHitWave[ichan]->SetBinContent(ibin, hClone->GetBinContent(ibin) + hRunSumHitWave[ichan]->GetBinContent(ibin));
-          waveSumDir->Add(hClone);
-        }
-
-
-        // get QSumChan by channel
-        if (name.find("QSumChan") == std::string::npos)
-          continue;
-        string chan = name.substr(name.find_last_of("n") + 1);
-        int ichan = stoi(chan);
-        cout << name << "string chan" << chan << " int " << ichan<< endl;
-
-        TString cloneName;
-        cloneName.Form("runQSumCh%i-file%i", ichan,ifile);
-        TH1D *hAdd = (TH1D *)h->Clone(cloneName);
-        //cout << " +vRunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName()  << " " << hAdd->GetName() << endl;
-        hAdd->SetMarkerStyle(20);
-        hAdd->SetMarkerSize(0.5);
-        vRunQSum[ichan].push_back(hAdd);
-        qpeSumDir->Add(hAdd);
-        // fin->Close();
+      TString cloneName;
+      cloneName.Form("runQSumCh%i-file%i", ichan, ifile);
+      TH1D *hAdd = (TH1D *)h->Clone(cloneName);
+      // cout << " +vRunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName()  << " " << hAdd->GetName() << endl;
+      hAdd->SetMarkerStyle(20);
+      hAdd->SetMarkerSize(0.5);
+      vRunQSum[ichan].push_back(hAdd);
+      qpeSumDir->Add(hAdd);
+      // fin->Close();
     }
   }
 }
@@ -233,8 +264,17 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
     return imonth;
   }
 
-  TDatime getTime()
+  TDatime getTime(int ifile)
   {
+    TDatime datime;
+    if(theDataType == SIS) {
+      bf = NULL;
+      fin->GetObject("tbfile", bf);
+      if (!bf)
+      {
+        printf(" no TBfile file %s \n",fileList[ifile].Data());
+        return datime;
+      }
     TString strfileTime = bf->modified;
     TString tempstring = TString(strfileTime(20, 4));
     int fileYear = tempstring.Atoi();
@@ -248,9 +288,19 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
     int fileMin = tempstring.Atoi();
     tempstring = TString(strfileTime(17, 2));
     int fileSec = tempstring.Atoi();
-    TDatime datime;
     datime.Set(fileYear, fileMonth, fileDay, fileHour, fileMin, fileSec);
     printf("FileYear = %u , FileMonth = %u , FileDay = %u , FileHour = %u , FileMin = %u , FileSec = %u \n", fileYear, fileMonth, fileDay, fileHour, fileMin, fileSec);
+    } else {
+    eventData = NULL;
+    fin->GetObject("eventData", eventData);
+    if (!eventData)
+      {
+        printf(" no eventData file %s \n", fileList[ifile].Data());
+        return datime;
+      }
+      datime.Set(eventData->year,eventData->mon,eventData->day,eventData->hour,eventData->min,eventData->sec);
+    }
+
     return datime;
   }
 
@@ -262,19 +312,15 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
       TString fullName = TString("myData/") + fileList[ifile];
       fin = new TFile(fullName);
       TGraphErrors *gslope;
-      fin->GetObject("tbfile", bf);
-      fin->GetObject("slope-graph", gslope);
-      if (!bf)
-      {
-        // printf(" no timestamp in file %s \n",fileList[i].Data());
-        continue;
-      }
+
+      fin->GetObject("gslope",gslope);
       if (!gslope)
       {
-        // printf(" no timestamp in file %s \n",fileList[i].Data());
-        continue;
+        printf(" no gslope graph in file %s \n",fileList[ifile].Data());
+        //continue;
+      } else {
+        cout <<  " slope graph " << gslope->GetTitle() << endl;
       }
-      cout << bf->GetTitle() << " modified " << bf->modified << " slope graph " << gslope->GetTitle() << endl;
 
       fin->GetObject("sumDir", sumDir);
       if (!sumDir)
@@ -314,11 +360,11 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
 
       filenum.push_back(double(ifile));
       efilenum.push_back(0);
-      TDatime datetime = getTime();
+      TDatime datetime = getTime(ifile);
       fileDatime.push_back(datetime);
       fileTime.push_back(datetime.Convert());
 
-      cout << " TIME FILE  " << ifile << " " << fileList[ifile] << " modified " << bf->modified << " TDatime " << datetime.AsString() << " as int " << datetime.Convert() << endl;
+      cout << " TIME FILE  " << ifile << " " << fileList[ifile] << " modified "  << " TDatime " << datetime.AsString() << " as int " << datetime.Convert() << endl;
 
       /*
       for (unsigned ic = 0; ic < vecQPE.size() ; ++ic)
@@ -479,8 +525,17 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
       string file = name.substr(name.find("file") + 4);
       int ichan = stoi(chan);
       int ifile = stoi(file);
-      double xlow = 100.;
-      double xhigh = 300;
+      double xlow = 0.;
+      double xhigh = 0;
+      if (theDataType == SIS)
+      { // For SIS data
+        xlow = 120.;
+        xhigh = 500.;
+      } else { // For CAEN data
+        double xlow = 800.;
+        double xhigh = 1000.;
+      }
+
       TH1D *hfitwave = (TH1D *)hSumHitWave[ih]->Clone("fitwave");
       hfitwave->GetListOfFunctions()->Clear();
       hfitwave->SetDirectory(nullptr);
@@ -518,7 +573,6 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
   // count subruns and channels
   unsigned long countFiles()
   {
-    TString dirName = TString("myData/");
     TSystemDirectory dir("mydata", dirName); // TSystemDirectory
     TList *files = dir.GetListOfFiles();     //
     TIter next(files);
@@ -539,10 +593,28 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
   int main(int argc, char *argv[])
   {
     cout << "executing " << argv[0] << " make summary plots  " << endl;
-    printf(" usage: summary  <max files 0=all>  \n ");
-    if (argc < 1)
+    printf(" usage: summary  <type=caen/sis> <dir> <max files 0=all>  \n ");
+    if (argc < 2) {
+      printf("reguire <type> <dir> args\n");
       exit(0);
+    }
     TString tag("run");
+
+
+    printf(" input args ");
+    for (int jarg = 1; jarg < argc; ++jarg)
+      printf(" %i= %s ",jarg,argv[jarg]);
+    printf("\n");
+
+    if (TString(argv[1]).Contains("caen") || TString(argv[1]).Contains("CAEN"))
+      theDataType = CAEN;
+    else 
+      theDataType = SIS;
+
+    dirName = TString(argv[2]);
+
+    printf(" >>>> datatype %i (0=sis,1=caen) dir %s <<<<\n",theDataType, dirName.Data());
+
     
 
     dopeTime = TDatime(2023, 3, 9, 22, 0, 0);
@@ -554,9 +626,9 @@ void setTimeGraph(TMultiGraph *mg, TString ylabel)
 
     printf(" for %s found %lu files \n", tag.Data(), fileList.size());
     maxFiles = fileList.size();
-    if (argc > 1)
+    if (argc > 4)
     {
-      maxFiles = atoi(argv[2]);
+      maxFiles = atoi(argv[3]);
     }
 
     sdate = currentDate();
