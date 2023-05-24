@@ -516,6 +516,8 @@ void addRunSumHistos()
   void fitSlopes()
   {
     // cout << "ssssssss  summed hits    " << hSumWave.size() << " , " << hSumHitWave.size() << endl;
+    if (hRunSumHitWave.size()==0)
+      return;
     for (unsigned ih = 0; ih < hRunSumHitWave.size(); ++ih)
     {
       std::string name = string(hSumWave[ih]->GetName());
