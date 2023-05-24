@@ -509,6 +509,7 @@ bool anaCRun::anaEvent(Long64_t entry)
   hEventPass->Fill(passBit);
   if (!eventPass)
     return eventPass;
+  // continue if event passes 
   for (unsigned ib = 0; ib < rawBr.size(); ++ib)
   {
     vsign = 1.0;
@@ -776,7 +777,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
 
   // open outout file and make histograms
 
-  fout = new TFile(Form("myData/anaCRun-%s-%llu.root", shortName.c_str(), maxEntries), "recreate");
+  fout = new TFile(Form("caenData/anaCRun-%s-%llu.root", shortName.c_str(), maxEntries), "recreate");
   evDir = fout->mkdir("evDir");
   pmtDir = fout->mkdir("pmtDir");
   badDir = fout->mkdir("badDir");
@@ -906,6 +907,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   {
     sumWave[i]->Scale(scaleFactor); // DEF added
     sumHitWave[i]->Scale(scaleFactor);
+    sumPeakWave[i]->Scale(scaleFactor);
     hQSum[i]->Scale(scaleFactor);
     hQPeak[i]->Scale(scaleFactor);
   }

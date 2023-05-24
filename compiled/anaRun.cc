@@ -752,7 +752,7 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   string sfilename(theFile.Data());
   string shortName = sfilename.substr(0, sfilename.find_last_of("."));
   cout << " instance of anaRun with shortName= " << shortName << endl;
-  fout = new TFile(Form("myData/anaRun-%s-%llu.root", shortName.c_str(), maxEntries), "recreate");
+  fout = new TFile(Form("sisData/anaRun-%s-%llu.root", shortName.c_str(), maxEntries), "recreate");
   evDir = fout->mkdir("evDir");
   badDir = fout->mkdir("badDir");
   badTrigDir = fout->mkdir("badTrigDir");
