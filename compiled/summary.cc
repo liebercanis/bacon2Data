@@ -629,11 +629,12 @@ void addRunSumHistos()
 
     dopeTime = TDatime(2023, 3, 9, 22, 0, 0);
 
-    if(countFiles()==0)
+    unsigned nfiles = countFiles();
+    if (nfiles  == 0)
       exit(0);
 
     // for (unsigned ic = 0; ic < nchan; ++ic)
-    //   printf(" chan %u vecQsum %lu \n",ic,vecQsum[ic].size());
+    printf(" number of files %u \n",nfiles);
 
     printf(" for %s found %lu files \n", tag.Data(), fileList.size());
     maxFiles = fileList.size();
