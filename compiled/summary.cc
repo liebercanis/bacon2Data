@@ -644,7 +644,7 @@ void addRunSumHistos()
     hQPEChan->Sumw2();
     hQPESigmaChan->Sumw2();
 
-    printf(" files %lu \n", filenum.size());
+    printf(" files %lu nchan %i \n", filenum.size(),nchan);
 
     vecQsum.resize(nchan);
     vecEQsum.resize(nchan);
