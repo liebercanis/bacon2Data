@@ -674,9 +674,9 @@ void addRunSumHistos()
 
     // call function to fit slopes and fill vSlope, vESlope
     printf(" \t\t make slope graph %lu \n", filenum.size());
-    if (filenum.size > 0)  fitSlopes();
+    fitSlopes();
     printf(" \t\t make graphs %lu \n", filenum.size());
-    if(filenum.size>0) makeGraphs();
+    makeGraphs();
 
     // report
     /*for (unsigned it = 0; it < fileTime.size(); ++it)
@@ -702,6 +702,8 @@ void addRunSumHistos()
     int myStyle[13] = {21, 22, 23, 24, 25, 26, 21, 22, 23, 31, 32, 33, 34};
 
     // normalize to first file
+    if (vecQsum.size()==0)
+      return;
     normQsum.resize(vecQsum.size());
     for (unsigned ic = 0; ic < vecQsum.size(); ++ic)
     {
