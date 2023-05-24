@@ -148,6 +148,7 @@ void addRunSumHistos()
           for (int ibin = 0; ibin < hClone->GetNbinsX(); ++ibin)
             hRunSumHitWave[ichan]->SetBinContent(ibin, hClone->GetBinContent(ibin) + hRunSumHitWave[ichan]->GetBinContent(ibin));
         }
+      }
 
         // get QSumChan by channel
         if (name.find("QSumChan") == std::string::npos)
@@ -302,6 +303,7 @@ void addRunSumHistos()
       datime.Set(eventData->year, eventData->mon, eventData->day, eventData->hour, eventData->min, eventData->sec);
     }
 
+    return datime;
   }
 
   void fileLoop()
@@ -657,7 +659,7 @@ void addRunSumHistos()
 
     fileLoop();
     // for (unsigned ic = 0; ic < nchan; ++ic)
-    printf(" >>> files processed <<  \n", filenum.size());
+    printf(" >>> files processed << %li \n", filenum.size());
     for (unsigned jfile = 0; jfile < filenum.size(); ++jfile)
     {
       int ifile = int(filenum[jfile]);
