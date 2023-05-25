@@ -67,7 +67,7 @@ std::vector<vector<double>> vESlope;
 std::vector<TH1D *> hSumWave;
 std::vector<vector<TH1D *>> vRunQSum;
 std::vector<TH1D *> hSumHitWave;
-std::vector<TH1D *> hRunSumPeakWave;
+std::vector<TH1D *> hRunSumHitWave;
 std::map<int, TH1D *> histMap;
 TDirectory *sumDir;
 TDirectory *waveSumDir;
@@ -139,20 +139,20 @@ void addRunSumHistos()
         // cout << " sHitWave clone " << name << " file  " << ifile  << endl;
         hClone = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
         hSumHitWave.push_back(hClone);
-        // add to hRunSumPeakWave;
+        // add to hRunSumHitWave;
       }
-      if (name.find("sumPeakWave") != std::string::npos) {
+      if (name.find("sumHitWave") != std::string::npos) {
         string chan = name.substr(name.find_last_of("e") + 1);
         int ichan = stoi(chan);
-        cout << name << " string chan " << chan << " int " << ichan << " size " << h->GetName() << " " << hRunSumPeakWave.size()<< endl;
-        if (hRunSumPeakWave[ichan] == NULL)
+        cout << name << " string chan " << chan << " int " << ichan << " size " << h->GetName() << " " << hRunSumHitWave.size()<< endl;
+        if (hRunSumHitWave[ichan] == NULL)
         {
-          hRunSumPeakWave[ichan] = (TH1D *)h->Clone(Form("RunSumPeakWave-%lli-chan%i", maxFiles, ichan));
-          waveSumDir->Add(hRunSumPeakWave[ichan]);
-          cout << " clone bins " << hClone->GetNbinsX() << " RunSum " << hRunSumPeakWave[ichan]->GetNbinsX() << endl;
+          hRunSumHitWave[ichan] = (TH1D *)h->Clone(Form("RunSumHitWave-%lli-chan%i", maxFiles, ichan));
+          waveSumDir->Add(hRunSumHitWave[ichan]);
+          cout << " clone bins " << hClone->GetNbinsX() << " RunSum " << hRunSumHitWave[ichan]->GetNbinsX() << endl;
         }
         for (int ibin = 0; ibin < hClone->GetNbinsX(); ++ibin)
-            hRunSumPeakWave[ichan]->SetBinContent(ibin, hClone->GetBinContent(ibin) + hRunSumPeakWave[ichan]->GetBinContent(ibin));
+            hRunSumHitWave[ichan]->SetBinContent(ibin, hClone->GetBinContent(ibin) + hRunSumHitWave[ichan]->GetBinContent(ibin));
       }
       // get QSumChan by channel
       if (name.find("QSumChan") != std::string::npos) {
@@ -520,16 +520,16 @@ void addRunSumHistos()
 
   void fitSlopes()
   {
-    printf(" \t\t make slope graph %lu RunSum size %lu \n", filenum.size(), hRunSumPeakWave.size());
+    printf(" \t\t make slope graph %lu RunSum size %lu \n", filenum.size(), hRunSumHitWave.size());
     // cout << "ssssssss  summed hits    " << hSumWave.size() << " , " << hSumHitWave.size() << endl;
-    for (unsigned ih = 0; ih < hRunSumPeakWave.size(); ++ih)
+    for (unsigned ih = 0; ih < hRunSumHitWave.size(); ++ih)
     {
-      if(hRunSumPeakWave[ih]==NULL){
-        printf("skipping hRunSumPeakWave %i \n", ih);
+      if(hRunSumHitWave[ih]==NULL){
+        printf("skipping hRunSumHitWave %i \n", ih);
         continue;
       }
-      std::string name = string(hRunSumPeakWave[ih]->GetName());
-      cout << " fitSlopes hist " <<  ih <<  " " << hRunSumPeakWave[ih]->GetName() << " " << name << endl;
+      std::string name = string(hRunSumHitWave[ih]->GetName());
+      cout << " fitSlopes hist " <<  ih <<  " " << hRunSumHitWave[ih]->GetName() << " " << name << endl;
       string chan = name.substr(name.find_last_of("n") + 1);
       cout << "fitSlopes chan   "<< chan << endl;
       int ichan = stoi(chan);
@@ -546,7 +546,7 @@ void addRunSumHistos()
         double xhigh = 1000.;
       }
 
-      TH1D *hfitwave = (TH1D *)hRunSumPeakWave[ih]->Clone("fitwave");
+      TH1D *hfitwave = (TH1D *)hRunSumHitWave[ih]->Clone("fitwave");
       hfitwave->GetListOfFunctions()->Clear();
       hfitwave->SetDirectory(nullptr);
       TF1 *gslopefit = NULL;
@@ -667,9 +667,9 @@ void addRunSumHistos()
     vSlope.resize(nchan);
     vESlope.resize(nchan);
     vRunQSum.resize(nchan);
-    hRunSumPeakWave.resize(nchan);
+    hRunSumHitWave.resize(nchan);
     for (unsigned ichan = 0; ichan < nchan; ++ichan)
-      hRunSumPeakWave[ichan] = NULL;
+      hRunSumHitWave[ichan] = NULL;
 
     fileLoop();
     // for (unsigned ic = 0; ic < nchan; ++ic)
@@ -690,10 +690,10 @@ void addRunSumHistos()
     if(eventCount) {
       double runNorm = eventCount->GetBinContent(1);
       cout << "   ***  runNorm *** " << runNorm << endl;
-      for (int ihist = 0; ihist < hRunSumPeakWave.size(); ++ihist) {
-        double binNorm = runNorm/hRunSumPeakWave[ihist]->Integral();
-          for (int ibin = 0; ibin < hRunSumPeakWave[ihist]->GetNbinsX() ; ++ ibin)
-          hRunSumPeakWave[ihist]->SetBinContent(ibin, hRunSumPeakWave[ihist]->GetBinContent(ibin) * binNorm);
+      for (int ihist = 0; ihist < hRunSumHitWave.size(); ++ihist) {
+        double binNorm = runNorm/hRunSumHitWave[ihist]->Integral();
+          for (int ibin = 0; ibin < hRunSumHitWave[ihist]->GetNbinsX() ; ++ ibin)
+          hRunSumHitWave[ihist]->SetBinContent(ibin, hRunSumHitWave[ihist]->GetBinContent(ibin) * binNorm);
       }
     }
 
