@@ -28,6 +28,7 @@
 #include <TH1D.h>
 #include <TH2D.h>
 #include <TF1.h>
+#include <TLeaf.h>
 #include <TFormula.h>
 #include <TStyle.h>
 #include <TCanvas.h>
@@ -55,6 +56,7 @@ std::vector<double> fileTime;
 std::vector<TDatime> fileDatime;
 TBFile *bf;
 TBEventData *eventData;
+TTree *runTree;
 std::vector<vector<double>> vecQsum;
 std::vector<vector<double>> vecEQsum;
 std::vector<vector<double>> vecQPE;
@@ -67,7 +69,7 @@ std::vector<vector<double>> vESlope;
 std::vector<TH1D *> hSumWave;
 std::vector<vector<TH1D *>> vRunQSum;
 std::vector<TH1D *> hSumHitWave;
-std::vector<TH1D *> hRunSumHitWave;
+std::vector<TH1D *> hRunSumPeakWave;
 std::map<int, TH1D *> histMap;
 TDirectory *sumDir;
 TDirectory *waveSumDir;
@@ -139,20 +141,20 @@ void addRunSumHistos()
         // cout << " sHitWave clone " << name << " file  " << ifile  << endl;
         hClone = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
         hSumHitWave.push_back(hClone);
-        // add to hRunSumHitWave;
+        // add to hRunSumPeakWave;
       }
-      if (name.find("sumHitWave") != std::string::npos) {
+      if (name.find("sumPeakWave") != std::string::npos) {
         string chan = name.substr(name.find_last_of("e") + 1);
         int ichan = stoi(chan);
-        cout << name << " string chan " << chan << " int " << ichan << " size " << h->GetName() << " " << hRunSumHitWave.size()<< endl;
-        if (hRunSumHitWave[ichan] == NULL)
+        cout << name << " string chan " << chan << " int " << ichan << " size " << h->GetName() << " " << hRunSumPeakWave.size()<< endl;
+        if (hRunSumPeakWave[ichan] == NULL)
         {
-          hRunSumHitWave[ichan] = (TH1D *)h->Clone(Form("RunSumHitWave-%lli-chan%i", maxFiles, ichan));
-          waveSumDir->Add(hRunSumHitWave[ichan]);
-          cout << " clone bins " << hClone->GetNbinsX() << " RunSum " << hRunSumHitWave[ichan]->GetNbinsX() << endl;
+          hRunSumPeakWave[ichan] = (TH1D *)h->Clone(Form("RunSumPeakWave-%lli-chan%i", maxFiles, ichan));
+          waveSumDir->Add(hRunSumPeakWave[ichan]);
+          cout << " clone bins " << hClone->GetNbinsX() << " RunSum " << hRunSumPeakWave[ichan]->GetNbinsX() << endl;
         }
         for (int ibin = 0; ibin < hClone->GetNbinsX(); ++ibin)
-            hRunSumHitWave[ichan]->SetBinContent(ibin, hClone->GetBinContent(ibin) + hRunSumHitWave[ichan]->GetBinContent(ibin));
+            hRunSumPeakWave[ichan]->SetBinContent(ibin, hClone->GetBinContent(ibin) + hRunSumPeakWave[ichan]->GetBinContent(ibin));
       }
       // get QSumChan by channel
       if (name.find("QSumChan") != std::string::npos) {
@@ -267,7 +269,7 @@ void addRunSumHistos()
     return imonth;
   }
 
-  TDatime getTime(int ifile)
+  TDatime getTime(int ifile, Long64_t ievent=0)
   {
     TDatime datime;
     if (theDataType == SIS)
@@ -297,15 +299,17 @@ void addRunSumHistos()
     }
     else
     {
-      eventData = NULL;
-      fin->GetObject("eventData", eventData);
       if (!eventData)
       {
-        printf(" no eventData file %s \n", fileList[ifile].Data());
+        printf(" no eventData in file %s \n", fileList[ifile].Data());
         return datime;
       }
+      
+      runTree->GetEntry(ievent);
+
+      printf(" file %i event %lli FileYear = %u , FileMonth = %u , FileDay = %u , FileHour = %u , FileMin = %u , FileSec = %u \n", ifile,ievent,eventData->year, eventData->mon, eventData->day, eventData->hour, eventData->min, eventData->sec);
       datime.Set(eventData->year, eventData->mon, eventData->day, eventData->hour, eventData->min, eventData->sec);
-    }
+   }
 
     return datime;
   }
@@ -328,6 +332,8 @@ void addRunSumHistos()
       printf(" sumDir for file %s \n", fin->GetName());
       // sumDir->ls();
 
+      fin->GetObject("RunTree", runTree); // DEF Need to change to RunTree or something.  Can't find branch.
+
       // use bf->modified a std string
       /* migrate fit from post.C:        TF1 *g = (TF1*)hHitSum[i]->GetListOfFunctions()->FindObject("expo");*/
 
@@ -335,6 +341,17 @@ void addRunSumHistos()
       TH1D *hqprompt = NULL;
       fin->GetObject("histQsum", hqsum);
       fin->GetObject("histQprompt", hqprompt);
+      runTree = NULL;
+      eventData = NULL;
+      if (theDataType == CAEN)
+      {
+        eventData = new TBEventData();
+        fin->GetObject("RunTree", runTree);
+        if(!runTree)
+          printf("file has not RunTree %s \n", fin->GetName());
+        else
+          runTree->SetBranchAddress("eventData",&eventData);
+      }
 
       if (hqsum && hqprompt) {
         TH1D *hq = (TH1D *)hqsum->Clone(Form("hqsum%i", ifile));
@@ -414,7 +431,7 @@ void addRunSumHistos()
       int ichan = it->first;
       TH1D *hclone = (TH1D *)it->second;
 
-      // fit QPE
+      // fit QPE   // DEF Need to add switch for CAEN and SIS here
       double xlow = 2000.;
       double xhigh = 5000;
       if (ichan == 9 || ichan == 10 || ichan == 11)
@@ -520,48 +537,50 @@ void addRunSumHistos()
 
   void fitSlopes()
   {
-    printf(" \t\t make slope graph %lu RunSum size %lu \n", filenum.size(), hRunSumHitWave.size());
+    printf(" \t\t make slope graph %lu RunSum size %lu \n", filenum.size(), hRunSumPeakWave.size());
     // cout << "ssssssss  summed hits    " << hSumWave.size() << " , " << hSumHitWave.size() << endl;
-    for (unsigned ih = 0; ih < hRunSumHitWave.size(); ++ih)
+    for (unsigned ih = 0; ih < hRunSumPeakWave.size(); ++ih)
     {
-      if(hRunSumHitWave[ih]==NULL){
-        printf("skipping hRunSumHitWave %i \n", ih);
+      if(hRunSumPeakWave[ih]==NULL){
+        printf("skipping hRunSumPeakWave %i \n", ih);
         continue;
       }
-      std::string name = string(hRunSumHitWave[ih]->GetName());
-      cout << " fitSlopes hist " <<  ih <<  " " << hRunSumHitWave[ih]->GetName() << " " << name << endl;
+      std::string name = string(hRunSumPeakWave[ih]->GetName());
+      cout << " fitSlopes hist " <<  ih <<  " " << hRunSumPeakWave[ih]->GetName() << " " << name << endl;
       string chan = name.substr(name.find_last_of("n") + 1);
       cout << "fitSlopes chan   "<< chan << endl;
       int ichan = stoi(chan);
       double xlow = 0.;
       double xhigh = 0;
+      double MicroSecPerDac = 0;  // DEF added in switch for different digitizer MicroSecPerDac
       if (theDataType == SIS)
       { // For SIS data
         xlow = 120.;
         xhigh = 500.;
+        MicroSecPerDac = 8. / 1000.; // 8 ns bins
       }
       else
       { // For CAEN data
         double xlow = 800.;
         double xhigh = 1000.;
+        MicroSecPerDac = 2. / 1000.; // 2 ns bins
       }
 
-      TH1D *hfitwave = (TH1D *)hRunSumHitWave[ih]->Clone("fitwave");
+      TH1D *hfitwave = (TH1D *)hRunSumPeakWave[ih]->Clone("fitwave");
       hfitwave->GetListOfFunctions()->Clear();
       hfitwave->SetDirectory(nullptr);
       TF1 *gslopefit = NULL;
       hfitwave->Fit("expo", "Q", " ", xlow, xhigh);
       gslopefit = (TF1 *)hfitwave->GetListOfFunctions()->FindObject("expo");
-      double MicroSecPerDac = 8. / 1000.; // 8 ns bins
       double mfit = 0;
       double time = 0;
       double etime = 0;
       if (gslopefit)
       {
-        mfit = gslopefit->GetParameter(1); // 8ns per bin
+        mfit = gslopefit->GetParameter(1); 
         time = -1.0 * MicroSecPerDac / mfit;
-        etime = gslopefit->GetParError(1) * time / mfit;
-        // printf(" slope %u %f %f \n", ih,mfit,time);
+        etime = gslopefit->GetParError(1) *(-1)*time / mfit;
+        printf(" slope %u %f %f %f \n", ih,mfit,time,etime);
       }
       vSlope[ichan].push_back(time);
       vESlope[ichan].push_back(etime);
@@ -667,9 +686,9 @@ void addRunSumHistos()
     vSlope.resize(nchan);
     vESlope.resize(nchan);
     vRunQSum.resize(nchan);
-    hRunSumHitWave.resize(nchan);
+    hRunSumPeakWave.resize(nchan);
     for (unsigned ichan = 0; ichan < nchan; ++ichan)
-      hRunSumHitWave[ichan] = NULL;
+      hRunSumPeakWave[ichan] = NULL;
 
     fileLoop();
     // for (unsigned ic = 0; ic < nchan; ++ic)
@@ -690,10 +709,10 @@ void addRunSumHistos()
     if(eventCount) {
       double runNorm = eventCount->GetBinContent(1);
       cout << "   ***  runNorm *** " << runNorm << endl;
-      for (int ihist = 0; ihist < hRunSumHitWave.size(); ++ihist) {
-        double binNorm = runNorm/hRunSumHitWave[ihist]->Integral();
-          for (int ibin = 0; ibin < hRunSumHitWave[ihist]->GetNbinsX() ; ++ ibin)
-          hRunSumHitWave[ihist]->SetBinContent(ibin, hRunSumHitWave[ihist]->GetBinContent(ibin) * binNorm);
+      for (int ihist = 0; ihist < hRunSumPeakWave.size(); ++ihist) {
+        double binNorm = runNorm/hRunSumPeakWave[ihist]->Integral();
+          for (int ibin = 0; ibin < hRunSumPeakWave[ihist]->GetNbinsX() ; ++ ibin)
+          hRunSumPeakWave[ihist]->SetBinContent(ibin, hRunSumPeakWave[ihist]->GetBinContent(ibin) * binNorm);
       }
     }
 
