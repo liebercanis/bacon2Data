@@ -434,7 +434,8 @@ void addRunSumHistos()
       runNorm = 1;
       if (eventCount)
       {
-        runNorm = eventCount->GetBinContent(1) / eventCount->GetBinContent(1);
+        // 0 = ntriggers, 1 = npass
+        runNorm = eventCount->GetBinContent(0) / eventCount->GetBinContent(1);
         printf("normalize bin 0 %f bin 1 %f runNorm %f \n ",eventCount->GetBinContent(0), eventCount->GetBinContent(1),runNorm);
         printf(" eventCount for file %s  entries %E \n", fin->GetName(), eventCount->GetEntries());
         TH1D *hevcount = (TH1D *)eventCount->Clone(Form("eventCount%i", ifile));
