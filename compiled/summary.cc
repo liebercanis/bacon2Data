@@ -48,6 +48,7 @@ vector<double> normQsum;
 vector<double> normQPE;
 TDatime dopeTime;
 Long64_t maxFiles;
+double runNorm;
 
 std::vector<TString> fileList;
 std::vector<double> filenum;
@@ -59,8 +60,12 @@ TBEventData *eventData;
 TTree *runTree;
 std::vector<vector<double>> vecQsum;
 std::vector<vector<double>> vecEQsum;
+std::vector<vector<double>> vecPeaksum;
+std::vector<vector<double>> vecEPeaksum;
 std::vector<vector<double>> vecQPE;
 std::vector<vector<double>> vecEQPE;
+std::vector<vector<double>> vecPeak;
+std::vector<vector<double>> vecEPeak;
 std::vector<vector<double>> vecQPESigma;
 std::vector<vector<double>> vecEQPESigma;
 std::vector<vector<double>> vSlope;
@@ -68,12 +73,17 @@ std::vector<vector<double>> vESlope;
 // summed waves
 std::vector<TH1D *> hSumWave;
 std::vector<vector<TH1D *>> vRunQSum;
-std::vector<TH1D *> hSumHitWave;
+std::vector<vector<TH1D *>> vRunPeakSum;
+std::vector<vector<TH1D *>> vRunHitWave;
+std::vector<vector<TH1D *>> vRunPeakWave;
 std::vector<TH1D *> hRunSumPeakWave;
 std::map<int, TH1D *> histMap;
+std::map<int, TH1D *> histqMap;
+std::map<int, TH1D *> histpMap;
 TDirectory *sumDir;
 TDirectory *waveSumDir;
 TDirectory *qpeSumDir;
+TDirectory *peakSumDir;
 TFile *fin;
 TFile *fout;
 bool first = true;
@@ -129,32 +139,52 @@ void addRunSumHistos()
       {
         // cout << " sumWave clone " << name << " file " << ifile << endl;
         hClone = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
-        // cout << " \t\t AAAAAAA add to waveSumDir " << hAdd->GetName() << endl;
         hSumWave.push_back(hClone);
         waveSumDir->Add(hClone);
       }
       if (name.find("sumHitWave") != std::string::npos)
       {
+//        cout << " \t\t AAAAAAA "  << endl;
         string chan = name.substr(name.find_last_of("e") + 1);
         int ichan = stoi(chan);
-
-        // cout << " sHitWave clone " << name << " file  " << ifile  << endl;
-        hClone = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
-        hSumHitWave.push_back(hClone);
-        // add to hRunSumPeakWave;
+        hClone = (TH1D *)h->Clone(Form("RunHitWave-file%u-chan%i", ifile, ichan));
+        waveSumDir->Add(hClone);
+        vRunHitWave[ichan].push_back(hClone);
       }
-      if (name.find("sumPeakWave") != std::string::npos) {
+      if (name.find("sumPeakWave") != std::string::npos) 
+      {
         string chan = name.substr(name.find_last_of("e") + 1);
         int ichan = stoi(chan);
-        cout << name << " string chan " << chan << " int " << ichan << " size " << h->GetName() << " " << hRunSumPeakWave.size()<< endl;
-        if (hRunSumPeakWave[ichan] == NULL)
+        hClone = (TH1D *)h->Clone(Form("RunPeakWave-file%u-chan%i", ifile, ichan));
+        waveSumDir->Add(hClone);
+        vRunPeakWave[ichan].push_back(hClone);
+//        for (int ibin = 0; ibin < hClone->GetNbinsX(); ++ibin)
+//        {
+        if (ifile == 0)
         {
-          hRunSumPeakWave[ichan] = (TH1D *)h->Clone(Form("RunSumPeakWave-%lli-chan%i", maxFiles, ichan));
-          waveSumDir->Add(hRunSumPeakWave[ichan]);
-          cout << " clone bins " << hClone->GetNbinsX() << " RunSum " << hRunSumPeakWave[ichan]->GetNbinsX() << endl;
+          printf("1st ichan = %i, size of hRunSumPeakWave = %lu \n", ichan, hRunSumPeakWave.size());
+          hRunSumPeakWave.push_back(hClone);
         }
-        for (int ibin = 0; ibin < hClone->GetNbinsX(); ++ibin)
-            hRunSumPeakWave[ichan]->SetBinContent(ibin, hClone->GetBinContent(ibin) + hRunSumPeakWave[ichan]->GetBinContent(ibin));
+        else
+        {
+          //printf("else ichan = %i, size of hRunSumPeakWave = %lu \n", ichan, hRunSumPeakWave.size());
+          hRunSumPeakWave[ichan]->Add(hClone);
+        }
+//        }
+      }
+      // get PeakChan by channel
+      if (name.find("QPeakChan") != std::string::npos) {        string chan = name.substr(name.find_last_of("n") + 1);
+        int ichan = stoi(chan);
+        // cout << name << "string chan" << chan << " int " << ichan << endl;
+
+        TString cloneName;
+        cloneName.Form("runPeakSumCh%i-file%i", ichan, ifile);
+        TH1D *hpAdd = (TH1D *)h->Clone(cloneName);
+        // cout << " +vRunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName()  << " " << hAdd->GetName() << endl;
+        hpAdd->SetMarkerStyle(20);
+        hpAdd->SetMarkerSize(0.5);
+        vRunPeakSum[ichan].push_back(hpAdd);
+        peakSumDir->Add(hpAdd);
       }
       // get QSumChan by channel
       if (name.find("QSumChan") != std::string::npos) {
@@ -164,12 +194,12 @@ void addRunSumHistos()
 
         TString cloneName;
         cloneName.Form("runQSumCh%i-file%i", ichan, ifile);
-        TH1D *hAdd = (TH1D *)h->Clone(cloneName);
+        TH1D *hqAdd = (TH1D *)h->Clone(cloneName);
         // cout << " +vRunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName()  << " " << hAdd->GetName() << endl;
-        hAdd->SetMarkerStyle(20);
-        hAdd->SetMarkerSize(0.5);
-        vRunQSum[ichan].push_back(hAdd);
-        qpeSumDir->Add(hAdd);
+        hqAdd->SetMarkerStyle(20);
+        hqAdd->SetMarkerSize(0.5);
+        vRunQSum[ichan].push_back(hqAdd);
+        qpeSumDir->Add(hqAdd);
       }
         // fin->Close();
       }
@@ -189,18 +219,48 @@ void addRunSumHistos()
       {
         TH1D *hclone = vRunQSum[ichan][ihist];
 
-        // fit QPE
-        double xlow = 2000.;
-        double xhigh = 4000;
-        if (ichan < 3)
-        {
-          xlow = 1000.;
-          xhigh = 1300.;
+        // fit QPE   
+        double xlow = 0.;
+        double xhigh = 0;
+        if (theDataType == SIS)
+        { // For SIS data
+          if (ichan == 0 || ichan == 1 || ichan == 2 || ichan == 5)
+          {
+            xlow = 120.;
+            xhigh = 500.;
+          }
+          else if (ichan == 4 || ichan == 6 || ichan == 7 || ichan == 8)
+          {
+            xlow = 120.;
+            xhigh = 500.;
+          }
+          else if (ichan == 12)
+          {
+            xlow = 120.;
+            xhigh = 500.;
+          }
         }
-        if (ichan > 8)
+        else
+        { // For CAEN data
+          if (ichan == 0 || ichan == 1 || ichan == 2 || ichan == 5)
+          {
+            xlow = 4000.;
+            xhigh = 6000.;
+          }
+          else if (ichan == 4 || ichan == 6 || ichan == 7 || ichan == 8)
+          {
+            xlow = 10000.;
+            xhigh = 14000.;
+          }
+          else if (ichan == 12)
+          {
+            xlow = 400.;
+            xhigh = 1200.;
+          }
+        }
+        if (ichan == 9 || ichan == 10 || ichan == 11)
         {
-          xlow = 4.E4;
-          xhigh = 9.E4;
+          return;
         }
         hclone->Fit("gaus", "Q", " ", xlow, xhigh);
         TF1 *gfit = (TF1 *)hclone->GetListOfFunctions()->FindObject("gaus");
@@ -210,10 +270,12 @@ void addRunSumHistos()
         double epar2 = 0;
         if (gfit)
         {
-          par1 = gfit->GetParameter(1);
-          epar1 = gfit->GetParError(1);
-          par2 = gfit->GetParameter(2);
-          epar2 = gfit->GetParError(2);
+        par1 = gfit->GetParameter(1);
+        epar1 = gfit->GetParError(1);
+        if (epar1 > par1) epar1 = par1;
+        par2 = gfit->GetParameter(2);
+        epar2 = gfit->GetParError(2);
+        if (epar2 > par2) epar2 = par2;
         }
 
         printf(" fit QPE %u  mean %f %f  sigma %f %f  \n", ichan, par1, epar1, par2, epar2);
@@ -232,11 +294,11 @@ void addRunSumHistos()
   void setTimeGraph(TMultiGraph * mg, TString ylabel)
   {
     mg->GetXaxis()->SetTimeDisplay(1);
-    mg->GetXaxis()->SetNdivisions(-220);
-    mg->GetXaxis()->SetTimeFormat("%d:%H");
+    mg->GetXaxis()->SetNdivisions(-205);
+    mg->GetXaxis()->SetTimeFormat("%m-%d-%H");
     mg->GetXaxis()->SetTimeOffset(0, "gmt");
     mg->GetYaxis()->SetTitle(ylabel);
-    mg->GetXaxis()->SetTitle("day:hour");
+    mg->GetXaxis()->SetTitle("Month-Day-Hour");
   }
 
   Int_t get_month_index(TString name)
@@ -307,8 +369,8 @@ void addRunSumHistos()
       
       runTree->GetEntry(ievent);
 
-      printf(" file %i event %lli FileYear = %u , FileMonth = %u , FileDay = %u , FileHour = %u , FileMin = %u , FileSec = %u \n", ifile,ievent,eventData->year, eventData->mon, eventData->day, eventData->hour, eventData->min, eventData->sec);
-      datime.Set(eventData->year, eventData->mon, eventData->day, eventData->hour, eventData->min, eventData->sec);
+      printf(" file %i event %lli FileYear = %u , FileMonth = %u , FileDay = %u , FileHour = %u , FileMin = %u , FileSec = %u \n", ifile,ievent,eventData->year+1900, eventData->mon+1, eventData->day, eventData->hour, eventData->min, eventData->sec);
+      datime.Set(eventData->year, eventData->mon+1, eventData->day, eventData->hour, eventData->min, eventData->sec);
    }
 
     return datime;
@@ -316,11 +378,10 @@ void addRunSumHistos()
 
   void fileLoop()
   {
-    printf("fileLoop over %lld files \n", maxFiles);
+    printf("fileLoop over %lld files \n", maxFiles);  // DEF would be nice to put in a way to look at the last maxFiles files
     for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
     {
       TString fullName =  dirNameSlash + fileList[ifile];
-      cout << " starting anaRunFile " << fullName << endl;
       fin = new TFile(fullName);
 
       fin->GetObject("sumDir", sumDir);
@@ -332,15 +393,23 @@ void addRunSumHistos()
       printf(" sumDir for file %s \n", fin->GetName());
       // sumDir->ls();
 
-      fin->GetObject("RunTree", runTree); // DEF Need to change to RunTree or something.  Can't find branch.
+      fin->GetObject("RunTree", runTree); 
 
       // use bf->modified a std string
       /* migrate fit from post.C:        TF1 *g = (TF1*)hHitSum[i]->GetListOfFunctions()->FindObject("expo");*/
 
       TH1D *hqsum = NULL;
       TH1D *hqprompt = NULL;
-      fin->GetObject("histQsum", hqsum);
-      fin->GetObject("histQprompt", hqprompt);
+      if (theDataType == SIS) 
+      {
+        fin->GetObject("histQsum", hqsum);
+        fin->GetObject("histQprompt", hqprompt);
+      }
+      else
+      {
+        fin->GetObject("histqsum", hqsum);
+        fin->GetObject("histqprompt", hqprompt);
+      }
       runTree = NULL;
       eventData = NULL;
       if (theDataType == CAEN)
@@ -361,14 +430,18 @@ void addRunSumHistos()
       }
       eventCount = NULL;
       cout << " get event Count " << endl;
-      fin->GetObject("eventCount", eventCount);
+      fin->GetObject("eventcount", eventCount);
+      runNorm = 1;
       if (eventCount)
       {
+        runNorm = eventCount->GetBinContent(1) / eventCount->GetBinContent(1);
+        printf("normalize bin 0 %f bin 1 %f runNorm %f \n ",eventCount->GetBinContent(0), eventCount->GetBinContent(1),runNorm);
         printf(" eventCount for file %s  entries %E \n", fin->GetName(), eventCount->GetEntries());
         TH1D *hevcount = (TH1D *)eventCount->Clone(Form("eventCount%i", ifile));
         fout->Add(hevcount);
       }
-
+      else
+        printf("NO EVENT COUNT IN FILE %s\n", fin->GetName());
 
       filenum.push_back(double(ifile));
       efilenum.push_back(0);
@@ -391,7 +464,7 @@ void addRunSumHistos()
       {
         for (int i = 0; i <= eventCount->GetNbinsX(); ++i)
         {
-          double norm = eventCount->GetBinContent(i + 1) / eventCount->GetBinContent(1);
+          double norm = eventCount->GetBinContent(i + 1) / eventCount->GetBinContent(0);
           printf(" %i count %0f norm %f \n", i, eventCount->GetBinContent(i + 1), norm);
         }
       }
@@ -423,21 +496,56 @@ void addRunSumHistos()
   void QPESumFits()
   {
 
-    cout << " ***** QPEFits ***** " << histMap.size() << endl;
+    cout << " ***** QPEFits ***** " << histqMap.size() << endl;
 
-    for (std::map<int, TH1D *>::iterator it = histMap.begin(); it != histMap.end(); ++it)
+    for (std::map<int, TH1D *>::iterator it = histqMap.begin(); it != histqMap.end(); ++it)
     {
       std::cout << it->first << " => " << it->second->GetName() << '\n';
       int ichan = it->first;
       TH1D *hclone = (TH1D *)it->second;
 
-      // fit QPE   // DEF Need to add switch for CAEN and SIS here
-      double xlow = 2000.;
-      double xhigh = 5000;
+      // fit QPE   
+      double xlow = 0.;
+      double xhigh = 0;
+      if (theDataType == SIS)
+      { // For SIS data
+        if (ichan == 0 || ichan == 1 || ichan == 2 || ichan == 5)
+        {
+          xlow = 120.;
+          xhigh = 500.;
+        }
+        else if (ichan == 4 || ichan == 6 || ichan == 7 || ichan == 8)
+        {
+          xlow = 120.;
+          xhigh = 500.;
+        }
+        else if (ichan == 12)
+        {
+          xlow = 120.;
+          xhigh = 500.;
+        }
+      }
+      else
+      { // For CAEN data
+        if (ichan == 0 || ichan == 1 || ichan == 2 || ichan == 5)
+        {
+          xlow = 4000.;
+          xhigh = 6000.;
+        }
+        else if (ichan == 4 || ichan == 6 || ichan == 7 || ichan == 8)
+        {
+          xlow = 10000.;
+          xhigh = 14000.;
+        }
+        else if (ichan == 12)
+        {
+          xlow = 400.;
+          xhigh = 1200.;
+        }
+      }
       if (ichan == 9 || ichan == 10 || ichan == 11)
       {
-        xlow = 4.E4;
-        xhigh = 8.E4;
+        return;
       }
       hclone->Fit("gaus", "Q", " ", xlow, xhigh);
       TF1 *gfit = (TF1 *)hclone->GetListOfFunctions()->FindObject("gaus");
@@ -449,11 +557,95 @@ void addRunSumHistos()
       {
         par1 = gfit->GetParameter(1);
         epar1 = gfit->GetParError(1);
+        if (epar1 > par1) epar1 = par1;
         par2 = gfit->GetParameter(2);
         epar2 = gfit->GetParError(2);
+        if (epar2 > par2) epar2 = par2;
       }
 
       printf(" QPE %u  mean %f %f  sigma %f %f  \n", ichan, par1, epar1, par2, epar2);
+      hQPEChan->SetBinContent(ichan, par1);
+      hQPEChan->SetBinError(ichan, epar1);
+      hQPESigmaChan->SetBinContent(ichan, par2);
+      hQPESigmaChan->SetBinError(ichan, epar2);
+      vecQPE[ichan].push_back(par1);
+      vecEQPE[ichan].push_back(epar1);
+      vecQPESigma[ichan].push_back(par2);
+      vecEQPESigma[ichan].push_back(epar2);
+    }
+  }
+
+  void PeakSumFits()
+  {
+
+    cout << " ***** PeakFits ***** " << histpMap.size() << endl;
+
+    for (std::map<int, TH1D *>::iterator it = histpMap.begin(); it != histpMap.end(); ++it)
+    {
+      std::cout << it->first << " => " << it->second->GetName() << '\n';
+      int ichan = it->first;
+      TH1D *hclone = (TH1D *)it->second;
+
+      // fit QPE   
+      double xlow = 0.;
+      double xhigh = 0;
+      if (theDataType == SIS)
+      { // For SIS data
+        if (ichan == 0 || ichan == 1 || ichan == 2 || ichan == 5)
+        {
+          xlow = 120.;
+          xhigh = 500.;
+        }
+        else if (ichan == 4 || ichan == 6 || ichan == 7 || ichan == 8)
+        {
+          xlow = 120.;
+          xhigh = 500.;
+        }
+        else if (ichan == 12)
+        {
+          xlow = 120.;
+          xhigh = 500.;
+        }
+      }
+      else
+      { // For CAEN data
+        if (ichan == 0 || ichan == 1 || ichan == 2 || ichan == 5)
+        {
+          xlow = 100.;
+          xhigh = 175.;
+        }
+        else if (ichan == 4 || ichan == 6 || ichan == 7 || ichan == 8)
+        {
+          xlow = 200.;
+          xhigh = 275.;
+        }
+        else if (ichan == 12)
+        {
+          xlow = 100.;
+          xhigh = 250.;
+        }
+      }
+      if (ichan == 9 || ichan == 10 || ichan == 11)
+      {
+        return;
+      }
+      hclone->Fit("gaus", "Q", " ", xlow, xhigh);
+      TF1 *gfit = (TF1 *)hclone->GetListOfFunctions()->FindObject("gaus");
+      double par1 = 0;
+      double epar1 = 0;
+      double par2 = 0;
+      double epar2 = 0;
+      if (gfit)
+      {
+        par1 = gfit->GetParameter(1);
+        epar1 = gfit->GetParError(1);
+        if (epar1 > par1) epar1 = par1;
+        par2 = gfit->GetParameter(2);
+        epar2 = gfit->GetParError(2);
+        if (epar2 > par2) epar2 = par2;
+      }
+
+      printf(" Peak %u  mean %f %f  sigma %f %f  \n", ichan, par1, epar1, par2, epar2);
       hQPEChan->SetBinContent(ichan, par1);
       hQPEChan->SetBinError(ichan, epar1);
       hQPESigmaChan->SetBinContent(ichan, par2);
@@ -498,38 +690,72 @@ void addRunSumHistos()
         std::string name = string(h->GetName());
 
         // Add QSumChan by channel
-        if (name.find("QSumChan") == std::string::npos)
-          continue;
+        if (name.find("QSumChan") != std::string::npos)
+        {
         // cout << fileList[ifile] << " " << h->GetName() << endl;
-        string chan = name.substr(name.find_last_of("n") + 1);
-        int ichan = stoi(chan);
-        TString cloneName;
-        cloneName.Form("AddQSumCh%i", ichan);
-        TH1D *hAdd = (TH1D *)h->Clone(cloneName);
-        if (first) // create summed histos in runQSum array with map
-        {
-          if (nbinsx == 0)
-            nbinsx = hAdd->GetNbinsX();
-          qpeSumDir->Add(hAdd);
-          TH1D *fileHist = NULL;
-          qpeSumDir->GetObject(cloneName, fileHist);
-          histMap.insert(std::pair<int, TH1D *>(ichan, fileHist));
-          // cout << " QSumChan clone " << name << " chan " << ichan << " NbinsX " << hAdd->GetNbinsX() << " integral " << histMap.at(ichan)->Integral() << endl;
+          string chan = name.substr(name.find_last_of("n") + 1);
+          int ichan = stoi(chan);
+          TString cloneqName;
+          cloneqName.Form("AddQSumCh%i", ichan);
+          TH1D *hqAdd = (TH1D *)h->Clone(cloneqName);
+          if (first) // create summed histos in runQSum and runPeakSum arrays with maps
+          {
+            if (nbinsx == 0)
+              nbinsx = hqAdd->GetNbinsX();
+            qpeSumDir->Add(hqAdd);
+            TH1D *fileqHist = NULL;
+            qpeSumDir->GetObject(cloneqName, fileqHist);
+            histqMap.insert(std::pair<int, TH1D *>(ichan, fileqHist));
+            // cout << " QSumChan clone " << name << " chan " << ichan << " NbinsX " << hAdd->GetNbinsX() << " integral " << histMap.at(ichan)->Integral() << endl;
+          }
+          else if (hqAdd->GetNbinsX() == nbinsx) // add
+          {
+            histqMap.at(ichan)->Add(hqAdd);
+            // cout << " add QSumChan " << name << " chan " << ichan << " NbinsX " << hAdd->GetNbinsX() << " integral " << histMap.at(ichan)->Integral() << endl;
+          }
+          else
+          {
+            cout << " Warning! skip QSumChan  " << name << " chan " << ichan << " NbinsX " << nbinsx << " , " << hqAdd->GetNbinsX() << endl;
+          }
         }
-        else if (hAdd->GetNbinsX() == nbinsx) // add
+        // Add QSumChan by channel
+        else if (name.find("QPeakChan") != std::string::npos)
         {
-          histMap.at(ichan)->Add(hAdd);
-          // cout << " add QSumChan " << name << " chan " << ichan << " NbinsX " << hAdd->GetNbinsX() << " integral " << histMap.at(ichan)->Integral() << endl;
-        }
-        else
-        {
-          cout << " Warning! skip QSumChan  " << name << " chan " << ichan << " NbinsX " << nbinsx << " , " << hAdd->GetNbinsX() << endl;
+          // cout << fileList[ifile] << " " << h->GetName() << endl;
+          string chan = name.substr(name.find_last_of("n") + 1);
+          int ichan = stoi(chan);
+          TString clonepName;
+          clonepName.Form("AddPeakSumCh%i", ichan);
+          TH1D *hpAdd = (TH1D *)h->Clone(clonepName);
+          if (first) // create summed histos in runQSum and runPeakSum arrays with maps
+          {
+            if (nbinsx == 0)
+              nbinsx = hpAdd->GetNbinsX();
+            peakSumDir->Add(hpAdd);
+            TH1D *filepHist = NULL;
+            peakSumDir->GetObject(clonepName, filepHist);
+            histpMap.insert(std::pair<int, TH1D *>(ichan, filepHist));
+            // cout << " QSumChan clone " << name << " chan " << ichan << " NbinsX " << hAdd->GetNbinsX() << " integral " << histMap.at(ichan)->Integral() << endl;
+          }
+          else if (hpAdd->GetNbinsX() == nbinsx) // add
+          {
+            histpMap.at(ichan)->Add(hpAdd);
+            // cout << " add QSumChan " << name << " chan " << ichan << " NbinsX " << hAdd->GetNbinsX() << " integral " << histMap.at(ichan)->Integral() << endl;
+          }
+          else
+          {
+            cout << " Warning! skip QSumChan  " << name << " chan " << ichan << " NbinsX " << nbinsx << " , " << hpAdd->GetNbinsX() << endl;
+          }
         }
 
       } // loop over sumDir
       if (first)
-        for (std::map<int, TH1D *>::iterator it = histMap.begin(); it != histMap.end(); ++it)
+      {
+        for (std::map<int, TH1D *>::iterator it = histqMap.begin(); it != histqMap.end(); ++it)
           std::cout << it->first << " => " << it->second->GetName() << '\n';
+        for (std::map<int, TH1D *>::iterator it = histpMap.begin(); it != histpMap.end(); ++it)
+          std::cout << it->first << " => " << it->second->GetName() << '\n';
+      }
       first = false;
       // fin->Close();
     }
@@ -537,55 +763,55 @@ void addRunSumHistos()
 
   void fitSlopes()
   {
-    printf(" \t\t make slope graph %lu RunSum size %lu \n", filenum.size(), hRunSumPeakWave.size());
-    // cout << "ssssssss  summed hits    " << hSumWave.size() << " , " << hSumHitWave.size() << endl;
-    for (unsigned ih = 0; ih < hRunSumPeakWave.size(); ++ih)
+    for (unsigned ichan = 0; ichan < 13; ++ichan) 
     {
-      if(hRunSumPeakWave[ih]==NULL){
-        printf("skipping hRunSumPeakWave %i \n", ih);
-        continue;
-      }
-      std::string name = string(hRunSumPeakWave[ih]->GetName());
-      cout << " fitSlopes hist " <<  ih <<  " " << hRunSumPeakWave[ih]->GetName() << " " << name << endl;
-      string chan = name.substr(name.find_last_of("n") + 1);
-      cout << "fitSlopes chan   "<< chan << endl;
-      int ichan = stoi(chan);
-      double xlow = 0.;
-      double xhigh = 0;
-      double MicroSecPerDac = 0;  // DEF added in switch for different digitizer MicroSecPerDac
-      if (theDataType == SIS)
-      { // For SIS data
-        xlow = 120.;
-        xhigh = 500.;
-        MicroSecPerDac = 8. / 1000.; // 8 ns bins
-      }
-      else
-      { // For CAEN data
-        double xlow = 800.;
-        double xhigh = 1000.;
-        MicroSecPerDac = 2. / 1000.; // 2 ns bins
-      }
+      printf("Make slope graph.  Number of files = %lu Number of channels = %lu \n", filenum.size(), vRunPeakWave.size());
 
-      TH1D *hfitwave = (TH1D *)hRunSumPeakWave[ih]->Clone("fitwave");
-      hfitwave->GetListOfFunctions()->Clear();
-      hfitwave->SetDirectory(nullptr);
-      TF1 *gslopefit = NULL;
-      hfitwave->Fit("expo", "Q", " ", xlow, xhigh);
-      gslopefit = (TF1 *)hfitwave->GetListOfFunctions()->FindObject("expo");
-      double mfit = 0;
-      double time = 0;
-      double etime = 0;
-      if (gslopefit)
+      for (unsigned ih = 0; ih < vRunPeakWave[ichan].size(); ++ih)
       {
-        mfit = gslopefit->GetParameter(1); 
-        time = -1.0 * MicroSecPerDac / mfit;
-        etime = gslopefit->GetParError(1) *(-1)*time / mfit;
-        printf(" slope %u %f %f %f \n", ih,mfit,time,etime);
+        if(vRunPeakWave[ichan][ih]==NULL){
+          printf("skipping vRunPeakWave chan %i file %i \n", ichan, ih);
+          continue;
+        }
+        double xlow = 0.;
+        double xhigh = 0;
+        double MicroSecPerDac = 0;  // DEF added in switch for different digitizer MicroSecPerDac
+        if (theDataType == SIS)
+        { // For SIS data
+          xlow = 120.;
+          xhigh = 500.;
+          MicroSecPerDac = 8. / 1000.; // 8 ns bins
+        }
+        else
+        { // For CAEN data
+          xlow = 1000.;
+          xhigh = 3000.;
+          MicroSecPerDac = 2. / 1000.; // 2 ns bins
+        }
+
+        TH1D *hfitwave = (TH1D *)vRunPeakWave[ichan][ih]->Clone("fitwave");
+        hfitwave->GetListOfFunctions()->Clear();
+        hfitwave->SetDirectory(nullptr);
+        TF1 *gslopefit = NULL;
+        hfitwave->Fit("expo", "LQ", " ", xlow, xhigh);
+        gslopefit = (TF1 *)hfitwave->GetListOfFunctions()->FindObject("expo");
+        double mfit = 0;
+        double time = 0;
+        double etime = 0;
+        if (gslopefit)
+        {
+          mfit = gslopefit->GetParameter(1); 
+          time = -1.0 * MicroSecPerDac / mfit;
+          if (time > 40) time = 0;
+          etime = gslopefit->GetParError(1) *(-1)*time / mfit;
+          if (etime > time) etime = time;
+          printf(" Slope for file %u, channel %i = %f tau = %f tau_error = %f \n", ih, ichan, mfit, time, etime);
+        }
+        vSlope[ichan].push_back(time);
+        vESlope[ichan].push_back(etime);
+        // printf(" %u %s %s chan %i file %i time %f %f\n", ih, hSumWave[ih]->GetName(), hSumHitWave[ih]->GetName(), ichan, ifile,time,etime);
+        delete hfitwave;
       }
-      vSlope[ichan].push_back(time);
-      vESlope[ichan].push_back(etime);
-      // printf(" %u %s %s chan %i file %i time %f %f\n", ih, hSumWave[ih]->GetName(), hSumHitWave[ih]->GetName(), ichan, ifile,time,etime);
-      delete hfitwave;
     }
   }
 
@@ -623,7 +849,7 @@ void addRunSumHistos()
   int main(int argc, char *argv[])
   {
     cout << "executing " << argv[0] << " make summary plots  " << endl;
-    printf(" usage: summary  <type=caen/sis> <dir> <max files 0=all>  \n ");
+    printf(" usage: summary  <type=caen/sis> <dir> <max files 0=all, negative=last>  \n ");
     if (argc < 2)
     {
       printf("reguire <type> <dir> args\n");
@@ -652,9 +878,6 @@ void addRunSumHistos()
     if (countFiles() == 0)
       exit(0);
 
-    // for (unsigned ic = 0; ic < nchan; ++ic)
-    //   printf(" chan %u vecQsum %lu \n",ic,vecQsum[ic].size());
-
     printf(" for %s found %lu files \n", tag.Data(), fileList.size());
     maxFiles = fileList.size();
     if (argc > 3)
@@ -668,6 +891,7 @@ void addRunSumHistos()
     fout = new TFile(Form("summary-type-%i-dir-%s-%s.root",theDataType,dirName.Data(),sdate.c_str()), "recreate");
     waveSumDir = fout->mkdir("WaveSumDir");
     qpeSumDir = fout->mkdir("qpeSumDir");
+    peakSumDir = fout->mkdir("peakSumDir");
     fout->cd();
 
     hQPEChan = new TH1D("QPEChan", "QPE  by channel", 12, 0, 12);
@@ -675,20 +899,26 @@ void addRunSumHistos()
     hQPEChan->Sumw2();
     hQPESigmaChan->Sumw2();
 
-    printf(" files %lu nchan %i \n", filenum.size(),nchan);
-
     vecQsum.resize(nchan);
     vecEQsum.resize(nchan);
+    vecPeaksum.resize(nchan);
+    vecEPeaksum.resize(nchan);
     vecQPE.resize(nchan);
     vecEQPE.resize(nchan);
+    vecPeak.resize(nchan);
+    vecEPeak.resize(nchan);
     vecQPESigma.resize(nchan);
     vecEQPESigma.resize(nchan);
     vSlope.resize(nchan);
     vESlope.resize(nchan);
     vRunQSum.resize(nchan);
-    hRunSumPeakWave.resize(nchan);
-    for (unsigned ichan = 0; ichan < nchan; ++ichan)
-      hRunSumPeakWave[ichan] = NULL;
+    vRunPeakSum.resize(nchan);
+    vRunHitWave.resize(nchan);
+    vRunPeakWave.resize(nchan);
+//    hRunSumPeakWave.resize(nchan);
+
+//    for (unsigned ichan = 0; ichan < nchan; ++ichan)
+//      hRunSumPeakWave[ichan] = NULL;
 
     fileLoop();
     // for (unsigned ic = 0; ic < nchan; ++ic)
@@ -704,22 +934,26 @@ void addRunSumHistos()
     // for (std::map<int, TH1D *>::iterator it = histMap.begin(); it != histMap.end(); ++it)
     //   std::cout << it->first << " => " << it->second->GetName() << '\n';
     QPEFits();
+    // PeakSumFits();
 
     //normalize
-    if(eventCount) {
-      double runNorm = eventCount->GetBinContent(1);
-      cout << "   ***  runNorm *** " << runNorm << endl;
-      for (int ihist = 0; ihist < hRunSumPeakWave.size(); ++ihist) {
-        double binNorm = runNorm/hRunSumPeakWave[ihist]->Integral();
-          for (int ibin = 0; ibin < hRunSumPeakWave[ihist]->GetNbinsX() ; ++ ibin)
-          hRunSumPeakWave[ihist]->SetBinContent(ibin, hRunSumPeakWave[ihist]->GetBinContent(ibin) * binNorm);
-      }
+    if (eventCount)
+    {
+    
+      // assumes I had normalized to triggers in previous step
+      printf("\t\t\t  run norm %f %lu \n", runNorm,hRunSumPeakWave.size());
+      for (int ihist = 0; ihist < int(hRunSumPeakWave.size()); ++ihist)
+      {
+        for (int ibin = 0; ibin < hRunSumPeakWave[ihist]->GetNbinsX(); ++ibin)
+          hRunSumPeakWave[ihist]->SetBinContent(ibin, hRunSumPeakWave[ihist]->GetBinContent(ibin) * runNorm);
+        fout->Add(hRunSumPeakWave[ihist]);
+        }
     }
 
-    // call function to fit slopes and fill vSlope, vESlope
-    if(filenum.size()>0) {
-      fitSlopes();
-      makeGraphs();
+        // call function to fit slopes and fill vSlope, vESlope
+      if (filenum.size() > 0) {
+        fitSlopes();
+        makeGraphs();
     }
 
     // report
@@ -730,8 +964,10 @@ void addRunSumHistos()
         cout << " after  " << fileDatime[it].AsString() << "  " << fileList[it] << endl;
         */
     // fout->ls();
+
+
     cout << "summary closing .... " << endl;
-    fout->ls();
+//    fout->ls();
     fout->Write();
     fout->Close();
     cout << "summary finished " << maxFiles << " " << fout->GetName() << endl;
@@ -796,7 +1032,7 @@ void addRunSumHistos()
     TString ylabel;
     vector<TGraphErrors *> graphSlope;
     TMultiGraph *mgslope = new TMultiGraph();
-    for (unsigned ic = 6; ic < 9; ++ic)
+    for (unsigned ic = 7; ic < 9; ++ic)
     {
       cout << " add " << ic << " size " << vSlope[ic].size() << " size " << vESlope[ic].size() << endl;
       cout << "     " << ic << " size " << fileTime.size() << " size " << efilenum.size() << endl;
@@ -814,6 +1050,7 @@ void addRunSumHistos()
     setTimeGraph(mgslope, ylabel);
     TCanvas *canSlope = new TCanvas(Form("SlopeFit-%s", sdate.c_str()), Form("SlopeFit-%s", sdate.c_str()));
     mgslope->Draw("ap");
+    mgslope->GetYaxis()->SetRangeUser(0.5,2.5);
     gPad->Update();
     canSlope->BuildLegend();
     canSlope->SetGrid();
