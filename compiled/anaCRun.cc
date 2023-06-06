@@ -75,8 +75,7 @@ public:
   vector<TH1D *> valHist;
   vector<TH1D *> sumWaveB;
   vector<TH1D *> valHistB;
-  vector<TH1D *> threshHist;
-  vector<TH1D *> crossHist;
+  
   vector<TH1D *> hQSum;
   vector<TH1D *> hQPeak;
   vector<TH1D *> hQPEShape;
@@ -88,6 +87,8 @@ public:
   TH1D *hEventPass;
   TH1D *histHitCount;
   TH1D *hSumPMT;
+  TH1D *threshHist;
+  TH1D *crossHist;
   TH1D *cosmicCut1;
   TH1D *cosmicCut2;
   // TH1D *histQPE;
@@ -178,8 +179,6 @@ void anaCRun::clear()
   valHist.clear();
   sumWaveB.clear();
   valHistB.clear();
-  threshHist.clear();
-  crossHist.clear();
   hEvGaus.clear();
   hChannelGaus.clear();
   digi.clear();
@@ -440,8 +439,8 @@ bool anaCRun::anaEvent(Long64_t entry)
     thresholdCrossingCount(1000.);
     idet->thresholds = int(thresholds.size());
 
-    crossHist[ib]->Fill(idet->crossings);
-    threshHist[ib]->Fill(idet->thresholds);
+    if (!trig)  crossHist->Fill(idet->crossings);
+    if (trig)   threshHist->Fill(idet->thresholds);
     // set cut
     unsigned maxCrossings = 1;
     unsigned maxThresholds = 1;
@@ -867,8 +866,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
     hChannelGaus.push_back(new TH1D(Form("channelGaus%i", ichan), Form("channelGaus%i", ichan ), 600, -100, 500));
     noiseHist.push_back(new TH1D(Form("noiseChan%i", ichan), Form("noiseChan%i", ichan), 1000, 0, 1000));
     skewHist.push_back(new TH1D(Form("skewChan%i", ichan), Form("skewChan%i", ichan), 200, -3, 7));
-    threshHist.push_back(new TH1D(Form("threshChan%i", ichan), Form("threshChan%i", ichan), 20, 0, 20));
-    crossHist.push_back(new TH1D(Form("crossChan%i", ichan), Form("crossChan%i", ichan), 100, 0, 100));
     if (ichan > 8 && ichan<12)
     {
       valHist.push_back(new TH1D(Form("valChan%i", ichan), Form("valChan%i", ichan), 1500, -500, 1000));
@@ -886,6 +883,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   }
   cosmicCut1 = new TH1D("cosmicCut1", " cosmic total sum chan 12 ", 100, 0, 100);
   cosmicCut2 = new TH1D("cosmicCut2", " cosmic late large hit chan 12 ", 200, 0, 2000);
+  threshHist = new TH1D("threshHist"," threshold crossings trig channels ", 20, 0, 20);
+  crossHist = new TH1D("crossHist", "  negative crossings non trigger channels", 100, 0, 100);
   sumDir = fout->mkdir("sumDir");
   sumDir->cd();
   double limit = 100000;
