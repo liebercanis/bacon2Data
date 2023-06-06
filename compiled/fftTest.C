@@ -1,7 +1,9 @@
 int nsamples = 1024;
 TFile *fout;
 TH1D *htemplate;
+TH1D *htemplateInput;
 TH1D *htemplateFFT;
+std::vector<double> wfilter;
 std::vector<std::complex<double>> templateTransform;
 std::vector<std::complex<double>> forwardFFT(std::vector<double> rdigi);
 std::vector<Double_t> backwardFFT(std::vector<std::complex<double>> VectorComplex);
@@ -32,7 +34,9 @@ TH1D *getTemplate(int ichan)
 
 void fftTest(int npoints = 10)
 {
-    double noiseVal = QPE * .01;
+    double noiseVal = QPE*.01;
+
+    printf("  noise filter value %f \n",noiseVal);
 
     ran3 = new TRandom3(65539);
 
@@ -41,6 +45,7 @@ void fftTest(int npoints = 10)
     htemplateFFT = new TH1D("templateFFT", "templateFFT", nsamples / 2, 0, nsamples / 2);
     TH1D *hinputWave = new TH1D("inputWave", "inputWave", nsamples, 0, nsamples);
     TH1D *hinputFFT = new TH1D("inputFFT", "inputFFT", nsamples / 2, 0, nsamples / 2);
+    TH1D *hWFilter = new TH1D("WFilter", "WFilter", nsamples / 2, 0, nsamples / 2);
     TH1D *hsignalNoWave = new TH1D("signaNolWave", "signal no noise Wave", nsamples, 0, nsamples);
     TH1D *hsignalWave = new TH1D("signalWave", "signalWave", nsamples, 0, nsamples);
     TH1D *hsignalFFT = new TH1D("signalFFT", "signalFFT", nsamples / 2, 0, nsamples / 2);
@@ -53,23 +58,43 @@ void fftTest(int npoints = 10)
         printf(" %i %f bin %i \n", i, t, hinputWave->FindBin(t));
         hinputWave->SetBinContent(hinputWave->FindBin(t), QPE);
     }
-
+    int nSize = nsamples+100;
     // initialize fft
-    fFFT = TVirtualFFT::FFT(1, &nsamples, "R2C M K");
-    fInverseFFT = TVirtualFFT::FFT(1, &nsamples, "C2R M K");
+    fFFT = TVirtualFFT::FFT(1, &nSize, "R2C M K");
+    fInverseFFT = TVirtualFFT::FFT(1, &nSize, "C2R M K");
 
     TH1D *SPETemplate = getTemplate(6);
     fout->Add(SPETemplate);
-    printf(" template integral %f\n ", SPETemplate->Integral());
+    printf(" template size %i integral %f\n ", SPETemplate->GetNbinsX() ,SPETemplate->Integral());
 
     SPEdigi.resize(nsamples);
 
+    if(0) {
+    int maxBin = SPETemplate->GetMaximumBin();
     for (int ibin = 0; ibin < SPETemplate->GetNbinsX(); ++ibin)
     {
-        SPEdigi[ibin] = SPETemplate->GetBinContent(ibin);
+        if (SPETemplate->GetBinContent(ibin)==0){
+            continue;
+        }
+        if (ibin >= maxBin)
+            SPEdigi[ibin - maxBin] = SPETemplate->GetBinContent(ibin);
+        else {
+            printf(" %i %i %i \n", ibin, -maxBin + ibin, int(SPEdigi.size()) - maxBin + ibin);
+            SPEdigi[int(SPEdigi.size()) - maxBin + ibin ] = SPETemplate->GetBinContent(ibin);
+        }
     }
-
+   } else {
+    int fillBin = 0;
     for (int ibin = 0; ibin < SPETemplate->GetNbinsX(); ++ibin)
+    {
+        if (SPETemplate->GetBinContent(ibin) == 0)
+            continue;
+        SPEdigi[fillBin++] = SPETemplate->GetBinContent(ibin);
+    }
+   }
+
+    // fill template
+    for (int ibin = 0; ibin < SPEdigi.size(); ++ibin)
         htemplate->SetBinContent(ibin, SPEdigi[ibin]);
 
     // make transorm of signal
@@ -85,16 +110,7 @@ void fftTest(int npoints = 10)
     // fit signal FFT to polynomial
     TF1* fsig = new TF1("fitSig", "pol7", 0, nsamples);
     htemplateFFT->Fit("fitSig","","",0,nsamples);
-    // make filter
-    vector<double> wfilter;
-    for (int i = 0; i < nsamples; ++i)
-    {
-        //double val = TMath::Max( double(0), fsig->Eval(double(i)));
-        double val = htemplateFFT->GetBinContent(i);
-        double w = val / (val + noiseVal);
-        wfilter.push_back(w);
-    }
-
+   
     //htemplateFFT->Fit(,"0","",x0,nsamples);
 
     // FFT input wave
@@ -104,8 +120,21 @@ void fftTest(int npoints = 10)
         digi[ibin] = hinputWave->GetBinContent(ibin);
     //
     std::vector<std::complex<double>> inputWaveTransform = forwardFFT(digi);
-    for (int i = 0; i < nsamples / 2; ++i)
+
+    // make filter
+    for (int i = 0; i < nsamples; ++i)
+    {
+        //double val = TMath::Max( double(0), fsig->Eval(double(i)));
+        double mag =  std::abs(templateTransform[i]);
+        double w = mag/(mag+noiseVal);
+        wfilter.push_back(w);
+    }
+
+
+    for (int i = 0; i < nsamples / 2; ++i) {
         hinputFFT->SetBinContent(i, std::abs(inputWaveTransform[i]));
+        hWFilter->SetBinContent(i,std::abs(wfilter[i]));
+    }
 
     // convolve input with shape 
     unsigned maxFrequency = inputWaveTransform.size();
@@ -157,6 +186,8 @@ void fftTest(int npoints = 10)
     for (int ibin = 0; ibin < fdigi.size() ; ++ibin)
         hsignalWave->SetBinContent(ibin, fdigi[ibin]);
 
+    double signalNorm = hsignalWave->Integral();
+
     std::vector<std::complex<double>> inputWaveNoiseTransform = forwardFFT(fdigi);
 
     for (int i = 0; i < nsamples / 2; ++i)
@@ -173,9 +204,15 @@ void fftTest(int npoints = 10)
     std::vector<double> gdigi = backwardFFT(deconvTransform);
     for (unsigned i = 0; i < gdigi.size(); ++i)
         gdigi[i] /= double(nsamples);
+
+    double gnorm = 0;
+    for (unsigned i = 0; i < gdigi.size(); ++i) gnorm += gdigi[i]; 
+
     
-    for (int ibin = 0; ibin < gdigi.size() ; ++ibin)
-        hdeconvWave->SetBinContent(ibin, gdigi[ibin]);
+    for (int ibin = 0; ibin < gdigi.size() ; ++ibin) {
+        hdeconvWave->SetBinContent(ibin, gdigi[ibin]*signalNorm/gnorm);
+        //hdeconvWave->SetBinContent(ibin, gdigi[ibin]);
+    }
 
     printf("signal int %f decon int %f \n",hsignalWave->Integral(),hdeconvWave->Integral());
 }

@@ -100,6 +100,10 @@ int theDataType;
 TString dirName;
 TString dirNameSlash;
 
+void runNormHist(TH1D *hist)  {
+
+}
+
 void addRunSumHistos()
 {
   cout << "in addRunSumHistos" << endl;
@@ -155,7 +159,7 @@ void addRunSumHistos()
       {
         string chan = name.substr(name.find_last_of("e") + 1);
         int ichan = stoi(chan);
-        hClone = (TH1D *)h->Clone(Form("RunPeakWave-file%u-chan%i", ifile, ichan));
+        hClone = (TH1D *)h->Clone(Form("RunPeakWavefile%uchan%i", ifile, ichan));
         waveSumDir->Add(hClone);
         vRunPeakWave[ichan].push_back(hClone);
 //        for (int ibin = 0; ibin < hClone->GetNbinsX(); ++ibin)
@@ -178,7 +182,7 @@ void addRunSumHistos()
         // cout << name << "string chan" << chan << " int " << ichan << endl;
 
         TString cloneName;
-        cloneName.Form("runPeakSumCh%i-file%i", ichan, ifile);
+        cloneName.Form("runPeakSumCh%ifile%i", ichan, ifile);
         TH1D *hpAdd = (TH1D *)h->Clone(cloneName);
         // cout << " +vRunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName()  << " " << hAdd->GetName() << endl;
         hpAdd->SetMarkerStyle(20);
@@ -193,7 +197,7 @@ void addRunSumHistos()
         // cout << name << "string chan" << chan << " int " << ichan << endl;
 
         TString cloneName;
-        cloneName.Form("runQSumCh%i-file%i", ichan, ifile);
+        cloneName.Form("runQSumCh%ifile%i", ichan, ifile);
         TH1D *hqAdd = (TH1D *)h->Clone(cloneName);
         // cout << " +vRunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName()  << " " << hAdd->GetName() << endl;
         hqAdd->SetMarkerStyle(20);
@@ -384,6 +388,7 @@ void addRunSumHistos()
       TString fullName =  dirNameSlash + fileList[ifile];
       fin = new TFile(fullName);
 
+      sumDir = NULL;
       fin->GetObject("sumDir", sumDir);
       if (!sumDir)
       {
@@ -876,7 +881,7 @@ void addRunSumHistos()
     dopeTime = TDatime(2023, 3, 9, 22, 0, 0);
 
     unsigned nfiles = countFiles();
-    if (countFiles() == 0)
+    if (nfiles == 0)
       exit(0);
 
     printf(" for %s found %lu files \n", tag.Data(), fileList.size());
@@ -937,19 +942,7 @@ void addRunSumHistos()
     QPEFits();
     // PeakSumFits();
 
-    //normalize
-    if (eventCount)
-    {
     
-      // assumes I had normalized to triggers in previous step
-      printf("\t\t\t  run norm %f %lu \n", runNorm,hRunSumPeakWave.size());
-      for (int ihist = 0; ihist < int(hRunSumPeakWave.size()); ++ihist)
-      {
-        for (int ibin = 0; ibin < hRunSumPeakWave[ihist]->GetNbinsX(); ++ibin)
-          hRunSumPeakWave[ihist]->SetBinContent(ibin, hRunSumPeakWave[ihist]->GetBinContent(ibin) * runNorm);
-        fout->Add(hRunSumPeakWave[ihist]);
-        }
-    }
 
         // call function to fit slopes and fill vSlope, vESlope
       if (filenum.size() > 0) {
