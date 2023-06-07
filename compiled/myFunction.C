@@ -1,9 +1,9 @@
 // Macro myfunc.C
 TF1* f1;  // file scope 
-Double_t mySinFunction(Double_t *x, Double_t *par)  // x is f(x) with paramters passed in
+double mySinFunction(double *x, double *par)  // x is f(x) with paramters passed in
 {
-   Float_t xx =x[0];
-   Double_t f = TMath::Abs(par[0]*sin(par[1]*xx)/xx);
+   double xx =x[0];
+   double f = TMath::Abs(par[0]*sin(par[1]*xx)/xx);
    return f;
 }
 
