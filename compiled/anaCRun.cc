@@ -847,7 +847,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   int totalchannels = rawBr.size() + 1;
   ntChan = new TNtuple("ntchan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peakmax:sum2:sum:negcrossings:thresholds:pass");
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
-  hEventPass = new TH1D("EventPass", " event failures", 7, 0, 4);
+  hEventPass = new TH1D("EventPass", " event failures", 7, 0, 7);
   evCount = new TH1D("eventcount", "event count", totalchannels, 0, totalchannels);
   histHitCount = new TH1D("hitCount", "hit count by channel", totalchannels, 0, totalchannels);
   histQSum = new TH1D("histqsum", "qsum by channel", totalchannels, 0, totalchannels);

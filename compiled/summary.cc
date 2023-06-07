@@ -77,6 +77,7 @@ std::vector<vector<TH1D *>> vRunPeakSum;
 std::vector<vector<TH1D *>> vRunHitWave;
 std::vector<vector<TH1D *>> vRunPeakWave;
 std::vector<TH1D *> hRunSumPeakWave;
+std::vector<TH1D *> hRunSumHitWave;
 std::map<int, TH1D *> histMap;
 std::map<int, TH1D *> histqMap;
 std::map<int, TH1D *> histpMap;
@@ -100,115 +101,6 @@ int theDataType;
 TString dirName;
 TString dirNameSlash;
 
-void runNormHist(TH1D *hist)  {
-
-}
-
-void addRunSumHistos()
-{
-  cout << "in addRunSumHistos" << endl;
-  int nbinsx = 0;
-  bool first = true;
-  for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
-  {
-
-    TString fullName = dirNameSlash + fileList[ifile];
-    fin = new TFile(fullName);
-    fin->GetObject("sumDir", sumDir);
-    if (!sumDir)
-    {
-      printf("addRunSumHistos file %s no sumDir!!! \n", fileList[ifile].Data());
-      continue;
-    }
-
-    TList *sumList = sumDir->GetListOfKeys();
-    // cout << " >>>>> addRunSumHistos file  " << fileList[ifile] << " sumDir size " << sumList->GetSize() << endl;
-    //  sumDir->ls();
-
-    TIter next(sumList);
-    TKey *key;
-    // printf("addsumDirHistos %u \n", sumList->GetEntries());
-    while (TKey *key = (TKey *)next())
-    {
-      TClass *cl = gROOT->GetClass(key->GetClassName());
-      if (!cl->InheritsFrom("TH1D"))
-        continue;
-      TH1D *h = (TH1D *)key->ReadObj();
-      std::string name = string(h->GetName());
-
-      // save summed waves
-      // summed waves
-      TH1D *hClone;
-      if (name.find("sumWave") != std::string::npos && name.find("Bad") == std::string::npos)
-      {
-        // cout << " sumWave clone " << name << " file " << ifile << endl;
-        hClone = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
-        hSumWave.push_back(hClone);
-        waveSumDir->Add(hClone);
-      }
-      if (name.find("sumHitWave") != std::string::npos)
-      {
-//        cout << " \t\t AAAAAAA "  << endl;
-        string chan = name.substr(name.find_last_of("e") + 1);
-        int ichan = stoi(chan);
-        hClone = (TH1D *)h->Clone(Form("RunHitWave-file%u-chan%i", ifile, ichan));
-        waveSumDir->Add(hClone);
-        vRunHitWave[ichan].push_back(hClone);
-      }
-      if (name.find("sumPeakWave") != std::string::npos) 
-      {
-        string chan = name.substr(name.find_last_of("e") + 1);
-        int ichan = stoi(chan);
-        hClone = (TH1D *)h->Clone(Form("RunPeakWavefile%uchan%i", ifile, ichan));
-        waveSumDir->Add(hClone);
-        vRunPeakWave[ichan].push_back(hClone);
-//        for (int ibin = 0; ibin < hClone->GetNbinsX(); ++ibin)
-//        {
-        if (ifile == 0)
-        {
-          printf("1st ichan = %i, size of hRunSumPeakWave = %lu \n", ichan, hRunSumPeakWave.size());
-          hRunSumPeakWave.push_back(hClone);
-        }
-        else
-        {
-          //printf("else ichan = %i, size of hRunSumPeakWave = %lu \n", ichan, hRunSumPeakWave.size());
-          hRunSumPeakWave[ichan]->Add(hClone);
-        }
-//        }
-      }
-      // get PeakChan by channel
-      if (name.find("QPeakChan") != std::string::npos) {        string chan = name.substr(name.find_last_of("n") + 1);
-        int ichan = stoi(chan);
-        // cout << name << "string chan" << chan << " int " << ichan << endl;
-
-        TString cloneName;
-        cloneName.Form("runPeakSumCh%ifile%i", ichan, ifile);
-        TH1D *hpAdd = (TH1D *)h->Clone(cloneName);
-        // cout << " +vRunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName()  << " " << hAdd->GetName() << endl;
-        hpAdd->SetMarkerStyle(20);
-        hpAdd->SetMarkerSize(0.5);
-        vRunPeakSum[ichan].push_back(hpAdd);
-        peakSumDir->Add(hpAdd);
-      }
-      // get QSumChan by channel
-      if (name.find("QSumChan") != std::string::npos) {
-        string chan = name.substr(name.find_last_of("n") + 1);
-        int ichan = stoi(chan);
-        // cout << name << "string chan" << chan << " int " << ichan << endl;
-
-        TString cloneName;
-        cloneName.Form("runQSumCh%ifile%i", ichan, ifile);
-        TH1D *hqAdd = (TH1D *)h->Clone(cloneName);
-        // cout << " +vRunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName()  << " " << hAdd->GetName() << endl;
-        hqAdd->SetMarkerStyle(20);
-        hqAdd->SetMarkerSize(0.5);
-        vRunQSum[ichan].push_back(hqAdd);
-        qpeSumDir->Add(hqAdd);
-      }
-        // fin->Close();
-      }
-    }
-  }
 
   void QPEFits()
   {
@@ -495,8 +387,109 @@ void addRunSumHistos()
         printf("  summary file %u  %s chan 6 %f  \n", ifile, fileList[ifile].Data(), vecQsum[6][ifile]);
       
       }
-      fin->Close();
-    } // end loop over files
+
+      /******  loop over sumDir *****/
+      TList *sumList = sumDir->GetListOfKeys();
+      cout << " >>>>> addRunSumHistos file  " << fileList[ifile] << " sumDir size " << sumList->GetSize() << endl;
+      sumDir->ls();
+
+      TIter next(sumList);
+      TKey *key;
+      // printf("addsumDirHistos %u \n", sumList->GetEntries());
+      while (TKey *key = (TKey *)next())
+      {
+        TClass *cl = gROOT->GetClass(key->GetClassName());
+        if (!cl->InheritsFrom("TH1D"))
+          continue;
+        TH1D *h = (TH1D *)key->ReadObj();
+        std::string name = string(h->GetName());
+
+        /****** get run sum ****/
+      TH1D *hClone;
+      if (name.find("sumWave") != std::string::npos && name.find("Bad") == std::string::npos)
+      {
+        // cout << " sumWave clone " << name << " file " << ifile << endl;
+        hClone = (TH1D *)h->Clone(Form("%s-file%i", h->GetName(), ifile));
+        hSumWave.push_back(hClone);
+        waveSumDir->Add(hClone);
+      }
+      if (name.find("sumHitWave") != std::string::npos)
+      {
+//        cout << " \t\t AAAAAAA "  << endl;
+        string chan = name.substr(name.find_last_of("e") + 1);
+        int ichan = stoi(chan);
+        hClone = (TH1D *)h->Clone(Form("RunHitWave-file%u-chan%i", ifile, ichan));
+        waveSumDir->Add(hClone);
+        vRunHitWave[ichan].push_back(hClone);
+        if (ifile == 0)
+        {
+            printf("1st ichan = %i, size of hRunSumHitWave = %lu \n", ichan, hRunSumHitWave.size());
+            hRunSumHitWave.push_back(hClone);
+        }
+        else
+        {
+            // printf("else ichan = %i, size of hRunSumPeakWave = %lu \n", ichan, hRunSumPeakWave.size());
+            hRunSumHitWave[ichan]->Add(hClone);
+        }
+      }
+      if (name.find("sumPeakWave") != std::string::npos) 
+      {
+        string chan = name.substr(name.find_last_of("e") + 1);
+        int ichan = stoi(chan);
+        hClone = (TH1D *)h->Clone(Form("RunPeakWavefile%uchan%i", ifile, ichan));
+        waveSumDir->Add(hClone);
+        vRunPeakWave[ichan].push_back(hClone);
+//        for (int ibin = 0; ibin < hClone->GetNbinsX(); ++ibin)
+//        {
+        if (ifile == 0)
+        {
+          printf("1st ichan = %i, size of hRunSumPeakWave = %lu \n", ichan, hRunSumPeakWave.size());
+          hRunSumPeakWave.push_back(hClone);
+        }
+        else
+        {
+          //printf("else ichan = %i, size of hRunSumPeakWave = %lu \n", ichan, hRunSumPeakWave.size());
+          hRunSumPeakWave[ichan]->Add(hClone);
+        }
+//        }
+      }
+
+        /****** get PeakChan by channel ****/
+          if (name.find("QPeakChan") != std::string::npos)
+          {
+            string chan = name.substr(name.find_last_of("n") + 1);
+            int ichan = stoi(chan);
+            // cout << name << "string chan" << chan << " int " << ichan << endl;
+
+            TString cloneName;
+            cloneName.Form("runPeakSumCh%ifile%i", ichan, ifile);
+            TH1D *hpAdd = (TH1D *)h->Clone(cloneName);
+            // cout << " +vRunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName()  << " " << hAdd->GetName() << endl;
+            hpAdd->SetMarkerStyle(20);
+            hpAdd->SetMarkerSize(0.5);
+            vRunPeakSum[ichan].push_back(hpAdd);
+            peakSumDir->Add(hpAdd);
+          }
+          // get QSumChan by channel
+          if (name.find("QSumChan") != std::string::npos)
+          {
+            string chan = name.substr(name.find_last_of("n") + 1);
+            int ichan = stoi(chan);
+            // cout << name << "string chan" << chan << " int " << ichan << endl;
+
+            TString cloneName;
+            cloneName.Form("runQSumCh%ifile%i", ichan, ifile);
+            TH1D *hqAdd = (TH1D *)h->Clone(cloneName);
+            // cout << " +vRunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName()  << " " << hAdd->GetName() << endl;
+            hqAdd->SetMarkerStyle(20);
+            hqAdd->SetMarkerSize(0.5);
+            vRunQSum[ichan].push_back(hqAdd);
+            qpeSumDir->Add(hqAdd);
+          }
+        }
+
+        fin->Close();
+      } // end loop over files
   }
 
   void QPESumFits()
@@ -663,109 +656,6 @@ void addRunSumHistos()
     }
   }
 
-  void addsumDirHistos()
-  {
-    cout << "in addsumDirHistos" << endl;
-    int nbinsx = 0;
-    bool first = true;
-    for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
-    {
-
-      TString fullName = dirNameSlash + fileList[ifile];
-      fin = new TFile(fullName);
-      fin->GetObject("sumDir", sumDir);
-      if (!sumDir)
-      {
-        printf("addsumDirHistos file %s no sumDir!!! \n", fileList[ifile].Data());
-        continue;
-      }
-
-      TList *sumList = sumDir->GetListOfKeys();
-      //cout << " >>>>> addsumDirHistos file  " << fileList[ifile] << " sumDir size " << sumList->GetSize() << endl;
-      // sumDir->ls();
-
-      TIter next(sumList);
-      TKey *key;
-      // printf("addsumDirHistos %u \n", sumList->GetEntries());
-      while (TKey *key = (TKey *)next())
-      {
-        TClass *cl = gROOT->GetClass(key->GetClassName());
-        if (!cl->InheritsFrom("TH1D"))
-          continue;
-        TH1D *h = (TH1D *)key->ReadObj();
-        std::string name = string(h->GetName());
-
-        // Add QSumChan by channel
-        if (name.find("QSumChan") != std::string::npos)
-        {
-        // cout << fileList[ifile] << " " << h->GetName() << endl;
-          string chan = name.substr(name.find_last_of("n") + 1);
-          int ichan = stoi(chan);
-          TString cloneqName;
-          cloneqName.Form("AddQSumCh%i", ichan);
-          TH1D *hqAdd = (TH1D *)h->Clone(cloneqName);
-          if (first) // create summed histos in runQSum and runPeakSum arrays with maps
-          {
-            if (nbinsx == 0)
-              nbinsx = hqAdd->GetNbinsX();
-            qpeSumDir->Add(hqAdd);
-            TH1D *fileqHist = NULL;
-            qpeSumDir->GetObject(cloneqName, fileqHist);
-            histqMap.insert(std::pair<int, TH1D *>(ichan, fileqHist));
-            // cout << " QSumChan clone " << name << " chan " << ichan << " NbinsX " << hAdd->GetNbinsX() << " integral " << histMap.at(ichan)->Integral() << endl;
-          }
-          else if (hqAdd->GetNbinsX() == nbinsx) // add
-          {
-            histqMap.at(ichan)->Add(hqAdd);
-            // cout << " add QSumChan " << name << " chan " << ichan << " NbinsX " << hAdd->GetNbinsX() << " integral " << histMap.at(ichan)->Integral() << endl;
-          }
-          else
-          {
-            cout << " Warning! skip QSumChan  " << name << " chan " << ichan << " NbinsX " << nbinsx << " , " << hqAdd->GetNbinsX() << endl;
-          }
-        }
-        // Add QSumChan by channel
-        else if (name.find("QPeakChan") != std::string::npos)
-        {
-          // cout << fileList[ifile] << " " << h->GetName() << endl;
-          string chan = name.substr(name.find_last_of("n") + 1);
-          int ichan = stoi(chan);
-          TString clonepName;
-          clonepName.Form("AddPeakSumCh%i", ichan);
-          TH1D *hpAdd = (TH1D *)h->Clone(clonepName);
-          if (first) // create summed histos in runQSum and runPeakSum arrays with maps
-          {
-            if (nbinsx == 0)
-              nbinsx = hpAdd->GetNbinsX();
-            peakSumDir->Add(hpAdd);
-            TH1D *filepHist = NULL;
-            peakSumDir->GetObject(clonepName, filepHist);
-            histpMap.insert(std::pair<int, TH1D *>(ichan, filepHist));
-            // cout << " QSumChan clone " << name << " chan " << ichan << " NbinsX " << hAdd->GetNbinsX() << " integral " << histMap.at(ichan)->Integral() << endl;
-          }
-          else if (hpAdd->GetNbinsX() == nbinsx) // add
-          {
-            histpMap.at(ichan)->Add(hpAdd);
-            // cout << " add QSumChan " << name << " chan " << ichan << " NbinsX " << hAdd->GetNbinsX() << " integral " << histMap.at(ichan)->Integral() << endl;
-          }
-          else
-          {
-            cout << " Warning! skip QSumChan  " << name << " chan " << ichan << " NbinsX " << nbinsx << " , " << hpAdd->GetNbinsX() << endl;
-          }
-        }
-
-      } // loop over sumDir
-      if (first)
-      {
-        for (std::map<int, TH1D *>::iterator it = histqMap.begin(); it != histqMap.end(); ++it)
-          std::cout << it->first << " => " << it->second->GetName() << '\n';
-        for (std::map<int, TH1D *>::iterator it = histpMap.begin(); it != histpMap.end(); ++it)
-          std::cout << it->first << " => " << it->second->GetName() << '\n';
-      }
-      first = false;
-      // fin->Close();
-    }
-  }
 
   void fitSlopes()
   {
@@ -935,8 +825,6 @@ void addRunSumHistos()
       printf(" %i %s \n", ifile, fileList[ifile].Data());
     }
 
-    addsumDirHistos();
-    addRunSumHistos();
     // for (std::map<int, TH1D *>::iterator it = histMap.begin(); it != histMap.end(); ++it)
     //   std::cout << it->first << " => " << it->second->GetName() << '\n';
     QPEFits();
