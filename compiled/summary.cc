@@ -337,7 +337,7 @@ TString dirNameSlash;
       }
       // thresh
       anaDir->GetObject("threshHist", hThreshHist);
-      //if (hThreshHist) cout << "  thresh" << endl;
+      if (!hThreshHist) cout << "  thresh" << endl;
       if (ifile == 0)
       {
         hRunThreshHist = (TH1D *)hThreshHist->Clone("RunThreshHist");
@@ -351,7 +351,7 @@ TString dirNameSlash;
 
       // crossings
       anaDir->GetObject("crossHist", hCrossHist);
-      //if (hCrossHist) cout << " cross" << endl;
+      if (!hCrossHist) cout << " cross" << endl;
       if (ifile == 0)
       {
         hRunCrossHist = (TH1D *)hCrossHist->Clone("RunCrossHist");
@@ -364,6 +364,7 @@ TString dirNameSlash;
       }
       // cosmic 1
       anaDir->GetObject("cosmicCut1", hCosmicCut1);
+      if (!hCosmicCut1) cout << " cosmic 1" << endl;
       if (ifile == 0)
       {
         hRunCosmicCut1 = (TH1D *)hCosmicCut1->Clone("RunCosmicCut1");
@@ -375,10 +376,11 @@ TString dirNameSlash;
         hRunCosmicCut1->Add(hCosmicCut1);
       }
       // cosmic 2
-      fin->GetObject("cosmicCut2", hCosmicCut2);
+      anaDir->GetObject("cosmicCut2", hCosmicCut2);
+      if (!hCosmicCut2) cout << " cosmic 2" << endl;
       if (ifile == 0)
       {
-        hRunCosmicCut2 = (TH1D *)hCosmicCut1->Clone("RunCosmicCut2");
+        hRunCosmicCut2 = (TH1D *)hCosmicCut2->Clone("RunCosmicCut2");
         fout->Add(hRunCosmicCut2);
       }
       else
@@ -562,7 +564,7 @@ TString dirNameSlash;
      
       } // loop over sumDir keys
       if(ifile==0) fout->Write();
-      if(ifile==0) fout->ls();
+      //if(ifile==0) fout->ls();
       qpeSumDir->Write();
       waveSumDir->Write();
       fin->Close();
