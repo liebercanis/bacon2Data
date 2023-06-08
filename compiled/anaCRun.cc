@@ -449,8 +449,14 @@ bool anaCRun::anaEvent(Long64_t entry)
       idet->pass = false;
     if (trig && idet->thresholds > maxThresholds)
       idet->pass = false;
+      /*
+    if (!trig && idet->crossings > maxCrossings)
+      printf("fail crossings %i %i %i\n",ichan,idet->crossings, idet->pass);
+    if (trig && idet->thresholds > maxThresholds)
+      printf("fail threshold  %i %i %i\n",ichan,idet->thresholds,idet->pass);
+      */
 
-    ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peakMax), float(sum2), float(sum), float(crossings.size()), float(thresholds.size()), float(idet->pass));
+      ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peakMax), float(sum2), float(sum), float(crossings.size()), float(thresholds.size()), float(idet->pass));
 
     // plot some events
     TString hname;
@@ -506,7 +512,8 @@ bool anaCRun::anaEvent(Long64_t entry)
   tbrun->fill();
 
   
-  int passBit = 0;
+  // defined in class as int
+  passBit = 0;
   bool eventPass = true;
   for (unsigned ib = 0; ib < rawBr.size(); ++ib)
   {
@@ -514,11 +521,19 @@ bool anaCRun::anaEvent(Long64_t entry)
     bool trig = ichan == 9 || ichan == 10 || ichan == 11;
 
     TDet *idet = tbrun->getDet(ichan);
-    if (!idet->pass)
+    if (trig && !idet->pass)
+    {
+      //printf(" %llu bad chan %u thresh %u crossing %u \n ", entry,ichan, idet->thresholds, idet->crossings);
+      eventPass = false;
+      passBit |= 0x1;
+      //printf(".... set bit theshold  %i %i %i\n",ichan,idet->thresholds,passBit);
+    }
+    if(!trig && !idet->pass)
     {
       // printf(" %llu bad chan %u thresh %u crossing %u \n ", entry,ichan, idet->thresholds, idet->crossings);
       eventPass = false;
-      passBit |= 0x1;
+      passBit |= 0x2;
+      //printf(".... set bit crossings  %i %i %i\n",ichan,idet->crossings,passBit);
     }
 
     if (ichan == 12 )
@@ -526,8 +541,9 @@ bool anaCRun::anaEvent(Long64_t entry)
 
     if (ichan == 12 && idet->sum > 20)
     { // cosmic cut
-      passBit |= 0x2;
+      passBit |= 0x4;
       eventPass = false;
+      //printf(".... set bit cosmic1  %i %f %i\n",ichan,idet->sum,passBit);
     }
   }
 
@@ -606,7 +622,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     }
   }
   if (!eventPass){
-    passBit |= 0x4;
+    passBit |= 0x8;
     return eventPass;
   }
   // fill total light
@@ -847,7 +863,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   int totalchannels = rawBr.size() + 1;
   ntChan = new TNtuple("ntchan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peakmax:sum2:sum:negcrossings:thresholds:pass");
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
-  hEventPass = new TH1D("EventPass", " event failures", 7, 0, 7);
+  hEventPass = new TH1D("EventPass", " event failures", 16, 0, 16);
   evCount = new TH1D("eventcount", "event count", totalchannels, 0, totalchannels);
   histHitCount = new TH1D("hitCount", "hit count by channel", totalchannels, 0, totalchannels);
   histQSum = new TH1D("histqsum", "qsum by channel", totalchannels, 0, totalchannels);
@@ -939,11 +955,15 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
         printf("NULL branch %i \n", it);
       */
 
+    hEventPass->Fill(-1);
     if (anaEvent(entry))
       ++npass;
     else
       ++nfail;
+    //if(passBit!=0)
+    //  printf("event fails with passBit = %x npass %i nfail %i \n", passBit,npass,nfail);
     hEventPass->Fill(passBit);
+    if(entry/1000*1000==entry) printf("... %lld npass %i nfail %i \n", entry,npass,nfail);
   }
   // normailize to number of nentries.
   // loop over detector channels
@@ -1034,20 +1054,26 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
     printf(" bin %i count %i ;", ibin, int(histHitCount->GetBinContent(ibin)));
   printf("  \n");
 
-  
-  //printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
-  printf(" FINISHED pass %i fail %i cosmic only 1st  %i cosmic only 2nd %i output file %s  \n", int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)), fout->GetName());
-
-  for(int i=0; i<13; ++i ) {
-    double sump = sumPeakWave[i]->GetEntries(); // DEF added
-    double sumh = sumHitWave[i]->GetEntries();
-    printf("channel %i %f %f  \n",i,sump,sumh);
+  printf(" ******* FINISHED***** \n \t hits by channel  \n");
+  for (int i = 0; i < 13; ++i)
+  {
+    printf("channel %i %f  \n", i, hQSum[i]->GetEntries());
   }
+    // printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
+    printf(" FINISHED pass %i  fail %i thresh only %i cross only %i 1st cosmic only %i 2nd cosmic only %i output file %s  \n",
+           int(hEventPass->GetBinContent(1)),
+           int(nfail),
+           int(hEventPass->GetBinContent(1+1)),
+           int(hEventPass->GetBinContent(2+1)),
+           int(hEventPass->GetBinContent(4+1)),
+           int(hEventPass->GetBinContent(8+1)),
+           fout->GetName());
 
+    //hEventPass->Print("all");
 
-  fout->Write();
-  fout->Close();
-  return nentries;
+    fout->Write();
+    fout->Close();
+    return nentries;
 }
 
 anaCRun::anaCRun(TString theTag)
