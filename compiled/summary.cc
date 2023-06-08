@@ -60,6 +60,16 @@ std::vector<TDatime> fileDatime;
 TBFile *bf;
 TBEventData *eventData;
 TTree *runTree;
+TH1D *hEventPass;
+TH1D *hThreshHist;
+TH1D *hCrossHist;
+TH1D *hCosmicCut1;
+TH1D *hCosmicCut2;
+TH1D *hRunEventPass;
+TH1D *hRunThreshHist;
+TH1D *hRunCrossHist;
+TH1D *hRunCosmicCut1;
+TH1D *hRunCosmicCut2;
 std::vector<vector<double>> vecQsum;
 std::vector<vector<double>> vecEQsum;
 std::vector<vector<double>> vecPeaksum;
@@ -313,17 +323,68 @@ TString dirNameSlash;
         continue;
       }
       printf(" anaDir for file %s \n", fin->GetName());
-
-      TList *anaList = anaDir->GetListOfKeys();
-
-      TIter nexta(anaList);
-      // printf("addsumDirHistos %u \n", sumList->GetEntries());
-      while (TKey *key = (TKey *)nexta())
+      // get hist of cleanup cut pass bit
+      fin->GetObject("EventPass", hEventPass);
+      if (hEventPass) cout << " event pass " << endl;
+      if (ifile == 0)
       {
-        TClass *cl = gROOT->GetClass(key->GetClassName());
-        if (!cl->InheritsFrom("TH1D")) continue;
-        TH1D *h = (TH1D *)key->ReadObj();
-        std::string name = string(h->GetName());
+        hRunEventPass = (TH1D *)hEventPass->Clone("RunEventPass");
+        fout->Add(hRunEventPass);
+      }
+      else{
+        fout->GetObject("RunEventPass", hRunEventPass);
+        hRunEventPass->Add(hEventPass);
+      }
+      // thresh
+      anaDir->GetObject("threshHist", hThreshHist);
+      //if (hThreshHist) cout << "  thresh" << endl;
+      if (ifile == 0)
+      {
+        hRunThreshHist = (TH1D *)hThreshHist->Clone("RunThreshHist");
+        fout->Add(hRunThreshHist);
+      }
+      else
+      {
+        fout->GetObject("RunThreshHist", hRunThreshHist);
+        hRunThreshHist->Add(hThreshHist);
+      }
+
+      // crossings
+      anaDir->GetObject("crossHist", hCrossHist);
+      //if (hCrossHist) cout << " cross" << endl;
+      if (ifile == 0)
+      {
+        hRunCrossHist = (TH1D *)hCrossHist->Clone("RunCrossHist");
+        fout->Add(hRunCrossHist);
+      }
+      else
+      {
+        fout->GetObject("RunCrossHist", hRunCrossHist);
+        hRunCrossHist->Add(hCrossHist);
+      }
+      // cosmic 1
+      anaDir->GetObject("cosmicCut1", hCosmicCut1);
+      if (ifile == 0)
+      {
+        hRunCosmicCut1 = (TH1D *)hCosmicCut1->Clone("RunCosmicCut1");
+        fout->Add(hRunCosmicCut1);
+      }
+      else
+      {
+        fout->GetObject("RunCosmicCut1", hRunCosmicCut1);
+        hRunCosmicCut1->Add(hCosmicCut1);
+      }
+      // cosmic 2
+      fin->GetObject("cosmicCut2", hCosmicCut2);
+      if (ifile == 0)
+      {
+        hRunCosmicCut2 = (TH1D *)hCosmicCut1->Clone("RunCosmicCut2");
+        fout->Add(hRunCosmicCut2);
+      }
+      else
+      {
+        fout->GetObject("RunCosmicCut2", hRunCosmicCut2);
+        hRunCosmicCut2->Add(hCosmicCut2);
       }
 
       sumDir = NULL;
@@ -500,7 +561,8 @@ TString dirNameSlash;
       }
      
       } // loop over sumDir keys
-      if(ifile==0) runSumDir->Write();
+      if(ifile==0) fout->Write();
+      if(ifile==0) fout->ls();
       qpeSumDir->Write();
       waveSumDir->Write();
       fin->Close();
@@ -800,6 +862,18 @@ TString dirNameSlash;
     {
       maxFiles = atoi(argv[3]);
     }
+
+    // cleanup cuts;
+    hEventPass = NULL;
+    hThreshHist=NULL;
+    hCrossHist=NULL;
+    hCosmicCut1=NULL;
+    hCosmicCut2=NULL;
+    hRunEventPass = NULL;
+    hRunThreshHist = NULL;
+    hRunCrossHist = NULL;
+    hRunCosmicCut1 = NULL;
+    hRunCosmicCut2 = NULL;
 
     sdate = currentDate();
     cout << " starting summary for  " << maxFiles << " files on " << sdate << endl;
