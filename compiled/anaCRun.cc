@@ -646,7 +646,8 @@ bool anaCRun::anaEvent(Long64_t entry)
         finder->plotEvent(tdet->channel, entry);
 
       // loop over hits
-      double hitThreshold = 5.0 * channelSigmaValue[idet];
+      //double hitThreshold = 5.0 * channelSigmaValue[idet];
+      double hitThreshold = 2000; 
       for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
       {
         TDetHit thit = tdet->hits[ihit];
@@ -967,8 +968,10 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   }
   // normailize to number of nentries.
   // loop over detector channels
-  double scaleFactor = 1. / double(npass);
-  printf(" \n \n At END OF FILE scale by %E\n", scaleFactor);
+  //double scaleFactor = 1. / double(npass);
+  printf(" \n \n At END OF FILE total pass  = %i  \n",npass);
+  // do not scale here
+  /*
   histQSum->Scale(scaleFactor);
   histQPrompt->Scale(scaleFactor);
   for (unsigned i = 0; i < sumHitWave.size(); ++i)
@@ -979,6 +982,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
     hQSum[i]->Scale(scaleFactor);
     hQPeak[i]->Scale(scaleFactor);
   }
+  */
 
   // finder->hPeakCount->Print("all");
   // tbrun->btree->GetListOfBranches()->ls();
