@@ -668,7 +668,7 @@ TString dirNameSlash;
       time_t rawtime;
       struct tm *timeinfo;
       time(&rawtime);
-      timeinfo = localtime(&raw/time);
+      timeinfo = localtime(&rawtime);
       char output[30];
       strftime(output, 30, "%Y-%m-%d-%H-%M", timeinfo);
       return string(output);
