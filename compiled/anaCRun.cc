@@ -635,9 +635,10 @@ bool anaCRun::anaEvent(Long64_t entry)
       TDet *tdet = tbrun->detList[idet];
       fsum[tdet->channel] = tdet->sum;
       // hit threshold cut done in hitFinder
-      histQSum->Fill(tdet->channel, tdet->qSum);
-      histQPrompt->Fill(tdet->channel, tdet->qPrompt);
-      histHitCount->SetBinContent(tdet->channel, histHitCount->GetBinContent(tdet->channel) + tdet->hits.size());
+      if(tdet->qSum>0){
+         histQSum->Fill(tdet->channel, tdet->qSum);
+         histQPrompt->Fill(tdet->channel, tdet->qPrompt);
+      }
 
       // add some event plots
       bool trig = tdet->channel == 9 || tdet->channel == 10 || tdet->channel == 11;
@@ -658,6 +659,8 @@ bool anaCRun::anaEvent(Long64_t entry)
         {
           sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
           sumPeakWave[idet]->SetBinContent(thit.firstBin + 1, sumPeakWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
+          // only count hits passing cut 
+          histHitCount->SetBinContent(tdet->channel, histHitCount->GetBinContent(tdet->channel) + 1 );
         }
 
         if (thit.qpeak > 100 && thit.qpeak < 300 && thit.startTime > 800)

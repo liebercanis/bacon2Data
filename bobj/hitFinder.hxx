@@ -68,6 +68,7 @@ public:
   TDirectory *finderDir;
   TDirectory *splitDir;
   Long64_t theEvent;
+  bool isCAEN;
   bool verbose;
   bool splitVerbose;
   bool smoothing;
