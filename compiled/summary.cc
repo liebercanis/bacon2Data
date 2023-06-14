@@ -586,8 +586,8 @@ TString dirNameSlash;
         for (unsigned ih = 0; ih < vRunPeakWave[ichan].size(); ++ih)
         {
           TString histName;
-          //histName.Form("RunHitWaveFile%uChan%i", ih, ichan);
-          histName.Form("RunSumPeakWaveFile%uChan%i", ih, ichan);
+          histName.Form("RunHitWaveFile%uChan%i", ih, ichan);
+          //histName.Form("RunSumPeakWaveFile%uChan%i", ih, ichan);
           waveSumDir->GetObject(histName,vRunPeakWave[ichan][ih]);
           if (vRunPeakWave[ichan][ih] == NULL)
           {
@@ -595,12 +595,15 @@ TString dirNameSlash;
             continue;
           }
 
+          vRunPeakWave[ichan][ih]->SetXTitle(" digi count 2 ns per bin ");
+          vRunPeakWave[ichan][ih]->SetYTitle("summed yield in QPE");
+
           // normalize to qpe.
           for (int ibin = 0; ibin <  vRunPeakWave[ichan][ih]->GetNbinsX(); ++ibin) {
-            //double qpe=vecQPE[ichan][ih];
-            double qpe = 300;
-            double xbin = filePass[ih] * vRunPeakWave[ichan][ih]->GetBinContent(ibin) / qpe;
-            if(xbin<0.1) xbin = 0;
+            double qpe=vecQPE[ichan][ih];
+            //double qpe = 300;
+            double xbin = vRunPeakWave[ichan][ih]->GetBinContent(ibin) / qpe;
+            //if(xbin<0.1) xbin = 0;
             vRunPeakWave[ichan][ih]->SetBinContent(ibin, xbin);
             vRunPeakWave[ichan][ih]->SetBinError(ibin, sqrt(xbin));
           }

@@ -648,7 +648,7 @@ bool anaCRun::anaEvent(Long64_t entry)
 
       // loop over hits
       //double hitThreshold = 5.0 * channelSigmaValue[idet];
-      double hitThreshold = 2000; 
+      double hitThreshold = 2000; // value for hit.qsum threshold
       for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
       {
         TDetHit thit = tdet->hits[ihit];
