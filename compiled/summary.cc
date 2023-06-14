@@ -594,9 +594,23 @@ TString dirNameSlash;
             printf("skipping vRunPeakWave chan %i file %i \n", ichan, ih);
             continue;
           }
-
           vRunPeakWave[ichan][ih]->SetXTitle(" digi count 2 ns per bin ");
           vRunPeakWave[ichan][ih]->SetYTitle("summed yield in QPE");
+          // new histogram
+          int nbinsx = vRunPeakWave[ichan][ih]->GetNbinsX();
+          double xlow = vRunPeakWave[ichan][ih]->GetXaxis()->GetBinLowEdge(0);
+          double xup = vRunPeakWave[ichan][ih]->GetXaxis()->GetBinUpEdge(nbinsx);
+          TH1D *hfitwave = NULL;
+          if (theDataType == SIS)
+            hfitwave = new TH1D(Form("fitwaveChan%iFlile%i", ichan, ih), Form("fitwaveChan%iFlile%i", ichan, ih), nbinsx, xlow, 8. * xup);
+          else 
+            hfitwave = new TH1D(Form("fitwaveChan%iFlile%i", ichan, ih), Form("fitwaveChan%iFlile%i", ichan, ih), nbinsx, xlow, 2. * xup);
+          hfitwave->SetMarkerStyle(21);
+          hfitwave->SetMarkerSize(0.2);
+          hfitwave->GetListOfFunctions()->Clear();
+
+          hfitwave->SetXTitle(" time ns ");
+          hfitwave->SetYTitle("summed yield in QPE");
 
           // normalize to qpe.
           for (int ibin = 0; ibin <  vRunPeakWave[ichan][ih]->GetNbinsX(); ++ibin) {
@@ -606,28 +620,24 @@ TString dirNameSlash;
             //if(xbin<0.1) xbin = 0;
             vRunPeakWave[ichan][ih]->SetBinContent(ibin, xbin);
             vRunPeakWave[ichan][ih]->SetBinError(ibin, sqrt(xbin));
+            hfitwave->SetBinContent(ibin, xbin);
+            hfitwave->SetBinError(ibin, sqrt(xbin));
           }
 
-          TH1D *hfitwave = (TH1D *)vRunPeakWave[ichan][ih]->Clone(Form("fitwaveChan%iFlile%i", ichan, ih));
-          hfitwave->SetMarkerStyle(21);
-          hfitwave->SetMarkerSize(0.2);
-          hfitwave->GetListOfFunctions()->Clear();
+         
           //hfitwave->SetDirectory(nullptr);
 
-          double xlow = 0.;
-          double xhigh = 0;
-          double MicroSecPerDac = 0;  // DEF added in switch for different digitizer MicroSecPerDac
+          double flow = 0.;
+          double fhigh = 0;
           if (theDataType == SIS)
           { // For SIS data
-            xlow = 120.;
-            xhigh = 500.;
-            MicroSecPerDac = 8. / 1000.; // 8 ns bins
+            flow = 8*120.;
+            fhigh = 8*500.;
           }
           else
           { // For CAEN data
-            xlow = 1000.;
-            xhigh = 3000.;
-            MicroSecPerDac = 2. / 1000.; // 2 ns bins
+            flow = 2.*1000.;
+            fhigh = 2.*3000.;
           }
           
           TF1 *gslopefit = NULL;
@@ -635,12 +645,13 @@ TString dirNameSlash;
             L Uses a log likelihood method(default is chi - square method).
             To be used when the histogram represents counts.
           */
-          hfitwave->Fit("expo", "LQ", " ", xlow, xhigh);
+          hfitwave->Fit("expo", "LQ", " ", flow, fhigh);
           gslopefit = (TF1 *)hfitwave->GetListOfFunctions()->FindObject("expo");
           double mfit = 0;
           double emfit = 0;
           double time = 0;
           double etime = 0;
+          double MicroSecPerNs = 1./1000.;  // DEF added in switch for different digitizer MicroSecPerDac
           if (gslopefit)
           {
             mfit = -1.*gslopefit->GetParameter(1); 
@@ -648,7 +659,7 @@ TString dirNameSlash;
             time = 0;
             etime = 0;
             if(mfit!=0){
-              time =  MicroSecPerDac / mfit;
+              time =  MicroSecPerNs / mfit;
               etime = gslopefit->GetParError(1) / abs(gslopefit->GetParameter(1)) * abs(time);
             }
           }
