@@ -155,7 +155,7 @@ void QPEFits()
   cout << " ***** QPEFits ***** " << endl;
 
   // for (unsigned ichan = 0; ichan < vRunQSum.size(); ++ichan)
-  for (unsigned ichan = 0; ichan < 9; ++ichan)
+  for (unsigned ichan = 0; ichan < nchan; ++ichan)
   {
 
     cout << " QPEFits " << ichan << " num histos " << vRunQSum[ichan].size() << endl;
@@ -208,7 +208,7 @@ void QPEFits()
       }
       if (ichan == 9 || ichan == 10 || ichan == 11)
       {
-        return;
+        continue;
       }
       hclone->Fit("gaus", "Q", " ", xlow, xhigh);
       TF1 *gfit = (TF1 *)hclone->GetListOfFunctions()->FindObject("gaus");
@@ -623,9 +623,12 @@ void fileLoop()
 void fitSlopes()
 {
   printf("Make slope graph.  Number of files = %lu Number of channels = %lu \n", filenum.size(), vRunPeakWave.size());
-  for (unsigned ichan = 0; ichan < 9; ++ichan)
+  for (unsigned ichan = 0; ichan < vRunHitWave.size(); ++ichan)
   {
+    if (ichan > 8 && ichan < 12)
+      continue; // skip trigger sipms
     printf("Make slope graph ichan %i \n", ichan);
+    // cout << " number of files " << vRunPeakWave[ichan].size() << endl;
     fitSumDir->cd();
 
     for (unsigned ih = 0; ih < vRunPeakWave[ichan].size(); ++ih)
@@ -633,12 +636,14 @@ void fitSlopes()
       TString histName;
       histName.Form("RunHitWaveFile%uChan%i", ih, ichan);
       // histName.Form("RunSumPeakWaveFile%uChan%i", ih, ichan);
+      // cout << histName << endl;
       waveSumDir->GetObject(histName, vRunPeakWave[ichan][ih]);
       if (vRunPeakWave[ichan][ih] == NULL)
       {
         printf("skipping vRunPeakWave chan %i file %i \n", ichan, ih);
         continue;
       }
+      //cout << vRunPeakWave[ichan][ih]->GetName() << endl;
       vRunPeakWave[ichan][ih]->SetXTitle(" digi count 2 ns per bin ");
       vRunPeakWave[ichan][ih]->SetYTitle("summed yield in QPE");
       // new histogram
@@ -650,6 +655,7 @@ void fitSlopes()
         hfitwave = new TH1D(Form("fitwaveChan%iFlile%i", ichan, ih), Form("fitwaveChan%iFlile%i", ichan, ih), nbinsx, xlow, 8. * xup);
       else
         hfitwave = new TH1D(Form("fitwaveChan%iFlile%i", ichan, ih), Form("fitwaveChan%iFlile%i", ichan, ih), nbinsx, xlow, 2. * xup);
+      //cout << hfitwave->GetName() << endl;
       hfitwave->SetMarkerStyle(21);
       hfitwave->SetMarkerSize(0.2);
       hfitwave->GetListOfFunctions()->Clear();
@@ -679,7 +685,9 @@ void fitSlopes()
         runSumDir->Add(hRunSumHitWave[ichan]);
       }
       else
+      {
         hRunSumHitWave[ichan]->Add(hfitwave);
+      }
 
       /// hfitwave->SetDirectory(nullptr);
 
@@ -902,7 +910,7 @@ int main(int argc, char *argv[])
 
   cout << "Average QPE" << endl;
 
-  for (int ichan = 0; ichan < 9; ++ichan)
+  for (int ichan = 0; ichan < nchan; ++ichan)
   {
     double sum = 0;
     for (int ifile = 0; ifile < vecQPE[ichan].size(); ++ifile)
@@ -911,11 +919,11 @@ int main(int argc, char *argv[])
   }
 
   printf(" total triggers %i \n", totalPass);
-  
+
   for (unsigned ichan = 0; ichan < nchan; ++ichan)
     effOther[ichan] = 1.;
 
-  for (unsigned ichan = 0; ichan < 9; ++ichan)
+  for (unsigned ichan = 0; ichan < nchan; ++ichan)
   {
     TString histName;
     histName.Form("RunSumHitWaveChan%i", ichan);
@@ -926,14 +934,14 @@ int main(int argc, char *argv[])
     double eg = effGeo(ichan);
     double nexpect = nPhotons * (totalPass)*eg * effQuantum128;
     double totalHits = hRunSumHitWave[ichan]->Integral();
-          effOther[ichan]=totalHits / nexpect;
-          printf(" chan %i effGeo %.3E  nexpect %.3E detected  %.3E  effOther %.3f \n", ichan, eg, nexpect, totalHits, totalHits / nexpect);
+    effOther[ichan] = totalHits / nexpect;
+    printf(" chan %i effGeo %.3E  nexpect %.3E detected  %.3E  effOther %.3f \n", ichan, eg, nexpect, totalHits, totalHits / nexpect);
   }
 
-  for (unsigned ichan = 0; ichan < nchan; ++ ichan)
-          printf("effOther[%i]=%f ;\n", ichan, effOther[ichan]);
+  for (unsigned ichan = 0; ichan < nchan; ++ichan)
+    printf("effOther[%i]=%f ;\n", ichan, effOther[ichan]);
 
-   //    fout->ls();
+  //    fout->ls();
   fout->Purge(1);
   fout->Write();
   fout->Close();
@@ -948,7 +956,7 @@ void makeGraphs()
   cout << " \n\t ******* makeGraphs *****  " << endl;
   cout << " \n\t vecQsum " << vecQsum.size() << " vecQPE  " << vecQPE.size() << endl;
   if (vecQsum.size() == 0)
-          return;
+    return;
   int myColor[13] = {41, 42, 43, 44, 45, 46, 2, 3, 4, 31, 32, 33, 34};
   int myStyle[13] = {21, 22, 23, 24, 25, 26, 21, 22, 23, 31, 32, 33, 34};
 
@@ -957,41 +965,41 @@ void makeGraphs()
   normQsum.resize(vecQsum.size());
   for (unsigned ic = 0; ic < vecQsum.size(); ++ic)
   {
-          // printf(" vecQsum %i %lu \n", ic, vecQsum[ic].size());
-          normQsum[ic] = 1;
-          if (vecQsum[ic].size() > 0)
-          { // ave over before doping
-            double beforeSum = 0;
-            int normCount = 0;
-            if (vecQsum[ic].size() > 20)
-            {
-              for (unsigned jt = 0; jt < 20; ++jt)
-              {
-                if (!isinf(vecQsum[ic][jt]) && vecQsum[ic][jt] > 0 && fileDatime[jt].Convert() < dopeTime.Convert())
-                {
-                  beforeSum += vecQsum[ic][jt];
-                  ++normCount;
-                }
-              }
-            }
-            if (normCount > 0)
-              normQsum[ic] = beforeSum / double(normCount);
+    // printf(" vecQsum %i %lu \n", ic, vecQsum[ic].size());
+    normQsum[ic] = 1;
+    if (vecQsum[ic].size() > 0)
+    { // ave over before doping
+      double beforeSum = 0;
+      int normCount = 0;
+      if (vecQsum[ic].size() > 20)
+      {
+        for (unsigned jt = 0; jt < 20; ++jt)
+        {
+          if (!isinf(vecQsum[ic][jt]) && vecQsum[ic][jt] > 0 && fileDatime[jt].Convert() < dopeTime.Convert())
+          {
+            beforeSum += vecQsum[ic][jt];
+            ++normCount;
           }
-          // printf("\t  normQsum =  %f  \n", normQsum[ic]);
+        }
+      }
+      if (normCount > 0)
+        normQsum[ic] = beforeSum / double(normCount);
+    }
+    // printf("\t  normQsum =  %f  \n", normQsum[ic]);
   }
 
   normQPE.resize(vecQPE.size());
   for (unsigned ic = 0; ic < vecQPE.size(); ++ic)
   {
-          // printf(" vecQPE %i %lu \n", ic, vecQPE[ic].size());
-          normQPE[ic] = 1;
-          if (vecQPE[ic].size() > 0)
-          {
-            printf("\t vecQPE =  %f  \n", vecQPE[ic][0]);
-            if (!isinf(vecQPE[ic][0]) && vecQPE[ic][0] > 0)
-              normQPE[ic] = vecQPE[ic][0];
-          }
-          // printf("\t normQPE =  %f  \n", normQPE[ic]);
+    // printf(" vecQPE %i %lu \n", ic, vecQPE[ic].size());
+    normQPE[ic] = 1;
+    if (vecQPE[ic].size() > 0)
+    {
+      printf("\t vecQPE =  %f  \n", vecQPE[ic][0]);
+      if (!isinf(vecQPE[ic][0]) && vecQPE[ic][0] > 0)
+        normQPE[ic] = vecQPE[ic][0];
+    }
+    // printf("\t normQPE =  %f  \n", normQPE[ic]);
   }
 
   // slope graphs
@@ -1001,18 +1009,18 @@ void makeGraphs()
   TMultiGraph *mgslope = new TMultiGraph();
   for (unsigned ic = 0; ic < 9; ++ic)
   {
-          cout << " add " << ic << " size " << vSlope[ic].size() << " size " << vESlope[ic].size() << endl;
-          cout << "     " << ic << " size " << fileTime.size() << " size " << efilenum.size() << endl;
-          graphSlope.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vSlope[ic][0]), &efilenum[0], &(vESlope[ic][0])));
-          unsigned ilast = graphSlope.size() - 1;
-          graphSlope[ilast]->SetName(Form("slopeChan%i", ic));
-          graphSlope[ilast]->SetTitle(Form("slope-chan-%i", ic));
-          graphSlope[ilast]->SetMarkerSize(1);
-          graphSlope[ilast]->SetMarkerColor(myColor[ic]);
-          graphSlope[ilast]->SetMarkerStyle(myStyle[ic]);
-          fout->Add(graphSlope[ilast]);
-          if (ic != 6 && ic != 3 && ic < 9)
-            mgslope->Add(graphSlope[ilast]);
+    cout << " add " << ic << " size " << vSlope[ic].size() << " size " << vESlope[ic].size() << endl;
+    cout << "     " << ic << " size " << fileTime.size() << " size " << efilenum.size() << endl;
+    graphSlope.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vSlope[ic][0]), &efilenum[0], &(vESlope[ic][0])));
+    unsigned ilast = graphSlope.size() - 1;
+    graphSlope[ilast]->SetName(Form("slopeChan%i", ic));
+    graphSlope[ilast]->SetTitle(Form("slope-chan-%i", ic));
+    graphSlope[ilast]->SetMarkerSize(1);
+    graphSlope[ilast]->SetMarkerColor(myColor[ic]);
+    graphSlope[ilast]->SetMarkerStyle(myStyle[ic]);
+    fout->Add(graphSlope[ilast]);
+    if (ic != 6 && ic != 3 && ic < 9)
+      mgslope->Add(graphSlope[ilast]);
   }
   ylabel.Form(" fitted Lifetime [microsec] ");
   setTimeGraph(mgslope, ylabel);
@@ -1029,15 +1037,15 @@ void makeGraphs()
   // normalize to qpe and effOther
   for (unsigned ic = 0; ic < 9; ++ic)
   {
-          for (unsigned ih = 0; ih < vecQsum[ic].size(); ++ih)
-          {
-            double qpe = vecQPE[ic][ih];
-            if (qpe == 0)
-              continue;
-            printf("QSUM chan %i file%i qsum %f qpe%f  ratio %f \n", ic, ih, vecQsum[ic][ih], qpe, vecQsum[ic][ih] / qpe);
-            vecQsum[ic][ih] = vecQsum[ic][ih] / qpe/ effOther[ic];
-            vecEQsum[ic][ih] = vecEQsum[ic][ih] / qpe / effOther[ic];
-          }
+    for (unsigned ih = 0; ih < vecQsum[ic].size(); ++ih)
+    {
+      double qpe = vecQPE[ic][ih];
+      if (qpe == 0)
+        continue;
+      printf("QSUM chan %i file%i qsum %f qpe%f  ratio %f \n", ic, ih, vecQsum[ic][ih], qpe, vecQsum[ic][ih] / qpe);
+      vecQsum[ic][ih] = vecQsum[ic][ih] / qpe / effOther[ic];
+      vecEQsum[ic][ih] = vecEQsum[ic][ih] / qpe / effOther[ic];
+    }
   }
 
   cout << " graph normalized vecQsum " << endl;
@@ -1046,17 +1054,17 @@ void makeGraphs()
   TMultiGraph *mgsum = new TMultiGraph();
   for (unsigned ic = 0; ic < vecQsum.size(); ++ic)
   {
-          // cout << " add " << ic << endl;
-          gqsum.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEQsum[ic][0])));
-          gqsum[ic]->SetName(Form("qsumChan%i", ic));
-          gqsum[ic]->SetTitle(Form("qsum-chan-%i", ic));
-          gqsum[ic]->SetMarkerSize(1);
-          gqsum[ic]->SetMarkerColor(myColor[ic]);
-          gqsum[ic]->SetMarkerStyle(myStyle[ic]);
-          fout->Add(gqsum[ic]);
-          // if (ic == 6 || ic == 7 || ic == 8)
-          if (ic != 6 && ic != 3 && ic < 9)
-            mgsum->Add(gqsum[ic]);
+    // cout << " add " << ic << endl;
+    gqsum.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEQsum[ic][0])));
+    gqsum[ic]->SetName(Form("qsumChan%i", ic));
+    gqsum[ic]->SetTitle(Form("qsum-chan-%i", ic));
+    gqsum[ic]->SetMarkerSize(1);
+    gqsum[ic]->SetMarkerColor(myColor[ic]);
+    gqsum[ic]->SetMarkerStyle(myStyle[ic]);
+    fout->Add(gqsum[ic]);
+    // if (ic == 6 || ic == 7 || ic == 8)
+    if (ic != 6 && ic != 3 && ic < 9)
+      mgsum->Add(gqsum[ic]);
   }
   // overlay all channel graphs on canvas
   int ndiv = 10 + 100 * 5 + 10000 * 3;
@@ -1075,19 +1083,19 @@ void makeGraphs()
   TMultiGraph *mgQPE = new TMultiGraph();
   for (unsigned ic = 0; ic < vecQPE.size(); ++ic)
   {
-          // for (int ifile = 0; ifile < vecQPE[ic].size(); ++ifile)
-          //   printf(" chan %u file %i %f\n" , ic,ifile,vecQPE[ic][ifile]);
-          //  cout << " add " << ic << endl;
-          gqpe.push_back(new TGraphErrors(vecQPE[ic].size(), &fileTime[0], &(vecQPE[ic][0]), &efilenum[0], &(vecEQPE[ic][0])));
-          gqpe[ic]->SetName(Form("GraphQPEChan%i", ic));
-          gqpe[ic]->SetTitle(Form("Graph-QPE-chan-%i", ic));
-          gqpe[ic]->SetMarkerSize(1);
-          gqpe[ic]->SetMarkerColor(myColor[ic]);
-          gqpe[ic]->SetMarkerStyle(myStyle[ic]);
-          fout->Add(gqpe[ic]);
-          // if (ic == 6 || ic == 7 || ic == 8)
-          if (ic != 6 && ic != 3 && ic < 9)
-            mgQPE->Add(gqpe[ic]);
+    // for (int ifile = 0; ifile < vecQPE[ic].size(); ++ifile)
+    //   printf(" chan %u file %i %f\n" , ic,ifile,vecQPE[ic][ifile]);
+    //  cout << " add " << ic << endl;
+    gqpe.push_back(new TGraphErrors(vecQPE[ic].size(), &fileTime[0], &(vecQPE[ic][0]), &efilenum[0], &(vecEQPE[ic][0])));
+    gqpe[ic]->SetName(Form("GraphQPEChan%i", ic));
+    gqpe[ic]->SetTitle(Form("Graph-QPE-chan-%i", ic));
+    gqpe[ic]->SetMarkerSize(1);
+    gqpe[ic]->SetMarkerColor(myColor[ic]);
+    gqpe[ic]->SetMarkerStyle(myStyle[ic]);
+    fout->Add(gqpe[ic]);
+    // if (ic == 6 || ic == 7 || ic == 8)
+    if (ic != 6 && ic != 3 && ic < 9)
+      mgQPE->Add(gqpe[ic]);
   }
   // overlay all channel graphs on canvas
   // mg->GetXaxis()->SetNdivisions(1010);
@@ -1106,18 +1114,18 @@ void makeGraphs()
   TMultiGraph *mgQPESigma = new TMultiGraph();
   for (unsigned ic = 0; ic < vecQPESigma.size(); ++ic)
   {
-          // for (int ifile = 0; ifile < vecQPE[ic].size(); ++ifile)
-          //   printf(" chan %u file %i %f\n" , ic,ifile,vecQPE[ic][ifile]);
-          //  cout << " add " << ic << endl;
-          gqpeSigma.push_back(new TGraphErrors(vecQPESigma[ic].size(), &fileTime[0], &(vecQPESigma[ic][0]), &efilenum[0], &(vecEQPESigma[ic][0])));
-          gqpeSigma[ic]->SetName(Form("GraphQPESigmaChan%i", ic));
-          gqpeSigma[ic]->SetTitle(Form("Graph-QPE-Sigma-chan-%i", ic));
-          gqpeSigma[ic]->SetMarkerSize(1);
-          gqpeSigma[ic]->SetMarkerColor(myColor[ic]);
-          gqpeSigma[ic]->SetMarkerStyle(myStyle[ic]);
-          fout->Add(gqpeSigma[ic]);
-          if (ic == 6 || ic == 7 || ic == 8)
-            mgQPESigma->Add(gqpeSigma[ic]);
+    // for (int ifile = 0; ifile < vecQPE[ic].size(); ++ifile)
+    //   printf(" chan %u file %i %f\n" , ic,ifile,vecQPE[ic][ifile]);
+    //  cout << " add " << ic << endl;
+    gqpeSigma.push_back(new TGraphErrors(vecQPESigma[ic].size(), &fileTime[0], &(vecQPESigma[ic][0]), &efilenum[0], &(vecEQPESigma[ic][0])));
+    gqpeSigma[ic]->SetName(Form("GraphQPESigmaChan%i", ic));
+    gqpeSigma[ic]->SetTitle(Form("Graph-QPE-Sigma-chan-%i", ic));
+    gqpeSigma[ic]->SetMarkerSize(1);
+    gqpeSigma[ic]->SetMarkerColor(myColor[ic]);
+    gqpeSigma[ic]->SetMarkerStyle(myStyle[ic]);
+    fout->Add(gqpeSigma[ic]);
+    if (ic == 6 || ic == 7 || ic == 8)
+      mgQPESigma->Add(gqpeSigma[ic]);
   }
   // overlay all channel graphs on canvas
   // mg->GetXaxis()->SetNdivisions(1010);
@@ -1137,14 +1145,14 @@ void makeGraphs()
   vector<TGraphErrors *> gqsumUn;
   for (unsigned ic = 0; ic < nchan; ++ic)
   {
-          // cout << " add " << ic << endl;
-          gqsumUn.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEQsum[ic][0])));
-          gqsumUn[ic]->SetName(Form("qsumChanUn%i", ic));
-          gqsumUn[ic]->SetTitle(Form("qsum-unnormalized-chan-%i", ic));
-          gqsumUn[ic]->SetMarkerSize(1);
-          gqsumUn[ic]->SetMarkerColor(myColor[ic]);
-          gqsumUn[ic]->SetMarkerStyle(myStyle[ic]);
-          fout->Add(gqsumUn[ic]);
+    // cout << " add " << ic << endl;
+    gqsumUn.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEQsum[ic][0])));
+    gqsumUn[ic]->SetName(Form("qsumChanUn%i", ic));
+    gqsumUn[ic]->SetTitle(Form("qsum-unnormalized-chan-%i", ic));
+    gqsumUn[ic]->SetMarkerSize(1);
+    gqsumUn[ic]->SetMarkerColor(myColor[ic]);
+    gqsumUn[ic]->SetMarkerStyle(myStyle[ic]);
+    fout->Add(gqsumUn[ic]);
   }
   ylabel.Form("integrated charge");
   TMultiGraph *mgL1 = new TMultiGraph();
