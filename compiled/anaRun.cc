@@ -47,6 +47,7 @@ public:
     DOUBLEUPCROSS,
     DOUBLEDOWNCROSS
   };
+  int passBit;
   TFile *fout;
   TFile *fin;
   TDirectory *fftDir;
@@ -57,6 +58,10 @@ public:
   TBRun *tbrun;
   TNtuple *ntChan;
   TNtuple *ntChanSum;
+  TH1D * threshHist;
+  TH1D * crossHist;
+  TH1D * cosmicCut1;
+  TH1D * cosmicCut2;
   vector<TH1D *> noiseHist;
   vector<TH1D *> skewHist;
   vector<TH1D *> sumWave;
@@ -65,8 +70,7 @@ public:
   vector<TH1D *> valHist;
   vector<TH1D *> sumWaveB;
   vector<TH1D *> valHistB;
-  vector<TH1D *> threshHist;
-  vector<TH1D *> crossHist;
+
   vector<TH1D *> hQSum;
   vector<TH1D *> hQPeak;
   vector<TH1D *> hQPEShape;
@@ -143,8 +147,6 @@ void anaRun::clear()
   valHist.clear();
   sumWaveB.clear();
   valHistB.clear();
-  threshHist.clear();
-  crossHist.clear();
   hEvGaus.clear();
   hChannelGaus.clear();
   digi.clear();
@@ -392,25 +394,31 @@ bool anaRun::anaEvent(Long64_t entry)
 
     // these 2 functions use didi and crossings,threshold vectors
     // i admit ugly
-    negativeCrossingCount(10.);
-    idet->crossings = int(crossings.size());
-    crossHist[ib]->Fill(idet->crossings);
-    if (trig)
-      thresholdCrossingCount(15.);
-    else
-      thresholdCrossingCount(1.);
-    idet->thresholds = int(thresholds.size());
-    threshHist[ib]->Fill(idet->thresholds);
+  /* from anaCRun */
 
-    ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peakMax), float(sum2), float(sum), float(crossings.size()), float(thresholds.size()));
+    negativeCrossingCount(ichan); // multiples of QPEPeak
+    idet->crossings = int(crossings.size());
+    thresholdCrossingCount(1000.);
+    idet->thresholds = int(thresholds.size());
+
+    if (!trig)
+      crossHist->Fill(idet->crossings);
+    if (trig)
+      threshHist->Fill(idet->thresholds);
     // set cut
     unsigned maxCrossings = 1;
     unsigned maxThresholds = 1;
     idet->pass = true;
-    if (idet->crossings > maxCrossings)
+    if (!trig && idet->crossings > maxCrossings)
       idet->pass = false;
     if (trig && idet->thresholds > maxThresholds)
       idet->pass = false;
+  /*  ......  */
+
+    
+
+    ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peakMax), float(sum2), float(sum), float(crossings.size()), float(thresholds.size()));
+    
 
     // plot some events
     TString hname;
@@ -454,33 +462,50 @@ bool anaRun::anaEvent(Long64_t entry)
   tbrun->fill();
   vector<float> fsum;
   fsum.resize(14);
-  int passBit = 0;
+
+
+  /* */
+  // defined in class as int
+  passBit = 0;
   bool eventPass = true;
-  for (int ib = 0; ib < rawBr.size(); ++ib)
+  for (unsigned ib = 0; ib < rawBr.size(); ++ib)
   {
-    unsigned ichan = chanList[ib];
+    unsigned ichan = ib;
+    bool trig = ichan == 9 || ichan == 10 || ichan == 11;
+
     TDet *idet = tbrun->getDet(ichan);
-    // cout << ichan << " " << idet->sum << endl;
-    fsum[ichan] = idet->sum;
-    if (!idet->pass)
+    if (trig && !idet->pass)
     {
       // printf(" %llu bad chan %u thresh %u crossing %u \n ", entry,ichan, idet->thresholds, idet->crossings);
       eventPass = false;
       passBit |= 0x1;
+      // printf(".... set bit theshold  %i %i %i\n",ichan,idet->thresholds,passBit);
     }
+    if (!trig && !idet->pass)
+    {
+      // printf(" %llu bad chan %u thresh %u crossing %u \n ", entry,ichan, idet->thresholds, idet->crossings);
+      eventPass = false;
+      passBit |= 0x2;
+      // printf(".... set bit crossings  %i %i %i\n",ichan,idet->crossings,passBit);
+    }
+
+    if (ichan == 12)
+      cosmicCut1->Fill(idet->sum);
+
     if (ichan == 12 && idet->sum > 20)
     { // cosmic cut
-      passBit |= 0x2;
+      passBit |= 0x4;
       eventPass = false;
+      // printf(".... set bit cosmic1  %i %f %i\n",ichan,idet->sum,passBit);
     }
   }
-  fsum[13] = float(eventPass);
-  ntChanSum->Fill(&fsum[0]);
+  
 
   evCount->Fill(-1); // underflow bin
-  hEventPass->Fill(passBit);
   if (!eventPass)
     return eventPass;
+  /**/
+  // continue if event passes
 
   for (int ib = 0; ib < rawBr.size(); ++ib)
   {
@@ -541,6 +566,29 @@ bool anaRun::anaEvent(Long64_t entry)
     }
 
   } // seconGchannel loop
+
+  /**** second cosmic cut.****/
+  TDet *tdet = tbrun->detList[12];
+  bool cosmicTwo = true;
+  if (tdet->channel != 12)
+    printf("ERROR! detlist miss match to channel 12!!!\n");
+  else
+  {
+    // loop over hits
+    for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
+    {
+      TDetHit thit = tdet->hits[ihit];
+      if (thit.startTime > 1000)
+        cosmicCut2->Fill(thit.qpeak);
+      if (thit.startTime > 1000 && thit.qpeak > 1000)
+        eventPass = false;
+    }
+  }
+  if (!eventPass)
+  {
+    passBit |= 0x8;
+    return eventPass;
+  }
 
   // fill sumHitWave and Q sums
   // loop over detector channels
@@ -799,14 +847,16 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
   //
   anaDir = fout->mkdir("anadir");
   anaDir->cd();
+  cosmicCut1 = new TH1D("cosmicCut1", " cosmic total sum chan 12 ", 100, 0, 100);
+  cosmicCut2 = new TH1D("cosmicCut2", " cosmic late large hit chan 12 ", 200, 0, 2000);
+  threshHist = new TH1D("threshHist", " threshold crossings trig channels ", 20, 0, 20);
+  crossHist = new TH1D("crossHist", "  negative crossings non trigger channels", 100, 0, 100);
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
     unsigned ichan = chanList[i];
     hChannelGaus.push_back(new TH1D(Form("channelGaus%i", chanList[i]), Form("channelGaus%i", chanList[i]), 600, -100, 500));
     noiseHist.push_back(new TH1D(Form("noiseChan%i", ichan), Form("noiseChan%i", ichan), 1000, 0, 1000));
     skewHist.push_back(new TH1D(Form("skewChan%i", ichan), Form("skewChan%i", ichan), 200, -3, 7));
-    threshHist.push_back(new TH1D(Form("threshChan%i", ichan), Form("threshChan%i", ichan), 20, 0, 20));
-    crossHist.push_back(new TH1D(Form("crossChan%i", ichan), Form("crossChan%i", ichan), 100, 0, 100));
     if (ichan > 8 && ichan < 12)
     {
       valHist.push_back(new TH1D(Form("valChan%i", ichan), Form("valChan%i", ichan), 1500, -500, 1000));
