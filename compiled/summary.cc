@@ -792,6 +792,30 @@ TString dirNameSlash;
       vRunHitWave.resize(nchan);
       vRunPeakWave.resize(nchan);
 
+  hRunSumHitWave.resize(nchan);
+  hRunSumPeakWave.resize(nchan);
+
+  /* from 04_14_2023 */
+  effOther[0] = 0.215430;
+  effOther[1] = 0.292408;
+  effOther[2] = 0.246295;
+  effOther[3] = 1.;
+  effOther[4] = 0.413158;
+  effOther[5] = 0.166633;
+  effOther[6] = 0.000492;
+  effOther[7] = 0.166086;
+  effOther[8] = 0.070555;
+  effOther[9] = 1.000000;
+  effOther[10] = 1.000000;
+  effOther[11] = 1.000000;
+  effOther[12] = 1.000000;
+
+  for (int ichan = 0; ichan < nchan; ++ichan)
+  {
+    hRunSumHitWave[ichan] = NULL;
+    hRunSumPeakWave[ichan] = NULL;
+  }
+
       fileLoop();
       
       printf("\t\t >>> files processed << %li  total pass %i <<<<< \n", filenum.size(), totalPass);
