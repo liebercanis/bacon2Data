@@ -1,4 +1,3 @@
-//////////////////////////////////////////////////////////
 //  M.Gold May 2022
 //////////////////////////////////////////////////////////
 #include <sstream>
@@ -257,6 +256,7 @@ void anaRun::getSummedHists()
 /* get rawBr */
 void anaRun::getBranches()
 {
+  //cout <<" getBranches treeList   "<< treeList.size() << endl;
   for (unsigned it = 0; it < treeList.size(); ++it)
   {
     rawBr[it] = NULL;
@@ -265,7 +265,7 @@ void anaRun::getBranches()
     TBranchElement *aBranch = NULL;
     while ((aBranch = (TBranchElement *)next()))
     {
-      // cout << "tree " << it << " " << aBranch->GetName() << endl;
+      cout << "tree " << it << " " << aBranch->GetName() << endl;
       TBRawEvent *chan = (TBRawEvent *)aBranch->GetObject();
       if (!chan)
       {
@@ -273,7 +273,7 @@ void anaRun::getBranches()
         continue;
       }
       rawBr[it] = chan;
-      // cout << "rawBr name  ==>  " << rawBr[it]->GetName() << endl;
+      //cout << "rawBr name  ==>  " << rawBr[it]->GetName() << endl;
     }
   }
 }
@@ -288,6 +288,7 @@ void anaRun::getEvent(Long64_t entry)
 /* analyze rawBr */
 bool anaRun::anaEvent(Long64_t entry)
 {
+  //cout << " **** anaEvent " << entry << endl;
   QPEPeak = 100;
   tbrun->clear();
   // loop over channels
@@ -296,7 +297,7 @@ bool anaRun::anaEvent(Long64_t entry)
     unsigned ichan = chanList[ib];
     bool trig = ichan == 9 || ichan == 10 || ichan == 11;
     int nbins = rawBr[ib]->rdigi.size();
-    // cout << ib << " nbins " << nbins << " max hist " << hEvGaus.size() << " rawBr.size() " << rawBr.size() << endl;
+    //cout << ib << " nbins " << nbins << " max hist " << hEvGaus.size() << " rawBr.size() " << rawBr.size() << endl;
     if (nbins != 1024)
       continue;
 
@@ -310,7 +311,6 @@ bool anaRun::anaEvent(Long64_t entry)
       base += orderDigi[j];
     }
     base /= double(baseLength);
-
     // baseline correction from fitted Gaussian
     hEvGaus[ib]->Reset("ICES");
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
@@ -389,7 +389,7 @@ bool anaRun::anaEvent(Long64_t entry)
     idet->sum2 = sum2;
     idet->sum = sum;
 
-    // cout << "tree " << ib << " ch " << ichan << " "
+    //cout << "tree " << ib << " ch " << ichan << " "
     //      << " ave " << ave << " sigma " << sigma << " skew " << skew << " base " << base << endl;
 
     // these 2 functions use didi and crossings,threshold vectors
@@ -458,11 +458,8 @@ bool anaRun::anaEvent(Long64_t entry)
 
   } // channel loop
   // fill output Tree for each event
-  // cout << "finished " << entry << endl;
+  ///cout << "finished " << entry << endl;
   tbrun->fill();
-  vector<float> fsum;
-  fsum.resize(14);
-
 
   /* */
   // defined in class as int
@@ -470,7 +467,7 @@ bool anaRun::anaEvent(Long64_t entry)
   bool eventPass = true;
   for (unsigned ib = 0; ib < rawBr.size(); ++ib)
   {
-    unsigned ichan = ib;
+    unsigned ichan = chanList[ib];
     bool trig = ichan == 9 || ichan == 10 || ichan == 11;
 
     TDet *idet = tbrun->getDet(ichan);
@@ -921,7 +918,7 @@ Long64_t anaRun::anaRunFile(TString theFile, Long64_t maxEntries)
     if (entry / 1000 * 1000 == entry)
       printf("... %llu pass %u fail %u \n", entry, npass, nfail);
     getEvent(entry);
-    /* test
+     /** test
     for (unsigned it = 0; it < treeList.size(); ++it)
       printf("tree %u chan %i event %i time %lld \n", it, rawBr[it]->channel, rawBr[it]->trigger, rawBr[it]->time);
     */
