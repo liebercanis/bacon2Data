@@ -314,7 +314,6 @@ bool anaCRun::anaEvent(Long64_t entry)
       base += orderDigi[j];
     }
     base /= double(baseLength);
-        cout << "adding  " << endl;
 
     // baseline correction from fitted Gaussian
     hEvGaus[ib]->Reset("ICES");
