@@ -126,8 +126,6 @@ public:
   void derivativeCount(TDet *idet, Double_t rms); // not used
   void negativeCrossingCount(int ichan);
   void thresholdCrossingCount(double thresh);
-  double effGeo(int ilevel);  
-  double nPhotons = 50.E3*5.486;
 
 
   TDirectory *rawSumDir;
@@ -141,28 +139,6 @@ public:
   double QPEPeak;
 };
 
-double anaCRun::effGeo(int ilevel)
-{
-  double e = 1.0;
-  if(ilevel<1||ilevel>3)
-    return e;
-  /*
-  Area of SiPMs is 6.0mm x 6.0mm
-
-      Channels 6, 7, and 8 are at 11.6 cm
-      from the source Channels 3, 4, and 5 are at 23.2 cm
-      from the source Channels 0, 1, and 2 are at 34.8 cm from the source Channel 12 is at 36 cm from the source.
-      */
-  double a = pow(0.6,2.);
-  double distance2[3];
-  double b = 4.0*TMath::Pi();
-  distance2[0] = pow(11.6,2.);
-  distance2[1] = pow(23.2,2.);
-  distance2[2] = pow(34.8,2.);
-
-  e = a/b/distance2[ilevel-1];
-  return e;
-}
 
 void anaCRun::clear()
 {
@@ -338,6 +314,7 @@ bool anaCRun::anaEvent(Long64_t entry)
       base += orderDigi[j];
     }
     base /= double(baseLength);
+        cout << "adding  " << endl;
 
     // baseline correction from fitted Gaussian
     hEvGaus[ib]->Reset("ICES");
@@ -967,7 +944,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
     //if(passBit!=0)
     //  printf("event fails with passBit = %x npass %i nfail %i \n", passBit,npass,nfail);
     hEventPass->Fill(passBit);
-    if(entry/1000*1000==entry) printf("... %lld npass %i nfail %i \n", entry,npass,nfail);
   }
   // normailize to number of nentries.
   // loop over detector channels
@@ -1088,8 +1064,6 @@ anaCRun::anaCRun(TString theTag)
   tag = theTag;
   cout << " instance of anaCRun with tag= " << tag << "CHANNELS" << CHANNELS << endl;
 
-  printf(" eff geo\n");
-  for(int ilevel=1; ilevel <4; ++ilevel) printf("level %i eff geo %E \n",ilevel,effGeo(ilevel));
 
   rawBr.clear();
   for (int ichan = 0; ichan < CHANNELS; ++ichan)
