@@ -491,7 +491,7 @@ vector<double> hitFinder::differentiate(int step, vector<double> pdigi)
       if (i - 1 - j >= 0)
         summ += pdigi[i - 1 - j];
       else
-        printf("differentiate bad index ! %i,%i\n", i, j)
+        printf("differentiate bad index ! %i,%i\n", i, j);
     }
 
     if (nsamples - 1 - i < step)
@@ -503,7 +503,7 @@ vector<double> hitFinder::differentiate(int step, vector<double> pdigi)
       if (i + 1 + j < pdigi.size())
         sump += pdigi[i + 1 + j];
       else
-        printf("differentiate bad index ! %i,%i\n", i, j)
+        printf("differentiate bad index ! %i,%i\n", i, j);
     }
     //
 
