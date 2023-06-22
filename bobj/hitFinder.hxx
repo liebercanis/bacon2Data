@@ -109,6 +109,7 @@ public:
   double microSec;
   void event(int idet, Long64_t ievent, vector<double> rdigi, double thresh, unsigned step = 3);
   void differentiate();
+  vector<double> differentiate(int step, vector<double> pdigi);
   void findThresholdCrossings(Int_t idet, double thresh);
   void findDerivativeCrossings(Int_t idet);
   void findPeakCrossings(Int_t idet, unsigned peakStart, unsigned peakEnd);
@@ -146,6 +147,7 @@ public:
     std::vector<std::complex<double>> templateTransform;
 
     TH1D *hWFilter;
+    TH1D *hDeriv8;
     std::vector<TH1D *> hFFT;
     std::vector<TH1D *> hInvFFT;
     std::vector<TH1D *> hFFTFilt;
