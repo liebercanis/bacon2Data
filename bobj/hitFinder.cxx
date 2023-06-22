@@ -485,16 +485,28 @@ vector<double> hitFinder::differentiate(int step, vector<double> pdigi)
     int maxSum = step;
     if (i < step)
       maxSum = i;
+    summ = 0;
+    for (unsigned j = 0; j < maxSum; ++j)
+    {
+      if (i - 1 - j >= 0)
+        summ += pdigi[i - 1 - j];
+      else
+        printf("differentiate bad index ! %i,%i\n", i, j)
+    }
+
     if (nsamples - 1 - i < step)
       maxSum = nsamples - 1 - i;
     //
     sump = 0;
     for (unsigned j = 0; j < maxSum; ++j)
-      sump += pdigi[i + 1 + j];
+    {
+      if (i + 1 + j < pdigi.size())
+        sump += pdigi[i + 1 + j];
+      else
+        printf("differentiate bad index ! %i,%i\n", i, j)
+    }
     //
-    summ = 0;
-    for (unsigned j = 0; j < maxSum; ++j)
-      summ += pdigi[i - 1 - j];
+
     pddigi[i] = sump - summ;
   }
   return pddigi;
@@ -641,7 +653,7 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     // differentiate below max
     vector<double> pdigi;
     unsigned window = 20;
-    unsigned minbin = TMath::Max(unsigned(0),imax - window);
+    unsigned minbin = TMath::Max(unsigned(0), imax - window);
     for (unsigned jbin = imax; jbin > minbin; --jbin)
       pdigi.push_back(v[jbin]);
     vector<double> pddigi = differentiate(1, pdigi);
@@ -651,11 +663,11 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
 
     // find start relative to imax
     unsigned ioff = 0;
-    for (unsigned ip = 0; ip < pddigi.size(); ++ip) {
+    for (unsigned ip = 0; ip < pddigi.size(); ++ip)
+    {
       ioff = ip;
-      if(pddigi[ip]>0)
+      if (pddigi[ip] > 0)
         break;
-
     }
     ilow = imax + ioff - window;
 
