@@ -125,7 +125,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     hEvSmooth.push_back(new TH1D(Form("EvSmooth%s", deti->GetName()), Form("Smooth%s", deti->GetName()), nsamples, 0, nsamples));
     hEvCross.push_back(new TH1D(Form("EvCross%s", deti->GetName()), Form("Cross%s", deti->GetName()), nsamples, 0, nsamples));
     hEvPeakCross.push_back(new TH1D(Form("EvPeakCross%s", deti->GetName()), Form("PeaCross%s", deti->GetName()), nsamples, 0, nsamples));
-    hEvDerWave.push_back(new TH1D(Form("EvDerWave%s", deti->GetName()), Form("DerWave%s", deti->GetName()), nsamples, 0, nsamples));
+    //hEvDerWave.push_back(new TH1D(Form("EvDerWave%s", deti->GetName()), Form("DerWave%s", deti->GetName()), nsamples, 0, nsamples));
     hEvFiltWave.push_back(new TH1D(Form("EvFiltWave%s", deti->GetName()), Form("FiltWave%s", deti->GetName()), nsamples, 0, nsamples));
     hEvHitWave.push_back(new TH1D(Form("EvHitWave%s", deti->GetName()), Form("HitWave%s", deti->GetName()), nsamples, 0, nsamples));
     hDigiVal.push_back(new TH1D(Form("DigiVal%i", id), Form("digi value chan %id", id), 2000, -1000., 1000.));
@@ -133,7 +133,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     hEvHitPeakWave[index]->SetDirectory(nullptr);
     hEvCross[index]->SetDirectory(nullptr);
     hEvSmooth[index]->SetDirectory(nullptr);
-    hEvDerWave[index]->SetDirectory(nullptr);
+    //hEvDerWave[index]->SetDirectory(nullptr);
     hEvHitWave[index]->SetDirectory(nullptr);
     hEvFiltWave[index]->SetDirectory(nullptr);
     hHitSum.push_back(new TH1D(Form("HitSum%s", deti->GetName()), Form("HitSum%s", deti->GetName()), nsamples, 0, nsamples));
@@ -348,11 +348,13 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi, doub
   if (!smoothing)
     digi = sdigi;
 
+/* not using this 
   differentiate();
   for (unsigned isample = 0; isample < ddigi.size(); isample++)
   {
     hEvDerWave[idet]->SetBinContent(isample + 1, ddigi[isample]);
   }
+  */
   // find peaks
   // for derivativePeaks, window in time is timeUnit*windowSize (ns) . timeUnit = 2
   // min, max width in time bins for simple peaks
@@ -488,10 +490,7 @@ vector<double> hitFinder::differentiate(int step, vector<double> pdigi)
     summ = 0;
     for (unsigned j = 0; j < maxSum; ++j)
     {
-      if (i - 1 - j >= 0)
         summ += pdigi[i - 1 - j];
-      else
-        printf("differentiate bad index ! %i,%i\n", i, j);
     }
 
     if (nsamples - 1 - i < step)
@@ -500,10 +499,7 @@ vector<double> hitFinder::differentiate(int step, vector<double> pdigi)
     sump = 0;
     for (unsigned j = 0; j < maxSum; ++j)
     {
-      if (i + 1 + j < pdigi.size())
         sump += pdigi[i + 1 + j];
-      else
-        printf("differentiate bad index ! %i,%i\n", i, j);
     }
     //
 
@@ -669,7 +665,9 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
       if (pddigi[ip] > 0)
         break;
     }
-    ilow = imax + ioff - window;
+    if(imax+ioff-window<0)
+      printf(" !!!!!  ilow would be %i resetting to 0\n ", imax + ioff - window);
+    ilow = TMath::Max(unsigned(0), imax + ioff - window);
 
     // look high
     for (unsigned ibin = imax; ibin < v.size(); ++ibin)
