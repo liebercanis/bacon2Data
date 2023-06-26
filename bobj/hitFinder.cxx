@@ -43,7 +43,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   if (nSamples == CAENLENGTH)
     isCAEN = true;
   channelSigmaValue = sigmaValue;
-  verbose = true;
+  verbose = false;
   if (isCAEN)
     QPEPeak = 200;
   else
@@ -661,6 +661,7 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
 
     // find start relative to imax
     unsigned ioff = 0;
+    // check that the pdigi size is not zero
     ilow = imax;
     if (pddigi.size() > 0)
     {
