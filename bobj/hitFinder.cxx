@@ -474,6 +474,8 @@ void hitFinder::differentiate()
 // revised derivative Jun22  2023 MG
 vector<double> hitFinder::differentiate(int step, vector<double> pdigi)
 {
+  if(verbose)
+    printf("hitFinder::differentiate step %i size %lu \n", step, pdigi.size());
   vector<double> pddigi;
   pddigi.clear();
   pddigi.resize(pdigi.size());
@@ -488,6 +490,8 @@ vector<double> hitFinder::differentiate(int step, vector<double> pdigi)
     if (i < step)
       maxSum = i;
     summ = 0;
+    if (verbose)
+      printf("hitFinder::differentiate ind %i maxSum %i \n", i, maxSum);
     for (unsigned j = 0; j < maxSum; ++j)
       summ += pdigi[i - 1 - j];
 
