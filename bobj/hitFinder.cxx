@@ -474,11 +474,13 @@ void hitFinder::differentiate()
 // revised derivative Jun22  2023 MG
 vector<double> hitFinder::differentiate(int step, vector<double> pdigi)
 {
-  if(verbose)
+  if (verbose)
     printf("hitFinder::differentiate step %i size %lu \n", step, pdigi.size());
   vector<double> pddigi;
   pddigi.clear();
   pddigi.resize(pdigi.size());
+  if(pdigi.size()==0)
+    return pddigi;
   Double_t sump = 0;
   Double_t summ = 0;
   unsigned nsamples = pdigi.size();
@@ -659,15 +661,19 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
 
     // find start relative to imax
     unsigned ioff = 0;
-    for (unsigned ip = 0; ip < pddigi.size(); ++ip)
+    ilow = imax;
+    if (pddigi.size() > 0)
     {
-      ioff = ip;
-      if (pddigi[ip] > 0)
-        break;
+      for (unsigned ip = 0; ip < pddigi.size(); ++ip)
+      {
+        ioff = ip;
+        if (pddigi[ip] > 0)
+          break;
+      }
+      if (imax + ioff - window < 0)
+        printf(" !!!!!  ilow would be %i resetting to 0\n ", imax + ioff - window);
+      ilow = TMath::Max(unsigned(0), imax + ioff - window);
     }
-    if (imax + ioff - window < 0)
-      printf(" !!!!!  ilow would be %i resetting to 0\n ", imax + ioff - window);
-    ilow = TMath::Max(unsigned(0), imax + ioff - window);
 
     // look high
     for (unsigned ibin = imax; ibin < v.size(); ++ibin)
