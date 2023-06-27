@@ -676,19 +676,19 @@ void fitSlopes()
       hfitwave->SetYTitle("summed yield in QPE");
 
       // normalize to qpe.
-      double qpe  = vecQPE[ichan][ih];
-      if (qpe <= 0)
-        qpe = qpeLast;
+      double qpeChan  = vecQPE[ichan][ih];
+      if (qpeChan <= 0)
+        qpeChan = qpeLast;
       else
         qpeLast = vecQPE[ichan][ih];
 
-      printf(" NNNNNN normalize to qpe chan %i file %i qpe %f !!!!!\n", ichan, ih, qpe);
+      printf(" NNNNNN normalize to qpe chan %i file %i qpe %f !!!!!\n", ichan, ih, qpeChan);
       /* loop over histogram bins */
       for (int ibin = 0; ibin < vRunPeakWave[ichan][ih]->GetNbinsX(); ++ibin)
       {
-        double xbin = vRunPeakWave[ichan][ih]->GetBinContent(ibin) / qpe;
+        double xbin = vRunPeakWave[ichan][ih]->GetBinContent(ibin) / qpeChan;
         if(xbin<0 || xbin>1.0E9)
-          printf("BBBBBBBB bad xbin value QPE %f chan %i file %i \n",qpe, ichan, ih );
+          printf("BBBBBBBB bad xbin value QPE %f chan %i file %i \n",qpeChan, ichan, ih );
         vRunPeakWave[ichan][ih]->SetBinContent(ibin, xbin);
         vRunPeakWave[ichan][ih]->SetBinError(ibin, sqrt(xbin));
         hfitwave->SetBinContent(ibin, xbin);
