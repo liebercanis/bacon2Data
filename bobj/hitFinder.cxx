@@ -348,6 +348,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi, doub
   if (!smoothing)
     digi = sdigi;
 
+  ddigi.clear();
   /* not using this
     differentiate();
     for (unsigned isample = 0; isample < ddigi.size(); isample++)
