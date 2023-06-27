@@ -682,6 +682,8 @@ void fitSlopes()
         // double qpe = 300;
         if (qpe <= 0)
           qpe = 1.0;
+
+        qpe = 1.0;
         double xbin = vRunPeakWave[ichan][ih]->GetBinContent(ibin) / qpe;
         if (isinf(xbin))
           xbin = vRunPeakWave[ichan][ih]->GetBinContent(ibin);
