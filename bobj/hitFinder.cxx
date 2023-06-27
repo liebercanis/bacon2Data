@@ -349,8 +349,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi, doub
     digi = sdigi;
 
   ddigi.clear();
+  differentiate();
   /* not using this
-    differentiate();
     for (unsigned isample = 0; isample < ddigi.size(); isample++)
     {
       hEvDerWave[idet]->SetBinContent(isample + 1, ddigi[isample]);
