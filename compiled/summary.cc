@@ -684,10 +684,10 @@ void fitSlopes()
         if (qpe <= 0)
           qpe = qpeLast;
         else
-          qpeLast = qpe;
+          qpeLast = vecQPE[ichan][ih];
         double xbin = vRunPeakWave[ichan][ih]->GetBinContent(ibin) / qpe;
         if (isinf(xbin)) {
-          printf(" warning resetting xbin qpe %f \n",qpe);
+          printf(" warning resetting xbin qpe %f chan %i file %i \n",qpe,ichan,ih);
           xbin = vRunPeakWave[ichan][ih]->GetBinContent(ibin);
         }
         // if(xbin<0.1) xbin = 0;
