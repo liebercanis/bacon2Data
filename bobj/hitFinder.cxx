@@ -479,7 +479,7 @@ vector<double> hitFinder::differentiate(int step, vector<double> pdigi)
   vector<double> pddigi;
   pddigi.clear();
   pddigi.resize(pdigi.size());
-  if(pdigi.size()==0)
+  if (pdigi.size() == 0)
     return pddigi;
   Double_t sump = 0;
   Double_t summ = 0;
@@ -662,19 +662,21 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     // find start relative to imax
     unsigned ioff = 0;
     // check that the pdigi size is not zero
-    ilow = imax;
-    if (pddigi.size() > 0)
+    if (pddigi.size() == 0)
     {
-      for (unsigned ip = 0; ip < pddigi.size(); ++ip)
-      {
-        ioff = ip;
-        if (pddigi[ip] > 0)
-          break;
-      }
-      if (imax + ioff - window < 0)
-        printf(" !!!!!  ilow would be %i resetting to 0\n ", imax + ioff - window);
-      ilow = TMath::Max(unsigned(0), imax + ioff - window);
+      printf(" WARNING! hitFinder::makePeaks kipping crossing %i with pddigi size 0 \n", icross);
+      continue;
     }
+    ilow = imax;
+    for (unsigned ip = 0; ip < pddigi.size(); ++ip)
+    {
+      ioff = ip;
+      if (pddigi[ip] > 0)
+        break;
+    }
+    if (imax + ioff - window < 0)
+      printf(" !!!!!  ilow would be %i resetting to 0\n ", imax + ioff - window);
+    ilow = TMath::Max(unsigned(0), imax + ioff - window);
 
     // look high
     for (unsigned ibin = imax; ibin < v.size(); ++ibin)
