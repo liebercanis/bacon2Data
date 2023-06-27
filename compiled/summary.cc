@@ -1052,7 +1052,7 @@ void makeGraphs()
     for (unsigned ih = 0; ih < vecQsum[ic].size(); ++ih)
     {
       double qpe = vecQPE[ic][ih];
-      if (qpe == 0)
+      if (qpe <=0 )
         continue;
       printf("QSUM chan %i file%i qsum %f qpe%f  ratio %f \n", ic, ih, vecQsum[ic][ih], qpe, vecQsum[ic][ih] / qpe);
       vecQsum[ic][ih] = vecQsum[ic][ih] / qpe / effOther[ic];
