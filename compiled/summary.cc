@@ -676,17 +676,20 @@ void fitSlopes()
       // normalize to qpe.
       printf(" !!!!!  normalize to qpe chan %i file %i qpe %f !!!!!\n", ichan, ih, vecQPE[ichan][ih]);
 
+      double qpeLast = 1.0;
       for (int ibin = 0; ibin < vRunPeakWave[ichan][ih]->GetNbinsX(); ++ibin)
       {
         double qpe = vecQPE[ichan][ih];
         // double qpe = 300;
         if (qpe <= 0)
-          qpe = 1.0;
-
-        qpe = 1.0;
+          qpe = qpeLast;
+        else
+          qpeLast = qpe;
         double xbin = vRunPeakWave[ichan][ih]->GetBinContent(ibin) / qpe;
-        if (isinf(xbin))
+        if (isinf(xbin)) {
+          printf(" warning resetting xbin qpe %f \n",qpe);
           xbin = vRunPeakWave[ichan][ih]->GetBinContent(ibin);
+        }
         // if(xbin<0.1) xbin = 0;
         vRunPeakWave[ichan][ih]->SetBinContent(ibin, xbin);
         vRunPeakWave[ichan][ih]->SetBinError(ibin, sqrt(xbin));
