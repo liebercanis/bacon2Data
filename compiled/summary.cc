@@ -641,6 +641,8 @@ void fitSlopes()
     // cout << " number of files " << vRunPeakWave[ichan].size() << endl;
     fitSumDir->cd();
 
+    double qpeLast = 1.0;
+    /* loop over ih = file number */
     for (unsigned ih = 0; ih < vRunPeakWave[ichan].size(); ++ih)
     {
       TString histName;
@@ -674,22 +676,17 @@ void fitSlopes()
       hfitwave->SetYTitle("summed yield in QPE");
 
       // normalize to qpe.
-      printf(" !!!!!  normalize to qpe chan %i file %i qpe %f !!!!!\n", ichan, ih, vecQPE[ichan][ih]);
+      double qpe  = vecQPE[ichan][ih];
+      if (qpe <= 0)
+        qpe = qpeLast;
+      else
+        qpeLast = vecQPE[ichan][ih];
 
-      double qpeLast = 1.0;
+      printf(" !!!!!  normalize to qpe chan %i file %i qpe %f !!!!!\n", ichan, ih, qpe);
+      /* loop over histogram bins */
       for (int ibin = 0; ibin < vRunPeakWave[ichan][ih]->GetNbinsX(); ++ibin)
       {
-        double qpe = vecQPE[ichan][ih];
-        // double qpe = 300;
-        if (qpe <= 0)
-          qpe = qpeLast;
-        else
-          qpeLast = vecQPE[ichan][ih];
         double xbin = vRunPeakWave[ichan][ih]->GetBinContent(ibin) / qpe;
-        if (isinf(xbin)) {
-          printf(" warning resetting xbin qpe %f chan %i file %i \n",qpe,ichan,ih);
-          xbin = vRunPeakWave[ichan][ih]->GetBinContent(ibin);
-        }
         // if(xbin<0.1) xbin = 0;
         vRunPeakWave[ichan][ih]->SetBinContent(ibin, xbin);
         vRunPeakWave[ichan][ih]->SetBinError(ibin, sqrt(xbin));
