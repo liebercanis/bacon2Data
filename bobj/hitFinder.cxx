@@ -349,8 +349,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi, doub
     digi = sdigi;
 
   ddigi.clear();
-  differentiate();
   /* not using this
+    differentiate();
     for (unsigned isample = 0; isample < ddigi.size(); isample++)
     {
       hEvDerWave[idet]->SetBinContent(isample + 1, ddigi[isample]);
@@ -616,8 +616,7 @@ void hitFinder::findDerivativeCrossings(Int_t idet)
 void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
 {
   double sigma = tbrun->detList[idet]->sigma;
-  if (verbose)
-    peakList.clear();
+  peakList.clear();
   peakKind.clear();
   hEvCross[idet]->Reset("ICESM");
   // loop over crossings using only PUP
@@ -650,9 +649,9 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     unsigned ihigh = 0;
 
     // differentiate below max
-    vector<double> pdigi;
     unsigned window = 20;
     unsigned minbin = TMath::Max(unsigned(0), imax - window);
+    pdigi.clear();
     for (unsigned jbin = imax; jbin > minbin; --jbin)
       pdigi.push_back(v[jbin]);
     vector<double> pddigi = differentiate(1, pdigi);
@@ -763,6 +762,8 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
     if (vChannel[idet] < 9)
       for (unsigned k = kstart; k < kend; ++k)
         dhit.digi.push_back(digi[k]);
+
+    if(verbose) printf(" dhit chan %i (%i,%i) size %lu \n ", vChannel[idet], klow, khigh, dhit.digi.size());
 
     dhit.peakBin = Int_t(peakt);
     dhit.qsum = qsum;

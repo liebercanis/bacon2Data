@@ -91,6 +91,7 @@ public:
   std::vector<double> ddigi;      // derivative
   std::vector<double> sdigi;      // smoothed
   std::vector<double> hdigi;      // hits
+  std::vector<double> pdigi;      // pulse derivative 
   std::vector<Double_t> fdigi;    // filtered
   std::vector<Double_t> SPEdigi;  // filtered
   std::vector<unsigned> crossings;
