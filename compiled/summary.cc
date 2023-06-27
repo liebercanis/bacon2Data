@@ -162,10 +162,18 @@ void QPEFits()
     for (unsigned ihist = 0; ihist < vRunQSum[ichan].size(); ++ihist)
     {
       TString cloneName;
-      TH1D *hclone;
+      TH1D *hclone = NULL;
       cloneName.Form("runQSumCh%iFile%i", ichan, ihist);
       qpeSumDir->GetObject(cloneName, hclone);
-      cout << ".... " << ihist << " " << hclone->GetName() << endl;
+      if (hclone)
+      {
+        cout << ".... ichan " << ichan << " file " << ihist << " " << hclone->GetName() << endl;
+      }
+      else
+      {
+        cout << ".... ichan " << ichan << " file " << ihist << "  not found " << endl;
+        continue;
+      }
 
       // fit QPE
       double xlow = 0.;
@@ -226,8 +234,9 @@ void QPEFits()
         epar2 = gfit->GetParError(2);
         if (epar2 > par2)
           epar2 = par2;
-      } else
-        printf("Fit to chan %u file  %u fails\n",ichan,ihist);
+      }
+      else
+        printf("Fit to chan %u file  %u fails\n", ichan, ihist);
 
       hQPEChan->SetBinContent(ichan, par1);
       hQPEChan->SetBinError(ichan, epar1);
@@ -644,7 +653,7 @@ void fitSlopes()
         printf("skipping vRunPeakWave chan %i file %i \n", ichan, ih);
         continue;
       }
-      //cout << vRunPeakWave[ichan][ih]->GetName() << endl;
+      // cout << vRunPeakWave[ichan][ih]->GetName() << endl;
       vRunPeakWave[ichan][ih]->SetXTitle(" digi count 2 ns per bin ");
       vRunPeakWave[ichan][ih]->SetYTitle("summed yield in QPE");
       // new histogram
@@ -656,7 +665,7 @@ void fitSlopes()
         hfitwave = new TH1D(Form("fitwaveChan%iFlile%i", ichan, ih), Form("fitwaveChan%iFlile%i", ichan, ih), nbinsx, xlow, 8. * xup);
       else
         hfitwave = new TH1D(Form("fitwaveChan%iFlile%i", ichan, ih), Form("fitwaveChan%iFlile%i", ichan, ih), nbinsx, xlow, 2. * xup);
-      //cout << hfitwave->GetName() << endl;
+      // cout << hfitwave->GetName() << endl;
       hfitwave->SetMarkerStyle(21);
       hfitwave->SetMarkerSize(0.2);
       hfitwave->GetListOfFunctions()->Clear();
