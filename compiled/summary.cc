@@ -688,7 +688,7 @@ void fitSlopes()
       {
         double xbin = vRunPeakWave[ichan][ih]->GetBinContent(ibin) / qpe;
         if(xbin<0 || xbin>1.0E9)
-          printf("BBBBBBBB bad xbin value \n");
+          printf("BBBBBBBB bad xbin value QPE %f chan %i file %i \n",qpe, ichan, ih );
         vRunPeakWave[ichan][ih]->SetBinContent(ibin, xbin);
         vRunPeakWave[ichan][ih]->SetBinError(ibin, sqrt(xbin));
         hfitwave->SetBinContent(ibin, xbin);
