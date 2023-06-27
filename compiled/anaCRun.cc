@@ -923,7 +923,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   for (Long64_t entry = 0; entry < nentries; ++entry)
   {
     if (entry / 1000 * 1000 == entry)
-      printf("... %llu pass %u fail %u \n", entry, npass, nfail);
+      printf("... entry %llu pass %u fail %u \n", entry, npass, nfail);
     rawTree->GetEntry(entry);
 
     /*
