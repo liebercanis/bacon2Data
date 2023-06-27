@@ -226,9 +226,9 @@ void QPEFits()
         epar2 = gfit->GetParError(2);
         if (epar2 > par2)
           epar2 = par2;
-      }
+      } else
+        printf("Fit to chan %u file  %u fails\n",ichan,ihist);
 
-      printf(" fit QPE %u  mean %f %f  sigma %f %f  \n", ichan, par1, epar1, par2, epar2);
       hQPEChan->SetBinContent(ichan, par1);
       hQPEChan->SetBinError(ichan, epar1);
       hQPESigmaChan->SetBinContent(ichan, par2);
@@ -237,6 +237,7 @@ void QPEFits()
       vecEQPE[ichan].push_back(epar1);
       vecQPESigma[ichan].push_back(par2);
       vecEQPESigma[ichan].push_back(epar2);
+      printf(" fit QPE chan %u  file %u mean %f %f  sigma %f %f  \n", ichan, ihist, par1, epar1, par2, epar2);
     }
   }
 }
@@ -681,11 +682,13 @@ void fitSlopes()
       {
         TString histName;
         histName.Form("RunSumHitWaveChan%i", ichan);
+        cout << " new clone " << histName << endl;
         hRunSumHitWave[ichan] = (TH1D *)hfitwave->Clone(histName);
         runSumDir->Add(hRunSumHitWave[ichan]);
       }
       else
       {
+        cout << "adding  " << endl;
         hRunSumHitWave[ichan]->Add(hfitwave);
       }
 
