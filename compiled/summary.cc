@@ -682,12 +682,13 @@ void fitSlopes()
       else
         qpeLast = vecQPE[ichan][ih];
 
-      printf(" !!!!!  normalize to qpe chan %i file %i qpe %f !!!!!\n", ichan, ih, qpe);
+      printf(" NNNNNN normalize to qpe chan %i file %i qpe %f !!!!!\n", ichan, ih, qpe);
       /* loop over histogram bins */
       for (int ibin = 0; ibin < vRunPeakWave[ichan][ih]->GetNbinsX(); ++ibin)
       {
         double xbin = vRunPeakWave[ichan][ih]->GetBinContent(ibin) / qpe;
-        // if(xbin<0.1) xbin = 0;
+        if(xbin<0 || xbin>1.0E9)
+          printf("BBBBBBBB bad xbin value \n");
         vRunPeakWave[ichan][ih]->SetBinContent(ibin, xbin);
         vRunPeakWave[ichan][ih]->SetBinError(ibin, sqrt(xbin));
         hfitwave->SetBinContent(ibin, xbin);
