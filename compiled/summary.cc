@@ -678,6 +678,8 @@ void fitSlopes()
       {
         double qpe = vecQPE[ichan][ih];
         // double qpe = 300;
+        if(qpe<=0)
+          qpe = 1.0;
         double xbin = vRunPeakWave[ichan][ih]->GetBinContent(ibin) / qpe;
         // if(xbin<0.1) xbin = 0;
         vRunPeakWave[ichan][ih]->SetBinContent(ibin, xbin);
@@ -935,6 +937,7 @@ int main(int argc, char *argv[])
   for (unsigned ichan = 0; ichan < nchan; ++ichan)
     effOther[ichan] = 1.;
 
+  /*
   for (unsigned ichan = 0; ichan < nchan; ++ichan)
   {
     TString histName;
@@ -949,6 +952,7 @@ int main(int argc, char *argv[])
     effOther[ichan] = totalHits / nexpect;
     printf(" chan %i effGeo %.3E  nexpect %.3E detected  %.3E  effOther %.3f \n", ichan, eg, nexpect, totalHits, totalHits / nexpect);
   }
+  */
 
   for (unsigned ichan = 0; ichan < nchan; ++ichan)
     printf("effOther[%i]=%f ;\n", ichan, effOther[ichan]);
@@ -957,7 +961,7 @@ int main(int argc, char *argv[])
   fout->Purge(1);
   fout->Write();
   fout->Close();
-  cout << "summary finished " << maxFiles << " " << fout->GetName() << endl;
+  cout << "summary finished " << maxFiles << " files written to " << fout->GetName() << endl;
   exit(0);
 }
 
