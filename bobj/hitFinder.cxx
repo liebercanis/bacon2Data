@@ -680,10 +680,12 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     ilow = TMath::Max(unsigned(0), imax + ioff - window);
     */
 
-    // look low
+    // low will be 10% of peak value
+    double lowCut = 0.1 * maxVal;
+   
     for (unsigned ibin = imax; ibin < v.size(); --ibin)
     {
-      if (v[ibin] < 0)
+      if (v[ibin] < lowCut)
         break;
       ilow = ibin;
     }
