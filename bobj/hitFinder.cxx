@@ -648,6 +648,7 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     unsigned ilow = v.size();
     unsigned ihigh = 0;
 
+    /*  this doesnt work as well as baseline
     // differentiate below max
     unsigned window = 20;
     unsigned minbin = TMath::Max(unsigned(0), imax - window);
@@ -677,7 +678,15 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     if (imax + ioff - window < 0)
       printf(" !!!!!  ilow would be %i resetting to 0\n ", imax + ioff - window);
     ilow = TMath::Max(unsigned(0), imax + ioff - window);
+    */
 
+    // look low
+    for (unsigned ibin = imax; ibin < v.size(); --ibin)
+    {
+      if (v[ibin] < 0)
+        break;
+      ilow = ibin;
+    }
     // look high
     for (unsigned ibin = imax; ibin < v.size(); ++ibin)
     {
@@ -763,7 +772,8 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
       for (unsigned k = kstart; k < kend; ++k)
         dhit.digi.push_back(digi[k]);
 
-    if(verbose) printf(" dhit chan %i (%i,%i) size %lu \n ", vChannel[idet], klow, khigh, dhit.digi.size());
+    if (verbose)
+      printf(" dhit chan %i (%i,%i) size %lu \n ", vChannel[idet], klow, khigh, dhit.digi.size());
 
     dhit.peakBin = Int_t(peakt);
     dhit.qsum = qsum;
