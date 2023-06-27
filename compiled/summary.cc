@@ -697,7 +697,7 @@ void fitSlopes()
       }
       else
       {
-        cout << "adding  " << endl;
+        //cout << "adding  " << endl;
         hRunSumHitWave[ichan]->Add(hfitwave);
       }
 
@@ -1047,6 +1047,7 @@ void makeGraphs()
 
   // one graph per channel
   // normalize to qpe and effOther
+  /*
   for (unsigned ic = 0; ic < 9; ++ic)
   {
     for (unsigned ih = 0; ih < vecQsum[ic].size(); ++ih)
@@ -1059,6 +1060,7 @@ void makeGraphs()
       vecEQsum[ic][ih] = vecEQsum[ic][ih] / qpe / effOther[ic];
     }
   }
+  */
 
   cout << " graph normalized vecQsum " << endl;
 
