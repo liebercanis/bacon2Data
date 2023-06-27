@@ -674,7 +674,7 @@ void fitSlopes()
       hfitwave->SetYTitle("summed yield in QPE");
 
       // normalize to qpe.
-      printf(" normalize to qpe chan %i file %i qpe %f \n", ichan, ih, vecQPE[ichan][ih]);
+      printf(" !!!!!  normalize to qpe chan %i file %i qpe %f !!!!!\n", ichan, ih, vecQPE[ichan][ih]);
 
       for (int ibin = 0; ibin < vRunPeakWave[ichan][ih]->GetNbinsX(); ++ibin)
       {
@@ -683,6 +683,8 @@ void fitSlopes()
         if (qpe <= 0)
           qpe = 1.0;
         double xbin = vRunPeakWave[ichan][ih]->GetBinContent(ibin) / qpe;
+        if (isinf(xbin))
+          xbin = vRunPeakWave[ichan][ih]->GetBinContent(ibin);
         // if(xbin<0.1) xbin = 0;
         vRunPeakWave[ichan][ih]->SetBinContent(ibin, xbin);
         vRunPeakWave[ichan][ih]->SetBinError(ibin, sqrt(xbin));
