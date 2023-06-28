@@ -964,8 +964,11 @@ int main(int argc, char *argv[])
   // print totalHits
   printf("\t\t >>> files processed << %li  total pass %i <<<<< \n", filenum.size(), totalPass);
   printf("totalHits\n");
-  for (unsigned ichan = 0; ichan < 9; ++ichan)
+  for (unsigned ichan = 0; ichan < nchan; ++ichan) {
+    if(ichan==9||ichan==10||ichan==11)
+      continue;
     printf("totalHits[%i]=%E;\n", ichan, hRunSumHitWave[ichan]->Integral());
+  }
 
   /*
   for (unsigned ichan = 0; ichan < nchan; ++ichan)
