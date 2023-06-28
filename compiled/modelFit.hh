@@ -12,10 +12,12 @@ static double kxe = 8.8E-5;
 static double kplusZero = 1.3E-4;
 static double xTrigger = 1406.09; // 1200.;
 static double xMax = 10000.;
+static double nPhotons = 50.E3 * 5.486;
 
 enum
 {
-  NTYPES = 5
+  NTYPES = 5,
+  NCHAN = 13
 };
 
 /*
@@ -144,6 +146,7 @@ static double lightModel(Double_t *xx, Double_t *par)
   double x1 = c1 * kx * alpha1 / (l1 - kPrime) / tXe * ((expGaus(x, tkPrime) - expGaus(x, tXe)) / (lX - kPrime) - (expGaus(x, t1) - expGaus(x, tXe)) / (lX - l1));
   double x3 = c3 * kx * alpha3 / (l3 - kPrime) / tXe * ((expGaus(x, tkPrime) - expGaus(x, tXe)) / (lX - kPrime) - (expGaus(x, t3) - expGaus(x, tXe)) / (lX - l3));
   double fx = x1 + x3;
+  
 
   // printf(" %E %E %E %E %E  \n"  ,fs,ft,fm,x1,x3);
   // QE eff factors
@@ -163,19 +166,21 @@ static double lightModel(Double_t *xx, Double_t *par)
   fs = fs * SiPMQ128;
   ft = ft * SiPMQ128;
   fm = fm * SiPMQE150;
+  
   // PMT sees only  175
-  if (ichan == 12)
-  {
+  if (ichan == 5) {
+    fx = fx * SiPMQE175;
+    fs = 0;
+    ft = 0;
+    fm = 0;
+  } else if (ichan == 12) {
     fx = fx * PMTQE175;
     fs = 0;
     ft = 0;
     fm = 0;
-  }
-  else
-  { // sipms do not see 175
+  } else { // sipms do not see 175
     fx = 0;
   }
-
   double f = 0;
   if (ifit == 0)
     f = fs;
@@ -249,6 +254,13 @@ void modelFit::show()
 
 modelFit::modelFit(int thefit, int ichan, double ppm)
 {
+  TString names[NTYPES];
+  names[0] = TString("singlet");
+  names[1] = TString("triplet");
+  names[2] = TString("mixed");
+  names[3] = TString("xenon");
+  names[4] = TString("total");
+
   int ilevel = level(ichan);
   double dist = getDistance(ilevel);
   double ab = Absorption(ppm, dist);
@@ -270,7 +282,7 @@ modelFit::modelFit(int thefit, int ichan, double ppm)
   effGeo[11] = 0.028648;
   effGeo[12] = 0.000022;
 
-  fp = new TF1(Form("ModelFit-%.2f-type-%i-chan-%i", ab, thefit, ichan), lightModel, xTrigger - 2., xMax, NPARS);
+  fp = new TF1(Form("ModelFit-%.2f-type-%s-chan-%i", ab, names[thefit].Data(), ichan), lightModel, xTrigger - 2., xMax, NPARS);
   printf(" modelFit: set %i fit range %f to %f  \n", thefit, xTrigger - 10., xMax);
   fp->SetParName(0, "binw");
   fp->SetParName(1, "norm");
@@ -285,7 +297,7 @@ modelFit::modelFit(int thefit, int ichan, double ppm)
   fp->SetParName(10, "chan");
 
   fp->FixParameter(0, binwidth);
-  fp->SetParameter(1, norm);
+  fp->SetParameter(1, nPhotons);
   fp->FixParameter(2, ppm);
   fp->SetParameter(3, tTriplet);
   fp->FixParameter(4, kplus);
@@ -299,7 +311,7 @@ modelFit::modelFit(int thefit, int ichan, double ppm)
   fp->FixParameter(10, ichan);
 
   // fp->SetParLimits(9,1.E3,20.E3);
-  fp->SetTitle(Form("ModelFit-type-%i-chan-%i-%0.1f-PPM-ab-%.2f", thefit, ichan, ppm, ab));
+  fp->SetTitle(Form("ModelFit-type-%s-chan-%i-%0.1f-PPM-ab-%.2f", names[thefit].Data(), ichan, ppm, ab));
   fp->SetNpx(1000); // numb points for function
   fp->Print();
 
