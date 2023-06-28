@@ -6,7 +6,7 @@ using namespace TMath;
 TFile *fin;
 TDirectory *runSumDir;
 
-bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-06-20-14-09.root")
+bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-06-28-14-29.root")
 {
   // open input file and make some histograms
   printf(" looking for file %s\n", fileName.Data());
@@ -61,25 +61,17 @@ void tbFit(int ichan =8)
   cout << startTime << endl;
 
   int ifit = 4;
-  double ppm = 0.07;
-  modelFit *model = new modelFit(ifit, 0);
+  double ppm = 0.05;
+  modelFit *model = new modelFit(4,ichan,ppm);
   TF1 *fp = model->fp;
-  double norm = 1.138E6;
   double sFrac = 0.2;
-  fp->FixParameter(1, norm);
-
   fp->FixParameter(0, binwidth);
-  fp->SetParameter(1, norm);
   fp->FixParameter(2, ppm);
-  fp->SetParameter(3, tTriplet);
-  fp->FixParameter(5, sFrac);
-  fp->FixParameter(8, ifit);
-  fp->FixParameter(9, tMix);
   fp->Print();
 
   /* do the fit here */
-  double xstart = 100.;
-  double xstop = 14000;
+  double xstart = 1400.;
+  double xstop = 75000;
   TFitResultPtr fptr = hWave->Fit(fp, "LE0S+", "", xstart, xstop);
   TMatrixDSym cov = fptr->GetCorrelationMatrix();
   printf(" correlation chan %i cov(2,3) %f \n", ichan, cov(2, 3));
