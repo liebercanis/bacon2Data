@@ -706,7 +706,8 @@ void fitSlopes()
       }
       else
       {
-        // cout << "adding  " << endl;
+        if(ichan==3) cout << "b333333333  int " 
+          << hfitwave->Integral() << " entries  " << hfitwave->GetEntries() << endl;
         hRunSumHitWave[ichan]->Add(hfitwave);
       }
 
