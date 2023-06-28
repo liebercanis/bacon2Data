@@ -968,7 +968,10 @@ int main(int argc, char *argv[])
   for (unsigned ichan = 0; ichan < nchan; ++ichan) {
     if(ichan==9||ichan==10||ichan==11)
       continue;
-    printf("totalHits[%i]=%E;\n", ichan, hRunSumHitWave[ichan]->Integral());
+    double sum =hRunSumHitWave[ichan]->Integral();
+    double back = hRunSumHitWave[ichan]->Integral(1, 1200) * double(hRunSumHitWave[ichan]->GetNbinsX()) / 1200.;
+    printf("%i sum %E back %E\n", ichan,sum,back);
+    printf("totalHits[%i]=%E;\n",ichan, sum-back);
   }
 
   /*
