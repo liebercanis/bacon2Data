@@ -373,8 +373,10 @@ void fileLoop()
     printf(" anaDir for file %s \n", fin->GetName());
     // get hist of cleanup cut pass bit
     fin->GetObject("EventPass", hEventPass);
-    if (hEventPass)
-      cout << " event pass " << endl;
+    if(!hEventPass) {
+      printf("NO EVENT PASS IN FILE %s\n", fin->GetName());
+      continue;
+    }
     if (ifile == 0)
     {
       hRunEventPass = (TH1D *)hEventPass->Clone("RunEventPass");
@@ -827,7 +829,10 @@ int main(int argc, char *argv[])
   if (nfiles == 0)
     exit(0);
 
-  printf(" for %s found %lu files \n", tag.Data(), fileList.size());
+  for (int i = 0; i < fileList.size();++i)
+    cout << fileList[i] << endl;
+
+    printf(" for %s found %lu files \n", tag.Data(), fileList.size());
   maxFiles = fileList.size();
   if (argc > 3)
   {
@@ -968,9 +973,10 @@ int main(int argc, char *argv[])
   for (unsigned ichan = 0; ichan < nchan; ++ichan) {
     if(ichan==9||ichan==10||ichan==11)
       continue;
-    double sum =hRunSumHitWave[ichan]->Integral();
-    double back = hRunSumHitWave[ichan]->Integral(1, 1200) * double(hRunSumHitWave[ichan]->GetNbinsX()) / 1200.;
-    printf("%i sum %E back %E\n", ichan,sum,back);
+    int nbins = hRunSumHitWave[ichan]->GetNbinsX();
+    double sum = hRunSumHitWave[ichan]->Integral(1,nbins);
+    double back = hRunSumHitWave[ichan]->Integral(1,1200) * double(hRunSumHitWave[ichan]->GetNbinsX()) / 1200.;
+    printf("%i %i sum %E back %E\n", nbins , ichan,sum,back);
     printf("totalHits[%i]=%E;\n",ichan, sum-back);
   }
 
