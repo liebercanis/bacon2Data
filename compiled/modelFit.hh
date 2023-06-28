@@ -3,7 +3,7 @@
 // model with absorption
 // static double tres = 7.86;
 // static double tres = 5.4;
-static double tres = 5.4;
+static double tres = 10;
 static double tTriplet = 1600.0; // 2100.0;
 static double tSinglet = 5.0;
 static double tMix = 4700.;
@@ -11,13 +11,14 @@ static double tXe = 20.0;
 static double kxe = 8.8E-5;
 static double kplusZero = 1.3E-4;
 static double xTrigger = 1406.09; // 1200.;
-static double xMax = 10000.;
+static double xMax = 17000.;
 static double nPhotons = 50.E3 * 5.486;
 
 enum
 {
   NTYPES = 5,
-  NCHAN = 13
+  NCHAN = 13,
+  NPARS =12
 };
 
 /*
@@ -117,6 +118,7 @@ static double lightModel(Double_t *xx, Double_t *par)
   double kp = par[4] * kplusZero;
   double tmixPar = par[9];
   double lmix = 1. / tmixPar;
+  double bkg = par[11]*bw;
   // double alpha1 = bw*norm;
   // double alpha3 = (1.-par[5])/par[5]*alpha1;
   double alpha1 = par[5] * bw * norm * effGeo[ichan];
@@ -193,6 +195,8 @@ static double lightModel(Double_t *xx, Double_t *par)
   else if (ifit == 4)
     f = fs + ft + fx + fm;
 
+  f=f+bkg;
+
   return f;
 }
 
@@ -203,10 +207,6 @@ public:
   modelFit(int thefit, int ichan, double ppm);
   virtual ~modelFit() { ; }
   TF1 *fp;
-  enum
-  {
-    NPARS = 11
-  };
   double binwidth = 2.0; // ns;
   double norm = 3.0E4;
   double sFrac = 0.2;
@@ -282,8 +282,8 @@ modelFit::modelFit(int thefit, int ichan, double ppm)
   effGeo[11] = 0.028648;
   effGeo[12] = 0.000022;
 
-  fp = new TF1(Form("ModelFit-%.2f-type-%s-chan-%i", ab, names[thefit].Data(), ichan), lightModel, xTrigger - 2., xMax, NPARS);
-  printf(" modelFit: set %i fit range %f to %f  \n", thefit, xTrigger - 10., xMax);
+  fp = new TF1(Form("ModelFit-%.2f-type-%s-chan-%i", ab, names[thefit].Data(), ichan), lightModel, 0., xMax, NPARS);
+  printf(" modelFit: set %i fit range %f to %f  \n", thefit, 0., xMax);
   fp->SetParName(0, "binw");
   fp->SetParName(1, "norm");
   fp->SetParName(2, "PPM");
@@ -295,6 +295,8 @@ modelFit::modelFit(int thefit, int ichan, double ppm)
   fp->SetParName(8, "type");
   fp->SetParName(9, "tmix");
   fp->SetParName(10, "chan");
+  fp->SetParName(11, "bgk");
+
 
   fp->FixParameter(0, binwidth);
   fp->SetParameter(1, nPhotons);
@@ -302,13 +304,15 @@ modelFit::modelFit(int thefit, int ichan, double ppm)
   fp->SetParameter(3, tTriplet);
   fp->FixParameter(4, kplus);
   fp->SetParameter(5, sFrac);
-  fp->SetParLimits(5, .01, .5);
+  fp->SetParLimits(5, .01, 1.);
   fp->FixParameter(6, ab);
   fp->SetParLimits(6, 1.E-9, 1.);
   fp->FixParameter(7, 2 * kPrime);
   fp->FixParameter(8, thefit);
   fp->FixParameter(9, tMix);
   fp->FixParameter(10, ichan);
+  fp->FixParameter(11,0);
+
 
   // fp->SetParLimits(9,1.E3,20.E3);
   fp->SetTitle(Form("ModelFit-type-%s-chan-%i-%0.1f-PPM-ab-%.2f", names[thefit].Data(), ichan, ppm, ab));

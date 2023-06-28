@@ -6,7 +6,7 @@ using namespace TMath;
 TFile *fin;
 TDirectory *runSumDir;
 
-bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-06-28-14-29.root")
+bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-06-28-15-09.root")
 {
   // open input file and make some histograms
   printf(" looking for file %s\n", fileName.Data());
@@ -58,16 +58,45 @@ void tbFit(int ichan =8)
   Double_t binwidth = hWave->GetBinWidth(1);
   int maxBin = hWave->GetMaximumBin();
   double startTime = hWave->GetBinLowEdge(maxBin) + hWave->GetBinWidth(maxBin) / 2.;
-  cout << startTime << endl;
+  double hnorm = hWave->Integral(1,maxBin);
+  cout << startTime << " hnorm " << hnorm << endl;
 
   int ifit = 4;
   double ppm = 0.05;
-  modelFit *model = new modelFit(4,ichan,ppm);
+  int theFit=4;
+  modelFit *model = new modelFit(theFit,ichan,ppm);
   TF1 *fp = model->fp;
   double sFrac = 0.2;
+
+  int ilevel = level(ichan);
+  double dist = getDistance(ilevel);
+  double ab = Absorption(ppm, dist);
+  double kplus = 1;
+  double kPrime = 1;
+
+
+
   fp->FixParameter(0, binwidth);
+  fp->SetParameter(1, hnorm);
   fp->FixParameter(2, ppm);
-  fp->Print();
+  fp->FixParameter(3, 1300);
+  fp->FixParameter(4, kplus);
+  fp->SetParameter(5, sFrac);
+  //fp->SetParLimits(5, .01, .5);
+  fp->FixParameter(6, ab);
+  //fp->SetParLimits(6, 1.E-9, 1.);
+  fp->FixParameter(7, 2 * kPrime);
+  fp->FixParameter(11,10);
+
+  
+  cout << " initial values " << endl;
+   printf(" \n\n >>> modelFit fitted parameters fit chan %i ppm %f \n", (int)fp->GetParameter(11), fp->GetParameter(2));
+  for (int ii = 0; ii < NPARS; ++ii)
+  {
+    printf("\t  param %i %s %.3E +/- %.3E \n", ii, fp->GetParName(ii), fp->GetParameter(ii), fp->GetParError(ii));
+  }
+
+  cout << " ---------------  " << endl;
 
   /* do the fit here */
   double xstart = 1400.;
