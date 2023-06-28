@@ -676,7 +676,7 @@ void fitSlopes()
       hfitwave->SetYTitle("summed yield in QPE");
 
       // normalize to qpe.
-      double qpeChan  = vecQPE[ichan][ih];
+      double qpeChan = vecQPE[ichan][ih];
       if (qpeChan <= 0)
         qpeChan = qpeLast;
       else
@@ -687,8 +687,8 @@ void fitSlopes()
       for (int ibin = 0; ibin < vRunPeakWave[ichan][ih]->GetNbinsX(); ++ibin)
       {
         double xbin = vRunPeakWave[ichan][ih]->GetBinContent(ibin) / qpeChan;
-        if(xbin<0 || xbin>1.0E9)
-          printf("BBBBBBBB bad xbin value QPE %f chan %i file %i \n",qpeChan, ichan, ih );
+        if (xbin < 0 || xbin > 1.0E9)
+          printf("BBBBBBBB bad xbin value QPE %f chan %i file %i \n", qpeChan, ichan, ih);
         vRunPeakWave[ichan][ih]->SetBinContent(ibin, xbin);
         vRunPeakWave[ichan][ih]->SetBinError(ibin, sqrt(xbin));
         hfitwave->SetBinContent(ibin, xbin);
@@ -960,6 +960,12 @@ int main(int argc, char *argv[])
     printf(" chan %i effGeo %.3E  nexpect %.3E detected  %.3E  effOther %.3f \n", ichan, eg, nexpect, totalHits, totalHits / nexpect);
   }
   */
+
+  // print totalHits
+  printf("\t\t >>> files processed << %li  total pass %i <<<<< \n", filenum.size(), totalPass);
+  printf("TTTTTTTTTTTTTTTTTT totalHits\n");
+  for (unsigned ichan = 0; ichan < nchan; ++ichan)
+    printf("totalHits[%i]=%E;\n", ichan, hRunSumHitWave[ichan]->Integral());
 
   for (unsigned ichan = 0; ichan < nchan; ++ichan)
     printf("effOther[%i]=%f ;\n", ichan, effOther[ichan]);
