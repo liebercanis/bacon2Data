@@ -32,6 +32,8 @@
 #include <TLeaf.h>
 #include <TFormula.h>
 #include <TStyle.h>
+#include <TFitResultPtr.h>
+#include <TFitResult.h>
 #include <TCanvas.h>
 #include <TGraphErrors.h>
 // bobj classes
@@ -75,6 +77,8 @@ TH1D *hRunCosmicCut1;
 TH1D *hRunCosmicCut2;
 std::vector<vector<double>> vecQsum;
 std::vector<vector<double>> vecEQsum;
+std::vector<vector<double>> vecQsumUn;
+std::vector<vector<double>> vecEQsumUn;
 std::vector<vector<double>> vecPeaksum;
 std::vector<vector<double>> vecEPeaksum;
 std::vector<vector<double>> vecQPE;
@@ -178,6 +182,10 @@ void QPEFits()
       // fit QPE
       double xlow = 0.;
       double xhigh = 0;
+      double par1 = 0;
+      double epar1 = 0;
+      double par2 = 0;
+      double epar2 = 0;
       if (theDataType == SIS)
       { // For SIS data
         if (ichan == 0 || ichan == 1 || ichan == 2 || ichan == 5)
@@ -214,16 +222,17 @@ void QPEFits()
           xhigh = 1200.;
         }
       }
-      if (ichan == 9 || ichan == 10 || ichan == 11)
+      // if (ichan == 9 || ichan == 10 || ichan == 11)
+      //{
+      //   continue;
+      // }
+      TF1 *gfit = NULL;
+      if (!(ichan > 8 && ichan < 12))
       {
-        continue;
+        hclone->Fit("gaus", "Q", " ", xlow, xhigh);
+        gfit = (TF1 *)hclone->GetListOfFunctions()->FindObject("gaus");
       }
-      hclone->Fit("gaus", "Q", " ", xlow, xhigh);
-      TF1 *gfit = (TF1 *)hclone->GetListOfFunctions()->FindObject("gaus");
-      double par1 = 0;
-      double epar1 = 0;
-      double par2 = 0;
-      double epar2 = 0;
+
       if (gfit)
       {
         par1 = gfit->GetParameter(1);
@@ -373,7 +382,8 @@ void fileLoop()
     printf(" anaDir for file %s \n", fin->GetName());
     // get hist of cleanup cut pass bit
     fin->GetObject("EventPass", hEventPass);
-    if(!hEventPass) {
+    if (!hEventPass)
+    {
       printf("NO EVENT PASS IN FILE %s\n", fin->GetName());
       continue;
     }
@@ -508,6 +518,8 @@ void fileLoop()
         }
         vecQsum[i].push_back(val);
         vecEQsum[i].push_back(eval);
+        vecQsumUn[i].push_back(val);
+        vecEQsumUn[i].push_back(eval);
         cout << "chan " << i << " qsum " << hqsum->GetBinContent(i + 1) << " size " << vecQsum[i].size() << endl;
       }
     }
@@ -708,8 +720,9 @@ void fitSlopes()
       }
       else
       {
-        if(ichan==3) cout << "b333333333  int " 
-          << hfitwave->Integral() << " entries  " << hfitwave->GetEntries() << endl;
+        if (ichan == 3)
+          cout << "b333333333  int "
+               << hfitwave->Integral() << " entries  " << hfitwave->GetEntries() << endl;
         hRunSumHitWave[ichan]->Add(hfitwave);
       }
 
@@ -829,10 +842,10 @@ int main(int argc, char *argv[])
   if (nfiles == 0)
     exit(0);
 
-  for (int i = 0; i < fileList.size();++i)
+  for (int i = 0; i < fileList.size(); ++i)
     cout << fileList[i] << endl;
 
-    printf(" for %s found %lu files \n", tag.Data(), fileList.size());
+  printf(" for %s found %lu files \n", tag.Data(), fileList.size());
   maxFiles = fileList.size();
   if (argc > 3)
   {
@@ -869,6 +882,8 @@ int main(int argc, char *argv[])
   effOther.resize(nchan);
   vecQsum.resize(nchan);
   vecEQsum.resize(nchan);
+  vecQsumUn.resize(nchan);
+  vecEQsumUn.resize(nchan);
   vecPeaksum.resize(nchan);
   vecEPeaksum.resize(nchan);
   vecQPE.resize(nchan);
@@ -887,20 +902,28 @@ int main(int argc, char *argv[])
   hRunSumHitWave.resize(nchan);
   hRunSumPeakWave.resize(nchan);
 
-  /* from 04_14_2023 */
-  effOther[0] = 0.215430;
-  effOther[1] = 0.292408;
-  effOther[2] = 0.246295;
-  effOther[3] = 1.;
-  effOther[4] = 0.413158;
-  effOther[5] = 0.166633;
-  effOther[6] = 0.000492;
-  effOther[7] = 0.166086;
-  effOther[8] = 0.070555;
-  effOther[9] = 1.000000;
-  effOther[10] = 1.000000;
-  effOther[11] = 1.000000;
-  effOther[12] = 1.000000;
+  for (unsigned ichan = 0; ichan < nchan; ++ichan)
+    effOther[ichan] = 1.;
+
+  // from integral
+  effOther[0] = 1.720E-01;
+  effOther[1] = 1.558E-01;
+  effOther[2] = 1.986E-01;
+  effOther[4] = 4.757E-01;
+  effOther[5] = 5.218E+00;
+  effOther[7] = 2.077E-01;
+  effOther[8] = 8.284E-02;
+  effOther[12] = 2.801E-01;
+
+  //from fits 
+  effOther[0] = 1.729E-01;
+  effOther[1] = 2.604E-01;
+  effOther[2] = 2.176E-01;
+  effOther[4] = 4.852E-01;
+  effOther[5] = 6.848E+00;
+  effOther[7] = 2.127E-01;
+  effOther[8] = 8.533E-02;
+  effOther[12] = 2.779E-01;
 
   for (int ichan = 0; ichan < nchan; ++ichan)
   {
@@ -947,43 +970,42 @@ int main(int argc, char *argv[])
 
   printf(" total triggers %i \n", totalPass);
 
-  for (unsigned ichan = 0; ichan < nchan; ++ichan)
-    effOther[ichan] = 1.;
-
-  /*
-  for (unsigned ichan = 0; ichan < nchan; ++ichan)
-  {
-    TString histName;
-    histName.Form("RunSumHitWaveChan%i", ichan);
-    // histName.Form("RunSumPeakWaveFile%uChan%i", ih, ichan);
-    runSumDir->GetObject(histName, hRunSumHitWave[ichan]);
-    if (hRunSumHitWave[ichan] == NULL)
-      continue;
-    double eg = effGeo(ichan);
-    double nexpect = nPhotons * (totalPass)*eg * effQuantum128;
-    double totalHits = hRunSumHitWave[ichan]->Integral();
-    effOther[ichan] = totalHits / nexpect;
-    printf(" chan %i effGeo %.3E  nexpect %.3E detected  %.3E  effOther %.3f \n", ichan, eg, nexpect, totalHits, totalHits / nexpect);
-  }
-  */
-
   // print totalHits
   printf("\t\t >>> files processed << %li  total pass %i <<<<< \n", filenum.size(), totalPass);
   printf("totalHits\n");
-  for (unsigned ichan = 0; ichan < nchan; ++ichan) {
-    if(ichan==9||ichan==10||ichan==11)
+  double fitCut = 1000;
+  for (unsigned ichan = 0; ichan < nchan; ++ichan)
+  {
+    if (ichan == 9 || ichan == 10 || ichan == 11)
       continue;
     int nbins = hRunSumHitWave[ichan]->GetNbinsX();
-    double sum = hRunSumHitWave[ichan]->Integral(1,nbins);
-    double back = hRunSumHitWave[ichan]->Integral(1,1200) * double(hRunSumHitWave[ichan]->GetNbinsX()) / 1200.;
-    printf("%i %i sum %E back %E\n", nbins , ichan,sum,back);
-    printf("totalHits[%i]=%E;\n",ichan, sum-back);
+    double sum = hRunSumHitWave[ichan]->Integral(1, nbins);
+    int backBins = hRunSumHitWave[ichan]->FindBin(fitCut);
+    double ave = hRunSumHitWave[ichan]->Integral(1, backBins) / double(backBins);
+
+    TF1 *gfit = NULL;
+    double ave2;
+    hRunSumHitWave[ichan]->Fit("pol1", "QLF", " ", 0, fitCut);
+    gfit = (TF1 *)hRunSumHitWave[ichan]->GetListOfFunctions()->FindObject("pol1");
+    if (gfit)
+    {
+      ave2 = gfit->GetParameter(0) / double(backBins);
+    }
+    else
+      printf("P1 Fit to chan %u fails \n", ichan);
+
+    double back = ave * double(nbins);
+    double back2 = ave2 * double(nbins);
+    // from fit to hist
+    if (ichan == 12)
+      back = 6.45;
+    printf("chan %i nbins %i sum %E back bins %i ave (%.2f,%.2f)  back (%E,%E)\n", ichan, nbins, sum, backBins, ave, ave2, back,back2);
+    printf("totalHits[%i]=%E;\n", ichan, sum - back);
+    printf("totalHits[%i]=%E;\n", ichan, sum - back2);
   }
 
-  /*
   for (unsigned ichan = 0; ichan < nchan; ++ichan)
     printf("effOther[%i]=%f ;\n", ichan, effOther[ichan]);
-    */
 
   //    fout->ls();
   fout->Purge(1);
@@ -1079,20 +1101,19 @@ void makeGraphs()
 
   // one graph per channel
   // normalize to qpe and effOther
-  /*
-  for (unsigned ic = 0; ic < 9; ++ic)
+  for (unsigned ic = 0; ic < vecQsum.size(); ++ic)
   {
     for (unsigned ih = 0; ih < vecQsum[ic].size(); ++ih)
     {
       double qpe = vecQPE[ic][ih];
-      if (qpe <=0 )
-        continue;
-      printf("QSUM chan %i file%i qsum %f qpe%f  ratio %f \n", ic, ih, vecQsum[ic][ih], qpe, vecQsum[ic][ih] / qpe);
+      if (qpe <= 0)
+        qpe = 1;
+      printf(" \t\t QSUM chan %i file%i qpe %.3f effOther %.3E  qsum %f  new  %f \n",
+             ic, ih, qpe, effOther[ic], vecQsum[ic][ih], vecQsum[ic][ih] / qpe / effOther[ic]);
       vecQsum[ic][ih] = vecQsum[ic][ih] / qpe / effOther[ic];
       vecEQsum[ic][ih] = vecEQsum[ic][ih] / qpe / effOther[ic];
     }
   }
-  */
 
   cout << " graph normalized vecQsum " << endl;
 
@@ -1102,14 +1123,14 @@ void makeGraphs()
   {
     // cout << " add " << ic << endl;
     gqsum.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEQsum[ic][0])));
-    gqsum[ic]->SetName(Form("qsumChan%i", ic));
+    gqsum[ic]->SetName(Form("qsumChanNorm%i", ic));
     gqsum[ic]->SetTitle(Form("qsum-chan-%i", ic));
     gqsum[ic]->SetMarkerSize(1);
     gqsum[ic]->SetMarkerColor(myColor[ic]);
     gqsum[ic]->SetMarkerStyle(myStyle[ic]);
     fout->Add(gqsum[ic]);
     // if (ic == 6 || ic == 7 || ic == 8)
-    if (ic != 6 && ic != 3 && ic < 9)
+    if (ic != 6 && ic != 3 && ic != 9 && ic != 10 && ic != 11)
       mgsum->Add(gqsum[ic]);
   }
   // overlay all channel graphs on canvas
@@ -1192,7 +1213,7 @@ void makeGraphs()
   for (unsigned ic = 0; ic < nchan; ++ic)
   {
     // cout << " add " << ic << endl;
-    gqsumUn.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQsum[ic][0]), &efilenum[0], &(vecEQsum[ic][0])));
+    gqsumUn.push_back(new TGraphErrors(filenum.size(), &fileTime[0], &(vecQsumUn[ic][0]), &efilenum[0], &(vecEQsumUn[ic][0])));
     gqsumUn[ic]->SetName(Form("qsumChanUn%i", ic));
     gqsumUn[ic]->SetTitle(Form("qsum-unnormalized-chan-%i", ic));
     gqsumUn[ic]->SetMarkerSize(1);
@@ -1202,7 +1223,7 @@ void makeGraphs()
   }
   ylabel.Form("integrated charge");
   TMultiGraph *mgL1 = new TMultiGraph();
-  mgL1->Add(gqsumUn[6]);
+  // mgL1->Add(gqsumUn[6]);
   mgL1->Add(gqsumUn[7]);
   mgL1->Add(gqsumUn[8]);
   setTimeGraph(mgL1, ylabel);
@@ -1214,7 +1235,7 @@ void makeGraphs()
   fout->Append(canL1);
 
   TMultiGraph *mgL2 = new TMultiGraph();
-  mgL2->Add(gqsumUn[3]);
+  mgL2->Add(gqsumUn[4]);
   // mgL2->Add(gqsumUn[4]);
   mgL2->Add(gqsumUn[5]);
   setTimeGraph(mgL2, ylabel);
@@ -1236,28 +1257,27 @@ void makeGraphs()
   canL3->BuildLegend();
   canL3->SetGrid();
   fout->Append(canL3);
-
-  /*
-  // apply norms
-  for (unsigned ic = 0; ic < vecQsum.size(); ++ic)
-  {
-    for (unsigned jf = 0; jf < vecQsum[ic].size(); ++jf)
-    {
-      vecQsum[ic][jf] /= normQsum[ic];
-      vecEQsum[ic][jf] /= normQsum[ic];
-    }
-  }
-  // apply norms
-  for (unsigned ic = 0; ic < vecQPE.size(); ++ic)
-  {
-    for (unsigned jf = 0; jf < vecQPE[ic].size(); ++jf)
-    {
-      vecQPE[ic][jf] /= normQPE[ic];
-      vecEQPE[ic][jf] /= normQPE[ic];
-    }
-  }
-  */
 }
+/*
+// apply norms
+for (unsigned ic = 0; ic < vecQsum.size(); ++ic)
+{
+  for (unsigned jf = 0; jf < vecQsum[ic].size(); ++jf)
+  {
+    vecQsum[ic][jf] /= normQsum[ic];
+    vecEQsum[ic][jf] /= normQsum[ic];
+  }
+}
+// apply norms
+for (unsigned ic = 0; ic < vecQPE.size(); ++ic)
+{
+  for (unsigned jf = 0; jf < vecQPE[ic].size(); ++jf)
+  {
+    vecQPE[ic][jf] /= normQPE[ic];
+    vecEQPE[ic][jf] /= normQPE[ic];
+  }
+}
+*/
 
 // get slopes from graph
 /*
