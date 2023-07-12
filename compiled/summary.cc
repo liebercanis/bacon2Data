@@ -740,10 +740,11 @@ void sumHistos()
           printf("BBBBBBBB bad xbin value xbin  %f chan %i file %i qpe %f \n", xbin, ichan, ih, qpeChan);
           xbin = 0.0;
         }
+        double ebin = sqrt(xbin);
         // vRunPeakWave[ichan][ih]->SetBinContent(ibin, xbin);
         // vRunPeakWave[ichan][ih]->SetBinError(ibin, sqrt(xbin));
-        hwaveToFit->SetBinContent(ibin, xbin);
-        hwaveToFit->SetBinError(ibin, sqrt(xbin));
+        hwaveToFit->SetBinContent(ibin, xbin/double(totalPass));
+        hwaveToFit->SetBinError(ibin, ebin / double(totalPass));
         if (ichan == 8)
           ntQhit8->Fill(float(ih), float(ibin), qpeChan, hwaveToFit->GetBinContent(ibin));
       }
