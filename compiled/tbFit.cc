@@ -6,7 +6,48 @@ using namespace TMath;
 TFile *fin;
 TDirectory *runSumDir;
 
-bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-06-28-15-09.root")
+int nTriggers = 1635000;
+ //3603795;
+
+double
+fitBack(TH1D *hist)
+{
+  double lowCut = 12000;
+  double highCut = 15000;
+  TF1 *gfit = NULL;
+  double ave = 0;
+  int lowBins = hist->FindBin(lowCut);
+  int highBins = hist->FindBin(highCut);
+  auto fitBack = new TF1("fitBack", "pol0",lowCut,highCut);
+  fitBack->SetParameter(0,1E-1);
+  fitBack->SetParLimits(0,1.E-9,1E2);
+  
+  hist->Fit("fitBack", "LF", " ", lowCut, highCut);
+  gfit = (TF1 *)hist->GetListOfFunctions()->FindObject("fitBack");
+  if (gfit)
+  {
+    ave = gfit->GetParameter(0);
+  }
+  else
+    printf("P1 Fit to hist fails \n");
+  double aveb = hist->Integral(lowCut,highCut) / double(highBins-lowBins);
+  printf(" \t\t ave %E aveb %E \n\n", ave, aveb);
+  return ave;
+}
+
+static double singletPeak(double *xx, double *par)
+{
+  double t = xx[0];
+  double norm = par[0];
+  double mean = par[1];
+  double sigma = par[2];
+  double arg = (t - mean) / sigma;
+  double binwidth = 2.; // 2 ns
+  double g = binwidth * norm / sqrt(TMath::TwoPi()) / sigma * TMath::Exp(-0.5 * arg * arg);
+  return g;
+}
+
+bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-07-12-16-21.root")
 {
   // open input file and make some histograms
   printf(" looking for file %s\n", fileName.Data());
@@ -38,91 +79,127 @@ bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-06-28-15-09.r
   return true;
 }
 
+void tbFit(int ichan = 8)
+{
 
-void tbFit(int ichan =8)
-{ 
-
-  if(!openFile())
+  if (!openFile())
     return;
   TString hname;
-  hname.Form("RunSumHitWaveChan%i",ichan);
-  TH1D *hWave=NULL;
-  runSumDir->GetObject(hname,hWave);
-  if(!hWave)
+  hname.Form("RunSumHitWaveChan%i", ichan);
+  TH1D *hWave = NULL;
+  runSumDir->GetObject(hname, hWave);
+  if (!hWave)
     return;
 
-  cout <<" got " << hWave->GetName() << endl;
+  delete hWave->GetListOfFunctions()->FindObject("pol1");
 
+  cout << " got " << hWave->GetName() << endl;
+  double ppm = 0.05;
+
+  // peak singlet fit
+  TH1D *hSinglet = (TH1D *)hWave->Clone("SingletWave");
+  gStyle->SetOptStat();
+  gStyle->SetOptFit(1111);
+  auto fsinglet = new TF1("singlet", singletPeak, 1360, 1460, 3);
+  fsinglet->SetParameters(nTriggers, 1411., 10.);
+  fsinglet->SetParNames("norm", "mean", "sigma");
+
+  TCanvas *canSinglet = new TCanvas(Form("SingletFit-%.3f-PPM", ppm), Form("SingletFit-%.3f-PPM", ppm));
+  hSinglet->Fit("singlet");
+  hSinglet->GetXaxis()->SetRangeUser(1300, 1500);
+  hSinglet->Draw();
+  double sumSinglet = hWave->Integral(hWave->FindBin(1360), hWave->FindBin(1460));
+
+  TCanvas *canSingletFunc = new TCanvas(Form("SingletFitFunc-%.3f-PPM", ppm), Form("SingletFitFunc-%.3f-PPM", ppm));
+  fsinglet->Draw();
+
+  printf(" singlet  integral 1360 to 1460 = %.3E\n", sumSinglet);
+
+  // fit background
+  TH1D *hBack = (TH1D *)hWave->Clone("BackWave");
+  double back = fitBack(hBack);
+  cout << " fitted back  " << back << endl;
+
+  hWave->GetXaxis()->SetRangeUser(0, 15000);
   double markerSize = 0.5;
+
   /***** fitting *****/
+  hWave->GetListOfFunctions()->Clear();
   Double_t binwidth = hWave->GetBinWidth(1);
   int maxBin = hWave->GetMaximumBin();
   double startTime = hWave->GetBinLowEdge(maxBin) + hWave->GetBinWidth(maxBin) / 2.;
-  double hnorm = hWave->Integral(1,maxBin);
-  cout << startTime << " hnorm " << hnorm << endl;
+  double hnorm = hWave->Integral(1, maxBin);
 
-  int ifit = 4;
-  double ppm = 0.05;
-  int theFit=4;
-  modelFit *model = new modelFit(theFit,ichan,ppm);
+  printf("startTime %f hnorm%f \n",startTime,hnorm);
+
+  int theFit = 4;
+  modelFit *model = new modelFit(theFit, ichan, ppm);
   TF1 *fp = model->fp;
   double sFrac = 0.2;
 
   int ilevel = level(ichan);
-  double dist = getDistance(ilevel);
+  double dist = distanceLevel[ilevel];
   double ab = Absorption(ppm, dist);
   double kplus = 1;
   double kPrime = 1;
 
-
-
-  fp->FixParameter(0, binwidth);
-  fp->SetParameter(1, hnorm);
-  fp->FixParameter(2, ppm);
-  fp->FixParameter(3, 1300);
-  fp->FixParameter(4, kplus);
-  fp->SetParameter(5, sFrac);
-  //fp->SetParLimits(5, .01, .5);
+  fp->SetParameter(0,0.5*nPhotons);
+  // up to 8 parameters
+  /*
+  fp->FixParameter(1, ppm);
+  fp->FixParameter(2, tTriplet);
+  fp->FixParameter(3, kplus);
+  fp->FixParameter(4, sFrac); // not fitting singlet
+  fp->FixParameter(5, 0);
+  //  fp->SetParLimits(5, .01, 1.);
   fp->FixParameter(6, ab);
-  //fp->SetParLimits(6, 1.E-9, 1.);
+  // fp->SetParLimits(6, 1.E-9, 1.);
   fp->FixParameter(7, 2 * kPrime);
-  fp->FixParameter(11,10);
+  fp->FixParameter(8, tMix);
+  */
+  fp->FixParameter(9, back);
+  //fp->FixParameter(12,0); // model fit
 
-  
-  cout << " initial values " << endl;
-   printf(" \n\n >>> modelFit fitted parameters fit chan %i ppm %f \n", (int)fp->GetParameter(11), fp->GetParameter(2));
+  printf("  >>> modelFit initial value parameters fit chan %i ppm %.3f \n", (int)fp->GetParameter(0), fp->GetParameter(1));
   for (int ii = 0; ii < NPARS; ++ii)
   {
     printf("\t  param %i %s %.3E +/- %.3E \n", ii, fp->GetParName(ii), fp->GetParameter(ii), fp->GetParError(ii));
   }
-
   cout << " ---------------  " << endl;
 
+  gStyle->cd();
+  gStyle->SetOptFit(1111111);
+  TCanvas *canShow = new TCanvas(Form("WaveShow-%.3f-PPM", ppm), Form("WaveShow-%.3f-PPM", ppm));
+  canShow->SetLogy();
+  hWave->Draw();
+  fp->Draw("sames");
+
   /* do the fit here */
-  double xstart = 1400.;
-  double xstop = 75000;
-  TFitResultPtr fptr = hWave->Fit(fp, "LE0S+", "", xstart, xstop);
+  TFitResultPtr fptr = hWave->Fit(fp, "RLE0S+", "", 0, xMax);
   TMatrixDSym cov = fptr->GetCorrelationMatrix();
   printf(" correlation chan %i cov(2,3) %f \n", ichan, cov(2, 3));
   fptr->Print("V");
 
-  
-
   gStyle->cd();
   gStyle->SetOptFit(1111111);
-  TCanvas *canFit = new TCanvas(Form("WaveFit-%.f-PPM",0.07), Form("WaveFit-%.f-PPM",0.07));
+  TCanvas *canFit = new TCanvas(Form("WaveFit-%.3f-PPM", ppm), Form("WaveFit-%.3f-PPM", ppm));
   canFit->SetLogy();
   // hWave->GetYaxis()->SetRangeUser(1E-1,1E3);
-  hWave->SetMarkerSize(0.5);
+  hWave->SetMarkerSize(0.2);
   hWave->Draw("p");
   fp->SetLineColor(kTeal - 6);
   fp->SetLineStyle(5);
   fp->SetLineWidth(4);
-  fp->Draw("sames");
+  fp->Draw("same");
   TPaveStats *st = (TPaveStats *)hWave->GetListOfFunctions()->FindObject("stats");
   gStyle->SetOptFit(); // for example
   canFit->Modified();
   canFit->Update();
-
-  
+  hWave->GetListOfFunctions()->ls();
+  double xlow, xhigh;
+  fp->GetRange(xlow, xhigh);
+  cout << " trigger Time " << startTime << " hist integral  " << hnorm << " fit from " << xlow << " to " << xhigh << endl;
+  printf(" singlet  integral 1360 to 1460 = %.3E\n", sumSinglet);
+  model->show();
+  model->showEff();
 }
