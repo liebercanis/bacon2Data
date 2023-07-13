@@ -8,10 +8,11 @@ static double tTriplet = 1600.0; // 2100.0;
 static double tSinglet = 5.0;
 static double tMix = 4700.;
 static double tXe = 20.0;
-static double kxe = 8.8E-5;
-static double kplusZero = 1.3E-4;
+static double kxe = 8.8E-5; //diffusion time 
+static double kqZero = 1.3E-4; // kq in the paper quenching rate
 static double xTrigger = 1411.; // 1200.;
-static double xMax = 15000.;
+static double xMin = 1300.;     // 15000.;
+static double xMax = 9000.;     // 15000.;
 static double nPhotons = 50.E3 * 5.486; // 274300.00
 static double distanceLevel[4];
 static double effGeo[13];
@@ -138,7 +139,7 @@ static double lightModel(Double_t *xx, Double_t *par)
   double norm = par[0];
   double ppm = par[1];
   double tTrip = par[2];
-  double kp = par[3] * kplusZero;
+  double kp = par[3] * kqZero;
   double tmixPar = par[8];
   double lmix = 1. / tmixPar;
   double bkg = par[9];
@@ -153,7 +154,7 @@ static double lightModel(Double_t *xx, Double_t *par)
   double ab = par[6]; 
   double k1Zero = kxe * 131. / 40.;
   double kx = k1Zero * ppm;
-  double kPrime = lmix + kx + kplusZero * par[7];
+  double kxPrime = lmix + kx + kqZero * par[7];
 
   double lS = 1. / tSinglet;
   double lT = 1 / tTrip;
@@ -164,18 +165,18 @@ static double lightModel(Double_t *xx, Double_t *par)
   double c3 = kx + ab * lT;
   double t1 = 1. / l1;
   double t3 = 1. / l3;
-  double tkPrime = 1. / kPrime;
+  double tkxPrime = 1. / kxPrime;
 
   // model
   double fs = (1. - ab) * alpha1 / tSinglet * expGaus(x, t1);
   double ft = (1. - ab) * alpha3 / tTrip * expGaus(x, t3);
-  double fm = alpha1 * c1 / (l1 - kPrime) * (expGaus(x, tkPrime) - expGaus(x, t1)) + alpha3 * c3 / (l3 - kPrime) * (expGaus(x, tkPrime) - expGaus(x, t3));
+  double fm = alpha1 * c1 / (l1 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t1)) + alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
   fm /= tmixPar;
 
   //printf("  %E %E  %E  \n",fs,x,expGaus(x,t1));
 
-  double x1 = c1 * kx * alpha1 / (l1 - kPrime) / tXe * ((expGaus(x, tkPrime) - expGaus(x, tXe)) / (lX - kPrime) - (expGaus(x, t1) - expGaus(x, tXe)) / (lX - l1));
-  double x3 = c3 * kx * alpha3 / (l3 - kPrime) / tXe * ((expGaus(x, tkPrime) - expGaus(x, tXe)) / (lX - kPrime) - (expGaus(x, t3) - expGaus(x, tXe)) / (lX - l3));
+  double x1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe)) / (lX - l1));
+  double x3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe)) / (lX - l3));
   double fx = x1 + x3;
 
   // printf(" %E %E %E %E %E  \n"  ,fs,ft,fm,x1,x3);
@@ -267,14 +268,14 @@ void modelFit::show()
     printf("\t  param %i %s %.4E +/- %.4E \n", ii, fp->GetParName(ii), fp->GetParameter(ii), fp->GetParError(ii));
   }
   double tTrip = fp->GetParameter(3);
-  double kp = fp->GetParameter(4) * kplusZero;
+  double kp = fp->GetParameter(4) * kqZero;
   double ppm = fp->GetParameter(2);
   double ab = fp->GetParameter(6);
   double tmixPar = fp->GetParameter(9);
 
   double k1Zero = kxe * 131. / 40.;
   double kx = k1Zero * ppm;
-  double kPrime = 1. / tMix + kx + kplusZero * fp->GetParameter(7);
+  double kxPrime = 1. / tMix + kx + kqZero * fp->GetParameter(7);
   double lS = 1. / tSinglet;
   double lT = 1 / tTrip;
   double l1 = 1. / tSinglet + kp + kx;
@@ -284,16 +285,16 @@ void modelFit::show()
   double c3 = kx + ab * lT;
   double t1 = 1. / l1;
   double t3 = 1. / l3;
-  double tkPrime = 1. / kPrime;
+  double tkxPrime = 1. / kxPrime;
   double sfrac = fp->GetParameter(4);
   double rfrac = fp->GetParameter(5);
   double bw = fp->GetParameter(11);
   double norm = fp->GetParameter(0);
   double alpha1 = sfrac * bw * norm;
   double alpha3 = (1. - sfrac-rfrac) * bw * norm;
-  double snorm = alpha1 * c1 * kx / (l1 - kPrime) / tXe;
-  double tnorm = alpha3 * c3 * kx / (l3 - kPrime) / tXe;
-  printf("\t ls %.3E c1 %.3E  lt %.3E  c3 %.3E  tMix %.3E  kPrime %.3E  l1-kPrime %.3E  l3-kPrime %.3E  ab %.3E\n", lS, c1, lT, c3, tmixPar, kPrime, l1 - kPrime, l3 - kPrime,ab);
+  double snorm = alpha1 * c1 * kx / (l1 - kxPrime) / tXe;
+  double tnorm = alpha3 * c3 * kx / (l3 - kxPrime) / tXe;
+  printf("\t ls %.3E c1 %.3E  lt %.3E  c3 %.3E  tMix %.3E  kxPrime %.3E  l1-kxPrime %.3E  l3-kxPrime %.3E  ab %.3E\n", lS, c1, lT, c3, tmixPar, kxPrime, l1 - kxPrime, l3 - kxPrime,ab);
   printf("\t sfrac %.3f  tfrac %.4E alpha1 %.3E alpha3 %.3E snorm %.3E tnorm %.3E \n", sfrac, 1.-sfrac-rfrac, alpha1, alpha3, snorm, tnorm);
 }
 
@@ -310,7 +311,7 @@ modelFit::modelFit(int thefit, int ichan, double ppm)
   double dist = distanceLevel[ilevel];
   double ab = Absorption(ppm, dist);
   double kplus = 1;
-  double kPrime = 1;
+  double kxPrime = 1;
   theChan = ichan;
   thePPM = ppm;
 
@@ -336,7 +337,7 @@ modelFit::modelFit(int thefit, int ichan, double ppm)
   fp->SetParName(4, "sfrac");
   fp->SetParName(5, "rfrac");
   fp->SetParName(6, "ab");
-  fp->SetParName(7, "kprime");
+  fp->SetParName(7, "kxprime");
   fp->SetParName(8, "tmix");
   fp->SetParName(9, "bgk");
   fp->SetParName(10, "chan");
@@ -354,7 +355,7 @@ modelFit::modelFit(int thefit, int ichan, double ppm)
   fp->SetParLimits(5, 0,0.1);
   fp->SetParameter(6, ab);
   fp->SetParLimits(6, 1.E-9, 1.);
-  fp->SetParameter(7, 2 * kPrime);
+  fp->SetParameter(7, 2 * kxPrime);
   fp->SetParameter(8, tMix);
   fp->SetParameter(9, 50);
 
