@@ -47,7 +47,7 @@ static double singletPeak(double *xx, double *par)
   return g;
 }
 
-bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-07-12-16-21.root")
+bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-07-13-13-37.root")
 {
   // open input file and make some histograms
   printf(" looking for file %s\n", fileName.Data());
@@ -79,7 +79,7 @@ bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-07-12-16-21.r
   return true;
 }
 
-void tbFit(int ichan = 8)
+void tbFit(int ichan = 0)
 {
 
   if (!openFile())
@@ -143,24 +143,24 @@ void tbFit(int ichan = 8)
   double kplus = 1;
   double kPrime = 1;
 
-  fp->SetParameter(0,0.5*nPhotons);
+
+  fp->SetParameter(0,nPhotons);
   // up to 8 parameters
-  /*
   fp->FixParameter(1, ppm);
-  fp->FixParameter(2, tTriplet);
+  fp->SetParLimits(2, 800.,2000. );
+  //fp->FixParameter(2, tTriplet);
   fp->FixParameter(3, kplus);
-  fp->FixParameter(4, sFrac); // not fitting singlet
-  fp->FixParameter(5, 0);
-  //  fp->SetParLimits(5, .01, 1.);
+  //fp->FixParameter(4, sFrac); // not fitting singlet
+  //fp->FixParameter(5, nPhotons/1000.);
+  fp->SetParLimits(5, .001, 1.);
   fp->FixParameter(6, ab);
   // fp->SetParLimits(6, 1.E-9, 1.);
-  fp->FixParameter(7, 2 * kPrime);
+  //fp->FixParameter(7, 2 * kPrime);
   fp->FixParameter(8, tMix);
-  */
   fp->FixParameter(9, back);
   //fp->FixParameter(12,0); // model fit
 
-  printf("  >>> modelFit initial value parameters fit chan %i ppm %.3f \n", (int)fp->GetParameter(0), fp->GetParameter(1));
+  printf("  >>> modelFit initial value parameters fit chan %i ppm %.3f \n", (int)fp->GetParameter(10), fp->GetParameter(1));
   for (int ii = 0; ii < NPARS; ++ii)
   {
     printf("\t  param %i %s %.3E +/- %.3E \n", ii, fp->GetParName(ii), fp->GetParameter(ii), fp->GetParError(ii));
@@ -173,6 +173,7 @@ void tbFit(int ichan = 8)
   canShow->SetLogy();
   hWave->Draw();
   fp->Draw("sames");
+  fp->SetRange(xMin, xMax);
 
   /* do the fit here */
   TFitResultPtr fptr = hWave->Fit(fp, "RLE0S+", "", 0, xMax);
