@@ -149,7 +149,7 @@ static double lightModel(Double_t *xx, Double_t *par)
   double rfrac = par[5];
   double alpha1 = sfrac * bw * norm * effGeo[ichan];
   //printf(" %f %f %f %f %f .....", sfrac, bw, norm, effGeo[ichan],alpha1);
-  double frec = bw * norm * effGeo[ichan] * pow(1 + x / trec, -2.);
+  double frec = rfrac * bw * norm * effGeo[ichan] * pow(1 + x / trec, -2.);
   double alpha3 = (1. - sfrac -rfrac) * bw * norm * effGeo[ichan];
   double ab = par[6]; 
   double k1Zero = kxe * 131. / 40.;
@@ -335,7 +335,7 @@ modelFit::modelFit(int thefit, int ichan, double ppm)
   fp->SetParName(2, "tau3");
   fp->SetParName(3, "kp");
   fp->SetParName(4, "sfrac");
-  fp->SetParName(5, "rfrac");
+  fp->SetParName(5, "rfrac"); // this is starting value Eur. Phys. J. C (2013) 73:2618
   fp->SetParName(6, "ab");
   fp->SetParName(7, "kxprime");
   fp->SetParName(8, "tmix");
@@ -351,7 +351,7 @@ modelFit::modelFit(int thefit, int ichan, double ppm)
   fp->SetParameter(3, kplus);
   fp->SetParameter(4, 0.2);
   fp->SetParLimits(4, .01, 1.);
-  fp->SetParameter(5, 1./1000.);
+  fp->SetParameter(5, 1. / 1000.); // this is starting value Eur. Phys. J. C (2013) 73:2618
   fp->SetParLimits(5, 0,0.1);
   fp->SetParameter(6, ab);
   fp->SetParLimits(6, 1.E-9, 1.);
