@@ -335,7 +335,7 @@ modelFit::modelFit(int thefit, int ichan, double ppm)
   fp->SetParName(2, "tau3");
   fp->SetParName(3, "kp");
   fp->SetParName(4, "sfrac");
-  fp->SetParName(5, "rfrac"); // this is starting value Eur. Phys. J. C (2013) 73:2618
+  fp->SetParName(5, "rfrac"); // r for recombination this is starting value Eur. Phys. J. C (2013) 73:2618
   fp->SetParName(6, "ab");
   fp->SetParName(7, "kxprime");
   fp->SetParName(8, "tmix");
