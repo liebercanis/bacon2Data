@@ -224,7 +224,7 @@ static double lightModel(Double_t *xx, Double_t *par)
   else if (ifit == 3)
     f = fx;
   else if (ifit == 4)
-    f = fs + ft + fx + fm;
+    f = fs + frec + ft + fx + fm;
     //f = fs + ft + fx + fm +frec;
 
   f = f + bkg;
@@ -335,7 +335,7 @@ modelFit::modelFit(int thefit, int ichan, double ppm)
   fp->SetParName(2, "tau3");
   fp->SetParName(3, "kp");
   fp->SetParName(4, "sfrac");
-  fp->SetParName(5, "rfrac"); // r for recombination this is starting value Eur. Phys. J. C (2013) 73:2618
+  fp->SetParName(5, "rfrac"); // recombination this is starting value Eur. Phys. J. C (2013) 73:2618
   fp->SetParName(6, "ab");
   fp->SetParName(7, "kxprime");
   fp->SetParName(8, "tmix");
