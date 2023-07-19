@@ -154,9 +154,23 @@ void tbFitAll()
     gMinuit->GetParameter(ii, currentValue, currentError);
     printf("\t  param %i %s %.4E  \n", ii, lparNames[ii].Data(),currentValue);
   }
+  
 
   // fix ppm
   gMinuit->FixParameter(1);
+
+  // set limits ... here par starts with 1 so add 1
+  arglist[0] = 4;  // par kp
+  arglist[1] = 0.; // low
+  arglist[2] = 3.; // high
+  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+
+  arglist[0] = 6; // par rfrac
+  arglist[1] = 0.; // low
+  arglist[2] = 1.;  //high
+  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+
+  //gMinuit->FixParameter(6);
 
   // minimize with MIGRAD
   // Now ready for minimization step

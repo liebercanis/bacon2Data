@@ -33,7 +33,7 @@ static double kplus = 1;
 static double kxPrime = 1;
 static double background[13];
 TF1 *ffit[13];
-double xlow =   1200;
+double xlow =   1300;
 double xhigh =  6000;
 
 enum
@@ -46,7 +46,7 @@ enum
 static bool goodChannel(int ic)
 {
   bool val = true;
-  if (ic == 5 || ic == 6 || ic == 3 || ic > 8)
+  if (ic == 5 || ic == 6 || ic==7 || ic == 3 || ic > 8)
     val = false;
   return val;
 }
@@ -397,8 +397,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
   // loop over channels
   for (int ic = 0; ic < 13; ++ic)
   {
-    if (ic == 5 || ic == 6 || ic == 3 || ic > 8)
-      continue;
+    if (ic == 5 || ic == 6 || ic == 7 || ic == 3 || ic > 8)
+        continue;
 
     // level
     
@@ -468,11 +468,12 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       double ft = 0;
       double fm = 0;
       double fx = 0;
+
       double frec = 0;
 
       if (x > 0)
       {
-        frec = rfrac * bw * norm * effGeo * pow(1 + x / trec, -2.);
+        frec = rfrac * bw * norm * effGeo /pow(1 + x / trec, 2.);
         ft = (1. - ab) * alpha3 / tTrip * expGaus(x, t3);
         fm = alpha1 * c1 / (l1 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t1)) + alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
         fm /= tmixPar;
