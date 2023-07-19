@@ -5,7 +5,7 @@
 using namespace TMath;
 TFile *fin;
 TDirectory *runSumDir;
-vector<TH1D *> vhist;
+std::vector<TH1D *> vhist;
 
 double fitBack(TH1D *hist)
 {
@@ -35,6 +35,9 @@ double fitBack(TH1D *hist)
 bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-07-13-13-37.root")
 {
   // open input file
+  vhist.resize(13);
+  for (unsigned k = 0; k < vhist.size(); ++k)
+    vhist[k] = NULL;
   printf(" looking for file %s\n", fileName.Data());
 
   bool exists = false;
@@ -63,14 +66,17 @@ bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-07-13-13-37.r
   runSumDir->ls();
   for (int ic = 0; ic < 13; ++ic)
   {
-    if (ic == 5 || ic == 6 || ic == 3 || ic > 8)
+    if (!goodChannel(ic))
       continue;
     TString hname;
     hname.Form("RunSumHitWaveChan%i", ic);
     TH1D *hWave = NULL;
     runSumDir->GetObject(hname, hWave);
     if (hWave != NULL)
-      vhist.push_back(hWave);
+    {
+      vhist[ic]=hWave;
+      background[ic] = fitBack(hWave);
+    }
   }
   return true;
 }
@@ -86,6 +92,8 @@ void tbFitAll()
   cout << " got " << vhist.size() << endl;
   for (unsigned ih = 0; ih < vhist.size(); ++ih)
   {
+    if(vhist[ih]==NULL)
+      continue;
     for (int ib = 1; ib < vhist[ih]->GetNbinsX(); ++ib)
       buff[ih][ib] = vhist[ih]->GetBinContent(ib);
   }
@@ -99,31 +107,20 @@ void tbFitAll()
   fp->SetParName(5, "rfrac");
   fp->SetParName(6, "kxprime");
   fp->SetParName(7, "tmix");
-  fp->SetParName(8, "bkg");
   */
 
   // Set starting values and step sizes for parameters
   static Double_t vstart[NPARS];
   static Double_t step[NPARS];
-  TString parNames[NPARS];
-  parNames[0] = TString("norm");
-  parNames[1] = TString("ppm");
-  parNames[2] = TString("tau3");
-  parNames[3] = TString("kp");
-  parNames[4] = TString("sfrac");
-  parNames[5] = TString("rfrac");
-  parNames[6] = TString("kxprime");
-  parNames[7] = TString("tmix");
-  parNames[8] = TString("bkg");
+  // fit starting values  
   vstart[0] = 4.3344E+04;
   vstart[1] = 0.05;
   vstart[2] = 1.1777E+03;
   vstart[3] = kplus;
   vstart[4] = 0.886;
   vstart[5] = 0.001;
-  vstart[6]=6.2;
-  vstart[7] =4.7E3;
-  vstart[8] = 2.4E-6;
+  vstart[6] = 6.2;
+  vstart[7] = 4.7E3;
 
   TMinuit *gMinuit = new TMinuit(NPARS); // initialize TMinuit with a maximum of 5 params
   gMinuit->SetFCN(fcn);
@@ -134,26 +131,40 @@ void tbFitAll()
   arglist[0] = 0.5; // for likelihood
   gMinuit->mnexcm("SET ERR", arglist, 1, ierflg);
 
+  setParNames();
   for (unsigned j = 0; j < NPARS; ++j)
   {
-    step[j] = 1.E-2 * vstart[j];
-    gMinuit->mnparm(j, parNames[j].Data(), vstart[j], step[j], 0, 0, ierflg);
+    step[j] = 1.E-6 * vstart[j];
+    gMinuit->mnparm(j, lparNames[j].Data(), vstart[j], step[j], 0, 0, ierflg);
+    lpar[j] = vstart[j];
   }
-  double currentValue;
-  double currentError;
 
-  double fval;
+
+  double fval=0;
   double gin[NPARS];
   int npar = NPARS;
   fcn(npar, gin, fval, vstart, 0);
   printf(" >>>>   fval %E \n", fval);
 
+  double currentValue;
+  double currentError;
+  printf(" \n\n >>> modelFit start parameters fit ppm %f \n", vstart[1]);
+  for (int ii = 0; ii < NPARS; ++ii)
+  {
+    gMinuit->GetParameter(ii, currentValue, currentError);
+    printf("\t  param %i %s %.4E  \n", ii, lparNames[ii].Data(),currentValue);
+  }
+
+  // fix ppm
+  gMinuit->FixParameter(1);
+
+  // minimize with MIGRAD
   // Now ready for minimization step
-  arglist[0] = 1000; // maxcalls
-  arglist[1] = 1.E-2;   // tolerance
+  arglist[0] = 100000;  // maxcalls
+  arglist[1] = 1.E-2; // tolerance
 
   /* MIGrad[maxcalls][tolerance]*/
-  //gMinuit->mnexcm("MIGRAD", arglist, 2, ierflg);
+  gMinuit->mnexcm("MIGRAD", arglist, 2, ierflg);
 
   // Print results
   Double_t amin, edm, errdef;
@@ -178,26 +189,72 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
     gMinuit->GetParameter(k, currentValue, currentError);
     lpar[k] = currentValue;
   }
-  int ichan[6] = {0, 1, 2, 4, 7, 8};
-  TF1 *ffit[6];
   // create functions to plot
-  double xlow = 0;
-  double xhigh = 15000;
-  gStyle->SetOptFit(1111111);
-  for (int ifit = 0; ifit < 6; ++ifit)
+  int myColor[13] = {kRed, kBlue-9, kGreen, kTeal-4,kOrange, kBlue, kAzure+3, kCyan-3, kGreen-4, kGreen, kSpring, kYellow, kOrange};
+  int myStyle[13] = {21, 22, 23, 24, 25, 26, 21, 22, 23, 31, 32, 33, 34};
+
+  for (int ifit = 0; ifit < 13; ++ifit)
   {
-    TString cname;
-    cname.Form("FitChan-%i-Dopant-%.f", ichan[ifit], lpar[1]);
+    if(vhist[ifit]==NULL)
+      continue;
+    vhist[ifit]->SetLineColor(kWhite);
+    vhist[ifit]->SetMarkerColor(myColor[ifit]);
+    vhist[ifit]->SetMarkerStyle(myStyle[ifit]);
+    vhist[ifit]->GetYaxis()->SetRangeUser(1.E-7,1.);
+  }
+
+  createFunctions();
+
+  TString cname;
+  gStyle->SetOptFit(1111111);
+  for (int k = 0; k < 13; ++k )
+  {
+    if (!goodChannel(k))
+      continue;
+    cname.Form("FitChan-%i-Dopant-%.3f",k, lpar[1]);
     TCanvas *can = new TCanvas(cname, cname);
     can->SetLogy();
-    ffit[ifit] = new TF1(Form("ModelFitChan-%i", ichan[ifit]), modelFunc, xlow, xhigh, 1);
-    ffit[ifit]->SetParameter(0, ichan[ifit]);
-    vhist[ifit]->GetListOfFunctions()->Clear();
-    vhist[ifit]->Draw();
-    ffit[ifit]->Draw("same");
-    fout->Add(ffit[ifit]);
-    fout->Add(vhist[ifit]);
+    ffit[k]->SetLineColor(kBlack);
+    vhist[k]->GetListOfFunctions()->Clear();
+    vhist[k]->Draw();
+    ffit[k]->Draw("same");
+    fout->Add(ffit[k]);
+    fout->Add(vhist[k]);
     can->Print(".png");
-    show();
   }
+
+  show();
+
+
+  cname.Form("DataDopant-%.f", lpar[1]);
+  TCanvas *cand = new TCanvas(cname, cname);
+  cand->SetLogy();
+  for (int  k = 0; k < 13; ++k )
+  {
+    if (!goodChannel(k))
+      continue;
+    if (k == 0)
+      vhist[k]->Draw();
+    else
+      vhist[k]->Draw("sames");
+  }
+  cand->BuildLegend();
+  cand->Print(".png");
+
+  cname.Form("FitDopant-%.f", lpar[1]);
+  TCanvas *canf = new TCanvas(cname, cname);
+  canf->SetLogy();
+  for (int k = 0; k < 13; ++k)
+  {
+    if (!goodChannel(k))
+      continue;
+    //ffit[ifit]->SetLineColor(myColor[ifit]);
+    ffit[k]->GetYaxis()->SetRangeUser(1.E-7, 1.);
+    if (k == 0)
+      ffit[k]->Draw();
+    else
+      ffit[k]->Draw("sames");
+  }
+  canf->BuildLegend();
+  canf->Print(".png");
 }
