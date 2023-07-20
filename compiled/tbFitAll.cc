@@ -6,6 +6,7 @@ using namespace TMath;
 TFile *fin;
 TDirectory *runSumDir;
 std::vector<TH1D *> vhist;
+TString histSet;
 
 double fitBack(TH1D *hist)
 {
@@ -32,13 +33,14 @@ double fitBack(TH1D *hist)
   return ave;
 }
 
-bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-07-13-13-37.root")
+bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-07-20-17-08.root")
 {
-  // open input file
+  histSet = TString("SumWave");
+  // open input filex
   vhist.resize(13);
   for (unsigned k = 0; k < vhist.size(); ++k)
     vhist[k] = NULL;
-  printf(" looking for file %s\n", fileName.Data());
+  printf(" looking for summary file %s\n", fileName.Data());
 
   bool exists = false;
   FILE *aFile;
@@ -63,13 +65,14 @@ bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-07-13-13-37.r
     printf(" no runSumDir in file %s\n", fileName.Data());
     return false;
   }
-  runSumDir->ls();
+  //runSumDir->ls();
+  cout << " making histogram list with " << histSet << endl;
   for (int ic = 0; ic < 13; ++ic)
   {
     if (!goodChannel(ic))
       continue;
     TString hname;
-    hname.Form("RunSumHitWaveChan%i", ic);
+    hname.Form("Run%sChan%i",histSet.Data(), ic);
     TH1D *hWave = NULL;
     runSumDir->GetObject(hname, hWave);
     if (hWave != NULL)
@@ -90,13 +93,19 @@ void tbFitAll()
     return;
   // fill buff
   cout << " got " << vhist.size() << endl;
+  if(vhist.size()==0)
+    return;
   for (unsigned ih = 0; ih < vhist.size(); ++ih)
   {
     if(vhist[ih]==NULL)
       continue;
+    cout << ".... " << vhist[ih]->GetName() << endl;
+    fout->Add(vhist[ih]);
+    // fill data buffer
     for (int ib = 1; ib < vhist[ih]->GetNbinsX(); ++ib)
       buff[ih][ib] = vhist[ih]->GetBinContent(ib);
   }
+
 
   /* parameter definitions
   fp->SetParName(0, "norm");
@@ -214,7 +223,8 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
     vhist[ifit]->SetLineColor(kWhite);
     vhist[ifit]->SetMarkerColor(myColor[ifit]);
     vhist[ifit]->SetMarkerStyle(myStyle[ifit]);
-    vhist[ifit]->GetYaxis()->SetRangeUser(1.E-7,1.);
+    if (histSet == TString("HitWave")) vhist[ifit]->GetYaxis()->SetRangeUser(1.E-7, 1.);
+    else vhist[ifit]->GetYaxis()->SetRangeUser(1.E-3, 1.E3);
   }
 
   createFunctions();
@@ -232,8 +242,7 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
     vhist[k]->GetListOfFunctions()->Clear();
     vhist[k]->Draw();
     ffit[k]->Draw("same");
-    fout->Add(ffit[k]);
-    fout->Add(vhist[k]);
+    fout->Add(ffit[k]); 
     can->Print(".png");
   }
 
@@ -263,7 +272,7 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
     if (!goodChannel(k))
       continue;
     //ffit[ifit]->SetLineColor(myColor[ifit]);
-    ffit[k]->GetYaxis()->SetRangeUser(1.E-7, 1.);
+    if(histSet == TString("HitWave")) ffit[k]->GetYaxis()->SetRangeUser(1.E-7, 1.);
     if (k == 0)
       ffit[k]->Draw();
     else

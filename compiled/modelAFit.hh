@@ -46,7 +46,7 @@ enum
 static bool goodChannel(int ic)
 {
   bool val = true;
-  if (ic == 5 || ic == 6 || ic==7 || ic == 3 || ic > 8)
+  if (ic == 5 || ic == 6 || ic==8 || ic == 3 || ic > 8)
     val = false;
   return val;
 }
@@ -397,7 +397,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
   // loop over channels
   for (int ic = 0; ic < 13; ++ic)
   {
-    if (ic == 5 || ic == 6 || ic == 7 || ic == 3 || ic > 8)
+    if (ic == 5 || ic == 6 || ic == 8 || ic == 3 || ic > 8)
         continue;
 
     // level
