@@ -46,7 +46,7 @@ enum
 static bool goodChannel(int ic)
 {
   bool val = true;
-  if (ic == 5 || ic == 6 || ic==8 || ic == 3 || ic > 8)
+  if (ic == 5 || ic == 6 || ic==8 || ic == 3 || ic == 9 || ic==10 || ic==11)
     val = false;
   return val;
 }

@@ -35,7 +35,7 @@ double fitBack(TH1D *hist)
 
 bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-07-20-17-08.root")
 {
-  histSet = TString("SumWave");
+  histSet = TString("HitWave");
   // open input filex
   vhist.resize(13);
   for (unsigned k = 0; k < vhist.size(); ++k)
@@ -55,29 +55,31 @@ bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-07-20-17-08.r
     printf(" couldnt open file %s\n", fileName.Data());
     return false;
   }
-
+  // file exists, so open with TFile
   fin = new TFile(fileName, "readonly");
   printf(" opened file %s\n", fileName.Data());
   runSumDir = NULL;
+  // get subdirectory pointer
   fin->GetObject("runSumDir", runSumDir);
   if (!runSumDir)
   {
     printf(" no runSumDir in file %s\n", fileName.Data());
     return false;
   }
-  //runSumDir->ls();
+  // runSumDir->ls();
   cout << " making histogram list with " << histSet << endl;
   for (int ic = 0; ic < 13; ++ic)
   {
     if (!goodChannel(ic))
       continue;
     TString hname;
-    hname.Form("Run%sChan%i",histSet.Data(), ic);
+    hname.Form("Run%sChan%i", histSet.Data(), ic);
     TH1D *hWave = NULL;
+    // get histogram by name
     runSumDir->GetObject(hname, hWave);
     if (hWave != NULL)
     {
-      vhist[ic]=hWave;
+      vhist[ic] = hWave;
       background[ic] = fitBack(hWave);
     }
   }
@@ -93,11 +95,11 @@ void tbFitAll()
     return;
   // fill buff
   cout << " got " << vhist.size() << endl;
-  if(vhist.size()==0)
+  if (vhist.size() == 0)
     return;
   for (unsigned ih = 0; ih < vhist.size(); ++ih)
   {
-    if(vhist[ih]==NULL)
+    if (vhist[ih] == NULL)
       continue;
     cout << ".... " << vhist[ih]->GetName() << endl;
     fout->Add(vhist[ih]);
@@ -105,7 +107,6 @@ void tbFitAll()
     for (int ib = 1; ib < vhist[ih]->GetNbinsX(); ++ib)
       buff[ih][ib] = vhist[ih]->GetBinContent(ib);
   }
-
 
   /* parameter definitions
   fp->SetParName(0, "norm");
@@ -121,7 +122,7 @@ void tbFitAll()
   // Set starting values and step sizes for parameters
   static Double_t vstart[NPARS];
   static Double_t step[NPARS];
-  // fit starting values  
+  // fit starting values
   vstart[0] = 4.3344E+04;
   vstart[1] = 0.05;
   vstart[2] = 1.1777E+03;
@@ -148,8 +149,7 @@ void tbFitAll()
     lpar[j] = vstart[j];
   }
 
-
-  double fval=0;
+  double fval = 0;
   double gin[NPARS];
   int npar = NPARS;
   fcn(npar, gin, fval, vstart, 0);
@@ -161,9 +161,8 @@ void tbFitAll()
   for (int ii = 0; ii < NPARS; ++ii)
   {
     gMinuit->GetParameter(ii, currentValue, currentError);
-    printf("\t  param %i %s %.4E  \n", ii, lparNames[ii].Data(),currentValue);
+    printf("\t  param %i %s %.4E  \n", ii, lparNames[ii].Data(), currentValue);
   }
-  
 
   // fix ppm
   gMinuit->FixParameter(1);
@@ -174,17 +173,17 @@ void tbFitAll()
   arglist[2] = 3.; // high
   gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
-  arglist[0] = 6; // par rfrac
+  arglist[0] = 6;  // par rfrac
   arglist[1] = 0.; // low
-  arglist[2] = 1.;  //high
+  arglist[2] = 1.; // high
   gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
-  //gMinuit->FixParameter(6);
+  // gMinuit->FixParameter(6);
 
   // minimize with MIGRAD
   // Now ready for minimization step
-  arglist[0] = 100000;  // maxcalls
-  arglist[1] = 1.E-2; // tolerance
+  arglist[0] = 100000; // maxcalls
+  arglist[1] = 1.E-2;  // tolerance
 
   /* MIGrad[maxcalls][tolerance]*/
   gMinuit->mnexcm("MIGRAD", arglist, 2, ierflg);
@@ -213,46 +212,47 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
     lpar[k] = currentValue;
   }
   // create functions to plot
-  int myColor[13] = {kRed, kBlue-9, kGreen, kTeal-4,kOrange, kBlue, kAzure+3, kCyan-3, kGreen-4, kGreen, kSpring, kYellow, kOrange};
+  int myColor[13] = {kRed, kBlue - 9, kGreen, kTeal - 4, kOrange, kBlue, kAzure + 3, kCyan - 3, kGreen - 4, kGreen, kSpring, kYellow, kOrange};
   int myStyle[13] = {21, 22, 23, 24, 25, 26, 21, 22, 23, 31, 32, 33, 34};
 
   for (int ifit = 0; ifit < 13; ++ifit)
   {
-    if(vhist[ifit]==NULL)
+    if (vhist[ifit] == NULL)
       continue;
     vhist[ifit]->SetLineColor(kWhite);
     vhist[ifit]->SetMarkerColor(myColor[ifit]);
     vhist[ifit]->SetMarkerStyle(myStyle[ifit]);
-    if (histSet == TString("HitWave")) vhist[ifit]->GetYaxis()->SetRangeUser(1.E-7, 1.);
-    else vhist[ifit]->GetYaxis()->SetRangeUser(1.E-3, 1.E3);
+    if (histSet == TString("HitWave"))
+      vhist[ifit]->GetYaxis()->SetRangeUser(1.E-7, 1.);
+    else
+      vhist[ifit]->GetYaxis()->SetRangeUser(1.E-3, 1.E3);
   }
 
   createFunctions();
 
   TString cname;
   gStyle->SetOptFit(1111111);
-  for (int k = 0; k < 13; ++k )
+  for (int k = 0; k < 13; ++k)
   {
     if (!goodChannel(k))
       continue;
-    cname.Form("FitChan-%i-Dopant-%.3f",k, lpar[1]);
+    cname.Form("FitChan-%i-Dopant-%.3f", k, lpar[1]);
     TCanvas *can = new TCanvas(cname, cname);
     can->SetLogy();
     ffit[k]->SetLineColor(kBlack);
     vhist[k]->GetListOfFunctions()->Clear();
     vhist[k]->Draw();
     ffit[k]->Draw("same");
-    fout->Add(ffit[k]); 
+    fout->Add(ffit[k]);
     can->Print(".png");
   }
 
   show();
 
-
   cname.Form("DataDopant-%.f", lpar[1]);
   TCanvas *cand = new TCanvas(cname, cname);
   cand->SetLogy();
-  for (int  k = 0; k < 13; ++k )
+  for (int k = 0; k < 13; ++k)
   {
     if (!goodChannel(k))
       continue;
@@ -271,8 +271,9 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
   {
     if (!goodChannel(k))
       continue;
-    //ffit[ifit]->SetLineColor(myColor[ifit]);
-    if(histSet == TString("HitWave")) ffit[k]->GetYaxis()->SetRangeUser(1.E-7, 1.);
+    // ffit[ifit]->SetLineColor(myColor[ifit]);
+    if (histSet == TString("HitWave"))
+      ffit[k]->GetYaxis()->SetRangeUser(1.E-7, 1.);
     if (k == 0)
       ffit[k]->Draw();
     else
