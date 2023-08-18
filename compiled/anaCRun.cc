@@ -574,6 +574,16 @@ bool anaCRun::anaEvent(Long64_t entry)
     //pulse finding
     double hitThreshold = 5.0*channelSigmaValue[ib];
     finder->event(ichan, entry, digi,hitThreshold, 1); // DEG suggests 10
+    /*
+    if (ichan == 12) {
+      printf("HITHIT ev %llu chan %i nhits %lu ib = %u thresh= %f \n", entry, idet->channel, idet->hits.size(), ib,hitThreshold);
+      for (unsigned ihit = 0; ihit < idet->hits.size(); ++ihit){
+        TDetHit thit = idet->hits[ihit];
+        printf(" %u %f ; ", ihit, thit.qsum);
+      }
+      printf("\n");
+    }
+    */
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
     if (!fftDir)
     {
@@ -623,8 +633,8 @@ bool anaCRun::anaEvent(Long64_t entry)
         finder->plotEvent(tdet->channel, entry);
 
       // loop over hits
-      //double hitThreshold = 5.0 * channelSigmaValue[idet];
-      double hitThreshold = 2000; // value for hit.qsum threshold
+      double hitThreshold = 5.0 * channelSigmaValue[idet];
+      //double hitThreshold = 2000; // value for hit.qsum threshold
       for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
       {
         TDetHit thit = tdet->hits[ihit];
