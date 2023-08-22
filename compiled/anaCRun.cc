@@ -632,7 +632,8 @@ bool anaCRun::anaEvent(Long64_t entry)
       if (!trig && tdet->hits.size() > 0 && fftDir->GetList()->GetEntries() < 2000)
         finder->plotEvent(tdet->channel, entry);
 
-      // loop over hits
+      // loop over hits 
+      /* define a noise cut here called hitThreshold */
       double hitThreshold = 5.0 * channelSigmaValue[idet];
       //double hitThreshold = 2000; // value for hit.qsum threshold
       for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
@@ -904,6 +905,9 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
     {
       limit = 200000;
       plimit = 10000;
+    } else if(ichan==12) {
+      limit = 5.E3;
+      plimit = 1.E3;
     }
 
     // else if(ichan==12) limit = 10000;
