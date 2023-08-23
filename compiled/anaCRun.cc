@@ -894,18 +894,21 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   crossHist = new TH1D("crossHist", "  negative crossings non trigger channels", 100, 0, 100);
   sumDir = fout->mkdir("sumDir");
   sumDir->cd();
-  double limit = 100000;
-  double plimit = 2000;
+  double limit;
+  double plimit;
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
     unsigned ichan = i;
+    limit = 100000;
+    plimit = 2000;
 
     bool trigger = ichan == 9 || ichan == 10 || ichan == 11;
     if (trigger)
     {
       limit = 200000;
       plimit = 10000;
-    } else if(ichan==12) {
+    }
+    if(ichan==12) {
       limit = 5.E3;
       plimit = 1.E3;
     }
