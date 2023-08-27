@@ -238,7 +238,8 @@ void fitQPE()
       //   continue;
       // }
       TF1 *gfit = NULL;
-      if (!(ichan > 8 && ichan < 12))
+      bool trigger = ichan == 9 || ichan == 10 || ichan == 11;
+      if (!trigger)
       {
         hclone->Fit("gaus", "Q", " ", xlow, xhigh);
         gfit = (TF1 *)hclone->GetListOfFunctions()->FindObject("gaus");
@@ -272,7 +273,7 @@ void fitQPE()
       vecEQPE[ichan].push_back(epar1);
       vecQPESigma[ichan].push_back(par2);
       vecEQPESigma[ichan].push_back(epar2);
-      printf(" fit QPE chan %u  file %u mean %f %f  sigma %f %f  \n", ichan, ihist, par1, epar1, par2, epar2);
+      if(ichan==12) printf(" fit QPE chan %u  file %u mean %f %f  sigma %f %f  \n", ichan, ihist, par1, epar1, par2, epar2);
     }
   }
 }
@@ -618,7 +619,8 @@ void fileLoop()
         TString cloneName;
         cloneName.Form("runQSumCh%iFile%i", ichan, ifile);
         TH1D *hqAdd = (TH1D *)h->Clone(cloneName);
-        // cout << " +vRunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName()  << " " << hAdd->GetName() << endl;
+        cout << " +vRunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName()  << " " << hqAdd->GetName() 
+        << " max x  " << h->GetBinLowEdge(h->GetNbinsX()+1) << endl;
         hqAdd->SetMarkerStyle(20);
         hqAdd->SetMarkerSize(0.5);
         vRunQSum[ichan].push_back(hqAdd);
@@ -748,12 +750,14 @@ void sumHistosChannel(int ichan, TString histSet)
         hRunHitWave[ichan] = (TH1D *)hwaveToFit->Clone(histName);
         runSumDir->Add(hRunHitWave[ichan]);
       }
+      /*
       else if (addIt)
       {
         if (ichan == 3)
           cout << "b333333333  int " << hwaveToFit->Integral() << " entries  " << hwaveToFit->GetEntries() << endl;
         hRunHitWave[ichan]->Add(hwaveToFit);
       }
+      */
       // end add RunHitWave
     }
     else if (histSet == TString("SumWave"))
@@ -767,12 +771,14 @@ void sumHistosChannel(int ichan, TString histSet)
         hRunSumWave[ichan] = (TH1D *)hwaveToFit->Clone(histName);
         runSumDir->Add(hRunSumWave[ichan]);
       }
+      /*
       else if (addIt)
       {
         if (ichan == 3)
           cout << "b333333333  int " << hwaveToFit->Integral() << " entries  " << hwaveToFit->GetEntries() << endl;
         hRunSumWave[ichan]->Add(hwaveToFit);
       }
+      */
     }
     // end add RunHitWave
   }
