@@ -33,7 +33,8 @@ double fitBack(TH1D *hist)
   return ave;
 }
 
-bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-07-20-17-08.root")
+bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-08-24-16-11.root")
+    //summary-type-1-dir-caenData-2023-07-20-17-08.root")
 {
   histSet = TString("HitWave");
   // open input filex
@@ -89,7 +90,7 @@ bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-07-20-17-08.r
 void tbFitAll()
 {
 
-  TFile *fout = new TFile("tbFitAll", "recreate");
+  TFile *fout = new TFile("tbFitAll.root", "recreate");
 
   if (!openFile())
     return;
@@ -126,10 +127,10 @@ void tbFitAll()
   vstart[0] = 4.3344E+04;
   vstart[1] = 0.05;
   vstart[2] = 1.1777E+03;
-  vstart[3] = kplus;
-  vstart[4] = 0.886;
+  vstart[3] = kplus; // defined in  modelAFit.hh
+  vstart[4] = 0.2;  //0.886;
   vstart[5] = 0.001;
-  vstart[6] = 6.2;
+  vstart[6] = 2.0;
   vstart[7] = 4.7E3;
 
   TMinuit *gMinuit = new TMinuit(NPARS); // initialize TMinuit with a maximum of 5 params
@@ -165,7 +166,7 @@ void tbFitAll()
   }
 
   // fix ppm
-  gMinuit->FixParameter(1);
+  //gMinuit->FixParameter(1);
 
   // set limits ... here par starts with 1 so add 1
   arglist[0] = 4;  // par kp
@@ -179,6 +180,111 @@ void tbFitAll()
   gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
   // gMinuit->FixParameter(6);
+  // create functions to plot
+  int myColor[13] = {kRed, kBlue - 9, kGreen, kOrange, kBlue, kAzure + 3, kCyan - 3, kGreen - 4, kGreen, kSpring, kYellow, kBlue + 9, kTeal - 4};
+  int myStyle[13] = {21, 22, 23, 24, 25, 26, 21, 22, 23, 31, 32, 33, 34};
+  TString cname;
+
+  for (int ifit = 0; ifit < 13; ++ifit)
+  {
+    if (vhist[ifit] == NULL)
+      continue;
+    vhist[ifit]->GetListOfFunctions()->Clear();
+    vhist[ifit]->SetLineColor(kWhite);
+    vhist[ifit]->SetMarkerColor(myColor[ifit]);
+    vhist[ifit]->SetMarkerStyle(myStyle[ifit]);
+    //if (histSet == TString("HitWave"))
+      //vhist[ifit]->GetYaxis()->SetRangeUser(1.E-7, 1.);
+    //else
+    //vhist[ifit]->GetYaxis()->SetRangeUser(1.E-3, 1.E3);
+  }
+
+  cname.Form("DataDopant-%.f", lpar[1]);
+  TCanvas *cand = new TCanvas(cname, cname);
+  cand->SetLogy();
+  for (int k = 0; k < 13; ++k)
+  {
+    if (!goodChannel(k))
+      continue;
+    if (k == 0)
+      vhist[k]->Draw();
+    else
+      vhist[k]->Draw("sames");
+  }
+  cand->BuildLegend();
+  cand->Print(".png");
+  createFunctions();
+
+  gStyle->SetOptFit(1111111);
+  for (int k = 0; k < 13; ++k)
+  {
+    if (!goodChannel(k))
+      continue;
+    cname.Form("FitChan-%i-Dopant-%.3f", k, lpar[1]);
+    TCanvas *can = new TCanvas(cname, cname);
+    can->SetLogy();
+    // ffit[k]->SetLineColor(kBlack);
+    ffit[k]->SetLineColor(myColor[k]);
+    ffit[k]->Draw();
+    vhist[k]->Draw("same");
+    fout->Add(ffit[k]);
+    can->Print(".png");
+  }
+  show();
+
+  cname.Form("FitChan-Dopant-%.3f", lpar[1]);
+  TCanvas *canAllChan = new TCanvas(cname, cname);
+  canAllChan->SetLogy();
+  for (int k = 0; k<13; ++k)
+  {
+    if (!goodChannel(k))
+      continue;
+    ffit[k]->SetLineColor(myColor[k]);
+    //ffit[k]->GetYaxis()->SetRangeUser(1.E-10, 1.);
+    if(k==0) ffit[k]->Draw();
+    else
+      ffit[k]->Draw("sames");
+  }
+  canAllChan->BuildLegend();
+  canAllChan->Print(".png");
+
+  // PMT components
+  cname.Form("FitPmt-Dopant-%.3f", lpar[1]);
+  TCanvas *canPmt = new TCanvas(cname, cname);
+  canPmt->SetLogy();
+  for (int k = 0; k < 6; ++k)
+  {
+    ffitPmt[k]->SetLineColor(myColor[k]);
+    //ffitPmt[k]->GetYaxis()->SetRangeUser(1.E-7, 3E-3);
+    fout->Add(ffitPmt[k]);
+    if (k == 0)
+      ffitPmt[k]->Draw();
+    else
+      ffitPmt[k]->Draw("sames");
+  }
+  canPmt->BuildLegend();
+  canPmt->Print(".png");
+
+  // channel7  components
+  cname.Form("FitChan-Dopant-%.3f", lpar[1]);
+  TCanvas *canChan = new TCanvas(cname, cname);
+  canChan->SetLogy();
+  for (int k = 0; k < 6; ++k)
+  {
+    ffitChan[k]->SetLineColor(myColor[k]);
+    //ffitChan[k]->GetYaxis()->SetRangeUser(1.E-10, 3E-1);
+    fout->Add(ffitChan[k]);
+    ffitChan[k]->Print();
+    printf(" comp %i\n", int(ffitChan[k]->GetParameter(1)));
+    if (k == 0)
+      ffitChan[k] ->Draw();
+    else
+      ffitChan[k]->Draw("sames");
+  }
+  canChan->BuildLegend();
+  canChan->Print(".png");
+
+  show();
 
   // minimize with MIGRAD
   // Now ready for minimization step
@@ -211,58 +317,7 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
     gMinuit->GetParameter(k, currentValue, currentError);
     lpar[k] = currentValue;
   }
-  // create functions to plot
-  int myColor[13] = {kRed, kBlue - 9, kGreen, kTeal - 4, kOrange, kBlue, kAzure + 3, kCyan - 3, kGreen - 4, kGreen, kSpring, kYellow, kOrange};
-  int myStyle[13] = {21, 22, 23, 24, 25, 26, 21, 22, 23, 31, 32, 33, 34};
-
-  for (int ifit = 0; ifit < 13; ++ifit)
-  {
-    if (vhist[ifit] == NULL)
-      continue;
-    vhist[ifit]->SetLineColor(kWhite);
-    vhist[ifit]->SetMarkerColor(myColor[ifit]);
-    vhist[ifit]->SetMarkerStyle(myStyle[ifit]);
-    if (histSet == TString("HitWave"))
-      vhist[ifit]->GetYaxis()->SetRangeUser(1.E-7, 1.);
-    else
-      vhist[ifit]->GetYaxis()->SetRangeUser(1.E-3, 1.E3);
-  }
-
-  createFunctions();
-
-  TString cname;
-  gStyle->SetOptFit(1111111);
-  for (int k = 0; k < 13; ++k)
-  {
-    if (!goodChannel(k))
-      continue;
-    cname.Form("FitChan-%i-Dopant-%.3f", k, lpar[1]);
-    TCanvas *can = new TCanvas(cname, cname);
-    can->SetLogy();
-    ffit[k]->SetLineColor(kBlack);
-    vhist[k]->GetListOfFunctions()->Clear();
-    vhist[k]->Draw();
-    ffit[k]->Draw("same");
-    fout->Add(ffit[k]);
-    can->Print(".png");
-  }
-
-  show();
-
-  cname.Form("DataDopant-%.f", lpar[1]);
-  TCanvas *cand = new TCanvas(cname, cname);
-  cand->SetLogy();
-  for (int k = 0; k < 13; ++k)
-  {
-    if (!goodChannel(k))
-      continue;
-    if (k == 0)
-      vhist[k]->Draw();
-    else
-      vhist[k]->Draw("sames");
-  }
-  cand->BuildLegend();
-  cand->Print(".png");
+  
 
   cname.Form("FitDopant-%.f", lpar[1]);
   TCanvas *canf = new TCanvas(cname, cname);
@@ -281,4 +336,5 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
   }
   canf->BuildLegend();
   canf->Print(".png");
+  fout->Write();
 }

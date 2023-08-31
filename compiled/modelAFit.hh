@@ -1,4 +1,3 @@
-/* this version fits to multiple histograms */
 // MG added additions from Doug and geometry Jun 27, 2023
 // time is in microseconds
 // model with absorption
@@ -19,7 +18,13 @@ static double xMax = 9000.;             // 15000.;
 static double nPhotons = 50.E3 * 5.486; // 274300.00
 static double distanceLevel[4];
 static double effGeo[13];
-static double trec = 37.1; // ns Eur. Phys. J. C (2013) 73:2618
+/* Ion-beam excitation of liquid argon M. Hofmann et al.  Eur. Phys. J. C (2013) 73:2618 */
+static double trecon = 37.1; // ns   
+/*
+Electron transport and electron–ion recombination in liquid argon simulation based on the Cohen–Lekner theory 
+  Mariusz Wojcik a, Tachiya b doi.org/10.1016/S0009-2614(02)01177-6
+*/
+static double trecomb = 2.976081E-03; //ns
 static double foffset = 0;
 static double buff[13][7500];
 static double lpar[9];       // pass parameters to light model
@@ -33,12 +38,15 @@ static double kplus = 1;
 static double kxPrime = 1;
 static double background[13];
 TF1 *ffit[13];
-double xlow =   1300;
+TF1 *ffitPmt[6];
+TF1 *ffitChan[6];
+TString compName[6];
+double xlow = 1300;
 double xhigh =  6000;
 
 enum
 {
-  NTYPES = 5,
+  NTYPES = 6,
   NCHAN = 13,
   NPARS = 8
 };
@@ -117,7 +125,10 @@ static double effGeoFunc(int ichan)
       from the source Channels 3, 4, and 5 are at 23.2 cm
       from the source Channels 0, 1, and 2 are at 34.8 cm from the source Channel 12 is at 36 cm from the source.
       */
+  double aPmt = TMath::Pi() / 4.0 * pow(64.0, 2); // R11410-20  Effective area : 64 mm dia
   double a = pow(0.6, 2.);
+  if(ichan==12)
+    a = aPmt;
   double b = 4.0 * TMath::Pi();
   double distance2[4];
   distance2[0] = pow(distanceLevel[0], 2.);
@@ -195,7 +206,8 @@ grad: The (optional) vector of first derivatives).
   fp->SetParName(8, "bkg");
 */
 
-static double model(int ichan, double xbin, double ab, double SiPMQ128, double effGeo)
+/* should be calling fcn */
+static double model(int ichan,int ifit,  double xbin, double ab, double SiPMQ128, double effGeo)
 {
   double bw = 2.;
   double x = xbin - xTrigger;
@@ -215,7 +227,7 @@ static double model(int ichan, double xbin, double ab, double SiPMQ128, double e
   double alpha3 = (1. - sfrac - rfrac) * bw * norm * effGeo;
   double k1Zero = kxe * 131. / 40.;
   double kx = k1Zero * ppm;
-  double kxPrime = lmix + kx + kqZero * lpar[7];
+  double kxPrime = lmix + kx + kqZero * lpar[6];
   double lS = 1. / tSinglet;
   double lT = 1 / tTrip;
   double l1 = 1. / tSinglet + kp + kx;
@@ -235,24 +247,41 @@ static double model(int ichan, double xbin, double ab, double SiPMQ128, double e
   double fm = 0;
   double fx = 0;
   double frec = 0;
+  //double Nrec = norm / 1000.;
 
   if (x > 0)
   {
-    // frec = rfrac * bw * norm * effGeo * pow(1 + x / trec, -2.);
+    frec = rfrac * bw * norm * effGeo * pow(1 + x / trecon, -2.);
+    //frecomb = bw * Nrec * TMath::Exp(-x/trecomb);
     ft = (1. - ab) * alpha3 / tTrip * expGaus(x, t3);
-    fm = alpha1 * c1 / (l1 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t1)) + alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
+    double fmnorm = alpha1 * c1 / (l1 - kxPrime);
+    fmnorm = max(0., fmnorm);
+    fm = fmnorm * (expGaus(x, tkxPrime) - expGaus(x, t1)) + alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
     fm /= tmixPar;
 
-    double x1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe)) / (lX - l1));
-    double x3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe)) / (lX - l3));
+    double fxnorm1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe;
+    double fxnorm3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe;
+    fxnorm1 = max(0., fxnorm1);
+    fxnorm3 = max(0., fxnorm3);
+    if (fxnorm1< 0)
+      printf(" fx = %f %f c1 %f c3 %f fxnorm1 = %E fxnorm3 %E  \n ", fx, alpha1, c1, c3, fxnorm1, fxnorm3);
+
+    double x1 = fxnorm1 * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe)) / (lX - l1));
+    double x3 = fxnorm3* ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe)) / (lX - l3));
+
     fx = x1 + x3;
+    
+    /*
+    double x1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe * ((exp(-x/tkxPrime) - exp(-x/tXe)) / (lX - kxPrime) - (exp(-x/t1) - exp(-x/tXe)) / (lX - l1));
+    double x3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe * ((exp(-x/tkxPrime) - exp(-x/tXe)) / (lX - kxPrime) - (exp(-x/t3) - exp(-x/tXe)) / (lX - l3));
+    */
   }
 
   fs = fs * SiPMQ128;
   ft = ft * SiPMQ128;
   fm = fm * SiPMQE150;
 
-  // PMT sees only  175
+  //  glass covered  175
   if (ichan == 5)
   {
     fx = fx * SiPMQE175;
@@ -261,6 +290,7 @@ static double model(int ichan, double xbin, double ab, double SiPMQ128, double e
     fm = 0;
     frec = 0;
   }
+  // PMT sees only  175
   else if (ichan == 12)
   {
     fx = fx * PMTQE175;
@@ -273,8 +303,14 @@ static double model(int ichan, double xbin, double ab, double SiPMQ128, double e
   { // sipms do not see 175
     fx = fx * SiPMQE175;
   }
-  double f = fs + ft + fx + fm + bkg + foffset;
-  // double f = fs + frec + ft + fx + fm + bkg;
+  double f = fs + frec  +  ft + fx + fm + bkg+foffset;
+  double fcomp[6];
+  fcomp[0] = f;
+  fcomp[1] = fs;
+  fcomp[2] = ft;
+  fcomp[3] = fx;
+  fcomp[4] = fm;
+  fcomp[5] = frec;
   //  leave these diognostics in
   if (1)
   {
@@ -288,32 +324,59 @@ static double model(int ichan, double xbin, double ab, double SiPMQ128, double e
       printf("xxx fx is NAN x = %f\n", x);
     if (isnan(bkg))
       printf("xxx bkg is NAN x = %f\n", x);
+    if (isnan(frec))
+      printf("xxx frec is NAN x = %f\n", x);
+    if (isnan(foffset))
+      printf("xxx foffset is NAN x = %f\n", x);
     if (isnan(f))
-      printf("xxx f is NAN x = %f\n", x);
+      printf("xxxxxxxxxxx f is NAN x = %f\n", x);
   }
 
-  return f;
+  return fcomp[ifit];
 }
 
 // for plotting st the end
 double modelFunc(double *xx, double *par)
 {
   int ic = par[0];
+  int ifit = par[1];
   double ppm = lpar[1];
   double dist = distanceLevel[level(ic)];
   double SiPMQ128 = QEff128(ppm, dist);
   double ab = Absorbtion(ppm, dist);
   double effGeo = effGeoFunc(ic);
-  return model(ic, xx[0], ab, SiPMQ128, effGeo);
+  return model(ic,ifit, xx[0], ab, SiPMQ128, effGeo);
 }
 
 void createFunctions()
 {
-  // make functions
+  compName[0] = TString("tot");
+  compName[1] = TString("fs");
+  compName[2] = TString("ft");
+  compName[3] = TString("fx");
+  compName[4] = TString("fm");
+  compName[5] = TString("frec");
+
+  // make functions for each channel
   for (int ifit = 0; ifit < 13; ++ifit)
   {
-    ffit[ifit] = new TF1(Form("ModelFitChan-%i", ifit), modelFunc, xlow, xhigh, 1);
+    ffit[ifit] = new TF1(Form("ModelFitChan%i", ifit), modelFunc, xlow, xhigh, 2);
     ffit[ifit]->SetParameter(0, ifit);
+    ffit[ifit]->SetParameter(1, 0);
+  }
+  // make PMT functions by comp
+  for (int ifit = 0; ifit < 6; ++ifit)
+  {
+    ffitPmt[ifit] = new TF1(Form("ModelFitPmtComp%s", compName[ifit].Data()), modelFunc, xlow, xhigh, 2);
+    ffitPmt[ifit]->SetParameter(0, 12);
+    ffitPmt[ifit]->SetParameter(1, ifit);
+  }
+  // make chan 7  functions by comp
+  for (int ifit = 0; ifit < 6; ++ifit)
+  {
+    ffitChan[ifit] = new TF1(Form("ModelFitChanComp%s",compName[ifit].Data()), modelFunc, xlow, xhigh, 2);
+    ffitChan[ifit]->SetParameter(0, 7);
+    ffitChan[ifit]->SetParameter(1, ifit);
   }
 }
 
@@ -423,6 +486,10 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     // double effGeo = effGeoFunc(ic);
     double fourPi = 12.566371;
     double effGeo = pow(0.6, 2.) / fourPi / pow(dist, 2.);
+    double aPmt = TMath::Pi() / 4.0 * pow(64.0, 2); // R11410-20  Effective area : 64 mm dia
+    if (ic == 12)
+      effGeo = aPmt/ fourPi/ pow(dist, 2.);
+
     // loop over bins
     // for (int j = 0; j < 7500; ++j) // 7500 is total
     int ilow = int(xlow / 2.);
@@ -450,7 +517,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       double alpha3 = (1. - sfrac - rfrac) * bw * norm * effGeo;
       double k1Zero = kxe * 131. / 40.;
       double kx = k1Zero * ppm;
-      double kxPrime = lmix + kx + kqZero * par[7];
+      double kxPrime = lmix + kx + kqZero * par[6];
       double lS = 1. / tSinglet;
       double lT = 1 / tTrip;
       double l1 = 1. / tSinglet + kp + kx;
@@ -470,24 +537,33 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       double fx = 0;
 
       double frec = 0;
+      //double Nrec = norm / 1000.;
 
       if (x > 0)
       {
-        frec = rfrac * bw * norm * effGeo /pow(1 + x / trec, 2.);
+        frec  = rfrac * bw * norm * effGeo /pow(1 + x / trecon, 2.);
+        //frecomb = bw * Nrec * expGaus(x, trecomb);
         ft = (1. - ab) * alpha3 / tTrip * expGaus(x, t3);
-        fm = alpha1 * c1 / (l1 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t1)) + alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
+        double fmnorm = alpha1 * c1 / (l1 - kxPrime);
+        fmnorm = max(0., fmnorm);
+        fm = fmnorm * (expGaus(x, tkxPrime) - expGaus(x, t1)) + alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
         fm /= tmixPar;
 
-        double x1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe)) / (lX - l1));
-        double x3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe)) / (lX - l3));
+        double fxnorm1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe;
+        double fxnorm3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe;
+        fxnorm1 = max(0., fxnorm1);
+        fxnorm3 = max(0., fxnorm3);
+
+        double x1 = fxnorm1 * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe)) / (lX - l1));
+        double x3 = fxnorm3* ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe)) / (lX - l3));
         fx = x1 + x3;
-      }
+
 
       fs = fs * SiPMQ128;
       ft = ft * SiPMQ128;
       fm = fm * SiPMQE150;
 
-      // PMT sees only  175
+      // glass covered sees only  175
       if (ic == 5)
       {
         fx = fx * SiPMQE175;
@@ -508,8 +584,9 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       { // sipms do not see 175
         fx = fx * SiPMQE175;
       }
-      double mval = fs + ft + fx + fm + bkg + foffset;
+      double mval = fs + ft + frec + fm + bkg + foffset;
       // double f = fs + frec + ft + fx + fm + bkg;
+
 
       /*******/
       if (mval < 0)
@@ -526,7 +603,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       // leave warnning printout
       if (isnan(f))
       {
-        printf("nnnn  ibin f is NAN %i x = %E y = %E \n", j, x, y);
+        // printf("nnnn  ibin f is NAN %i x = %E y = %E \n", j, x, y);
         // show();
       }
     }
@@ -539,4 +616,5 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
   }
   printf("\n");
   */
+  }
 }
