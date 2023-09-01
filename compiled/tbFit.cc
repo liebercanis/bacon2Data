@@ -79,11 +79,12 @@ bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-07-13-13-37.r
   return true;
 }
 
-void tbFit(int ichan = 0)
+void tbFit(int ichan = 8)
 {
 
   if (!openFile())
     return;
+  TFile *fout = new TFile("tbFit", "recreate");
   TString hname;
   hname.Form("RunSumHitWaveChan%i", ichan);
   TH1D *hWave = NULL;
@@ -143,6 +144,22 @@ void tbFit(int ichan = 0)
   double kplus = 1;
   double kPrime = 1;
 
+  /*
+
+  fp->SetParName(0, "norm");
+  fp->SetParName(1, "PPM");
+  fp->SetParName(2, "tau3");
+  fp->SetParName(3, "kp");
+  fp->SetParName(4, "sfrac");
+  fp->SetParName(5, "rfrac"); // recombination this is starting value Eur. Phys. J. C (2013) 73:2618
+  fp->SetParName(6, "ab");
+  fp->SetParName(7, "kxprime");
+  fp->SetParName(8, "tmix");
+  fp->SetParName(9, "bgk");
+  fp->SetParName(10, "chan");
+  fp->SetParName(11, "binw");
+  fp->SetParName(12, "type");
+  */
 
   fp->SetParameter(0,nPhotons);
   // up to 8 parameters
@@ -151,9 +168,9 @@ void tbFit(int ichan = 0)
   //fp->FixParameter(2, tTriplet);
   fp->FixParameter(3, kplus);
   //fp->FixParameter(4, sFrac); // not fitting singlet
-  //fp->FixParameter(5, nPhotons/1000.);
-  fp->SetParLimits(5, .001, 1.);
-  fp->FixParameter(6, ab);
+  fp->FixParameter(5, 1.E-5);
+  fp->SetParLimits(5, 1.E-6 , 1.E-4);
+  fp->FixParameter(6,ab);
   // fp->SetParLimits(6, 1.E-9, 1.);
   //fp->FixParameter(7, 2 * kPrime);
   fp->FixParameter(8, tMix);
@@ -187,6 +204,8 @@ void tbFit(int ichan = 0)
   canFit->SetLogy();
   // hWave->GetYaxis()->SetRangeUser(1E-1,1E3);
   hWave->SetMarkerSize(0.2);
+  fout->Append(hWave);
+  fout->Append(fp);
   hWave->Draw("p");
   fp->SetLineColor(kTeal - 6);
   fp->SetLineStyle(5);
@@ -202,5 +221,5 @@ void tbFit(int ichan = 0)
   cout << " trigger Time " << startTime << " hist integral  " << hnorm << " fit from " << xlow << " to " << xhigh << endl;
   printf(" singlet  integral 1360 to 1460 = %.3E\n", sumSinglet);
   model->show();
-  model->showEff();
+  //model->showEff();
 }

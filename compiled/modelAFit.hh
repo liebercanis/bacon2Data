@@ -125,7 +125,7 @@ static double effGeoFunc(int ichan)
       from the source Channels 3, 4, and 5 are at 23.2 cm
       from the source Channels 0, 1, and 2 are at 34.8 cm from the source Channel 12 is at 36 cm from the source.
       */
-  double aPmt = TMath::Pi() / 4.0 * pow(64.0, 2); // R11410-20  Effective area : 64 mm dia
+  double aPmt = TMath::Pi() / 4.0 * pow(6.4, 2); // R11410-20  Effective area : 64 mm dia unit is cm!
   double a = pow(0.6, 2.);
   if(ichan==12)
     a = aPmt;

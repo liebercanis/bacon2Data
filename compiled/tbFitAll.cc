@@ -91,23 +91,29 @@ void tbFitAll()
 {
 
   TFile *fout = new TFile("tbFitAll.root", "recreate");
-
+  // get data histograms from file
   if (!openFile())
     return;
   // fill buff
   cout << " got " << vhist.size() << endl;
   if (vhist.size() == 0)
     return;
-  for (unsigned ih = 0; ih < vhist.size(); ++ih)
-  {
-    if (vhist[ih] == NULL)
-      continue;
-    cout << ".... " << vhist[ih]->GetName() << endl;
-    fout->Add(vhist[ih]);
-    // fill data buffer
-    for (int ib = 1; ib < vhist[ih]->GetNbinsX(); ++ib)
-      buff[ih][ib] = vhist[ih]->GetBinContent(ib);
+
+  // shift PMT by 46 ns = 23 bins
+  for (int ibin = 0; ibin < vhist[12]->GetNbinsX()-13; ++ibin){
+    vhist[12]->SetBinContent(ibin,vhist[12]->GetBinContent(ibin+13)) ;
+    vhist[12]->SetBinError(ibin,vhist[12]->GetBinError(ibin+13)) ;
   }
+    for (unsigned ih = 0; ih < vhist.size(); ++ih)
+    {
+      if (vhist[ih] == NULL)
+        continue;
+      cout << ".... " << vhist[ih]->GetName() << endl;
+      fout->Add(vhist[ih]);
+      // fill data buffer
+      for (int ib = 1; ib < vhist[ih]->GetNbinsX(); ++ib)
+        buff[ih][ib] = vhist[ih]->GetBinContent(ib);
+    }
 
   /* parameter definitions
   fp->SetParName(0, "norm");
@@ -158,15 +164,16 @@ void tbFitAll()
 
   double currentValue;
   double currentError;
-  printf(" \n\n >>> modelFit start parameters fit ppm %f \n", vstart[1]);
-  for (int ii = 0; ii < NPARS; ++ii)
-  {
-    gMinuit->GetParameter(ii, currentValue, currentError);
-    printf("\t  param %i %s %.4E  \n", ii, lparNames[ii].Data(), currentValue);
-  }
+  
 
   // fix ppm
   //gMinuit->FixParameter(1);
+
+  // set limits ... here par starts with 1 so add 1
+  arglist[0] = 2;  // par PPM
+  arglist[1] = 0.; // low
+  arglist[2] = 10.; // high
+  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
   // set limits ... here par starts with 1 so add 1
   arglist[0] = 4;  // par kp
@@ -179,6 +186,13 @@ void tbFitAll()
   arglist[2] = 1.; // high
   gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
+  printf(" \n\n >>> modelFit start parameters fit ppm %f \n", vstart[1]);
+  for (int ii = 0; ii < NPARS; ++ii)
+  {
+    gMinuit->GetParameter(ii, currentValue, currentError);
+    printf("\t  param %i %s %.4E  \n", ii, lparNames[ii].Data(), currentValue);
+  }
+
   // gMinuit->FixParameter(6);
   // create functions to plot
   int myColor[13] = {kRed, kBlue - 9, kGreen, kOrange, kBlue, kAzure + 3, kCyan - 3, kGreen - 4, kGreen, kSpring, kYellow, kBlue + 9, kTeal - 4};
@@ -190,7 +204,7 @@ void tbFitAll()
     if (vhist[ifit] == NULL)
       continue;
     vhist[ifit]->GetListOfFunctions()->Clear();
-    vhist[ifit]->SetLineColor(kWhite);
+    vhist[ifit]->SetLineColor(myColor[ifit]);
     vhist[ifit]->SetMarkerColor(myColor[ifit]);
     vhist[ifit]->SetMarkerStyle(myStyle[ifit]);
     //if (histSet == TString("HitWave"))
@@ -215,22 +229,8 @@ void tbFitAll()
   cand->Print(".png");
   createFunctions();
 
-  gStyle->SetOptFit(1111111);
-  for (int k = 0; k < 13; ++k)
-  {
-    if (!goodChannel(k))
-      continue;
-    cname.Form("FitChan-%i-Dopant-%.3f", k, lpar[1]);
-    TCanvas *can = new TCanvas(cname, cname);
-    can->SetLogy();
-    // ffit[k]->SetLineColor(kBlack);
-    ffit[k]->SetLineColor(myColor[k]);
-    ffit[k]->Draw();
-    vhist[k]->Draw("same");
-    fout->Add(ffit[k]);
-    can->Print(".png");
-  }
-  show();
+ 
+  //show();
 
   cname.Form("FitChan-Dopant-%.3f", lpar[1]);
   TCanvas *canAllChan = new TCanvas(cname, cname);
@@ -284,7 +284,6 @@ void tbFitAll()
   canChan->BuildLegend();
   canChan->Print(".png");
 
-  show();
 
   // minimize with MIGRAD
   // Now ready for minimization step
@@ -317,7 +316,7 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
     gMinuit->GetParameter(k, currentValue, currentError);
     lpar[k] = currentValue;
   }
-  
+
 
   cname.Form("FitDopant-%.f", lpar[1]);
   TCanvas *canf = new TCanvas(cname, cname);
@@ -326,7 +325,7 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
   {
     if (!goodChannel(k))
       continue;
-    // ffit[ifit]->SetLineColor(myColor[ifit]);
+    ffit[k]->SetLineColor(myColor[k]);
     if (histSet == TString("HitWave"))
       ffit[k]->GetYaxis()->SetRangeUser(1.E-7, 1.);
     if (k == 0)
@@ -336,5 +335,22 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
   }
   canf->BuildLegend();
   canf->Print(".png");
+
+  gStyle->SetOptFit(1111111);
+  for (int k = 0; k < 13; ++k)
+  {
+    if (!goodChannel(k))
+      continue;
+    cname.Form("FitChan-%i-Dopant-%.3f", k, lpar[1]);
+    TCanvas *can = new TCanvas(cname, cname);
+    can->SetLogy();
+    //ffit[k]->SetLineColor(kBlack);
+    ffit[k]->SetLineWidth(4);
+    vhist[k]->GetYaxis()->SetRangeUser(1E-8,5E-3);
+    vhist[k]->Draw("");
+    ffit[k]->Draw("same");
+    fout->Add(ffit[k]);
+    can->Print(".png");
+  }
   fout->Write();
 }

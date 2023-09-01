@@ -8,11 +8,11 @@ static double tTriplet = 1600.0; // 2100.0;
 static double tSinglet = 5.0;
 static double tMix = 4700.;
 static double tXe = 20.0;
-static double kxe = 8.8E-5; //diffusion time 
-static double kqZero = 1.3E-4; // kq in the paper quenching rate
-static double xTrigger = 1411.; // 1200.;
-static double xMin = 1300.;     // 15000.;
-static double xMax = 9000.;     // 15000.;
+static double kxe = 8.8E-5;             // diffusion time
+static double kqZero = 1.3E-4;          // kq in the paper quenching rate
+static double xTrigger = 1411.;         // 1200.;
+static double xMin = 1300.;             // 15000.;
+static double xMax = 9000.;             // 15000.;
 static double nPhotons = 50.E3 * 5.486; // 274300.00
 static double distanceLevel[4];
 static double effGeo[13];
@@ -22,7 +22,7 @@ enum
 {
   NTYPES = 5,
   NCHAN = 13,
-  NPARS = 13 
+  NPARS = 13
 };
 
 /*
@@ -67,7 +67,7 @@ double effGeoFunc(int ichan)
     ilevel = 1;
   else if (ichan == 0 || ichan == 1 || ichan == 2)
     ilevel = 2;
-  else if(ichan==12)
+  else if (ichan == 12)
     ilevel = 3;
 
   double e = 1.0;
@@ -80,7 +80,11 @@ double effGeoFunc(int ichan)
       from the source Channels 3, 4, and 5 are at 23.2 cm
       from the source Channels 0, 1, and 2 are at 34.8 cm from the source Channel 12 is at 36 cm from the source.
       */
+  double aPmt = TMath::Pi() / 4.0 * pow(6.4,2); // R11410-20  Effective area : 64 mm dia
   double a = pow(0.6, 2.);
+  if (ichan == 12)
+    a = aPmt;
+
   double b = 4.0 * TMath::Pi();
   double distance2[4];
   distance2[0] = pow(distanceLevel[0], 2.);
@@ -121,7 +125,6 @@ static double Absorption(double ppm, double dist)
   return 1. - Tr128;
 }
 
-
 static double expGaus(double x, double tau)
 {
   double arg1 = (tres * tres / tau - 2. * x) / 2. / tau;
@@ -148,10 +151,9 @@ static double lightModel(Double_t *xx, Double_t *par)
   double sfrac = par[4];
   double rfrac = par[5];
   double alpha1 = sfrac * bw * norm * effGeo[ichan];
-  //printf(" %f %f %f %f %f .....", sfrac, bw, norm, effGeo[ichan],alpha1);
-  double frec = rfrac * bw * norm * effGeo[ichan] * pow(1 + x / trec, -2.);
-  double alpha3 = (1. - sfrac -rfrac) * bw * norm * effGeo[ichan];
-  double ab = par[6]; 
+  // printf(" %f %f %f %f %f .....", sfrac, bw, norm, effGeo[ichan],alpha1);
+  double alpha3 = (1. - sfrac - rfrac) * bw * norm * effGeo[ichan];
+  double ab = par[6];
   double k1Zero = kxe * 131. / 40.;
   double kx = k1Zero * ppm;
   double kxPrime = lmix + kx + kqZero * par[7];
@@ -169,15 +171,23 @@ static double lightModel(Double_t *xx, Double_t *par)
 
   // model
   double fs = (1. - ab) * alpha1 / tSinglet * expGaus(x, t1);
-  double ft = (1. - ab) * alpha3 / tTrip * expGaus(x, t3);
-  double fm = alpha1 * c1 / (l1 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t1)) + alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
-  fm /= tmixPar;
+  double ft = 0;
+  double frec = 0;
+  double fm = 0;
+  double fx = 0;
+  if (x > 0)
+  {
+    ft = (1. - ab) * alpha3 / tTrip * expGaus(x, t3);
+    frec = rfrac * bw * norm * effGeo[ichan] * pow(1 + x / trec, -2.);
+    fm = alpha1 * c1 / (l1 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t1)) + alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
+    fm /= tmixPar;
 
-  //printf("  %E %E  %E  \n",fs,x,expGaus(x,t1));
+    // printf("  %E %E  %E  \n",fs,x,expGaus(x,t1));
 
-  double x1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe)) / (lX - l1));
-  double x3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe)) / (lX - l3));
-  double fx = x1 + x3;
+    double x1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe)) / (lX - l1));
+    double x3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe)) / (lX - l3));
+    fx = x1 + x3;
+  }
 
   // printf(" %E %E %E %E %E  \n"  ,fs,ft,fm,x1,x3);
   // QE eff factors
@@ -224,8 +234,25 @@ static double lightModel(Double_t *xx, Double_t *par)
   else if (ifit == 3)
     f = fx;
   else if (ifit == 4)
-    f = fs + frec + ft + fx + fm;
-    //f = fs + ft + fx + fm +frec;
+    f = fs + ft + fx + fm;
+  // f = fs + ft + fx + fm +frec;
+
+  // double f = fs + frec + ft + fx + fm + bkg;
+  //  leave these diognostics in
+  /*
+  if (isnan(fs))
+    printf("xxx fs is NAN x = %f\n", x);
+  if (isnan(ft))
+    printf("xxx ft is NAN x = %f\n", x);
+  if (isnan(fm))
+    printf("xxx fm is NAN x = %f\n", x);
+  if (isnan(fx))
+    printf("xxx fx is NAN x = %f\n", x);
+  if (isnan(bkg))
+    printf("xxx bkg is NAN x = %f\n", x);
+  if (isnan(f))
+    printf("xxx f is NAN x = %f\n", x);
+  */
 
   f = f + bkg;
 
@@ -248,7 +275,8 @@ public:
   void showEff();
 };
 
-void modelFit::showEff() {
+void modelFit::showEff()
+{
   cout << " modelFit::showEff " << endl;
   for (int ichan = 0; ichan < 13; ++ichan)
   {
@@ -256,7 +284,7 @@ void modelFit::showEff() {
     double d = distanceLevel[ilevel];
     double e = effGeo[ilevel];
     printf("chan %i level %i dist %.3f e %.3E \n", ichan, ilevel, d, e);
-    //printf("effGeo[%i]=%f ; \n", ichan, e);
+    // printf("effGeo[%i]=%f ; \n", ichan, e);
   }
 }
 
@@ -291,11 +319,11 @@ void modelFit::show()
   double bw = fp->GetParameter(11);
   double norm = fp->GetParameter(0);
   double alpha1 = sfrac * bw * norm;
-  double alpha3 = (1. - sfrac-rfrac) * bw * norm;
+  double alpha3 = (1. - sfrac - rfrac) * bw * norm;
   double snorm = alpha1 * c1 * kx / (l1 - kxPrime) / tXe;
   double tnorm = alpha3 * c3 * kx / (l3 - kxPrime) / tXe;
-  printf("\t ls %.3E c1 %.3E  lt %.3E  c3 %.3E  tMix %.3E  kxPrime %.3E  l1-kxPrime %.3E  l3-kxPrime %.3E  ab %.3E\n", lS, c1, lT, c3, tmixPar, kxPrime, l1 - kxPrime, l3 - kxPrime,ab);
-  printf("\t sfrac %.3f  tfrac %.4E alpha1 %.3E alpha3 %.3E snorm %.3E tnorm %.3E \n", sfrac, 1.-sfrac-rfrac, alpha1, alpha3, snorm, tnorm);
+  printf("\t ls %.3E c1 %.3E  lt %.3E  c3 %.3E  tMix %.3E  kxPrime %.3E  l1-kxPrime %.3E  l3-kxPrime %.3E  ab %.3E\n", lS, c1, lT, c3, tmixPar, kxPrime, l1 - kxPrime, l3 - kxPrime, ab);
+  printf("\t sfrac %.3f  tfrac %.4E alpha1 %.3E alpha3 %.3E snorm %.3E tnorm %.3E \n", sfrac, 1. - sfrac - rfrac, alpha1, alpha3, snorm, tnorm);
 }
 
 modelFit::modelFit(int thefit, int ichan, double ppm)
@@ -326,10 +354,10 @@ modelFit::modelFit(int thefit, int ichan, double ppm)
   }
 
   double xlow = 0.;
-  double xhigh = 15000; //15000 full waveform
+  double xhigh = 15000; // 15000 full waveform
   fp = new TF1(Form("ModelFit-%.2f-type-%s-chan-%i", ab, names[thefit].Data(), ichan), lightModel, xlow, xhigh, NPARS);
   printf(" modelFit: set %i fit range %f to %f  \n", thefit, 0., xMax);
- 
+
   fp->SetParName(0, "norm");
   fp->SetParName(1, "PPM");
   fp->SetParName(2, "tau3");
@@ -352,15 +380,15 @@ modelFit::modelFit(int thefit, int ichan, double ppm)
   fp->SetParameter(4, 0.2);
   fp->SetParLimits(4, .01, 1.);
   fp->SetParameter(5, 1. / 1000.); // this is starting value Eur. Phys. J. C (2013) 73:2618
-  fp->SetParLimits(5, 0,0.1);
+  fp->SetParLimits(5, 0, 0.1);
   fp->SetParameter(6, ab);
   fp->SetParLimits(6, 1.E-9, 1.);
   fp->SetParameter(7, 2 * kxPrime);
   fp->SetParameter(8, tMix);
   fp->SetParameter(9, 50);
 
-  //these are always fixed
-  //fp->FixParameter(5, sFrac);
+  // these are always fixed
+  // fp->FixParameter(5, sFrac);
   fp->FixParameter(10, ichan);
   fp->FixParameter(11, binwidth);
   fp->FixParameter(12, thefit);
