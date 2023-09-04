@@ -100,15 +100,18 @@ void tbFitAll()
     return;
 
   // shift PMT by 46 ns = 23 bins
-  for (int ibin = 0; ibin < vhist[12]->GetNbinsX()-13; ++ibin){
-    vhist[12]->SetBinContent(ibin,vhist[12]->GetBinContent(ibin+13)) ;
-    vhist[12]->SetBinError(ibin,vhist[12]->GetBinError(ibin+13)) ;
+  int binShift = 23;
+  for (int ibin = 0; ibin < vhist[12]->GetNbinsX() - binShift; ++ibin)
+  {
+    vhist[12]->SetBinContent(ibin,vhist[12]->GetBinContent(ibin+binShift)) ;
+    vhist[12]->SetBinError(ibin,vhist[12]->GetBinError(ibin+binShift)) ;
   }
-    for (unsigned ih = 0; ih < vhist.size(); ++ih)
+
+  for (unsigned ih = 0; ih < vhist.size(); ++ih)
     {
       if (vhist[ih] == NULL)
         continue;
-      cout << ".... " << vhist[ih]->GetName() << endl;
+      cout << ".... for channel %i " << ih << "  " << vhist[ih]->GetName() << " maximum bin " << vhist[ih]->GetMaximumBin() << endl;
       fout->Add(vhist[ih]);
       // fill data buffer
       for (int ib = 1; ib < vhist[ih]->GetNbinsX(); ++ib)
@@ -130,12 +133,12 @@ void tbFitAll()
   static Double_t vstart[NPARS];
   static Double_t step[NPARS];
   // fit starting values
-  vstart[0] = 4.3344E+04;
+  vstart[0] = 2.06322e+03;
   vstart[1] = 0.05;
   vstart[2] = 1.1777E+03;
   vstart[3] = kplus; // defined in  modelAFit.hh
   vstart[4] = 0.2;  //0.886;
-  vstart[5] = 0.001;
+  vstart[5] = 1.E-3; // recomb  1.E-3;
   vstart[6] = 2.0;
   vstart[7] = 4.7E3;
 
@@ -170,10 +173,12 @@ void tbFitAll()
   //gMinuit->FixParameter(1);
 
   // set limits ... here par starts with 1 so add 1
-  arglist[0] = 2;  // par PPM
-  arglist[1] = 0.; // low
-  arglist[2] = 10.; // high
-  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  arglist[0] = 5; // par sfrac
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+
+  // set limits ... here par starts with 1 so add 1
+  arglist[0] = 2; // par PPM
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
   // set limits ... here par starts with 1 so add 1
   arglist[0] = 4;  // par kp
@@ -183,8 +188,9 @@ void tbFitAll()
 
   arglist[0] = 6;  // par rfrac
   arglist[1] = 0.; // low
-  arglist[2] = 1.; // high
-  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  arglist[2] = 1.E-2; // high
+  gMinuit->mnexcm("SET LIM", arglist, 3 , ierflg);
+
 
   printf(" \n\n >>> modelFit start parameters fit ppm %f \n", vstart[1]);
   for (int ii = 0; ii < NPARS; ++ii)
@@ -228,8 +234,6 @@ void tbFitAll()
   cand->BuildLegend();
   cand->Print(".png");
   createFunctions();
-
- 
   //show();
 
   cname.Form("FitChan-Dopant-%.3f", lpar[1]);
@@ -249,7 +253,7 @@ void tbFitAll()
   canAllChan->Print(".png");
 
   // PMT components
-  cname.Form("FitPmt-Dopant-%.3f", lpar[1]);
+  cname.Form("ModelPmt-Dopant-%.3f-recombination-%.2E", lpar[1], vstart[5]);
   TCanvas *canPmt = new TCanvas(cname, cname);
   canPmt->SetLogy();
   for (int k = 0; k < 6; ++k)
@@ -266,15 +270,16 @@ void tbFitAll()
   canPmt->Print(".png");
 
   // channel7  components
-  cname.Form("FitChan-Dopant-%.3f", lpar[1]);
+  cname.Form("ModelChan7Dopant-%.3f", lpar[1]);
   TCanvas *canChan = new TCanvas(cname, cname);
   canChan->SetLogy();
   for (int k = 0; k < 6; ++k)
   {
-    ffitChan[k]->SetLineColor(myColor[k]);
     //ffitChan[k]->GetYaxis()->SetRangeUser(1.E-10, 3E-1);
     fout->Add(ffitChan[k]);
     ffitChan[k]->Print();
+    ffitChan[k]->SetLineColor(myColor[k]);
+    ffitChan[k]->GetYaxis()->SetRangeUser(1.E-7, 2.E-2);
     printf(" comp %i\n", int(ffitChan[k]->GetParameter(1)));
     if (k == 0)
       ffitChan[k] ->Draw();
@@ -284,6 +289,9 @@ void tbFitAll()
   canChan->BuildLegend();
   canChan->Print(".png");
 
+
+  /* if just plotting model return here*/
+  //return;
 
   // minimize with MIGRAD
   // Now ready for minimization step
@@ -315,23 +323,23 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
   {
     gMinuit->GetParameter(k, currentValue, currentError);
     lpar[k] = currentValue;
+    printf("\t copy %s new value %f \n", lparNames[k].Data(), lpar[k]);
   }
 
 
-  cname.Form("FitDopant-%.f", lpar[1]);
+  cname.Form("ModelAllChannelsDopant-%.f", lpar[1]);
   TCanvas *canf = new TCanvas(cname, cname);
   canf->SetLogy();
   for (int k = 0; k < 13; ++k)
   {
     if (!goodChannel(k))
       continue;
-    ffit[k]->SetLineColor(myColor[k]);
-    if (histSet == TString("HitWave"))
-      ffit[k]->GetYaxis()->SetRangeUser(1.E-7, 1.);
+    fmodel[k]->SetLineColor(myColor[k]);
+    fmodel[k]->GetYaxis()->SetRangeUser(1.E-8, 2.E-2);
     if (k == 0)
-      ffit[k]->Draw();
+      fmodel[k]->Draw();
     else
-      ffit[k]->Draw("sames");
+      fmodel[k]->Draw("sames");
   }
   canf->BuildLegend();
   canf->Print(".png");
@@ -341,10 +349,10 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
   {
     if (!goodChannel(k))
       continue;
-    cname.Form("FitChan-%i-Dopant-%.3f", k, lpar[1]);
+    cname.Form("FitToChan%i-Dopant-%.3f-recombination-%.2E", k,lpar[1], vstart[5]);
     TCanvas *can = new TCanvas(cname, cname);
     can->SetLogy();
-    //ffit[k]->SetLineColor(kBlack);
+    ffit[k]->SetLineColor(kBlack);
     ffit[k]->SetLineWidth(4);
     vhist[k]->GetYaxis()->SetRangeUser(1E-8,5E-3);
     vhist[k]->Draw("");

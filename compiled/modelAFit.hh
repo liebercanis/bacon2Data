@@ -38,6 +38,7 @@ static double kplus = 1;
 static double kxPrime = 1;
 static double background[13];
 TF1 *ffit[13];
+TF1 *fmodel[13];
 TF1 *ffitPmt[6];
 TF1 *ffitChan[6];
 TString compName[6];
@@ -288,7 +289,7 @@ static double model(int ichan,int ifit,  double xbin, double ab, double SiPMQ128
     fs = 0;
     ft = 0;
     fm = 0;
-    frec = 0;
+    frec = frec * SiPMQE175;
   }
   // PMT sees only  175
   else if (ichan == 12)
@@ -297,13 +298,14 @@ static double model(int ichan,int ifit,  double xbin, double ab, double SiPMQ128
     fs = 0;
     ft = 0;
     fm = 0;
-    frec = 0;
+    frec = frec * PMTQE175;
   }
   else
   { // sipms do not see 175
     fx = fx * SiPMQE175;
+    frec = frec * SiPMQE175;
   }
-  double f = fs + frec  +  ft + fx + fm + bkg+foffset;
+  double f = fs + frec + ft + fx + fm + bkg+foffset;
   double fcomp[6];
   fcomp[0] = f;
   fcomp[1] = fs;
@@ -356,25 +358,28 @@ void createFunctions()
   compName[3] = TString("fx");
   compName[4] = TString("fm");
   compName[5] = TString("frec");
-
+  
   // make functions for each channel
   for (int ifit = 0; ifit < 13; ++ifit)
   {
-    ffit[ifit] = new TF1(Form("ModelFitChan%i", ifit), modelFunc, xlow, xhigh, 2);
+    ffit[ifit] = new TF1(Form("FitToModelChan%i", ifit), modelFunc, xlow, xhigh, 2);
     ffit[ifit]->SetParameter(0, ifit);
     ffit[ifit]->SetParameter(1, 0);
+    fmodel[ifit] = new TF1(Form("ModelChan%i", ifit), modelFunc, xlow, xhigh, 2);
+    fmodel[ifit]->SetParameter(0, ifit);
+    fmodel[ifit]->SetParameter(1, 0);
   }
   // make PMT functions by comp
   for (int ifit = 0; ifit < 6; ++ifit)
   {
-    ffitPmt[ifit] = new TF1(Form("ModelFitPmtComp%s", compName[ifit].Data()), modelFunc, xlow, xhigh, 2);
+    ffitPmt[ifit] = new TF1(Form("FitToModelPmtComp%s", compName[ifit].Data()), modelFunc, xlow, xhigh, 2);
     ffitPmt[ifit]->SetParameter(0, 12);
     ffitPmt[ifit]->SetParameter(1, ifit);
   }
   // make chan 7  functions by comp
   for (int ifit = 0; ifit < 6; ++ifit)
   {
-    ffitChan[ifit] = new TF1(Form("ModelFitChanComp%s",compName[ifit].Data()), modelFunc, xlow, xhigh, 2);
+    ffitChan[ifit] = new TF1(Form("FitToModelChan7Comp%s",compName[ifit].Data()), modelFunc, xlow, xhigh, 2);
     ffitChan[ifit]->SetParameter(0, 7);
     ffitChan[ifit]->SetParameter(1, ifit);
   }
@@ -460,7 +465,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
   // loop over channels
   for (int ic = 0; ic < 13; ++ic)
   {
-    if (ic == 5 || ic == 6 || ic == 8 || ic == 3 || ic > 8)
+    if (ic == 5 || ic == 6 || ic == 8 || ic == 3 || ic == 9 || ic ==10 || ic==11 )
         continue;
 
     // level
@@ -486,7 +491,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     // double effGeo = effGeoFunc(ic);
     double fourPi = 12.566371;
     double effGeo = pow(0.6, 2.) / fourPi / pow(dist, 2.);
-    double aPmt = TMath::Pi() / 4.0 * pow(64.0, 2); // R11410-20  Effective area : 64 mm dia
+    double aPmt = TMath::Pi() / 4.0 * pow(6.40, 2); // R11410-20  Effective area : 64 mm dia units here are cm
     if (ic == 12)
       effGeo = aPmt/ fourPi/ pow(dist, 2.);
 
@@ -570,7 +575,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
         fs = 0;
         ft = 0;
         fm = 0;
-        frec = 0;
+        frec = frec * SiPMQE175;
       }
       else if (ic == 12)
       {
@@ -578,11 +583,12 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
         fs = 0;
         ft = 0;
         fm = 0;
-        frec = 0;
+        frec = frec * PMTQE175;
       }
       else
-      { // sipms do not see 175
+      { // all other sipms 
         fx = fx * SiPMQE175;
+        frec = frec * SiPMQE175;
       }
       double mval = fs + ft + frec + fm + bkg + foffset;
       // double f = fs + frec + ft + fx + fm + bkg;
