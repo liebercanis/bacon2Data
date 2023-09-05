@@ -7,6 +7,7 @@ TFile *fin;
 TDirectory *runSumDir;
 std::vector<TH1D *> vhist;
 TString histSet;
+double dopant[10];
 
 double fitBack(TH1D *hist)
 {
@@ -33,10 +34,17 @@ double fitBack(TH1D *hist)
   return ave;
 }
 
-bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-08-24-16-11.root")
-    //summary-type-1-dir-caenData-2023-07-20-17-08.root")
+int openFile(int fileNum=0)
 {
-  histSet = TString("HitWave");
+  TString summaryFile[10];
+  summaryFile[0] = TString("summary-type-1-dir-caenDataZeroPPM-2023-08-27-13-39.root"); // 05_22_2023 05_30_2023
+  summaryFile[1] = TString("summary-type-1-dir-caenDataPointOnePPM-2023-08-27-13-30.root"); //06_01_2023 06_02_2023 
+  summaryFile[2] = TString("summary-type-1-dir-caenDataPointTwoPPM-2023-08-27-13-31.root");//07_06_2023  07_07_2023
+  dopant[0] = 0.05;
+  dopant[1] = 0.1;
+  dopant[2] = 0.2;
+  TString fileName = summaryFile[fileNum];
+
   // open input filex
   vhist.resize(13);
   for (unsigned k = 0; k < vhist.size(); ++k)
@@ -67,37 +75,40 @@ bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-08-24-16-11.r
     printf(" no runSumDir in file %s\n", fileName.Data());
     return false;
   }
-  // runSumDir->ls();
-  cout << " making histogram list with " << histSet << endl;
+  runSumDir->ls();
+  cout << " making histogram list with " << histSet << "  " << runSumDir->GetName()  << endl;
+  int iGot=0;
   for (int ic = 0; ic < 13; ++ic)
   {
     if (!goodChannel(ic))
       continue;
     TString hname;
-    hname.Form("Run%sChan%i", histSet.Data(), ic);
+    hname.Form("RunSumWaveChan%i", ic);
     TH1D *hWave = NULL;
+    printf("\t look for  chan %i %s \n",ic,hname.Data());
     // get histogram by name
     runSumDir->GetObject(hname, hWave);
     if (hWave != NULL)
     {
       vhist[ic] = hWave;
+      printf("\t got chan %i %s \n",ic,hWave->GetName());
       background[ic] = fitBack(hWave);
+      ++iGot;
     }
   }
-  return true;
+  return iGot;
 }
 
-void tbFitAll()
+void tbFitAll(int fileNum=0)
 {
 
   TFile *fout = new TFile("tbFitAll.root", "recreate");
   // get data histograms from file
-  if (!openFile())
+  int iGot = openFile(fileNum);
+  printf(" i fot %i \n",iGot);
+  if (iGot<1)
     return;
   // fill buff
-  cout << " got " << vhist.size() << endl;
-  if (vhist.size() == 0)
-    return;
 
   // shift PMT by 46 ns = 23 bins
   int binShift = 23;
@@ -134,7 +145,7 @@ void tbFitAll()
   static Double_t step[NPARS];
   // fit starting values
   vstart[0] = 2.06322e+03;
-  vstart[1] = 0.05;
+  vstart[1] = dopant[fileNum];
   vstart[2] = 1.1777E+03;
   vstart[3] = kplus; // defined in  modelAFit.hh
   vstart[4] = 0.2;  //0.886;
@@ -181,15 +192,27 @@ void tbFitAll()
   gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
   // set limits ... here par starts with 1 so add 1
+  arglist[0] = 1;  // par kp
+  arglist[1] = 100.; // low
+  arglist[2] = 1.E10; // high
+  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+
+  // set limits ... here par starts with 1 so add 1
   arglist[0] = 4;  // par kp
   arglist[1] = 0.; // low
-  arglist[2] = 3.; // high
+  arglist[2] = 10.; // high
   gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
   arglist[0] = 6;  // par rfrac
   arglist[1] = 0.; // low
   arglist[2] = 1.E-2; // high
   gMinuit->mnexcm("SET LIM", arglist, 3 , ierflg);
+
+  arglist[0] = 7;  // kxprime
+  arglist[1] = 0.; // low
+  arglist[2] = 10.E-2; // high
+  gMinuit->mnexcm("SET LIM", arglist, 3 , ierflg);
+
 
 
   printf(" \n\n >>> modelFit start parameters fit ppm %f \n", vstart[1]);
@@ -279,7 +302,7 @@ void tbFitAll()
     fout->Add(ffitChan[k]);
     ffitChan[k]->Print();
     ffitChan[k]->SetLineColor(myColor[k]);
-    ffitChan[k]->GetYaxis()->SetRangeUser(1.E-7, 2.E-2);
+    ffitChan[k]->GetYaxis()->SetRangeUser(1.E-4, 1.);
     printf(" comp %i\n", int(ffitChan[k]->GetParameter(1)));
     if (k == 0)
       ffitChan[k] ->Draw();
@@ -335,7 +358,7 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
     if (!goodChannel(k))
       continue;
     fmodel[k]->SetLineColor(myColor[k]);
-    fmodel[k]->GetYaxis()->SetRangeUser(1.E-8, 2.E-2);
+    fmodel[k]->GetYaxis()->SetRangeUser(1.E-4,1.);
     if (k == 0)
       fmodel[k]->Draw();
     else
@@ -354,7 +377,8 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
     can->SetLogy();
     ffit[k]->SetLineColor(kBlack);
     ffit[k]->SetLineWidth(4);
-    vhist[k]->GetYaxis()->SetRangeUser(1E-8,5E-3);
+    vhist[k]->SetMarkerSize(0.4);
+    //vhist[k]->GetYaxis()->SetRangeUser(1E-4,1.);
     vhist[k]->Draw("");
     ffit[k]->Draw("same");
     fout->Add(ffit[k]);

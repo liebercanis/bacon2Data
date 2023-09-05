@@ -13,8 +13,6 @@ static double tXe = 20.0;
 static double kxe = 8.8E-5;             // diffusion time
 static double kqZero = 1.3E-4;          // kq in the paper quenching rate
 static double xTrigger = 1411.;         // 1200.;
-static double xMin = 1300.;             // 15000.;
-static double xMax = 9000.;             // 15000.;
 static double nPhotons = 50.E3 * 5.486; // 274300.00
 static double distanceLevel[4];
 static double effGeo[13];
@@ -42,8 +40,8 @@ TF1 *fmodel[13];
 TF1 *ffitPmt[6];
 TF1 *ffitChan[6];
 TString compName[6];
-double xlow = 1300;
-double xhigh =  6000;
+double xlow = 1000;
+double xhigh =  9000;
 
 enum
 {
