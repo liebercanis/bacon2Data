@@ -104,6 +104,7 @@ std::vector<TH1D *> hSumWave;
 std::vector<TH1D *> hRunHitWave;
 std::vector<TH1D *> hRunPeakWave;
 std::vector<TH1D *> hRunSumWave;
+std::vector<TH1D *> hUnNormedHitWave;
 TDirectory *sumDir;
 TDirectory *fitSumDir;
 TDirectory *waveSumDir;
@@ -687,14 +688,21 @@ void sumHistosChannel(int ichan, TString histSet)
 
     fitSumDir->cd();
     TH1D *hwaveToFit;
-    if (theDataType == SIS)
+    TH1D *hwaveToFitNotNormed;
+    if (theDataType == SIS) {
       hwaveToFit = new TH1D(Form("fitwaveChan%iFlile%i", ichan, ih), Form("fitwaveChan%iFlile%i", ichan, ih), nbinsx, xlow, 8. * xup);
-    else
+      hwaveToFitNotNormed = new TH1D(Form("notNormedWaveChan%iFlile%i", ichan, ih), Form("fitwaveChan%iFlile%i", ichan, ih), nbinsx, xlow, 8. * xup);
+    }else{
       hwaveToFit = new TH1D(Form("fitwaveChan%iFlile%i", ichan, ih), Form("fitwaveChan%iFlile%i", ichan, ih), nbinsx, xlow, 2. * xup);
+      hwaveToFitNotNormed = new TH1D(Form("notNormedWaveChan%iFlile%i", ichan, ih), Form("fitwaveChan%iFlile%i", ichan, ih), nbinsx, xlow, 2. * xup);
+    }
     // cout << hwaveToFit->GetName() << endl;
     hwaveToFit->SetMarkerStyle(21);
     hwaveToFit->SetMarkerSize(0.2);
     hwaveToFit->GetListOfFunctions()->Clear();
+    hwaveToFitNotNormed->SetMarkerStyle(21);
+    hwaveToFitNotNormed->SetMarkerSize(0.2);
+    hwaveToFitNotNormed->GetListOfFunctions()->Clear();
 
     printf(" NNNNNN normalize to qpe chan %i file %i qpe %f !!!!!\n", ichan, ih, qpeChan);
     /* loop over histogram bins */
@@ -722,6 +730,8 @@ void sumHistosChannel(int ichan, TString histSet)
         ebin = waveToSum->GetBinError(ibin) / effOther[ichan];
 
       // norm to number of triggers
+      hwaveToFitNotNormed->SetBinContent(ibin, xbin);
+      hwaveToFitNotNormed->SetBinError(ibin, ebin);
       hwaveToFit->SetBinContent(ibin, xbin / double(totalPass));
       hwaveToFit->SetBinError(ibin, ebin / double(totalPass));
       if (ichan == 8)
@@ -748,7 +758,10 @@ void sumHistosChannel(int ichan, TString histSet)
         cout << " NNNNNNNNNN new clone " << histName << endl;
         runSumDir->cd();
         hRunHitWave[ichan] = (TH1D *)hwaveToFit->Clone(histName);
+        histName.Form("UnNormed%sChan%i", histSet.Data(), ichan);
+        hUnNormedHitWave[ichan] = (TH1D *)hwaveToFitNotNormed->Clone(histName);
         runSumDir->Add(hRunHitWave[ichan]);
+        runSumDir->Add(hUnNormedHitWave[ichan]);
       }
       /*
       else if (addIt)
@@ -1001,6 +1014,7 @@ int main(int argc, char *argv[])
   hRunHitWave.resize(nchan);
   hRunPeakWave.resize(nchan);
   hRunSumWave.resize(nchan);
+  hUnNormedHitWave.resize(nchan);
   sumHits.resize(nchan);
 
   for (unsigned ichan = 0; ichan < nchan; ++ichan)
