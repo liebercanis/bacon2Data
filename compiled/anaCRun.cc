@@ -515,7 +515,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     if (ichan == 12 )
       cosmicCut1->Fill(idet->sum);
 
-    if (ichan == 12 && idet->sum > 20)
+    if (ichan == 12 && idet->sum > 2) // changed from 20 9/5/23 mg
     { // cosmic cut
       passBit |= 0x4;
       eventPass = false;
@@ -603,7 +603,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit){
       TDetHit thit = tdet->hits[ihit];
       if(thit.startTime > 1000) cosmicCut2->Fill(thit.qpeak);
-      if (thit.startTime > 1000 && thit.qpeak > 1000)
+      if (thit.startTime > 1000 && thit.qpeak > 300) // changed from  1000 9/5/23 mg
         eventPass = false;
     }
   }
