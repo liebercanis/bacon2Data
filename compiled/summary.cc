@@ -763,14 +763,11 @@ void sumHistosChannel(int ichan, TString histSet)
         runSumDir->Add(hRunHitWave[ichan]);
         runSumDir->Add(hUnNormedHitWave[ichan]);
       }
-      /*
       else if (addIt)
       {
-        if (ichan == 3)
-          cout << "b333333333  int " << hwaveToFit->Integral() << " entries  " << hwaveToFit->GetEntries() << endl;
         hRunHitWave[ichan]->Add(hwaveToFit);
+        hUnNormedHitWave[ichan]->Add(hwaveToFitNotNormed);
       }
-      */
       // end add RunHitWave
     }
     else if (histSet == TString("SumWave"))
@@ -784,14 +781,10 @@ void sumHistosChannel(int ichan, TString histSet)
         hRunSumWave[ichan] = (TH1D *)hwaveToFit->Clone(histName);
         runSumDir->Add(hRunSumWave[ichan]);
       }
-      /*
       else if (addIt)
       {
-        if (ichan == 3)
-          cout << "b333333333  int " << hwaveToFit->Integral() << " entries  " << hwaveToFit->GetEntries() << endl;
         hRunSumWave[ichan]->Add(hwaveToFit);
       }
-      */
     }
     // end add RunHitWave
   }
