@@ -5,7 +5,8 @@
 // static double tres = 5.4;
 #include "TString.h"
 #include "TF1.h"
-static double tres = 10;
+static double tres = 10;  // maybe 13 for PMT
+static double tresPmt = 13;  // maybe 13 for PMT
 static double tTriplet = 1600.0; // 2100.0;
 static double tSinglet = 5.0;
 static double tMix = 4700.;
@@ -31,7 +32,8 @@ static TString lparNames[9]; // pass parameters to light model
 static double SiPMQE128Ham = 0.15;
 static double SiPMQE150 = 0.238;
 static double SiPMQE175 = 0.238;
-static double PMTQE175 = 0.38;
+//static double PMTQE175 = 0.38;
+static double PMTQE175 = 0.18;
 static double kplus = 1;
 static double kxPrime = 1;
 static double background[13];
@@ -40,14 +42,14 @@ TF1 *fmodel[13];
 TF1 *ffitPmt[6];
 TF1 *ffitChan[6];
 TString compName[6];
-double xlow = 1000;
-double xhigh =  9000;
+static double xlow = 900;
+static double xhigh = 12000;
 
 enum
 {
   NTYPES = 6,
   NCHAN = 13,
-  NPARS = 8
+  NPARS = 9 // add another parameter for mixed state decay
 };
 
 static bool goodChannel(int ic)
@@ -68,6 +70,7 @@ static void setParNames()
   lparNames[5] = TString("rfrac");
   lparNames[6] = TString("kxprime");
   lparNames[7] = TString("tmix");
+  lparNames[8] = TString("taumix");
 }
 /*
  Calculate absorption as a function of distance and xenon concentration.
@@ -248,22 +251,20 @@ static double model(int ichan,int ifit,  double xbin, double ab, double SiPMQ128
   double frec = 0;
   //double Nrec = norm / 1000.;
 
-  if (x > 0)
-  {
-    frec = rfrac * bw * norm * effGeo * pow(1 + x / trecon, -2.);
-    //frecomb = bw * Nrec * TMath::Exp(-x/trecomb);
+    if(x>0) frec = rfrac * bw * norm * effGeo * pow(1 + x / trecon, -2.);
+    // frecomb = bw * Nrec * TMath::Exp(-x/trecomb);
     ft = (1. - ab) * alpha3 / tTrip * expGaus(x, t3);
     double fmnorm = alpha1 * c1 / (l1 - kxPrime);
     fmnorm = max(0., fmnorm);
     fm = fmnorm * (expGaus(x, tkxPrime) - expGaus(x, t1)) + alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
-    fm /= tmixPar;
+    fm /= tMix;
 
     double fxnorm1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe;
     double fxnorm3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe;
     fxnorm1 = max(0., fxnorm1);
     fxnorm3 = max(0., fxnorm3);
     if (fxnorm1< 0)
-      printf(" fx = %f %f c1 %f c3 %f fxnorm1 = %E fxnorm3 %E  \n ", fx, alpha1, c1, c3, fxnorm1, fxnorm3);
+      printf(" negative form1!!! fx = %f %f c1 %f c3 %f fxnorm1 = %E fxnorm3 %E  \n ", fx, alpha1, c1, c3, fxnorm1, fxnorm3);
 
     double x1 = fxnorm1 * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe)) / (lX - l1));
     double x3 = fxnorm3* ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe)) / (lX - l3));
@@ -274,7 +275,6 @@ static double model(int ichan,int ifit,  double xbin, double ab, double SiPMQ128
     double x1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe * ((exp(-x/tkxPrime) - exp(-x/tXe)) / (lX - kxPrime) - (exp(-x/t1) - exp(-x/tXe)) / (lX - l1));
     double x3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe * ((exp(-x/tkxPrime) - exp(-x/tXe)) / (lX - kxPrime) - (exp(-x/t3) - exp(-x/tXe)) / (lX - l3));
     */
-  }
 
   fs = fs * SiPMQ128;
   ft = ft * SiPMQ128;
@@ -363,9 +363,11 @@ void createFunctions()
     ffit[ifit] = new TF1(Form("FitToModelChan%i", ifit), modelFunc, xlow, xhigh, 2);
     ffit[ifit]->SetParameter(0, ifit);
     ffit[ifit]->SetParameter(1, 0);
+    ffit[ifit]->SetNumberFitPoints(17500);
     fmodel[ifit] = new TF1(Form("ModelChan%i", ifit), modelFunc, xlow, xhigh, 2);
     fmodel[ifit]->SetParameter(0, ifit);
     fmodel[ifit]->SetParameter(1, 0);
+    fmodel[ifit]->SetNumberFitPoints(17500);
   }
   // make PMT functions by comp
   for (int ifit = 0; ifit < 6; ++ifit)
@@ -373,6 +375,7 @@ void createFunctions()
     ffitPmt[ifit] = new TF1(Form("FitToModelPmtComp%s", compName[ifit].Data()), modelFunc, xlow, xhigh, 2);
     ffitPmt[ifit]->SetParameter(0, 12);
     ffitPmt[ifit]->SetParameter(1, ifit);
+    ffitPmt[ifit]->SetNumberFitPoints(17500);
   }
   // make chan 7  functions by comp
   for (int ifit = 0; ifit < 6; ++ifit)
@@ -380,6 +383,7 @@ void createFunctions()
     ffitChan[ifit] = new TF1(Form("FitToModelChan7Comp%s",compName[ifit].Data()), modelFunc, xlow, xhigh, 2);
     ffitChan[ifit]->SetParameter(0, 7);
     ffitChan[ifit]->SetParameter(1, ifit);
+    ffitChan[ifit]->SetNumberFitPoints(17500);
   }
 }
 
@@ -542,15 +546,14 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       double frec = 0;
       //double Nrec = norm / 1000.;
 
-      if (x > 0)
-      {
-        frec  = rfrac * bw * norm * effGeo /pow(1 + x / trecon, 2.);
+        if (x > 0)
+          frec = rfrac * bw * norm * effGeo / pow(1 + x / trecon, 2.);
         //frecomb = bw * Nrec * expGaus(x, trecomb);
         ft = (1. - ab) * alpha3 / tTrip * expGaus(x, t3);
         double fmnorm = alpha1 * c1 / (l1 - kxPrime);
         fmnorm = max(0., fmnorm);
         fm = fmnorm * (expGaus(x, tkxPrime) - expGaus(x, t1)) + alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
-        fm /= tmixPar;
+        fm /= tMix;
 
         double fxnorm1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe;
         double fxnorm3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe;
@@ -610,7 +613,6 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
         // printf("nnnn  ibin f is NAN %i x = %E y = %E \n", j, x, y);
         // show();
       }
-    }
   }
   /*
   printf(".... f =  %.3E ;;", f);
