@@ -33,7 +33,9 @@ static double SiPMQE128Ham = 0.15;
 static double SiPMQE150 = 0.238;
 static double SiPMQE175 = 0.238;
 //static double PMTQE175 = 0.38;
-static double PMTQE175 = 0.18;
+static double PMTQE150 = 0.01;
+static double PMTQE175 = 0.38;
+static double PMTQE400 = 0.35;
 static double kplus = 1;
 static double kxPrime = 1;
 static double background[13];
@@ -99,10 +101,6 @@ static void setParNames()
         MSol = Solve.M;
         XSol = Solve.X;
         ISol = Solve.I;
-// Hamamatsu PMT or SiPM QE corrections
-        SiPMQE150 = 0.238;
-        SiPMQE175 = 0.238;
-        PMTQE175 = 0.38;
 */
 
 static double effGeoFunc(int ichan)
@@ -250,31 +248,37 @@ static double model(int ichan,int ifit,  double xbin, double ab, double SiPMQ128
   double fx = 0;
   double frec = 0;
   //double Nrec = norm / 1000.;
+  /* recombination function fit to Landau
+  1  Constant     8.75979e+02   1.30528e+01   9.10733e-02  -2.82338e-06
+     2  MPV          1.41693e+03   2.90900e-01   2.31557e-03   1.82918e-04
+     3  Sigma        1.44940e+01   1.74659e-01   5.88558e-06  -1.15829e-01
+      Landau(Double_t x, Double_t mpv = 0, Double_t sigma = 1, Bool_t norm = kFALSE)
+  */
+  frec = rfrac * bw * norm * effGeo * TMath::Landau(x,0, 1.44940e+01/4);
+  //pow(1 + x / trecon, -2.);
+  // frecomb = bw * Nrec * TMath::Exp(-x/trecomb);
+  ft = (1. - ab) * alpha3 / tTrip * expGaus(x, t3);
+  double fmnorm = alpha1 * c1 / (l1 - kxPrime);
+  fmnorm = max(0., fmnorm);
+  fm = fmnorm * (expGaus(x, tkxPrime) - expGaus(x, t1)) + alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
+  fm /= tMix;
 
-    if(x>0) frec = rfrac * bw * norm * effGeo * pow(1 + x / trecon, -2.);
-    // frecomb = bw * Nrec * TMath::Exp(-x/trecomb);
-    ft = (1. - ab) * alpha3 / tTrip * expGaus(x, t3);
-    double fmnorm = alpha1 * c1 / (l1 - kxPrime);
-    fmnorm = max(0., fmnorm);
-    fm = fmnorm * (expGaus(x, tkxPrime) - expGaus(x, t1)) + alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
-    fm /= tMix;
+  double fxnorm1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe;
+  double fxnorm3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe;
+  fxnorm1 = max(0., fxnorm1);
+  fxnorm3 = max(0., fxnorm3);
+  if (fxnorm1 < 0)
+    printf(" negative form1!!! fx = %f %f c1 %f c3 %f fxnorm1 = %E fxnorm3 %E  \n ", fx, alpha1, c1, c3, fxnorm1, fxnorm3);
 
-    double fxnorm1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe;
-    double fxnorm3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe;
-    fxnorm1 = max(0., fxnorm1);
-    fxnorm3 = max(0., fxnorm3);
-    if (fxnorm1< 0)
-      printf(" negative form1!!! fx = %f %f c1 %f c3 %f fxnorm1 = %E fxnorm3 %E  \n ", fx, alpha1, c1, c3, fxnorm1, fxnorm3);
+  double x1 = fxnorm1 * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe)) / (lX - l1));
+  double x3 = fxnorm3 * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe)) / (lX - l3));
 
-    double x1 = fxnorm1 * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe)) / (lX - l1));
-    double x3 = fxnorm3* ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe)) / (lX - l3));
+  fx = x1 + x3;
 
-    fx = x1 + x3;
-    
-    /*
-    double x1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe * ((exp(-x/tkxPrime) - exp(-x/tXe)) / (lX - kxPrime) - (exp(-x/t1) - exp(-x/tXe)) / (lX - l1));
-    double x3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe * ((exp(-x/tkxPrime) - exp(-x/tXe)) / (lX - kxPrime) - (exp(-x/t3) - exp(-x/tXe)) / (lX - l3));
-    */
+  /*
+  double x1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe * ((exp(-x/tkxPrime) - exp(-x/tXe)) / (lX - kxPrime) - (exp(-x/t1) - exp(-x/tXe)) / (lX - l1));
+  double x3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe * ((exp(-x/tkxPrime) - exp(-x/tXe)) / (lX - kxPrime) - (exp(-x/t3) - exp(-x/tXe)) / (lX - l3));
+  */
 
   fs = fs * SiPMQ128;
   ft = ft * SiPMQ128;
@@ -295,8 +299,8 @@ static double model(int ichan,int ifit,  double xbin, double ab, double SiPMQ128
     fx = fx * PMTQE175;
     fs = 0;
     ft = 0;
-    fm = 0;
-    frec = frec * PMTQE175;
+    fm = fm*PMTQE150;
+    frec = frec * PMTQE400;
   }
   else
   { // sipms do not see 175
@@ -471,7 +475,6 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
         continue;
 
     // level
-    
     int ilevel = -1;
     if (ic == 6 || ic == 7 || ic == 8)
       ilevel = 0;
@@ -544,25 +547,21 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       double fx = 0;
 
       double frec = 0;
-      //double Nrec = norm / 1000.;
+      frec = rfrac * bw * norm * effGeo * TMath::Landau(x, 0, 1.44940e+01 / 4);
+      ft = (1. - ab) * alpha3 / tTrip * expGaus(x, t3);
+      double fmnorm = alpha1 * c1 / (l1 - kxPrime);
+      fmnorm = max(0., fmnorm);
+      fm = fmnorm * (expGaus(x, tkxPrime) - expGaus(x, t1)) + alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
+      fm /= tMix;
 
-        if (x > 0)
-          frec = rfrac * bw * norm * effGeo / pow(1 + x / trecon, 2.);
-        //frecomb = bw * Nrec * expGaus(x, trecomb);
-        ft = (1. - ab) * alpha3 / tTrip * expGaus(x, t3);
-        double fmnorm = alpha1 * c1 / (l1 - kxPrime);
-        fmnorm = max(0., fmnorm);
-        fm = fmnorm * (expGaus(x, tkxPrime) - expGaus(x, t1)) + alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
-        fm /= tMix;
+      double fxnorm1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe;
+      double fxnorm3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe;
+      fxnorm1 = max(0., fxnorm1);
+      fxnorm3 = max(0., fxnorm3);
 
-        double fxnorm1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe;
-        double fxnorm3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe;
-        fxnorm1 = max(0., fxnorm1);
-        fxnorm3 = max(0., fxnorm3);
-
-        double x1 = fxnorm1 * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe)) / (lX - l1));
-        double x3 = fxnorm3* ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe)) / (lX - l3));
-        fx = x1 + x3;
+      double x1 = fxnorm1 * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe)) / (lX - l1));
+      double x3 = fxnorm3 * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe)) / (lX - l3));
+      fx = x1 + x3;
 
 
       fs = fs * SiPMQ128;
@@ -583,8 +582,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
         fx = fx * PMTQE175;
         fs = 0;
         ft = 0;
-        fm = 0;
-        frec = frec * PMTQE175;
+        fm = fm * PMTQE150;
+        frec = frec * PMTQE400;
       }
       else
       { // all other sipms 

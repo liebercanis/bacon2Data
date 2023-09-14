@@ -55,14 +55,17 @@ double fitBack(TH1D *hist)
 int openFile(int fileNum=0)
 {
   TString summaryFile[10];
-  summaryFile[0] = TString("summary-type-1-dir-caenDataZeroPPM-2023-09-06-12-51.root"); // 05_22_2023 05_30_2023
-  summaryFile[1] = TString("summary-type-1-dir-caenDataPointOnePPM-2023-09-06-12-54.root");
-  summaryFile[2] = TString("summary-type-1-dir-caenDataPointTwoPPM-2023-09-06-12-55.root"); // 07_06_2023  07_07_2023
-  summaryFile[3] = TString("summary-type-1-dir-caenDataTwoPPM-2023-09-08-15-13.root");
+  summaryFile[0] = TString("summary-type-1-dir-caenDataZeroPPM-2023-09-14-10-36.root"); // 05_22_2023 05_30_2023
+  summaryFile[1] = TString("summary-type-1-dir-caenDataPointOnePPM-2023-09-14-13-28.root");
+  summaryFile[2] = TString("summary-type-1-dir-caenDataPointTwoPPM-2023-09-14-13-28.root"); // 07_06_2023  07_07_2023
+  summaryFile[3] = TString("summary-type-1-dir-caenDataPointFivePPM-2023-09-14-13-29.root");
+  summaryFile[4] = TString("");
   dopant[0] = 0.05;
   dopant[1] = 0.1;
-  dopant[2] = 0.2;
-  dopant[3] = 2.0;
+  dopant[2] = 1.0;
+  dopant[3] = 0.50;
+  dopant[4] = 1.0;
+  dopant[5] = 2.0;
   TString fileName = summaryFile[fileNum];
 
   // open input filex
@@ -468,8 +471,10 @@ void tbFitAll(int fileNum=0)
         hffit[k]->GetYaxis()->SetRangeUser(1E-5,3E-1);
         hffit[k]->Draw("");
         vhist[k]->Draw("same");
-        if(k==12)
+        if(k==12) {
           hffitPmt[3]->Draw("same");
+          hffitPmt[5]->Draw("same");
+        }
         fout->Add(ffit[k]);
         can->Print(".png");
       }
