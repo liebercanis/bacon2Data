@@ -88,6 +88,7 @@ public:
   TH1D *histHitCount;
   TH1D *hSumPMT;
   TH1D *threshHist;
+  TH1D *threshValueHist;
   TH1D *crossHist;
   TH1D *cosmicCut1;
   TH1D *cosmicCut2;
@@ -412,11 +413,16 @@ bool anaCRun::anaEvent(Long64_t entry)
        ****/
     negativeCrossingCount(ichan); // multiples of QPEPeak
     idet->crossings = int(crossings.size());
-    thresholdCrossingCount(1000.);
+    thresholdCrossingCount(10000.);
     idet->thresholds = int(thresholds.size());
 
     if (!trig)  crossHist->Fill(idet->crossings);
     if (trig)   threshHist->Fill(idet->thresholds);
+    // histogram trigger digi values
+    if(trig) {
+    for (unsigned ibin = 0; ibin < digi.size(); ++ibin)
+        threshValueHist->Fill(digi[ibin]);
+    }
     // set cut
     unsigned maxCrossings = 1;
     unsigned maxThresholds = 1;
@@ -502,14 +508,14 @@ bool anaCRun::anaEvent(Long64_t entry)
       //printf(" %llu bad chan %u thresh %u crossing %u \n ", entry,ichan, idet->thresholds, idet->crossings);
       eventPass = false;
       passBit |= 0x1;
-      //printf(".... set bit theshold  %i %i %i\n",ichan,idet->thresholds,passBit);
+      printf(".... set bit theshold  %i %i %i\n",ichan,idet->thresholds,passBit);
     }
     if(!trig && ichan != 5 && !idet->pass)
     {
       // printf(" %llu bad chan %u thresh %u crossing %u \n ", entry,ichan, idet->thresholds, idet->crossings);
       eventPass = false;
       passBit |= 0x2;
-      //printf(".... set bit crossings  %i %i %i\n",ichan,idet->crossings,passBit);
+      //printf(".... set bit crossings  event %llu chan %i %i %i\n",entry , ichan,idet->crossings,passBit);
     }
 
     if (ichan == 12 )
@@ -524,8 +530,10 @@ bool anaCRun::anaEvent(Long64_t entry)
   }
 
   evCount->Fill(-1); // underflow bin
-  if (!eventPass)
+  if (!eventPass) {
+    //printf(" event fails with pass bit  %x \n", passBit);
     return eventPass;
+  }
   // continue if event passes 
   for (unsigned ib = 0; ib < rawBr.size(); ++ib)
   {
@@ -609,6 +617,7 @@ bool anaCRun::anaEvent(Long64_t entry)
   }
   if (!eventPass){
     passBit |= 0x8;
+    //printf(" event fails %x \n",passBit);
     return eventPass;
   }
   // fill total light
@@ -663,6 +672,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     }
     // printf(" event %llu  pass %i fail 1 %i cosmic only %i fail both %i \n",entry, int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));
     ntChanSum->Fill(&fsum[0]); // fill sumHitWave and Q sums
+    //if(!eventPass) printf(" event returns with pass bit  %x \n", passBit);
     return eventPass;
   } // anaEvent
 
@@ -890,6 +900,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   }
   cosmicCut1 = new TH1D("cosmicCut1", " cosmic total sum chan 12 ", 100, 0, 100);
   cosmicCut2 = new TH1D("cosmicCut2", " cosmic late large hit chan 12 ", 200, 0, 2000);
+  threshValueHist = new TH1D("threshValueHist"," threshold crossings value channels ",5000, 0,10000);
   threshHist = new TH1D("threshHist"," threshold crossings trig channels ", 20, 0, 20);
   crossHist = new TH1D("crossHist", "  negative crossings non trigger channels", 100, 0, 100);
   sumDir = fout->mkdir("sumDir");
@@ -939,9 +950,9 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   printf("... total entries  %llu looping over %llu \n ", rawTree->GetEntries(), nentries);
   for (Long64_t entry = 0; entry < nentries; ++entry)
   {
-    if (entry / 1000 * 1000 == entry) {
+    if (entry / 1000 * 1000== entry) {
       printf("... entry %llu pass %u fail %u \n", entry, npass, nfail);
-      hEventPass->Print();
+      //hEventPass->Print("all");
     }
     rawTree->GetEntry(entry);
 
