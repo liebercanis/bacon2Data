@@ -504,7 +504,7 @@ bool anaCRun::anaEvent(Long64_t entry)
       passBit |= 0x1;
       //printf(".... set bit theshold  %i %i %i\n",ichan,idet->thresholds,passBit);
     }
-    if(!trig && !idet->pass)
+    if(!trig && ichan != 5 && !idet->pass)
     {
       // printf(" %llu bad chan %u thresh %u crossing %u \n ", entry,ichan, idet->thresholds, idet->crossings);
       eventPass = false;
@@ -939,8 +939,10 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   printf("... total entries  %llu looping over %llu \n ", rawTree->GetEntries(), nentries);
   for (Long64_t entry = 0; entry < nentries; ++entry)
   {
-    if (entry / 1000 * 1000 == entry)
+    if (entry / 1000 * 1000 == entry) {
       printf("... entry %llu pass %u fail %u \n", entry, npass, nfail);
+      hEventPass->Print();
+    }
     rawTree->GetEntry(entry);
 
     /*
