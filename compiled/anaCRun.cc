@@ -423,7 +423,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     idet->pass = true;
     if (!trig && idet->crossings > maxCrossings)
       idet->pass = false;
-    if (trig && idet->thresholds > maxThresholds)
+    if (trig && ichan!=5 && idet->thresholds > maxThresholds)
       idet->pass = false;
       /*
     if (!trig && idet->crossings > maxCrossings)
