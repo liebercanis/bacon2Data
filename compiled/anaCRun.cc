@@ -88,7 +88,7 @@ public:
   TH1D *histHitCount;
   TH1D *hSumPMT;
   TH1D *threshHist;
-  TH1D *threshValueHist;
+  TH2D *threshValueHist;
   TH1D *crossHist;
   TH1D *cosmicCut1;
   TH1D *cosmicCut2;
@@ -413,7 +413,7 @@ bool anaCRun::anaEvent(Long64_t entry)
        ****/
     negativeCrossingCount(ichan); // multiples of QPEPeak
     idet->crossings = int(crossings.size());
-    thresholdCrossingCount(10000.);
+    thresholdCrossingCount(4000.);
     idet->thresholds = int(thresholds.size());
 
     if (!trig)  crossHist->Fill(idet->crossings);
@@ -421,22 +421,18 @@ bool anaCRun::anaEvent(Long64_t entry)
     // histogram trigger digi values
     if(trig) {
     for (unsigned ibin = 0; ibin < digi.size(); ++ibin)
-        threshValueHist->Fill(digi[ibin]);
+        threshValueHist->Fill(double(ibin),digi[ibin]);
     }
     // set cut
     unsigned maxCrossings = 1;
-    unsigned maxThresholds = 1;
+    unsigned maxThresholds = 0;
     idet->pass = true;
     if (!trig && idet->crossings > maxCrossings)
       idet->pass = false;
-    if (trig && ichan!=5 && idet->thresholds > maxThresholds)
+    if (trig && idet->thresholds > maxThresholds) {
       idet->pass = false;
-      /*
-    if (!trig && idet->crossings > maxCrossings)
-      printf("fail crossings %i %i %i\n",ichan,idet->crossings, idet->pass);
-    if (trig && idet->thresholds > maxThresholds)
-      printf("fail threshold  %i %i %i\n",ichan,idet->thresholds,idet->pass);
-      */
+      printf("fail threshold  event %llu chan  %i  number %i %i\n",entry,ichan,idet->thresholds,idet->pass);
+    }
 
       ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peakMax), float(sum2), float(sum), float(crossings.size()), float(thresholds.size()), float(idet->pass));
 
@@ -719,7 +715,7 @@ void anaCRun::thresholdCrossingCount(double thresh)
 {
   thresholds.clear();
   Double_t cut = thresh;
-  for (unsigned ibin = 0; ibin < digi.size(); ++ibin)
+  for (unsigned ibin = 1500; ibin < digi.size(); ++ibin)
   {
     if (digi[ibin] < cut && digi[ibin + 1] > cut)
       thresholds.push_back(ibin);
@@ -900,7 +896,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   }
   cosmicCut1 = new TH1D("cosmicCut1", " cosmic total sum chan 12 ", 100, 0, 100);
   cosmicCut2 = new TH1D("cosmicCut2", " cosmic late large hit chan 12 ", 200, 0, 2000);
-  threshValueHist = new TH1D("threshValueHist"," threshold crossings value channels ",5000, 0,10000);
+  threshValueHist = new TH2D("threshValueHist", " threshold crossings value channels by time  ",7500, 0, 7500, 1000, 0, 100000);
   threshHist = new TH1D("threshHist"," threshold crossings trig channels ", 20, 0, 20);
   crossHist = new TH1D("crossHist", "  negative crossings non trigger channels", 100, 0, 100);
   sumDir = fout->mkdir("sumDir");
