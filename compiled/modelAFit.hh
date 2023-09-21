@@ -5,7 +5,18 @@
 // static double tres = 5.4;
 #include "TString.h"
 #include "TF1.h"
-static double tres = 10;  // maybe 13 for PMT
+#include <TNtuple.h>
+
+enum
+{ 
+  NCOMP =7,
+  NCHAN = 13,
+  NPARS = 10 // add another parameter for mixed state decay
+  // add another parameter for recombination time.
+};
+
+TNtuple* ntScan = new TNtuple("ntScan","ntScan","ppm:fx:f");
+static double tres = 10;     // maybe 13 for PMT
 static double tresPmt = 13;  // maybe 13 for PMT
 static double tTriplet = 1600.0; // 2100.0;
 static double tSinglet = 5.0;
@@ -26,8 +37,8 @@ Electron transport and electron–ion recombination in liquid argon simulation b
 static double trecomb = 2.976081E-03; //ns
 static double foffset = 0;
 static double buff[13][7500];
-static double lpar[9];       // pass parameters to light model
-static TString lparNames[9]; // pass parameters to light model
+static double lpar[10];       // pass parameters to light model
+static TString lparNames[10]; // pass parameters to light model
 
 static double SiPMQE128Ham = 0.15;
 static double SiPMQE150 = 0.238;
@@ -41,18 +52,12 @@ static double kxPrime = 1;
 static double background[13];
 TF1 *ffit[13];
 TF1 *fmodel[13];
-TF1 *ffitPmt[6];
-TF1 *ffitChan[6];
-TString compName[6];
+TF1 *ffitPmt[NCOMP];
+TF1 *ffitChan[NCOMP];
+TString compName[NCOMP];
 static double xlow = 900;
 static double xhigh = 12000;
 
-enum
-{
-  NTYPES = 6,
-  NCHAN = 13,
-  NPARS = 9 // add another parameter for mixed state decay
-};
 
 static bool goodChannel(int ic)
 {
@@ -73,6 +78,7 @@ static void setParNames()
   lparNames[6] = TString("kxprime");
   lparNames[7] = TString("tmix");
   lparNames[8] = TString("taumix");
+  lparNames[9] = TString("taurecomb");
 }
 /*
  Calculate absorption as a function of distance and xenon concentration.
@@ -224,7 +230,8 @@ static double model(int ichan,int ifit,  double xbin, double ab, double SiPMQ128
   double sfrac = lpar[4];
   double rfrac = lpar[5];
   double alpha1 = sfrac * bw * norm * effGeo;
-  double alpha3 = (1. - sfrac - rfrac) * bw * norm * effGeo;
+  double alpha3 = (1. - sfrac) * bw * norm * effGeo;
+  //double alpha3 = (1. - sfrac - rfrac) * bw * norm * effGeo;
   double k1Zero = kxe * 131. / 40.;
   double kx = k1Zero * ppm;
   double kxPrime = lmix + kx + kqZero * lpar[6];
@@ -254,7 +261,7 @@ static double model(int ichan,int ifit,  double xbin, double ab, double SiPMQ128
      3  Sigma        1.44940e+01   1.74659e-01   5.88558e-06  -1.15829e-01
       Landau(Double_t x, Double_t mpv = 0, Double_t sigma = 1, Bool_t norm = kFALSE)
   */
-  frec = rfrac * bw * norm * effGeo * TMath::Landau(x,0, 1.44940e+01/4);
+  frec = rfrac * bw * norm * effGeo * TMath::Landau(x,0, lpar[9]);
   //pow(1 + x / trecon, -2.);
   // frecomb = bw * Nrec * TMath::Exp(-x/trecomb);
   ft = (1. - ab) * alpha3 / tTrip * expGaus(x, t3);
@@ -308,6 +315,7 @@ static double model(int ichan,int ifit,  double xbin, double ab, double SiPMQ128
     frec = frec * SiPMQE175;
   }
   double f = fs + frec + ft + fx + fm + bkg+foffset;
+  //double f = fs + frec + ft + fx + fm;
   double fcomp[6];
   fcomp[0] = f;
   fcomp[1] = fs;
@@ -360,6 +368,7 @@ void createFunctions()
   compName[3] = TString("fx");
   compName[4] = TString("fm");
   compName[5] = TString("frec");
+  compName[6] = TString("bkg");
   
   // make functions for each channel
   for (int ifit = 0; ifit < 13; ++ifit)
@@ -474,6 +483,9 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     if (ic == 5 || ic == 6 || ic == 8 || ic == 3 || ic == 9 || ic ==10 || ic==11 )
         continue;
 
+    // Fit only the PMT
+    if(ic!=12) continue;
+
     // level
     int ilevel = -1;
     if (ic == 6 || ic == 7 || ic == 8)
@@ -524,7 +536,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       double sfrac = par[4];
       double rfrac = par[5];
       double alpha1 = sfrac * bw * norm * effGeo;
-      double alpha3 = (1. - sfrac - rfrac) * bw * norm * effGeo;
+      //double alpha3 = (1. - sfrac - rfrac) * bw * norm * effGeo;
+      double alpha3 = (1. - sfrac ) * bw * norm * effGeo;
       double k1Zero = kxe * 131. / 40.;
       double kx = k1Zero * ppm;
       double kxPrime = lmix + kx + kqZero * par[6];
@@ -547,7 +560,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       double fx = 0;
 
       double frec = 0;
-      frec = rfrac * bw * norm * effGeo * TMath::Landau(x, 0, 1.44940e+01 / 4);
+      frec = rfrac * bw * norm * effGeo * TMath::Landau(x, 0, par[9]);
       ft = (1. - ab) * alpha3 / tTrip * expGaus(x, t3);
       double fmnorm = alpha1 * c1 / (l1 - kxPrime);
       fmnorm = max(0., fmnorm);
@@ -590,7 +603,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
         fx = fx * SiPMQE175;
         frec = frec * SiPMQE175;
       }
-      double mval = fs + ft + frec + fm + bkg + foffset;
+      double mval = fs + ft + fx + frec + fm + bkg + foffset;
       // double f = fs + frec + ft + fx + fm + bkg;
 
 
@@ -606,6 +619,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       if (y > 0)
         yterm = y - y * log(y);
       f += mval - y * log(mval) - yterm;
+      ntScan->Fill(par[1],fx,f);
       // leave warnning printout
       if (isnan(f))
       {

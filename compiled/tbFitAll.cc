@@ -16,6 +16,10 @@ double ylow = 1300;
 double yhigh = 4000;
 
 void fillHistogram(TF1* func, TH1D* hist) {
+  if(!func) {
+    printf("!!! fillHistogram called with null func !!!!! \n");
+    return;
+  }
   if(hist==NULL)
     return;
   for (int ib = 1; ib < hist->GetNbinsX(); ++ib)
@@ -36,7 +40,7 @@ double fitBack(TH1D *hist)
   int lowBins = hist->FindBin(lowCut);
   int highBins = hist->FindBin(highCut);
   auto fitBack = new TF1("fitBack", "pol0", lowCut, highCut);
-  fitBack->SetParameter(0, 1E-1);
+  fitBack->SetParameter(0, 1E-5);
   fitBack->SetParLimits(0, 1.E-12, 1.E2);
 
   hist->Fit("fitBack", "LF", " ", lowCut, highCut);
@@ -48,7 +52,7 @@ double fitBack(TH1D *hist)
   else
     printf("P1 Fit to hist fails \n");
   double aveb = hist->Integral(lowCut, highCut) / double(highBins - lowBins);
-  printf(" \t\t background fit ave %E aveb %E \n\n", ave, aveb);
+  printf(" BBBB background fit ave %E aveb %E \n\n", ave, aveb);
   return ave;
 }
 
@@ -59,7 +63,8 @@ int openFile(int fileNum=0)
   summaryFile[1] = TString("summary-type-1-dir-caenDataPointOnePPM-2023-09-14-13-28.root");
   summaryFile[2] = TString("summary-type-1-dir-caenDataPointTwoPPM-2023-09-14-13-28.root"); // 07_06_2023  07_07_2023
   summaryFile[3] = TString("summary-type-1-dir-caenDataPointFivePPM-2023-09-14-13-29.root");
-  summaryFile[4] = TString("");
+  summaryFile[4] = TString("summary-type-1-dir-caenDataOnePPM-2023-09-15-11-11.root");
+  summaryFile[5] = TString("summary-type-1-dir-caenDataTwoPPM-2023-09-15-13-14.root");
   dopant[0] = 0.05;
   dopant[1] = 0.1;
   dopant[2] = 1.0;
@@ -173,11 +178,15 @@ void tbFitAll(int fileNum=0)
     }
 
     // clones to store fit components histos 
-    for (unsigned ih = 0; ih < 6; ++ih)
+    for (unsigned ih = 0; ih < NCOMP; ++ih)
     {
-      hffitPmt[ih] = (TH1D *)vhist[0]->Clone(Form("hModelPmtComp%s", compName[ih].Data() ));
+      TString histString;
+      histString.Form("hModelPmtComp%s", compName[ih].Data());
+      hffitPmt[ih] = (TH1D *)vhist[0]->Clone(histString);
+      hffitPmt[ih]->SetTitle(histString);
       fout->Add(hffitPmt[ih]);
       hffitChan[ih] = (TH1D *)vhist[0]->Clone(Form("hModelCh7Comp%s",compName[ih].Data() ));
+      hffitChan[ih]->SetTitle(Form("hModelCh7Comp%s",compName[ih].Data() ));
       fout->Add(hffitChan[ih]);
     }
 
@@ -195,18 +204,20 @@ void tbFitAll(int fileNum=0)
         param 6 kxprime 1.0000E-01
         param 7 tmix 2.6647E+03
         param 8 taumix 4.7000E+03
+        param 9  taurecomb    
       */
 
       // fit starting values
       vstart[0] = 2.06322e+03;
-      vstart[1] = dopant[fileNum];
+      vstart[1] = 0.05; //dopant[fileNum];
       vstart[2] = 1.1777E+03;
       vstart[3] = kplus; // defined in  modelAFit.hh
-      vstart[4] = 0.3;   // 0.886;
+      vstart[4] = 0.9;   // sfrac 0.886;
       vstart[5] = 1.E-3; // recomb  1.E-3;
       vstart[6] = 2.0;
       vstart[7] = 2.66474e+03;
       vstart[8] = 4.7E3;
+      vstart[9] = 1.44940e+01/4;
 
       TMinuit *gMinuit = new TMinuit(NPARS); // initialize TMinuit with a maximum of 5 params
       gMinuit->SetFCN(fcn);
@@ -234,15 +245,48 @@ void tbFitAll(int fileNum=0)
       double currentValue;
       double currentError;
 
-      // set limits ... here par starts with 1 so add 1
+      
+      /******************************/
+      // fix most parameters
+      /******************************/
+      arglist[0] = 2; // par PPM
+      //gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+      arglist[0] = 3; // par tau3
+      gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+      // fix most parameters
+      arglist[0] = 4; // kp
+      //gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+      // fix most parameters
+      arglist[0] = 5; // sfrac
+      gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+      arglist[0] = 6; // recomb
+      gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+      arglist[0] = 7; // kxprime
+      //gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+      // fix most parameters
+      arglist[0] = 8; // tmix
+      gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+      arglist[0] = 9; // taumix
+      gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+      arglist[0] = 10; //   taurecomb    
+      //gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+
+      /*
+          set limits ... here par starts with 1 so add 1
+       */
       arglist[0] = 1;      // par norm
       arglist[1] = 1.0E2;  // low
       arglist[2] = 1.0E10; // high
       gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
       // set limits ... here par starts with 1 so add 1
-      arglist[0] = 2; // par PPM
-      gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+      
+
+      // set limits ... here par starts with 1 so add 1
+      arglist[0] = 2;   // par PPM
+      arglist[1] = 0.;  // low
+      arglist[2] = 1.; // high
+      gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
       // set limits ... here par starts with 1 so add 1
       arglist[0] = 4;  // par kp
@@ -251,9 +295,14 @@ void tbFitAll(int fileNum=0)
       gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
       // fix sfrac
-      // arglist[0] = 5; // par sfrac
+      arglist[0] = 5; // par sfrac
       // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+      arglist[1] = 0.1; // low
+      arglist[2] = .9;  // high
+      gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
+      // rfrac
+      gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
       arglist[0] = 6;     // par rfrac
       arglist[1] = 0.;    // low
       arglist[2] = 5.E-3; // high
@@ -264,12 +313,17 @@ void tbFitAll(int fileNum=0)
 
       arglist[0] = 7;      // kxprime
       arglist[1] = 0.;     // low
-      arglist[2] = 10.E-1; // high
+      arglist[2] = 30.E-1; // high
       gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
-      arglist[0] = 9;      // taumix
-      arglist[1] = 1.0E3;     // low
+      arglist[0] = 9;     // taumix
+      arglist[1] = 1.0E3; // low
       arglist[2] = 10.E3; // high
+      gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+
+      arglist[0] = 10;     // taumix
+      arglist[1] = 1.; // low
+      arglist[2] = 30; // high
       gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
       printf(" \n\n >>> modelFit start parameters fit ppm %f \n", vstart[1]);
@@ -344,25 +398,39 @@ void tbFitAll(int fileNum=0)
       canAllChan->BuildLegend();
       canAllChan->Print(".png");
 
-      for (int k = 0; k < 6; ++k)
+      for (int k = 0; k < NCOMP-1; ++k)
       {
         fillHistogram(ffitPmt[k], hffitPmt[k]);
+      }
+      // fill last hist comp with background
+
+      for (int ibin = 0; ibin < hffitPmt[NCOMP - 1]->GetNbinsX(); ++ibin){
+        hffitPmt[NCOMP - 1]->SetBinContent(ibin, background[12]);
+        hffitPmt[NCOMP - 1]->SetBinError(ibin,0);
       }
 
       // PMT components
       cname.Form("ModelPmt-Dopant-%.3f-recombination-%.2E", lpar[1], vstart[5]);
       TCanvas *canPmt = new TCanvas(cname, cname);
       canPmt->SetLogy();
-      for (int k = 0; k < 6; ++k)
+      for (int k = 0; k < NCOMP; ++k)
       {
+
+        TString histString;
+        histString.Form("hModelPmtComp%s", compName[k].Data());
+        hffitPmt[k]->SetName(histString);
+        hffitPmt[k]->SetTitle(histString);
         hffitPmt[k]->SetLineColor(myColor[k]);
         hffitPmt[k]->GetYaxis()->SetRangeUser(1.E-7, 1.);
         fout->Add(hffitPmt[k]);
+        cout << hffitPmt[k]->GetName() << " " << hffitPmt[k]->GetTitle() << " name " << compName[k] << endl;
         if (k == 0)
           hffitPmt[k]->Draw("C");
         else
           hffitPmt[k]->Draw("Csames");
       }
+      //vhist[12]->Draw("same");
+      // hffit[12]->Draw("same");
       canPmt->BuildLegend();
       canPmt->Print(".png");
 
@@ -375,13 +443,17 @@ void tbFitAll(int fileNum=0)
       cname.Form("ModelChan7Dopant-%.3f", lpar[1]);
       TCanvas *canChan = new TCanvas(cname, cname);
       canChan->SetLogy();
-      for (int k = 0; k < 6; ++k)
+      for (int k = 0; k < NCOMP-1; ++k)
       {
         // ffitChan[k]->GetYaxis()->SetRangeUser(1.E-10, 3E-1);
-        fout->Add(hffitChan[k]);
+        TString histString;
+        histString.Form("hModelChan7Comp%s", compName[k].Data());
+        hffitChan[k]->SetName(histString);
+        hffitChan[k]->SetTitle(histString);
         hffitChan[k]->Print();
         hffitChan[k]->SetLineColor(myColor[k]);
         hffitChan[k]->GetYaxis()->SetRangeUser(1.E-5, 1.);
+        fout->Add(hffitChan[k]);
         printf(" comp %i\n", int(ffitChan[k]->GetParameter(1)));
         if (k == 0)
           hffitChan[k]->Draw("C");
@@ -452,31 +524,66 @@ void tbFitAll(int fileNum=0)
       for (int k = 0; k < 13; ++k)
         fillHistogram(ffit[k], hffit[k]);
 
-      for (int k = 0; k < 6; ++k)
+      for (int k = 0; k < NCOMP-1; ++k)
         fillHistogram(ffitPmt[k], hffitPmt[k]);
 
       for (int k = 0; k < 13; ++k)
       {
         if (!goodChannel(k))
           continue;
-        cname.Form("FitToChan%i-Dopant-%.3f-recombination-%.2E", k, lpar[1], vstart[5]);
+        cname.Form("FitToChan%i-Doant-%.3f-recombination-%.2E", k, lpar[1], vstart[5]);
         TCanvas *can = new TCanvas(cname, cname);
         gStyle->SetOptFit(0);
         gStyle->SetOptStat(11);
         can->SetLogy();
         hffit[k]->SetLineColor(kBlack);
-        hffit[k]->SetLineWidth(4);
+        cname.Form("DataChannel%i", k);
+        vhist[k]->SetTitle(cname);
+        hffit[k]->SetLineWidth(1);
         vhist[k]->SetMarkerSize(0.4);
+        vhist[k]->GetXaxis()->SetRangeUser(xlow, xhigh);
+        vhist[k]->GetYaxis()->SetRangeUser(1E-5, 3E-1);
         hffit[k]->GetXaxis()->SetRangeUser(xlow, xhigh);
         hffit[k]->GetYaxis()->SetRangeUser(1E-5,3E-1);
         hffit[k]->Draw("");
-        vhist[k]->Draw("same");
         if(k==12) {
-          hffitPmt[3]->Draw("same");
-          hffitPmt[5]->Draw("same");
+          for (int icomp =1 ; icomp < NCOMP; ++icomp)
+            hffitPmt[icomp]->Draw("same");
         }
+        vhist[k]->Draw("same");
         fout->Add(ffit[k]);
+        can->BuildLegend();
         can->Print(".png");
       }
+      fout->Add(ntScan);
       fout->Write();
-    }
+
+      for (int k = 0; k < 13; ++k)
+        printf("channel %i background fit %E \n",k,background[k]);
+    /*
+      // PMT components
+      cname.Form("FitPmt-Dopant-%.3f-recombination-%.2E", lpar[1], vstart[5]);
+      TCanvas *canPmtFit = new TCanvas(cname, cname);
+      canPmt->SetLogy();
+      for (int k = 0; k < NCOMP; ++k)
+      {
+
+        TString histString;
+        histString.Form("hModelPmtComp%s", compName[k].Data());
+        hffitPmt[k]->SetName(histString);
+        hffitPmt[k]->SetTitle(histString);
+        hffitPmt[k]->SetLineColor(myColor[k]);
+        hffitPmt[k]->GetYaxis()->SetRangeUser(1.E-7, 1.);
+        fout->Add(hffitPmt[k]);
+        cout << hffitPmt[k]->GetName() << " " << hffitPmt[k]->GetTitle() << " name " << compName[k] << endl;
+        if (k == 0)
+          hffitPmt[k]->Draw("C");
+        else
+          hffitPmt[k]->Draw("Csames");
+      }
+      vhist[12]->Draw("same");
+      // hffit[12]->Draw("same");
+      canPmtFit->BuildLegend();
+      canPmtFit->Print(".png");
+      */
+}
