@@ -28,6 +28,8 @@ void fillHistogram(TF1* func, TH1D* hist) {
     double fbin = func->Eval(xbin);
     hist->SetBinContent(ib,fbin);
     hist->SetBinError(ib,0);
+    hist->GetYaxis()->SetTitle("yield");
+    hist->GetXaxis()->SetTitle("time [ns]");
   }
 }
 
@@ -215,7 +217,7 @@ void tbFitAll(int fileNum=0)
       vstart[4] = 0.9;   // sfrac 0.886;
       vstart[5] = 1.E-3; // recomb  1.E-3;
       vstart[6] = 2.0;
-      vstart[7] = 2.66474e+03;
+      vstart[7] = 4.7E+03; // was 2.66E-3
       vstart[8] = 4.7E3;
       vstart[9] = 1.44940e+01/4;
 
@@ -434,6 +436,8 @@ void tbFitAll(int fileNum=0)
       canPmt->BuildLegend();
       canPmt->Print(".png");
 
+      //return;
+
       for (int k = 0; k < 13; ++k)
       {
         fillHistogram(ffitChan[k], hffitChan[k]);
@@ -531,7 +535,7 @@ void tbFitAll(int fileNum=0)
       {
         if (!goodChannel(k))
           continue;
-        cname.Form("FitToChan%i-Doant-%.3f-recombination-%.2E", k, lpar[1], vstart[5]);
+        cname.Form("FitToChan%i-Dopant-%.3f-recombination-%.2E", k, lpar[1], vstart[5]);
         TCanvas *can = new TCanvas(cname, cname);
         gStyle->SetOptFit(0);
         gStyle->SetOptStat(11);
@@ -541,6 +545,8 @@ void tbFitAll(int fileNum=0)
         vhist[k]->SetTitle(cname);
         hffit[k]->SetLineWidth(1);
         vhist[k]->SetMarkerSize(0.4);
+        vhist[k]->GetYaxis()->SetTitle("yield");
+        vhist[k]->GetXaxis()->SetTitle("time [ns]");
         vhist[k]->GetXaxis()->SetRangeUser(xlow, xhigh);
         vhist[k]->GetYaxis()->SetRangeUser(1E-5, 3E-1);
         hffit[k]->GetXaxis()->SetRangeUser(xlow, xhigh);

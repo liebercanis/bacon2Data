@@ -212,7 +212,7 @@ grad: The (optional) vector of first derivatives).
   fp->SetParName(8, "bkg");
 */
 
-/* should be calling fcn */
+/* returns fit light yield  for given model paraters */
 static double model(int ichan,int ifit,  double xbin, double ab, double SiPMQ128, double effGeo)
 {
   double bw = 2.;
@@ -350,8 +350,8 @@ static double model(int ichan,int ifit,  double xbin, double ab, double SiPMQ128
 // for plotting st the end
 double modelFunc(double *xx, double *par)
 {
-  int ic = par[0];
-  int ifit = par[1];
+  int ic = par[0]; // channel
+  int ifit = par[1]; // fit component e.g. singelet , triplet ... 
   double ppm = lpar[1];
   double dist = distanceLevel[level(ic)];
   double SiPMQ128 = QEff128(ppm, dist);
@@ -370,25 +370,38 @@ void createFunctions()
   compName[5] = TString("frec");
   compName[6] = TString("bkg");
   
-  // make functions for each channel
-  for (int ifit = 0; ifit < 13; ++ifit)
+  /* 
+    make light yield functions-- return yield at time 
+    these functions have 2 parameters.  
+    Parameter 0 is the channel number
+    Parameter 1 is the fit component  
+  */
+  for (int ifit = 0; ifit < 13; ++ifit)  // we  have 13 channels
   {
+    // for fitted  parameters
     ffit[ifit] = new TF1(Form("FitToModelChan%i", ifit), modelFunc, xlow, xhigh, 2);
     ffit[ifit]->SetParameter(0, ifit);
     ffit[ifit]->SetParameter(1, 0);
     ffit[ifit]->SetNumberFitPoints(17500);
+    ffit[ifit]->GetYaxis()->SetTitle("yield");
+    ffit[ifit]->GetXaxis()->SetTitle("time [ns]");
+    // for default parameters
     fmodel[ifit] = new TF1(Form("ModelChan%i", ifit), modelFunc, xlow, xhigh, 2);
     fmodel[ifit]->SetParameter(0, ifit);
     fmodel[ifit]->SetParameter(1, 0);
     fmodel[ifit]->SetNumberFitPoints(17500);
+    fmodel[ifit]->GetYaxis()->SetTitle("yield");
+    fmodel[ifit]->GetXaxis()->SetTitle("time [ns]");
   }
   // make PMT functions by comp
-  for (int ifit = 0; ifit < 6; ++ifit)
+  for (int ifit = 0; ifit < 6; ++ifit) // we have 6 components of light
   {
     ffitPmt[ifit] = new TF1(Form("FitToModelPmtComp%s", compName[ifit].Data()), modelFunc, xlow, xhigh, 2);
     ffitPmt[ifit]->SetParameter(0, 12);
     ffitPmt[ifit]->SetParameter(1, ifit);
     ffitPmt[ifit]->SetNumberFitPoints(17500);
+    ffitPmt[ifit]->GetYaxis()->SetTitle("yield");
+    ffitPmt[ifit]->GetXaxis()->SetTitle("time [ns]");
   }
   // make chan 7  functions by comp
   for (int ifit = 0; ifit < 6; ++ifit)
@@ -397,6 +410,8 @@ void createFunctions()
     ffitChan[ifit]->SetParameter(0, 7);
     ffitChan[ifit]->SetParameter(1, ifit);
     ffitChan[ifit]->SetNumberFitPoints(17500);
+    ffitChan[ifit]->GetYaxis()->SetTitle("yield");
+    ffitChan[ifit]->GetXaxis()->SetTitle("time [ns]");
   }
 }
 
@@ -465,6 +480,10 @@ void show()
   showChannel(0);
 }
 
+/* 
+fcn is required by Minuit to have exactly these argements 
+returns likelihood value for some set of parameters
+*/
 void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
 {
   // pack parameters into static array onto lightModel
