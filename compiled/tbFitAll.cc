@@ -183,12 +183,12 @@ void tbFitAll(int fileNum=0)
     for (unsigned ih = 0; ih < NCOMP; ++ih)
     {
       TString histString;
-      histString.Form("hModelPmtComp%s", compName[ih].Data());
+      histString.Form("ModelPmt%s", compName[ih].Data());
       hffitPmt[ih] = (TH1D *)vhist[0]->Clone(histString);
       hffitPmt[ih]->SetTitle(histString);
       fout->Add(hffitPmt[ih]);
-      hffitChan[ih] = (TH1D *)vhist[0]->Clone(Form("hModelCh7Comp%s",compName[ih].Data() ));
-      hffitChan[ih]->SetTitle(Form("hModelCh7Comp%s",compName[ih].Data() ));
+      hffitChan[ih] = (TH1D *)vhist[0]->Clone(Form("ModelCh7%s",compName[ih].Data() ));
+      hffitChan[ih]->SetTitle(Form("ModelCh7%s",compName[ih].Data() ));
       fout->Add(hffitChan[ih]);
     }
 
@@ -213,10 +213,10 @@ void tbFitAll(int fileNum=0)
       vstart[0] = 2.06322e+03;
       vstart[1] = 0.05; //dopant[fileNum];
       vstart[2] = 1.1777E+03;
-      vstart[3] = kplus; // defined in  modelAFit.hh
+      vstart[3] = kqZero; // defined in  modelAFit.hh
       vstart[4] = 0.9;   // sfrac 0.886;
       vstart[5] = 1.E-3; // recomb  1.E-3;
-      vstart[6] = 2.0;
+      vstart[6] = 2.0*kqZero;
       vstart[7] = 4.7E+03; // was 2.66E-3
       vstart[8] = 4.7E3;
       vstart[9] = 1.44940e+01/4;
@@ -419,7 +419,7 @@ void tbFitAll(int fileNum=0)
       {
 
         TString histString;
-        histString.Form("hModelPmtComp%s", compName[k].Data());
+        histString.Form("ModelPmt%s", compName[k].Data());
         hffitPmt[k]->SetName(histString);
         hffitPmt[k]->SetTitle(histString);
         hffitPmt[k]->SetLineColor(myColor[k]);
@@ -451,7 +451,7 @@ void tbFitAll(int fileNum=0)
       {
         // ffitChan[k]->GetYaxis()->SetRangeUser(1.E-10, 3E-1);
         TString histString;
-        histString.Form("hModelChan7Comp%s", compName[k].Data());
+        histString.Form("hModelChan7%s", compName[k].Data());
         hffitChan[k]->SetName(histString);
         hffitChan[k]->SetTitle(histString);
         hffitChan[k]->Print();

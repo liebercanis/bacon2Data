@@ -47,8 +47,6 @@ static double SiPMQE175 = 0.238;
 static double PMTQE150 = 0.01;
 static double PMTQE175 = 0.38;
 static double PMTQE400 = 0.35;
-static double kplus = 1;
-static double kxPrime = 1;
 static double background[13];
 TF1 *ffit[13];
 TF1 *fmodel[13];
@@ -66,8 +64,7 @@ static bool goodChannel(int ic)
     val = false;
   return val;
 }
-
-static void setParNames()
+static void setParNames() // tousif
 {
   lparNames[0] = TString("norm");
   lparNames[1] = TString("ppm");
@@ -80,6 +77,7 @@ static void setParNames()
   lparNames[8] = TString("taumix");
   lparNames[9] = TString("taurecomb");
 }
+
 /*
  Calculate absorption as a function of distance and xenon concentration.
 // Taken from fits to Neumeier data.
@@ -220,7 +218,7 @@ static double model(int ichan,int ifit,  double xbin, double ab, double SiPMQ128
   double norm = lpar[0];
   double ppm = lpar[1];
   double tTrip = lpar[2];
-  double kp = lpar[3] * kqZero;
+  double kp = lpar[3];
   double tmixPar = lpar[7];
   double lmix = 1. / tmixPar;
   double bkg = background[ichan];
@@ -234,7 +232,7 @@ static double model(int ichan,int ifit,  double xbin, double ab, double SiPMQ128
   //double alpha3 = (1. - sfrac - rfrac) * bw * norm * effGeo;
   double k1Zero = kxe * 131. / 40.;
   double kx = k1Zero * ppm;
-  double kxPrime = lmix + kx + kqZero * lpar[6];
+  double kxPrime = lmix + kx + lpar[6];
   double lS = 1. / tSinglet;
   double lT = 1 / tTrip;
   double l1 = 1. / tSinglet + kp + kx;
@@ -362,13 +360,13 @@ double modelFunc(double *xx, double *par)
 
 void createFunctions()
 {
-  compName[0] = TString("tot");
-  compName[1] = TString("fs");
-  compName[2] = TString("ft");
-  compName[3] = TString("fx");
-  compName[4] = TString("fm");
-  compName[5] = TString("frec");
-  compName[6] = TString("bkg");
+  compName[0] = TString("fTot");
+  compName[1] = TString("fSinglet");
+  compName[2] = TString("fTriplet");
+  compName[3] = TString("fXe");
+  compName[4] = TString("fMixed");
+  compName[5] = TString("fRecomb");
+  compName[6] = TString("fBackground");
   
   /* 
     make light yield functions-- return yield at time 
@@ -425,7 +423,7 @@ void showChannel(int ichannel)
   double bw = 2.;
   double norm = lpar[0];
   double tTrip = lpar[2];
-  double kp = lpar[3] * kqZero;
+  double kp = lpar[3];
   double tmixPar = lpar[7];
   double lmix = 1. / tmixPar;
   double bkg = background[8];
@@ -439,7 +437,7 @@ void showChannel(int ichannel)
   double alpha3 = (1. - sfrac - rfrac) * bw * norm * effGeo;
   double k1Zero = kxe * 131. / 40.;
   double kx = k1Zero * ppm;
-  double kxPrime = lmix + kx + kqZero * lpar[7];
+  double kxPrime = lmix + kx +  lpar[7];
   double lS = 1. / tSinglet;
   double lT = 1 / tTrip;
   double l1 = 1. / tSinglet + kp + kx;
@@ -545,7 +543,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       double norm = par[0];
       double ppm = par[1];
       double tTrip = par[2];
-      double kp = par[3] * kqZero;
+      double kp = par[3] ;
       double tmixPar = par[7];
       double lmix = 1. / tmixPar;
       double bkg = background[ic];
@@ -559,7 +557,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       double alpha3 = (1. - sfrac ) * bw * norm * effGeo;
       double k1Zero = kxe * 131. / 40.;
       double kx = k1Zero * ppm;
-      double kxPrime = lmix + kx + kqZero * par[6];
+      double kxPrime = lmix + kx +  par[6];
       double lS = 1. / tSinglet;
       double lT = 1 / tTrip;
       double l1 = 1. / tSinglet + kp + kx;
