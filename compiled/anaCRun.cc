@@ -316,7 +316,6 @@ bool anaCRun::anaEvent(Long64_t entry)
     }
     base /= double(baseLength);
 
-    double mode = 0; // add later
 
     // baseline correction from fitted Gaussian
     hEvGaus[ib]->Reset("ICES");
@@ -325,6 +324,9 @@ bool anaCRun::anaEvent(Long64_t entry)
       double val = vsign * (double(rawBr[ib]->rdigi[j]) - base); // base is > digi value!
       hEvGaus[ib]->Fill(val);
     }
+    // get the distribution mode
+    double mode = hEvGaus[ib]->GetBinLowEdge(hEvGaus[ib]->GetMaximumBin())
+     + 0.5 * hEvGaus[ib]->GetBinWidth(hEvGaus[ib]->GetMaximumBin());
 
     hEvGaus[ib]->Fit("gaus", "QO", "", hEvGaus[ib]->GetMean() - 100, hEvGaus[ib]->GetMean() + 100);
     TF1 *gfit = (TF1 *)hEvGaus[ib]->GetListOfFunctions()->FindObject("gaus");
