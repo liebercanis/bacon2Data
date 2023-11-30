@@ -30,16 +30,17 @@ public:
   Double_t sigma;
   Double_t skew;
   Double_t base;
+  Double_t mode;
   Double_t peak;
-  Double_t sum2;
-  Double_t sum;
-  Int_t crossings;
+  Double_t totSum; // waveform ADC sum
+  Double_t preSum; // pre trigger waveform ADC sum
+  Double_t trigSum; // trigger window waveform ADC sum
+  Double_t lateSum; // post trigger waveform ADC sum
   Int_t thresholds;
   Int_t nspe;
-  Double_t qPrompt;
-  Double_t qSum;
   Double_t hitPrompt;
-  Double_t hitSum;
+  Double_t qarea;
+  Double_t qpeak;
   bool pass;
   std::vector<TDetHit> hits;
 
@@ -54,20 +55,21 @@ public:
     sigma = 0;
     skew = 0;
     base = 0;
+    mode = 0;
     peak = 0;
-    sum2 = 0;
-    sum = 0;
-    crossings = 0;
+    totSum = 0;
+    preSum = 0;
+    trigSum = 0;
+    lateSum = 0;
     thresholds = 0;
     nspe = 0;
-    qPrompt = 0;
-    qSum = 0;
     hitPrompt = 0;
-    hitSum = 0;
-    pass = 0;
+    qarea = 0;
+    qpeak = 0;
+    pass = true;
     hits.clear();
   }
 
-  ClassDef(TDet, 7)
+  ClassDef(TDet, 8)
 };
 #endif
