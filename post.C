@@ -15,9 +15,11 @@ std::vector<TH1D *> hLateSum;
 void loop(Long64_t maxEntry)
 {
   // loop over entries
-  for (unsigned entry = 0; entry < maxEntry; ++ entry)
+  for (Long64_t entry = 0; entry < maxEntry; ++ entry)
   {
     // get entry 
+    if(entry == entry/10000*10000)
+      printf("...at event %llu\n", entry);
     RunTree->GetEntry(entry);
     // get branch pointers and save in detList
     TIter next(RunTree->GetListOfBranches());
@@ -61,7 +63,7 @@ void loop(Long64_t maxEntry)
   }
 }
 
-void post(TString tag = TString("11_26_2023"))
+void post(TString tag = TString("11_26_2023"), Long64_t maxEntry=0)
 {
   gStyle->SetOptStat(1001101);
   cout << " the tag is  " << tag << endl;
@@ -76,7 +78,9 @@ void post(TString tag = TString("11_26_2023"))
   printf("files in chain:\n");
   RunTree->GetListOfFiles()->Print();
   Long64_t ntriggers = RunTree->GetEntries();
-  printf(" total triggers in this chain %llu \n", ntriggers);
+  printf(" total triggers in this chain %lld \n", ntriggers);
+  if(maxEntry==0)
+    maxEntry = ntriggers;
   RunTree->GetListOfBranches()->ls();
 
   fout = new TFile(TString("post") + tag+ TString(".root"), "recreate");
@@ -92,7 +96,7 @@ void post(TString tag = TString("11_26_2023"))
 
   ntSum = new TNtuple("ntSum", " ADC sums ", "trigPre:trigTrig:trigLate:sipmPre:sipmTrig:sipmLate");
 
-  loop(ntriggers);
+  loop(maxEntry);
 
   fout->Write();
   //fout->ls();
