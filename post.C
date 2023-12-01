@@ -84,7 +84,7 @@ void post(TString tag = TString("11_26_2023"), Long64_t maxEntry=0)
   RunTree->GetListOfBranches()->ls();
   TString sentries;
   sentries.Form("-%llu",maxEntry);
-  fout = new TFile(TString("post") + tag + sentries + TString(".root"), "recreate");
+  fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "recreate");
 
   // make histos
   for (unsigned i = 0; i < NCHAN; ++i)
