@@ -401,8 +401,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi, doub
     // make sums with cut
     if (hiti.qsum > hitQThreshold)
     {
-      tbrun->detList[idet]->areaSum += hiti.qsum;
-      tbrun->detList[idet]->peakSum += hiti.qpeak;
+      tbrun->detList[idet]->qarea += hiti.qsum;
+      tbrun->detList[idet]->qpeak += hiti.qpeak;
       if (hiti.startTime < startTimeCut)
       {
         //tbrun->detList[idet]->qPrompt += hiti.qsum;
