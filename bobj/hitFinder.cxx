@@ -158,7 +158,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
 
   cout << " created hitFinder with " << tbrun->GetName() << " nsamples =  " << nsamples << " ndet " << hEvWave.size() << " ";
   if (gotTemplate)
-    cout << " SPE Template " << htemplate->GetName() << endl;
+    cout << " totSumSPE Template " << htemplate->GetName() << endl;
   else
     cout << " SPE Template not found ! " << endl;
 
@@ -173,15 +173,14 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     templateTransform = forwardFFT(SPEdigi);
     // fill htemplateFFT start with first nonzero bin;
     printf(" ********   complex transform  size %lu ******** \n", templateTransform.size());
-
     // make filter
     fillWFilter(templateChan);
-  }
-  for (int i = 0; i < nsamples / 2; ++i)
-  {
+    for (int i = 0; i < nsamples / 2; ++i)
+    {
     hWFilter->SetBinContent(i, wfilter[i]);
     // printf(" wfilter %i %f \n", i, wfilter[i]);
     htemplateFFT->SetBinContent(i, std::abs(templateTransform[i]));
+    }
   }
   printf(" channel mapping \n");
   for (unsigned index = 0; index < vchan.size(); ++index)
@@ -402,11 +401,11 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> eventDigi, doub
     // make sums with cut
     if (hiti.qsum > hitQThreshold)
     {
-      tbrun->detList[idet]->qSum += hiti.qsum;
-      tbrun->detList[idet]->hitSum += hiti.qpeak;
+      tbrun->detList[idet]->areaSum += hiti.qsum;
+      tbrun->detList[idet]->peakSum += hiti.qpeak;
       if (hiti.startTime < startTimeCut)
       {
-        tbrun->detList[idet]->qPrompt += hiti.qsum;
+        //tbrun->detList[idet]->qPrompt += hiti.qsum;
         tbrun->detList[idet]->hitPrompt += hiti.qpeak;
       }
     }
