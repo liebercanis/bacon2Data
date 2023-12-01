@@ -1,7 +1,9 @@
 TChain *RunTree;
 TFile *fout;
 TString tag;
-enum {
+TNtuple* ntSum;
+enum
+{
   NCHAN = 12
 };
 // histograms as vectors
@@ -21,12 +23,23 @@ void loop(Long64_t maxEntry)
     TIter next(RunTree->GetListOfBranches());
     TBranchElement *aBranch = NULL;
     // loop over branches
+    double trigPre = 0;
+    double trigTrig = 0;
+    double trigLate = 0;
+    double sipmPre = 0;
+    double sipmTrig = 0;
+    double sipmLate = 0;
+
+
     while ((aBranch = (TBranchElement *)next()))
     {
       int id = TString(TString(aBranch->GetName())(4, 2)).Atoi();
       if (id >= NCHAN) // skip PMT
         continue;
-      if( TString(aBranch->GetName())==TString("eventData") )// skip this branch
+      bool trig = false; // define trigger sipms
+      if(id==9||id==10||id==11)
+        trig = true;
+      if (TString(aBranch->GetName()) == TString("eventData")) // skip this branch
         continue;
       TDet *det = (TDet *)aBranch->GetObject();
       //if(id==0) cout << "branch " << aBranch->GetName() << " entry " << entry << " TotSum " << det->totSum << endl;
@@ -34,7 +47,17 @@ void loop(Long64_t maxEntry)
       hPreSum[id]->Fill(det->preSum);
       hTrigSum[id]->Fill(det->trigSum);
       hLateSum[id]->Fill(det->lateSum);
+      if(trig) {
+        trigPre  +=det->preSum;
+        trigTrig +=det->trigSum;
+        trigLate +=det->lateSum;
+      } else {
+        sipmPre += det->preSum;
+        sipmTrig += det->trigSum;
+        sipmLate += det->lateSum;
+      }
     }
+    ntSum->Fill(trigPre,trigTrig,trigLate,sipmPre,sipmTrig,sipmLate);
   }
 }
 
@@ -66,6 +89,8 @@ void post(TString tag = TString("11_26_2023"))
       hTrigSum.push_back(new TH1D(Form("TrigSumChan%i", i), Form("trig sum chan %i", i),4000, -20.E3,20.E3));
       hLateSum.push_back(new TH1D(Form("LateSumChan%i", i), Form("late sum chan %i", i),4000, -20.E3,20.E3));
   }
+
+  ntSum = new TNtuple("ntSum", " ADC sums ", "trigPre:trigTrig:trigLate:sipmPre:sipmTrig:sipmLate");
 
   loop(ntriggers);
 
