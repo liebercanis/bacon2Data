@@ -70,6 +70,6 @@ public:
     hits.clear();
   }
 
-  ClassDef(TDet, 8)
+  ClassDef(TDet, 9)
 };
 #endif
