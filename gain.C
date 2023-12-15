@@ -11,11 +11,18 @@ enum
   nbins = 4000
 };
 
+// Define a linear fit
+double fline(double *x, double *par)
+{
+  return par[0]+x[0]*par[1];
+}
+
 void gain()
 {
   TH1D *hFit = new TH1D("GausFit","GausFit",4000, -20.E3, 200.E3);
   TFile *fin = new TFile("post-11_26_2023-553878.root", "readonly");
   TFile *fout = new TFile("gain", "recreate");
+  TF1 *line = new TF1("myLine", fline,0,2.E5,2);
   TString histname;
   for (int ichan = 0; ichan < 12; ++ichan)
   {
@@ -137,10 +144,11 @@ void gain()
 
       printf(" \n \n fit for channel %i n= %lu \n", i, fFitX.size());
       for (unsigned long j = 0; j < fFitX.size(); ++j)
-        printf(" peak %lu x (%f,%f) sigma %f y (%f,%f) \n", j, fPositionX[j],fFitX[j], fFitXSigma[j], fPositionY[j],fFitY[j]);
+        printf(" peak %lu x (%.2f,%.2f) sigma %.2f y (%.2f,%.2f) \n", j, fPositionX[j],fFitX[j], fFitXSigma[j], fPositionY[j],fFitY[j]);
 
       // make graph
       auto g = new TGraphErrors(fFitX.size(), &fFitX[0], &fFitY[0], &fFitXSigma[0], &fFitYError[0]);
+      g->Print();
       g->SetMarkerStyle(23);
       g->SetMarkerColor(kRed);
       g->SetMarkerSize(1.3);
@@ -153,9 +161,10 @@ void gain()
       gtitle.Form(" gain channel  %i ;  ADC ; gain", i);
       g->SetName(gname);
       g->SetTitle(gtitle.Data());
-      g->Fit("pol0", "");
+      line->SetParameters(500,0);
+      g->Fit("myLine");
       g->GetHistogram()->GetListOfFunctions()->ls();
-      TF1 *gfit = g->GetFunction("pol0");
+      TF1 *gfit = g->GetFunction("myLine");
       TCanvas *gcan = new TCanvas(Form("GainChan%i", i), Form("chan%i", i));
       gPad->SetLogy(0);
       gStyle->SetOptFit();
