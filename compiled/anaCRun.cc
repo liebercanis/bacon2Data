@@ -327,16 +327,20 @@ bool anaCRun::anaEvent(Long64_t entry)
   QPEPeak = 100;
   tbrun->clear();
   // loop over channels
-  double vsign = 1.0;
   for (unsigned ib = 0; ib < rawBr.size(); ++ib)
   {
     unsigned ichan = ib;
     // define trigger sipms
     bool trig = ichan == 9 || ichan == 10 || ichan == 11;
-    // set sign of waveform
-    vsign = 1.0;
-    if (ib > 8)
-      vsign = -1.0;
+    // deal with trigger channel sign by overwriting rdigi
+    if (trig)
+    {
+      for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+      {
+        rawBr[ib]->rdigi[j] = -1. * (rawBr[ib]->rdigi[j] - pow(2, 14)); // base is > digi value!
+      }
+    }
+
     int nbins = rawBr[ib]->rdigi.size();
     // cout << ib << " nbins " << nbins << " max hist " << hEvGaus.size() << " rawBr.size() " << rawBr.size() << endl;
 
@@ -359,7 +363,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     hEvGaus[ib]->Reset("ICES");
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
-      double val = vsign * (double(rawBr[ib]->rdigi[j]) - base); // base is > digi value!
+      double val = double(rawBr[ib]->rdigi[j]) - base; // base is > digi value!
       hEvGaus[ib]->Fill(val);
     }
     // get the distribution mode
@@ -403,7 +407,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     idet->skew = skew;
     idet->event = entry;
     idet->trigger = rawBr[ib]->trigger;
-    idet->base = base + vsign * fitMean; // add in fit mean if fit succeeded
+    idet->base = base + fitMean; // add in fit mean if fit succeeded
     idet->mode = mode;
 
     /*********
@@ -412,7 +416,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     digi.clear();
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
-      double val = vsign * (double(rawBr[ib]->rdigi[j]) - idet->base);
+      double val = double(rawBr[ib]->rdigi[j]) - idet->base;
       baseHist[ichan]->Fill(val);
       digi.push_back(val);
       if (hChannelGaus.size() > 0)
@@ -445,59 +449,8 @@ bool anaCRun::anaEvent(Long64_t entry)
 
     ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peakMax), float(idet->trigSum), float(idet->totSum), float(crossings.size()), float(thresholds.size()), float(idet->pass));
 
-    // plot some events
-    TString hname;
-    /*
-    hEvBaseWave = NULL;
-    if (!trig && !(idet->pass) && badDir->GetList()->GetEntries() < 100)
-    {
-      badDir->cd();
-      hname.Form("EvBaseWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
-      // cout << " failed " << hname << endl;
-      hEvBaseWave = new TH1D(hname, hname, nbins, 0, nbins);
-      for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
-        hEvBaseWave->SetBinContent(j + 1, digi[j]);
-    }
-    fout->cd();
-    */
-
-    // plot some events
-    /*
-    if (trig && !(idet->pass) && badTrigDir->GetList()->GetEntries() < 100)
-    {
-      badTrigDir->cd();
-      hname.Form("EvBaseWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
-      // cout << " failed " << hname << endl;
-      hEvBaseWave = new TH1D(hname, hname, nbins, 0, nbins);
-      for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
-        hEvBaseWave->SetBinContent(j + 1, digi[j]);
-    }
-    // plot PMT
-    if (ichan == 12 && pmtDir->GetList()->GetEntries() < 100)
-    {
-      pmtDir->cd();
-      hname.Form("EvBaseWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
-      // cout << " failed " << hname << endl;
-      hEvBaseWave = new TH1D(hname, hname, nbins, 0, nbins);
-      for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
-        hEvBaseWave->SetBinContent(j + 1, digi[j]);
-    }
-
-    fout->cd();
-
-    // events with hits only data
-    if (idet->pass && idet->thresholds > 0 && evDir->GetList()->GetEntries() < 500)
-    {
-      evDir->cd();
-      hname.Form("EvBaseWaveEv%ich%ithresh%icross%i", int(entry), ichan, idet->thresholds, idet->crossings);
-      hEvBaseWave = new TH1D(hname, hname, nbins, 0, nbins);
-      for (unsigned j = 0; j < digi.size(); ++j)
-        hEvBaseWave->SetBinContent(j + 1, digi[j]);
-    }
-    fout->cd();
-    */
-
   } // channel loop
+  
   // fill output Tree for each event
   // cout << "finished " << entry << endl;
   tbrun->fill();
@@ -533,9 +486,6 @@ bool anaCRun::anaEvent(Long64_t entry)
 
   for (unsigned ib = 0; ib < rawBr.size(); ++ib)
   {
-    vsign = 1.0;
-    if (ib > 8)
-      vsign = -1.0;
     unsigned ichan = ib;
     bool trig = ichan == 9 || ichan == 10 || ichan == 11;
     int nbins = rawBr[ib]->rdigi.size();
@@ -556,7 +506,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     {
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
       {
-        double val = vsign * (double(rawBr[ib]->rdigi[j]) - idet->base);
+        double val =  double(rawBr[ib]->rdigi[j]) - idet->base;
         sumWaveB[ib]->SetBinContent(j + 1, sumWaveB[ib]->GetBinContent(j + 1) + val);
         valHistB[ib]->Fill(val);
       }
@@ -564,7 +514,7 @@ bool anaCRun::anaEvent(Long64_t entry)
 
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
-      double val = vsign * (double(rawBr[ib]->rdigi[j]) - idet->base);
+      double val = double(rawBr[ib]->rdigi[j]) - idet->base;
       digi.push_back(val);
       sumWave[ib]->SetBinContent(j + 1, sumWave[ib]->GetBinContent(j + 1) + val);
       valHist[ib]->Fill(val);
