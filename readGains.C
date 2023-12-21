@@ -14,16 +14,16 @@ void readGains(TString fileName = "gains-2023-12-21-13-16.root")
     cout << "found graph gGain" << endl;
     sipmGain.clear();
     sipmGainError.clear();
-    int np = gGain->GetN();
-    for (int i = 0; i < np; ++i) {
-        double x, y;
-        gGain->GetPoint(i, x, y);
-        double ey = gGain->GetErrorY(i);
+    for (int i = 0; i < gGain->GetN(); ++i)
+    {
+        //double x, y;
+        //gGain->GetPoint(i, x, y);
+        //double ey = gGain->GetErrorY(i);
         //printf(" %i x %.0f y %.3f ey %.3f ey/y %.4f \n",i,x,y,ey,ey/y);
-        sipmGain.push_back(y);
-        sipmGainError.push_back(ey);
+        sipmGain.push_back(gGain->GetPointY(i));
+        sipmGainError.push_back(gGain->GetErrorY(i));
     }
-    
+
     printf("stored gains %lu \n", sipmGain.size());
     for (unsigned long j = 0; j < sipmGain.size(); ++j)
         printf(" %lu  gain %.4f error %.4f   \n",j,  sipmGain[j],sipmGainError[j]);
