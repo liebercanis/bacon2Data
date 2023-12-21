@@ -1,4 +1,4 @@
-/////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////
 //  M.Gold April 2023 read CAEN files
 /////////////////////////////////////////////////////////
 #include <sstream>
@@ -61,6 +61,10 @@ public:
   TFile *fin;
   TTree *rawTree;
   int passBit;
+  // vectors for gains
+  std::vector<double> sipmGain;
+  std::vector<double> sipmGainError;
+  //
   std::map<int, int> chanMap;
   vector<TBRawEvent *> rawBr;
   TBEventData *eventData;
@@ -122,6 +126,7 @@ public:
   void clear();
   bool openFile(TString fileName);
   unsigned getListOfFiles(TString dir);
+  bool readGains(TString fileName );
   void getSummedHists();
   unsigned getBranches();
   bool anaEvent(Long64_t entry);
@@ -140,6 +145,37 @@ public:
   Long64_t nentries;
   double QPEPeak;
 };
+
+bool anaCRun::readGains(TString fileName)
+{
+  TFile *fin = new TFile(fileName, "readonly");
+  if (fin->IsZombie())
+  {
+    std::cout << "Error opening file" << fileName << std::endl;
+    return false;
+  }
+  cout << " opened sipm gain file " << fileName << endl;
+  TGraphErrors *gGain = NULL;
+  fin->GetObject("gGain", gGain);
+  if (gGain == NULL)
+  {
+    cout << "no gGain in file " << endl;
+    return false;
+  }
+  cout << "found graph named " << gGain->GetName() << endl;
+  sipmGain.clear();
+  sipmGainError.clear();
+  for (int i = 0; i < gGain->GetN(); ++i)
+  {
+    sipmGain.push_back(gGain->GetPointY(i));
+    sipmGainError.push_back(gGain->GetErrorY(i));
+  }
+
+  printf("stored gains %lu \n", sipmGain.size());
+  for (unsigned long j = 0; j < sipmGain.size(); ++j)
+    printf(" %lu  gain %.4f error %.4f   \n", j, sipmGain[j], sipmGainError[j]);
+  return true;
+}
 
 void anaCRun::clear()
 {
@@ -169,6 +205,8 @@ void anaCRun::clear()
   eslope.clear();
   chan.clear();
   echan.clear();
+  sipmGain.clear();
+  sipmGainError.clear();
   // fill channel sigma in order of branches
   channelSigmaValue.resize(13);
   channelSigmaValue[0] = 12.6634;
@@ -768,7 +806,10 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
 
   string sfilename(theFile.Data());
   string shortName = sfilename.substr(0, sfilename.find_last_of("."));
-  cout << " instance of anaCRun with shortName= " << shortName << endl;
+  cout << " anaCRunFile  with shortName= " << shortName << endl;
+  TString gainFileName = TString("gains-2023-12-21-13-16.root");
+  cout << "read gains from file "<< gainFileName << endl;
+  readGains(gainFileName);
 
   // need to fill rawBr[0]->rdigi.size()
   printf("Read zeroth entry from tree \n");
@@ -1054,8 +1095,9 @@ anaCRun::anaCRun(TString theTag)
 {
   tag = theTag;
   cout << " instance of anaCRun with tag= " << tag << "CHANNELS" << CHANNELS << endl;
-
+  
   rawBr.clear();
+ 
   for (int ichan = 0; ichan < CHANNELS; ++ichan)
   {
     TBRawEvent *rawEv = new TBRawEvent(ichan);
