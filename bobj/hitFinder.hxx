@@ -77,7 +77,8 @@ public:
   int nsamples;
   unsigned diffStep;
   unsigned thresholdStepSize;
-  double threshold;
+  double hitThreshold;
+  double derivativeThreshold;
   double peakThreshold;
   unsigned maxPeakLength;
   double QPEPeak;
@@ -108,7 +109,7 @@ public:
   vector<double> wfilter;
   double timeUnit;
   double microSec;
-  void event(int idet, Long64_t ievent, vector<double> rdigi, double thresh, unsigned step = 3);
+  void event(int idet, Long64_t ievent, vector<double> rdigi, double theDerivativeThreshold, double theHitThreshold, unsigned step = 3);
   void differentiate();
   vector<double> differentiate(int step, vector<double> pdigi);
   void findThresholdCrossings(Int_t idet, double thresh);
@@ -161,6 +162,7 @@ public:
     std::vector<TH1D *> hEvDerWave;
     std::vector<TH1D *> hEvFiltWave;
     std::vector<TH1D *> hDigiVal;
+    std::vector<TH1D *> hDerivativeVal;
     std::vector<TH1D *> hHitSum;
     std::vector<TH1D *> hUnFilteredSummedWave;
     std::vector<TH1D *> hFilteredSummedWave;

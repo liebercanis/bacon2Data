@@ -49,7 +49,7 @@ public:
   };
   enum
   {
-    CHANNELS = 13
+    CHANNELS = 12
   };
   enum
   {
@@ -162,7 +162,7 @@ bool anaCRun::readGains(TString fileName)
     cout << "no gGain in file " << endl;
     return false;
   }
-  cout << "found graph named " << gGain->GetName() << endl;
+  cout << "found graph named " << gGain->GetName() << " in file "  << fileName << endl;
   sipmGain.clear();
   sipmGainError.clear();
   for (int i = 0; i < gGain->GetN(); ++i)
@@ -208,20 +208,9 @@ void anaCRun::clear()
   sipmGain.clear();
   sipmGainError.clear();
   // fill channel sigma in order of branches
-  channelSigmaValue.resize(13);
-  channelSigmaValue[0] = 12.6634;
-  channelSigmaValue[1] = 11.7833;
-  channelSigmaValue[2] = 11.9779;
-  channelSigmaValue[3] = 0.247759;
-  channelSigmaValue[4] = 14.1827;
-  channelSigmaValue[5] = 12.4958;
-  channelSigmaValue[6] = 12.346;
-  channelSigmaValue[7] = 11.9752;
-  channelSigmaValue[8] = 12.4379;
-  channelSigmaValue[9] = 474.388;
-  channelSigmaValue[10] = 450.223;
-  channelSigmaValue[11] = 426.53;
-  channelSigmaValue[12] = 3.50614;
+  channelSigmaValue.resize(CHANNELS);
+  for (unsigned long j = 0; j < channelSigmaValue.size(); ++j )
+    channelSigmaValue[j] = 10;
 }
 
 bool anaCRun::openFile(TString theFile)
@@ -315,6 +304,8 @@ void anaCRun::getSummedHists()
 /* analyze rawBr */
 bool anaCRun::anaEvent(Long64_t entry)
 {
+  double derivativeThreshold = 40.;
+  double hitThreshold;
   // copy event data
   eventData->evtime = rawEventData->evtime;
   eventData->sec = rawEventData->sec;
@@ -342,7 +333,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     }
 
     int nbins = rawBr[ib]->rdigi.size();
-    // cout << ib << " nbins " << nbins << " max hist " << hEvGaus.size() << " rawBr.size() " << rawBr.size() << endl;
+    //cout << ib << " nbins " << nbins << " max hist " << hEvGaus.size() << " rawBr.size() " << rawBr.size() << endl;
 
     // sanity check
     if (rawBr[ib]->rdigi.size() != WAVELENGTH)
@@ -481,8 +472,9 @@ bool anaCRun::anaEvent(Long64_t entry)
   }
   // continue if event passes
 
-  /* end of first step */
-  return eventPass;
+  /* end of first step return here if not doing pulse finding
+     return eventPass;
+  */
 
   for (unsigned ib = 0; ib < rawBr.size(); ++ib)
   {
@@ -507,6 +499,8 @@ bool anaCRun::anaEvent(Long64_t entry)
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
       {
         double val =  double(rawBr[ib]->rdigi[j]) - idet->base;
+        /* do not do this now */
+        //val /= sipmGain[ib];
         sumWaveB[ib]->SetBinContent(j + 1, sumWaveB[ib]->GetBinContent(j + 1) + val);
         valHistB[ib]->Fill(val);
       }
@@ -515,6 +509,9 @@ bool anaCRun::anaEvent(Long64_t entry)
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
       double val = double(rawBr[ib]->rdigi[j]) - idet->base;
+      // apply gain
+      /* do not do this now */
+      //val /= sipmGain[ib];
       digi.push_back(val);
       sumWave[ib]->SetBinContent(j + 1, sumWave[ib]->GetBinContent(j + 1) + val);
       valHist[ib]->Fill(val);
@@ -522,19 +519,16 @@ bool anaCRun::anaEvent(Long64_t entry)
 
     evCount->Fill(ichan); // chan 0 from GetBinContent(0)
 
-    // pulse finding
-    double hitThreshold = 5.0 * channelSigmaValue[ib];
-    finder->event(ichan, entry, digi, hitThreshold, 1); // DEG suggests 10
-    /*
-    if (ichan == 12) {
-      printf("HITHIT ev %llu chan %i nhits %lu ib = %u thresh= %f \n", entry, idet->channel, idet->hits.size(), ib,hitThreshold);
-      for (unsigned ihit = 0; ihit < idet->hits.size(); ++ihit){
-        TDetHit thit = idet->hits[ihit];
-        printf(" %u %f ; ", ihit, thit.qsum);
-      }
-      printf("\n");
-    }
-    */
+    // pulse finding use a fixed cut on derivative
+    hitThreshold = 5.0 * channelSigmaValue[ib];
+    //printf("call finder chan %i entry %lld n= %lu  derivative threshold %f hit threshold %f  sigma  %f base %f \n", ichan, entry, digi.size(), derivativeThreshold, hitThreshold, channelSigmaValue[ib], idet->base);
+    /* this bug fixed
+    for (unsigned i = 0; i < digi.size(); ++i)
+      if ( abs(digi[i])  > 1.0E9)
+        printf("ERROR before calling finder digi bin %u val  %E raw %E  \n", i, digi[i], double(rawBr[ib]->rdigi[i]));
+        */
+    finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold, 1); // DEG suggests 10
+
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
     if (!fftDir)
     {
@@ -542,9 +536,10 @@ bool anaCRun::anaEvent(Long64_t entry)
       fout->ls();
       return false;
     }
-  } // second channel loop
+  } // second channel loop after pulse finding
 
   /**** second cosmic cut.****/
+  /*
   TDet *tdet = tbrun->detList[12];
   bool cosmicTwo = true;
   if (tdet->channel != 12)
@@ -561,6 +556,7 @@ bool anaCRun::anaEvent(Long64_t entry)
         eventPass = false;
     }
   }
+  */
   if (!eventPass)
   {
     passBit |= 0x8;
@@ -576,24 +572,22 @@ bool anaCRun::anaEvent(Long64_t entry)
   {
     TDet *tdet = tbrun->detList[idet];
     fsum[tdet->channel] = tdet->totSum;
-    // hit threshold cut done in hitFinder
-    /*
-    if(tdet->qSum>0){
-       histQSum->Fill(tdet->channel, tdet->areaSum);
-       histQPrompt->Fill(tdet->channel, tdet->qPrompt);
-    }
-    */
 
     // add some event plots
     bool trig = tdet->channel == 9 || tdet->channel == 10 || tdet->channel == 11;
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
-    if (!trig && tdet->hits.size() > 0 && fftDir->GetList()->GetEntries() < 2000)
+    if (!trig && tdet->hits.size() > 2 && fftDir->GetList()->GetEntries() < 2000) {
+      //printf("!!!!!! anaCRuna::event plot event %llu idet %i chan %i hits %lu \n", entry,idet,tdet->channel, tdet->hits.size());
+      for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
+      {
+        TDetHit thit = tdet->hits[ihit];
+        //printf("\t peak %u start bin %i peak %f \n", ihit,thit.firstBin, thit.qpeak);
+      }
       finder->plotEvent(tdet->channel, entry);
+    }
 
     // loop over hits
-    /* define a noise cut here called hitThreshold */
-    double hitThreshold = 5.0 * channelSigmaValue[idet];
-    // double hitThreshold = 2000; // value for hit.qsum threshold
+    //printf(" event %llu  det %u nhits %lu \n", entry, idet, tdet->hits.size());
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
     {
       TDetHit thit = tdet->hits[ihit];
@@ -619,7 +613,7 @@ bool anaCRun::anaEvent(Long64_t entry)
       }
     }
   }
-  // printf(" event %llu  pass %i fail 1 %i cosmic only %i fail both %i \n",entry, int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));
+  //printf(" event %llu  pass %i fail 1 %i cosmic only %i fail both %i \n",entry, int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));
   ntChanSum->Fill(&fsum[0]); // fill sumHitWave and Q sums
   // if(!eventPass) printf(" event returns with pass bit  %x \n", passBit);
   return eventPass;
@@ -776,19 +770,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
     nentries = TMath::Min(maxEntries, nentries);
   printf("... total entries  %llu looping over %llu \n ", rawTree->GetEntries(), nentries);
 
-  /* test
-    for (Long64_t entry = 0; entry < nentries; ++entry)
-    {
-      cout << " entry " << entry << " ";
-      rawTree->GetEntry(entry);
-      for (unsigned i = 0; i < rawBr.size(); ++i)
-        cout << i << " " << rawBr[i]->rdigi[0] << " ; ";
-      cout << endl;
-    }
-
-    return nentries;
-    */
-
   // open outout file and make histograms
 
   fout = new TFile(Form("caenData/anaCRun-%s-%llu.root", shortName.c_str(), maxEntries), "recreate");
@@ -891,10 +872,11 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
 
   // fout->ls();
   cout << " make hitFinder dets = " << rawBr.size() << "  size " << rawBr[0]->rdigi.size() << endl;
-  // finder = NULL;
   vector<int> chanList;
   for (int ichan = 0; ichan < rawBr.size(); ++ichan)
     chanList.push_back(ichan);
+  
+  finder = NULL;
   finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList, channelSigmaValue);
 
   unsigned npass = 0;
@@ -909,15 +891,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
     }
     rawTree->GetEntry(entry);
 
-    /*
-    for (unsigned it = 0; it < rawBr.size(); ++it)
-      if (rawBr[it])
-        printf("branch %u chan %i trigger %i time %lld digi0 %u \n",
-               it, rawBr[it]->channel, rawBr[it]->trigger, rawBr[it]->time, rawBr[it]->rdigi[0]);
-      else
-        printf("NULL branch %i \n", it);
-      */
-
+    
     hEventPass->Fill(-1);
     if (anaEvent(entry))
       ++npass;
@@ -927,28 +901,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
     //   printf("event fails with passBit = %x npass %i nfail %i \n", passBit,npass,nfail);
     hEventPass->Fill(passBit);
   }
-  // normailize to number of nentries.
-  // loop over detector channels
-  // double scaleFactor = 1. / double(npass);
   printf(" \n \n At END OF FILE total pass  = %i  \n", npass);
-  // do not scale here
-  /*
-  histQSum->Scale(scaleFactor);
-  histQPrompt->Scale(scaleFactor);
-  for (unsigned i = 0; i < sumHitWave.size(); ++i)
-  {
-    sumWave[i]->Scale(scaleFactor); // DEF added
-    sumHitWave[i]->Scale(scaleFactor);
-    sumPeakWave[i]->Scale(scaleFactor);
-    hQSum[i]->Scale(scaleFactor);
-    hQPeak[i]->Scale(scaleFactor);
-  }
-  */
-
-  // finder->hPeakCount->Print("all");
-  // tbrun->btree->GetListOfBranches()->ls();
-  // fout->ls();
-  /* do fits at end of run */
+  
 
   TString graphName = TString("slopeGraph");
   TString graphTitle = TString(Form("slope-graph-%s", shortName.c_str()));
@@ -1020,7 +974,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   printf("  \n");
 
   printf(" ******* FINISHED***** \n \t hits by channel  \n");
-  for (int i = 0; i < 13; ++i)
+  for (int i = 0; i < 12; ++i)
   {
     printf("channel %i %f  \n", i, hQSum[i]->GetEntries());
   }
