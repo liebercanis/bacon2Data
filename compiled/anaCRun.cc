@@ -791,6 +791,10 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
 
   // need to fill rawBr[0]->rdigi.size()
   printf("Read zeroth entry from tree \n");
+  if(!rawTree){
+    printf("EEEEEE rawTree is null!!!!!\n");
+    return 0;
+  }
   rawTree->GetEntry(0);
   printf("\t\t start of file %i %i %i : %i\n", rawEventData->day, rawEventData->mon, rawEventData->year, rawEventData->hour);
   printf("\t\t SIZE OF WAVEFORM = %lu \n", rawBr[0]->rdigi.size());
