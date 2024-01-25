@@ -786,7 +786,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   string shortName = sfilename.substr(0, sfilename.find_last_of("."));
   cout << " anaCRunFile  with shortName= " << shortName << endl;
   TString gainFileName = TString("gains-2023-12-21-13-16.root");
-  cout << "read gains from file "<< gainFileName << endl;
+  cout << "read gains from file " << gainFileName << endl;
   readGains(gainFileName);
 
   // need to fill rawBr[0]->rdigi.size()
@@ -796,7 +796,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
     return 0;
   }
   rawTree->GetEntry(0);
-  printf("\t\t start of file %i %i %i : %i\n", rawEventData->day, rawEventData->mon, rawEventData->year, rawEventData->hour);
+  printf("\n\n\t\t >>>>>>>>> start of file %i %i %i : %i <<<<<<<<<<<< \n", rawEventData->day, rawEventData->mon, rawEventData->year, rawEventData->hour);
   printf("\t\t SIZE OF WAVEFORM = %lu \n", rawBr[0]->rdigi.size());
   if (rawBr[0]->rdigi.size() != WAVELENGTH)
   {
