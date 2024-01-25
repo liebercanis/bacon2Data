@@ -796,7 +796,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
     return 0;
   }
   cout << "  RawTree still has has " << rawTree->GetEntries() << " entries " << endl;
-  rawTree->GetEntry(0);
+  cout << " rawTree return "<< rawTree->GetEntry(0) << endl;
   printf("got rawTree entru 0\n");
   printf("\n\n\t\t >>>>>>>>> start of file %i %i %i : %i <<<<<<<<<<<< \n", rawEventData->day, rawEventData->mon, rawEventData->year, rawEventData->hour);
   printf("\t\t SIZE OF WAVEFORM = %lu \n", rawBr[0]->rdigi.size());
