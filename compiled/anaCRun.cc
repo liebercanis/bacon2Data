@@ -268,6 +268,7 @@ unsigned anaCRun::getBranches()
   TBranch *aBranch = NULL;
   while ((aBranch = (TBranch *)next()))
   {
+    printf(" bramch iter \n");
     TString s(aBranch->GetName());
     cout << " branch name " << s << endl;
     if (s != TString("eventData"))
