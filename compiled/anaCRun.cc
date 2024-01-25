@@ -262,15 +262,12 @@ bool anaCRun::openFile(TString theFile)
 unsigned anaCRun::getBranches()
 {
   TObjArray *brList = rawTree->GetListOfBranches();
-  brList->Print();
   TString cname;
   TIter next(brList);
   TBranch *aBranch = NULL;
   while ((aBranch = (TBranch *)next()))
   {
-    printf(" bramch iter \n");
     TString s(aBranch->GetName());
-    cout << " branch name " << s << endl;
     if (s != TString("eventData"))
     {
       int ichan = TString(s(s.Last('n') + 1, s.Length())).Atoi();
