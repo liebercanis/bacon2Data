@@ -262,7 +262,7 @@ bool anaCRun::openFile(TString theFile)
 unsigned anaCRun::getBranches()
 {
   TObjArray *brList = rawTree->GetListOfBranches();
-  //brList->Print();
+  brList->Print();
   TString cname;
   TIter next(brList);
   TBranch *aBranch = NULL;
