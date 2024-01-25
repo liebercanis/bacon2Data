@@ -17,7 +17,7 @@ class TDet : public TNamed
 {
 public:
   TDet();
-  TDet(int ichan, int ilevel=-1);
+  TDet(int ichan, int ilevel = -1);
   virtual ~TDet() {}
 
   // data elements
@@ -32,10 +32,16 @@ public:
   Double_t base;
   Double_t mode;
   Double_t peak;
-  Double_t totSum; // waveform ADC sum
-  Double_t preSum; // pre trigger waveform ADC sum
+  Double_t totSum;  // waveform ADC sum
+  Double_t preSum;  // pre trigger waveform ADC sum
   Double_t trigSum; // trigger window waveform ADC sum
   Double_t lateSum; // post trigger waveform ADC sum
+  // sums of hit peaks
+  Double_t totPeakSum;  // waveform ADC sum
+  Double_t prePeakSum;  // pre trigger waveform ADC sum
+  Double_t trigPeakSum; // trigger window waveform ADC sum
+  Double_t latePeakSum; // post trigger waveform ADC sum
+
   Int_t thresholds;
   Int_t nspe;
   Double_t hitPrompt;
@@ -61,6 +67,10 @@ public:
     preSum = 0;
     trigSum = 0;
     lateSum = 0;
+    totPeakSum = 0;
+    prePeakSum = 0;
+    trigPeakSum = 0;
+    latePeakSum = 0;
     thresholds = 0;
     nspe = 0;
     hitPrompt = 0;

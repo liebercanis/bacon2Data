@@ -419,6 +419,10 @@ bool anaCRun::anaEvent(Long64_t entry)
     idet->preSum = 0;
     idet->trigSum = 0;
     idet->lateSum = 0;
+    idet->totPeakSum = 0;
+    idet->prePeakSum = 0;
+    idet->trigPeakSum = 0;
+    idet->latePeakSum = 0;
     double peakMax = 0;
     for (unsigned j = 0; j < digi.size(); ++j)
     {
@@ -444,7 +448,6 @@ bool anaCRun::anaEvent(Long64_t entry)
   
   // fill output Tree for each event
   // cout << "finished " << entry << endl;
-  tbrun->fill();
 
   // defined in class as int
   passBit = 0;
@@ -468,6 +471,7 @@ bool anaCRun::anaEvent(Long64_t entry)
   if (!eventPass)
   {
     // printf(" event fails with pass bit  %x \n", passBit);
+  tbrun->fill();
     return eventPass;
   }
   // continue if event passes
@@ -534,6 +538,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     {
       cout << " Error no fftDir" << endl;
       fout->ls();
+      tbrun->fill();
       return false;
     }
   } // second channel loop after pulse finding
@@ -561,6 +566,7 @@ bool anaCRun::anaEvent(Long64_t entry)
   {
     passBit |= 0x8;
     // printf(" event fails %x \n",passBit);
+    tbrun->fill();
     return eventPass;
   }
   // fill total light
@@ -571,6 +577,7 @@ bool anaCRun::anaEvent(Long64_t entry)
   for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
   {
     TDet *tdet = tbrun->detList[idet];
+    //printf(" anaCRuna::event at event %llu idet %i chan %i hits %lu \n", entry, idet, tdet->channel, tdet->hits.size());
     fsum[tdet->channel] = tdet->totSum;
 
     // add some event plots
@@ -585,14 +592,27 @@ bool anaCRun::anaEvent(Long64_t entry)
       }
       finder->plotEvent(tdet->channel, entry);
     }
-
     // loop over hits
     //printf(" event %llu  det %u nhits %lu \n", entry, idet, tdet->hits.size());
+    // add peak sums
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
     {
       TDetHit thit = tdet->hits[ihit];
       hQSum[idet]->Fill(thit.qsum);
       hQPeak[idet]->Fill(thit.qpeak);
+      unsigned hitTime = unsigned(thit.startTime);
+      // do peak sums
+      tdet->totPeakSum += thit.qpeak;
+      //printf(" \t ihit %u startTime %u peak %f sum %f\n",ihit,hitTime,thit.qpeak,tdet->totPeakSum);
+      if ( hitTime < trigStart)
+        tdet->prePeakSum += thit.qpeak;
+      else if (hitTime < trigEnd)
+      {
+        tdet->trigPeakSum += thit.qpeak;
+      }
+      else
+        tdet->latePeakSum += thit.qpeak;
+
       // do threshold for summed waveform
       if (thit.qsum > hitThreshold)
       {
@@ -602,7 +622,7 @@ bool anaCRun::anaEvent(Long64_t entry)
         histHitCount->SetBinContent(tdet->channel + 1, histHitCount->GetBinContent(tdet->channel) + 1);
       }
 
-      if (thit.qpeak > 100 && thit.qpeak < 300 && thit.startTime > 800)
+      if ( thit.startTime > 800)
       {
         for (unsigned jbin = thit.firstBin; jbin < thit.lastBin; ++jbin)
         {
@@ -611,11 +631,25 @@ bool anaCRun::anaEvent(Long64_t entry)
           hQPEShape[idet]->SetBinContent(fillBin, hQPEShape[idet]->GetBinContent(fillBin) + val);
         }
       }
+      /*debugging 
+      if (tdet->hits.size()>0)
+        printf(" anaCRun::event %llu det %i nhits %lu , tot %f pre %f trig %f late %f\n", entry, tdet->channel, tdet->hits.size(),
+               tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
+      */
     }
   }
   //printf(" event %llu  pass %i fail 1 %i cosmic only %i fail both %i \n",entry, int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));
   ntChanSum->Fill(&fsum[0]); // fill sumHitWave and Q sums
-  // if(!eventPass) printf(" event returns with pass bit  %x \n", passBit);
+  //printf(" !!!!! end of event %llu event returns with pass bit  %x \n",entry, passBit);
+  /* was debugging 
+  for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
+  {
+    TDet *tdet = tbrun->detList[idet];
+    printf(" anaCRun::event %llu det %i nhits %lu , tot %f pre %f trig %f late %f\n", entry, tdet->channel, tdet->hits.size(),
+           tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
+  }
+  */
+  tbrun->fill();
   return eventPass;
 } // anaEvent
 
