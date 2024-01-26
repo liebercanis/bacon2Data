@@ -800,8 +800,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   printf("got rawTree entry 0 \n");
   printf("\n\n\t\t >>>>>>>>> start of file %i %i %i : %i <<<<<<<<<<<< \n", rawEventData->day, rawEventData->mon, rawEventData->year, rawEventData->hour);
   printf("\t\t SIZE OF WAVEFORM = %lu \n", rawBr[0]->rdigi.size());
-  //debugging !
-  return 0;
   if (rawBr[0]->rdigi.size() != WAVELENGTH)
   {
     printf(" \n\n\n\n ERROR rdigi size %lu !!! \n", rawBr[0]->rdigi.size());
@@ -1044,7 +1042,7 @@ anaCRun::anaCRun(TString theTag)
   
   rawBr.clear();
  
-  for (int ichan = 0; ichan < CHANNELS; ++ichan)
+  for (int ichan = 0; ichan <= CHANNELS; ++ichan)
   {
     TBRawEvent *rawEv = new TBRawEvent(ichan);
     rawEv->rdigi.resize(7500);
