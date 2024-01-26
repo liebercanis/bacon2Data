@@ -80,6 +80,6 @@ public:
     hits.clear();
   }
 
-  ClassDef(TDet, 9)
+  ClassDef(TDet, 10)
 };
 #endif

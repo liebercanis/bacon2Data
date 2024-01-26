@@ -795,7 +795,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
     printf("EEEEEE rawTree is null!!!!!\n");
     return 0;
   }
-  cout << "  RawTree still has has " << rawTree->GetEntries() << " entries " << endl;
+  cout << " RawTree still has has " << rawTree->GetEntries() << " entries " << endl;
   cout << " rawTree return "<< rawTree->GetEntry(0) << endl;
   printf("got rawTree entry 0 \n");
   printf("\n\n\t\t >>>>>>>>> start of file %i %i %i : %i <<<<<<<<<<<< \n", rawEventData->day, rawEventData->mon, rawEventData->year, rawEventData->hour);
