@@ -1,8 +1,8 @@
-/*//////////////////////////////////////////////////////
+/*  
   M.Gold June 2022
   class to make hits from vector data
   P. Zugec et al. Pulse processing routines for neutron time-of-flight data. Nucl. Instrum. Meth., A812:134–144, 2016.
-/////////////////////////////////////////////////////////*/
+*/
 #include <sstream>
 #include <unistd.h>
 #include <iostream>
@@ -37,12 +37,14 @@
 #include "TDetHit.hxx"
 #include "TBRun.hxx"
 
+using namespace std;
+
 typedef std::vector<std::pair<unsigned, unsigned>> peakType;
 typedef std::vector<std::pair<unsigned, unsigned>>::iterator peakTypeIter;
 typedef std::map<Double_t, TDetHit, std::less<Double_t>> hitMap;
 typedef std::map<Double_t, TDetHit, std::less<Double_t>>::iterator hitMapIter;
 
-const Double_t qnorm = 1.0;
+//const Double_t qnorm = 1.0;
 static double hitQThreshold = 1000;
 
 class hitFinder
@@ -72,6 +74,7 @@ public:
   bool verbose;
   bool splitVerbose;
   bool smoothing;
+  const Double_t qnorm = 1.0;
   hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan, vector<double> sigmaValue);
   virtual ~hitFinder() { chanMap.clear(); }
   int nsamples;
@@ -154,6 +157,7 @@ public:
     std::vector<TH1D *> hInvFFT;
     std::vector<TH1D *> hFFTFilt;
     std::vector<TH1D *> hEvWave;
+    std::vector<TH1D *> hPeakCut;
     std::vector<TH1D *> hEvHitPeakWave;
     std::vector<TH1D *> hEvSmooth;
     std::vector<TH1D *> hEvCross;
