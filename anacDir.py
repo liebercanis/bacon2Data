@@ -9,7 +9,7 @@ def main(args):
     """ run  anaDir ... ana on directory  """
     print(sys.argv)
     if (len(sys.argv) < 2):
-        print("usage: anaDir <directory> <optional number of files> ")
+        print("usage: anaDir <date tag> <optional number of files> ")
         return;
         
     myEnv = os.environ.copy()
