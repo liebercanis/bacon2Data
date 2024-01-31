@@ -45,12 +45,10 @@ void loop(Long64_t maxEntry)
         continue;
       TDet *det = (TDet *)aBranch->GetObject();
       //if(id==0) cout << "branch " << aBranch->GetName() << " entry " << entry << " TotSum " << det->totSum << endl;
-      if(det->totPeakSum==0)
-        continue;
-      hTotSum[id]->Fill(det->totPeakSum);
-      hPreSum[id]->Fill(det->prePeakSum);
-      hTrigSum[id]->Fill(det->trigPeakSum);
-      hLateSum[id]->Fill(det->latePeakSum);
+      if(det->totPeakSum>0) hTotSum[id]->Fill(det->totPeakSum);
+      if(det->prePeakSum > 0) hPreSum[id]->Fill(det->prePeakSum);
+      if(det->trigPeakSum > 0) hTrigSum[id]->Fill(det->trigPeakSum);
+      if(det->latePeakSum > 0) hLateSum[id]->Fill(det->latePeakSum);
       if(trig) {
         trigPre  +=det->prePeakSum;
         trigTrig +=det->trigPeakSum;
@@ -92,12 +90,16 @@ void post(TString tag = TString("11_26_2023"), Long64_t maxEntry=0)
   // make histos
   for (unsigned i = 0; i < NCHAN; ++i)
   {
-    double limit = 4.E2;
-    if (i>8) 10.*limit;
-    hTotSum.push_back(new TH1D(Form("TotPeakSumChan%i", i), Form("tot peak sum chan %i", i), 10000, 0, limit));
-    hPreSum.push_back(new TH1D(Form("PrePeakSumChan%i", i), Form("pre peak sum chan %i", i), 10000, 0, limit));
-    hTrigSum.push_back(new TH1D(Form("TrigPeakSumChan%i", i), Form("trig peak sum chan %i", i), 10000, 0, limit));
-    hLateSum.push_back(new TH1D(Form("LatePeakSumChan%i", i), Form("late peak sum chan %i", i), 10000, 0, limit));
+    double limit = 2000;
+    int nbins = 2000.;
+    if (i > 8){
+      limit = 5000.;
+      nbins = 5000;
+    }
+    hTotSum.push_back(new TH1D(Form("TotPeakSumChan%i", i), Form("tot peak sum chan %i", i), nbins, 0, limit));
+    hPreSum.push_back(new TH1D(Form("PrePeakSumChan%i", i), Form("pre peak sum chan %i", i), nbins, 0, limit));
+    hTrigSum.push_back(new TH1D(Form("TrigPeakSumChan%i", i), Form("trig peak sum chan %i", i), nbins, 0, limit));
+    hLateSum.push_back(new TH1D(Form("LatePeakSumChan%i", i), Form("late peak sum chan %i", i), nbins, 0, limit));
   }
 
   ntSum = new TNtuple("ntSum", " ADC sums ", "trigPre:trigTrig:trigLate:sipmPre:sipmTrig:sipmLate");
