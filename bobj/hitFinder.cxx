@@ -648,11 +648,16 @@ void hitFinder::findDerivativeCrossings(Int_t idet)
     // if (idet==1&&ibin>2350&&ibin<2450)  printf("\t %u vj %f vi %f ctype %u  \n", ibin, vj, vi, ctype );
   }
 
+  if (verbose)
+    printf("  findDerivativeCrossings >> finished det = %i crossings found %lu  \n", idet, crossings.size());
+
   return;
 }
 // make peaks to zero of waveform from PUP crossing type
 void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
 {
+  if(verbose)
+      printf(" hitFinder::makePeaks det %i crossings %lu \n", idet, crossings.size());
   double sigma = tbrun->detList[idet]->sigma;
   peakList.clear();
   peakKind.clear();
@@ -660,7 +665,7 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
   // loop over crossings using only PUP
   for (int icross = 0; icross < crossings.size(); ++icross)
   {
-    if (crossings[icross] != PUP)
+    if (!(crossings[icross] == PUP || crossings[icross] == NUP))
       continue;
     // find local max
     unsigned imax = 0;
@@ -672,6 +677,9 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
       imax = ibin;
       maxVal = v[ibin];
     }
+
+    if (verbose)
+      printf(" hitFinder::makePeaks cross det %i icross %i maxVal %f  \n", idet, icross, maxVal);
 
     unsigned ilow = v.size();
     unsigned ihigh = 0;
