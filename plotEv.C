@@ -11,7 +11,7 @@ int currentEvent;
 void openFile() {
   // open ouput file and make some histograms
   //TString fileName; fileName.Form("rootData/anaUn-%s.root",tag.Data());
-  TString fileName("caenData/anaCRun-run-11_26_2023-file-1000.root");
+  TString fileName("caenData/anaCRun-run-11_26_2023-file-100.root");
   printf(" ***** looking for file %s  ***** \n",fileName.Data());
   fin = new TFile(fileName,"readonly");
   if(fin->IsZombie()) {
