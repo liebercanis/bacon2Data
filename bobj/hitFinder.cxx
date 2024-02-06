@@ -1,6 +1,7 @@
 ////////////////////////////////////////////////////////
 //  M.Gold June 2022
-// revised Jan 27 2023 -- simplified finding
+// revised Jan 27 2023 -- simplified finding 
+// derivative paak finding 
 // class to make hits from vector data
 // P. ugec et al. Pulse processing routines for neutron time-of-flight data. Nucl. Instrum. Meth., A812:134–144, 2016.
 //////////////////////////////////////////////////////////
