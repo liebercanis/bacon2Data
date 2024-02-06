@@ -92,6 +92,7 @@ public:
   TH1D *histQSum;
   TH1D *hEventPass;
   TH1D *histHitCount;
+  TH1D *hNoPeak;
   TH1D *hSumPMT;
   TH1D *threshHist;
   TH2D *threshValueHist;
@@ -122,7 +123,7 @@ public:
   Long64_t currentBufferCount;
   anaCRun(TString theTag = TString("dirName"));
   ~anaCRun() {}
-  Long64_t anaCRunFile(TString theFile, Long64_t maxEntries);
+  Long64_t anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t firstEntry=0);
   void clear();
   bool openFile(TString fileName);
   unsigned getListOfFiles(TString dir);
@@ -583,7 +584,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     // add some event plots
     bool trig = tdet->channel == 9 || tdet->channel == 10 || tdet->channel == 11;
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
-    if (!trig && tdet->hits.size() > 2 && fftDir->GetList()->GetEntries() < 2000) {
+    if (!trig && tdet->hits.size() > 0 && fftDir->GetList()->GetEntries() < 2000) {
       //printf("!!!!!! anaCRuna::event plot event %llu idet %i chan %i hits %lu \n", entry,idet,tdet->channel, tdet->hits.size());
       for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
       {
@@ -592,9 +593,18 @@ bool anaCRun::anaEvent(Long64_t entry)
       }
       finder->plotEvent(tdet->channel, entry);
     }
+
+    if (trig && tdet->hits.size() ==0  && fftDir->GetList()->GetEntries() < 2000)
+    {
+      printf("!!!!!! anaCRuna::event plot event %llu idet %i chan %i hits %lu \n", entry,idet,tdet->channel, tdet->hits.size());
+      finder->plotEvent(tdet->channel, entry);
+    }
+
     // loop over hits
     //printf(" event %llu  det %u nhits %lu \n", entry, idet, tdet->hits.size());
     // add peak sums
+    if (tdet->hits.size()==0)
+      hNoPeak->SetBinContent(tdet->channel + 1, hNoPeak->GetBinContent(tdet->channel) + 1);
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
     {
       TDetHit thit = tdet->hits[ihit];
@@ -614,13 +624,13 @@ bool anaCRun::anaEvent(Long64_t entry)
         tdet->latePeakSum += thit.qpeak;
 
       // do threshold for summed waveform
-      if (thit.qsum > hitThreshold)
-      {
-        sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
-        sumPeakWave[idet]->SetBinContent(thit.firstBin + 1, sumPeakWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
+      //if (thit.qsum > hitThreshold)
+      //{
+      sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
+      sumPeakWave[idet]->SetBinContent(thit.firstBin + 1, sumPeakWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
         // only count hits passing cut
-        histHitCount->SetBinContent(tdet->channel + 1, histHitCount->GetBinContent(tdet->channel) + 1);
-      }
+      histHitCount->SetBinContent(tdet->channel + 1, histHitCount->GetBinContent(tdet->channel) + 1);
+      //}
 
       if ( thit.startTime > 800)
       {
@@ -770,12 +780,13 @@ void anaCRun::derivativeCount(TDet *idet, Double_t rms)
   return;
 }
 
-Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
+Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t firstEntry)
 {
   clear();
   currentBuffer = -1;
   currentBufferCount = 0;
-  cout << " starting anaCRun entries = " << maxEntries << " file =  " << theFile << endl;
+  printf(" anaCRun::anaCRunFile starting anaCRun file %s maxEntries %llu firstEntry %llu \n", 
+    theFile.Data(), maxEntries, firstEntry);
   if (!openFile(theFile)) // and get branches
   {
     printf("cannot open file!\n");
@@ -808,7 +819,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   Long64_t nentries = rawTree->GetEntries();
   if (maxEntries > 0)
     nentries = TMath::Min(maxEntries, nentries);
-  printf("... total entries  %llu looping over %llu \n ", rawTree->GetEntries(), nentries);
+  printf("... total entries  %llu looping over %llu starting from %llu \n ", rawTree->GetEntries(), nentries,firstEntry);
 
   // open outout file and make histograms
 
@@ -839,6 +850,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
   hEventPass = new TH1D("EventPass", " event failures", 16, 0, 16);
   evCount = new TH1D("eventcount", "event count", totalchannels, 0, totalchannels);
+  hNoPeak  = new TH1D("noPeak", "no peak events count by channel", totalchannels, 0, totalchannels);
   histHitCount = new TH1D("hitCount", "hit count by channel", totalchannels, 0, totalchannels);
   histQSum = new TH1D("histqsum", "qsum by channel", totalchannels, 0, totalchannels);
   // nn/histqpe = new th1d("histqpe", "qpe by channel", totalchannels, 0, totalchannels);
@@ -921,8 +933,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
 
   unsigned npass = 0;
   unsigned nfail = 0;
-  printf("... total entries  %llu looping over %llu \n ", rawTree->GetEntries(), nentries);
-  for (Long64_t entry = 0; entry < nentries; ++entry)
+  printf("... total entries  %llu looping over %llu firstEntry %llu \n ", rawTree->GetEntries(), nentries,firstEntry);
+  for (Long64_t entry = firstEntry; entry < nentries; ++entry)
   {
     if (entry / 1000 * 1000 == entry)
     {
@@ -1008,17 +1020,13 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
     grChannelSigma->SetLineStyle(0);
     fout->Append(grChannelSigma);
   }
-  printf(" \t\t *** hit count by channel ***  \n");
-  for (int ibin = 0; ibin < histHitCount->GetNbinsX(); ++ibin)
-    printf(" bin %i count %i ;", ibin, int(histHitCount->GetBinContent(ibin)));
-  printf("  \n");
 
   printf(" ******* FINISHED***** \n \t hits by channel  \n");
-  for (int i = 0; i < 12; ++i)
-  {
-    printf("channel %i %f  \n", i, hQSum[i]->GetEntries());
-  }
-  // printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
+  for (int ibin = 0; ibin < histHitCount->GetNbinsX() -1; ++ibin)
+    printf(" chan %i count %i ; zero %i \n", ibin, int(histHitCount->GetBinContent(ibin+1)), int(hNoPeak->GetBinContent(ibin+1)));
+  printf("  \n");
+
+    // printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
   printf(" FINISHED pass %i  fail %i thresh only %i cross only %i 1st cosmic only %i 2nd cosmic only %i output file %s  \n",
          int(hEventPass->GetBinContent(1)),
          int(nfail),
@@ -1038,8 +1046,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries)
 anaCRun::anaCRun(TString theTag)
 {
   tag = theTag;
-  cout << " instance of anaCRun with tag= " << tag << "CHANNELS" << CHANNELS << endl;
-  
+  cout << " anaCRun::anaCRun instance of anaCRun with tag= " << tag << " CHANNELS = " << CHANNELS << endl;
+
   rawBr.clear();
  
   for (int ichan = 0; ichan <= CHANNELS; ++ichan)

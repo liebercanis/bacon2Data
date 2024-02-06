@@ -55,7 +55,7 @@ namespace ROOT {
       ::hitFinder *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(::hitFinder));
       static ::ROOT::TGenericClassInfo 
-         instance("hitFinder", "hitFinder.hxx", 48,
+         instance("hitFinder", "hitFinder.hxx", 50,
                   typeid(::hitFinder), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &hitFinder_Dictionary, isa_proxy, 4,
                   sizeof(::hitFinder) );
@@ -625,8 +625,8 @@ nullptr
     };
     static const char* includePaths[] = {
 "/usr/local/root/include",
-"/usr/local/root-v6-26-10-buildFFT/include/",
-"/Users/gold/Documents/GitHub/bacon2Data/bobj/",
+"/usr/local/root-v6-26-10-buildFFTNew/include/",
+"/Users/gold/GOOGLE2/bacon2Data/bobj/",
 nullptr
     };
     static const char* fwdDeclCode = R"DICTFWDDCLS(
