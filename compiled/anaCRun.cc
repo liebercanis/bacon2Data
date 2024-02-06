@@ -940,6 +940,10 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     {
       printf("... entry %llu pass %u fail %u \n", entry, npass, nfail);
       // hEventPass->Print("all");
+      printf(" \t hits by channel  \n");
+      for (int ibin = 0; ibin < histHitCount->GetNbinsX() - 1; ++ibin)
+        printf(" chan %i count %i ; zero %i \n", ibin, int(histHitCount->GetBinContent(ibin + 1)), int(hNoPeak->GetBinContent(ibin + 1)));
+      printf("  \n");
     }
     rawTree->GetEntry(entry);
 
