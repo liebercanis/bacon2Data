@@ -604,7 +604,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     //printf(" event %llu  det %u nhits %lu \n", entry, idet, tdet->hits.size());
     // add peak sums
     if (tdet->hits.size()==0)
-      hNoPeak->SetBinContent(tdet->channel + 1, hNoPeak->GetBinContent(tdet->channel) + 1);
+      hNoPeak->SetBinContent(tdet->channel + 1, hNoPeak->GetBinContent(tdet->channel+1) + 1);
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
     {
       TDetHit thit = tdet->hits[ihit];
@@ -629,7 +629,7 @@ bool anaCRun::anaEvent(Long64_t entry)
       sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
       sumPeakWave[idet]->SetBinContent(thit.firstBin + 1, sumPeakWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
         // only count hits passing cut
-      histHitCount->SetBinContent(tdet->channel + 1, histHitCount->GetBinContent(tdet->channel) + 1);
+      histHitCount->SetBinContent(tdet->channel + 1, histHitCount->GetBinContent(tdet->channel+1) + 1);
       //}
 
       if ( thit.startTime > 800)
