@@ -446,7 +446,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     hiti.SetTitle(Form("TDetHit %i event %llu chan %i index %i ", icount++, ievent, ichan, idet));
   }
   // save the hits
-  tbrun->fill();
+  //tbrun->fill();
 
   // save some split histograms
   for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)

@@ -442,7 +442,6 @@ bool anaCRun::anaEvent(Long64_t entry)
     // add some other variables
     idet->peak = peakMax;
 
-
     ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peakMax), float(idet->trigSum), float(idet->totSum), float(crossings.size()), float(thresholds.size()), float(idet->pass));
 
   } // channel loop
@@ -471,8 +470,8 @@ bool anaCRun::anaEvent(Long64_t entry)
   evCount->Fill(-1); // underflow bin
   if (!eventPass)
   {
-    // printf(" event fails with pass bit  %x \n", passBit);
-  tbrun->fill();
+    printf(" event fails with pass bit  %x \n", passBit);
+    tbrun->fill();
     return eventPass;
   }
   // continue if event passes
@@ -566,7 +565,7 @@ bool anaCRun::anaEvent(Long64_t entry)
   if (!eventPass)
   {
     passBit |= 0x8;
-    // printf(" event fails %x \n",passBit);
+    printf(" event fails %x \n",passBit);
     tbrun->fill();
     return eventPass;
   }
@@ -632,7 +631,7 @@ bool anaCRun::anaEvent(Long64_t entry)
       histHitCount->SetBinContent(tdet->channel + 1, histHitCount->GetBinContent(tdet->channel+1) + 1);
       //}
 
-      if ( thit.startTime > 800)
+      if ( thit.startTime > trigEnd)
       {
         for (unsigned jbin = thit.firstBin; jbin < thit.lastBin; ++jbin)
         {
@@ -641,28 +640,32 @@ bool anaCRun::anaEvent(Long64_t entry)
           hQPEShape[idet]->SetBinContent(fillBin, hQPEShape[idet]->GetBinContent(fillBin) + val);
         }
       }
-      /*debugging 
-      if (tdet->hits.size()>0)
+      
+      /*
+      if (trig)
         printf(" anaCRun::event %llu det %i nhits %lu , tot %f pre %f trig %f late %f\n", entry, tdet->channel, tdet->hits.size(),
                tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
-      */
+       */
     }
   }
+
   //printf(" event %llu  pass %i fail 1 %i cosmic only %i fail both %i \n",entry, int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));
   ntChanSum->Fill(&fsum[0]); // fill sumHitWave and Q sums
   //printf(" !!!!! end of event %llu event returns with pass bit  %x \n",entry, passBit);
-  /* was debugging 
+  // was debugging 
+  /*
   for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
   {
     TDet *tdet = tbrun->detList[idet];
-    printf(" anaCRun::event %llu det %i nhits %lu , tot %f pre %f trig %f late %f\n", entry, tdet->channel, tdet->hits.size(),
-           tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
+    if(idet>8&&idet<12) 
+      printf(" anaCRun::event %llu det %i nhits %lu , tot %f pre %f trig %f late %f\n", 
+      entry, tdet->channel, tdet->hits.size(),
+      tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
   }
-  */
+ */ 
   tbrun->fill();
   return eventPass;
 } // anaEvent
-
 // revised derivative Dec 8 2022 MG
 void anaCRun::differentiate(unsigned diffStep)
 {
