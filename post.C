@@ -52,7 +52,7 @@ void loop(Long64_t maxEntry)
       //if(id==0) cout << "branch " << aBranch->GetName() << " entry " << entry << " TotSum " << det->totSum << endl;
       hTotSum[id]->Fill(det->totPeakSum/y[id]);
       hPreSum[id]->Fill(det->prePeakSum/y[id]);
-      TrigSum[id]->Fill(det->trigPeakSum/y[id]);
+      hTrigSum[id]->Fill(det->trigPeakSum/y[id]);
       hLateSum[id]->Fill(det->latePeakSum/y[id]);
       if(trig) {
         trigPre += det->prePeakSum/y[id];
@@ -63,9 +63,9 @@ void loop(Long64_t maxEntry)
       }
       else
       {
-        sipmPre += det->prePeakSumy/y[id];
-        sipmTrig += det->trigPeakSumy/y[id];
-        sipmLate += det->latePeakSumy/y[id];
+        sipmPre += det->prePeakSum/y[id];
+        sipmTrig += det->trigPeakSum/y[id];
+        sipmLate += det->latePeakSum/y[id];
       }
     }
     if (trigEventSumPeak<0)
