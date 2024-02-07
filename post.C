@@ -63,9 +63,9 @@ void loop(Long64_t maxEntry)
       }
       else
       {
-        sipmPre += det->prePeakSumy/[id];
-        sipmTrig += det->trigPeakSumy/[id];
-        sipmLate += det->latePeakSumy/[id];
+        sipmPre += det->prePeakSumy/y[id];
+        sipmTrig += det->trigPeakSumy/y[id];
+        sipmLate += det->latePeakSumy/y[id];
       }
     }
     if (trigEventSumPeak<0)
