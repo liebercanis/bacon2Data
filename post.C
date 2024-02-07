@@ -58,8 +58,8 @@ void loop(Long64_t maxEntry)
         trigPre  +=det->prePeakSum;
         trigTrig +=det->trigPeakSum;
         trigLate +=det->latePeakSum;
-        trigEventSumArea += det->totSum;
-        trigEventSumPeak += det->totPeakSum/y[id];
+        trigEventSumArea += det->trigSum;
+        trigEventSumPeak += det->trigPeakSum/y[id];
       }
       else
       {
@@ -128,8 +128,8 @@ RunTree->GetListOfBranches()->ls();
     hTrigSum.push_back(new TH1D(Form("TrigPeakSumChan%i", i), Form("trig peak sum chan %i", i), nbins, 0, limit));
     hLateSum.push_back(new TH1D(Form("LatePeakSumChan%i", i), Form("late peak sum chan %i", i), nbins, 0, limit));
   }
-  hTrigEventSumArea = new TH1D("TrigEventSumArea","trig event sum area ", 600, 0,6.E5);
-  hTrigEventSumPeak = new TH1D("TrigEventSumPeak","trig event sum peak ", 100, 0,100);
+  hTrigEventSumArea = new TH1D("TrigEventSumArea","trig sipm trigger window sum area ", 600, 0,6.E5);
+  hTrigEventSumPeak = new TH1D("TrigEventSumPeak","trig sipm trigger window sum peak ", 400, 0,40);
 
   ntSum = new TNtuple("ntSum", " ADC sums ", "trigSumArea:trigSumPeak:trigPre:trigTrig:trigLate:sipmPre:sipmTrig:sipmLate");
 
