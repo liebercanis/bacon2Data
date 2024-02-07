@@ -127,7 +127,7 @@ void post(TString tag = TString("12_26_2023"), Long64_t maxEntry = 0)
     hLateSum.push_back(new TH1D(Form("LatePeakSumChan%i", i), Form("late peak sum chan %i", i), nbins, 0, limit));
   }
   hTrigEventSumArea = new TH1D("TrigEventSumArea","trig event sum area ", 600, 0,6.E5);
-  hTrigEventSumPeak = new TH1D("TrigEventSumPeak","trig event sum peak ", 20, 0,20);
+  hTrigEventSumPeak = new TH1D("TrigEventSumPeak","trig event sum peak ", 100, 0,100);
 
   ntSum = new TNtuple("ntSum", " ADC sums ", "trigSumArea:trigSumPeak:trigPre:trigTrig:trigLate:sipmPre:sipmTrig:sipmLate");
 
