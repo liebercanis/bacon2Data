@@ -68,7 +68,9 @@ void loop(Long64_t maxEntry)
         sipmLate += det->latePeakSum;
       }
     }
-    ntSum->Fill(trigEventSumArea,trigEventSumPeak,trigPre, trigTrig, trigLate, sipmPre, sipmTrig, sipmLate);
+    if (trigEventSumPeak<0)
+      trigEventSumPeak = 0;
+    ntSum->Fill(trigEventSumArea, trigEventSumPeak, trigPre, trigTrig, trigLate, sipmPre, sipmTrig, sipmLate);
     if (entry == entry / 10000 * 10000)
       printf("... event %llu trig sum %.2E %.2E \n",entry,trigEventSumArea,trigEventSumPeak);
     hTrigEventSumArea->Fill(trigEventSumArea);
@@ -92,22 +94,22 @@ void post(TString tag = TString("12_26_2023"), Long64_t maxEntry = 0)
   y[10] = 619.5;
   y[11] = 605;
   gStyle->SetOptStat(1001101);
-  cout << " the tag is  " << tag << endl;
-  /* get RunTree */
-  RunTree = new TChain("RunTree");
-  TString name;
-  name.Form("caenData/anaCRun*%s*.root", tag.Data());
-  printf("open chain with %s \n", name.Data());
-  RunTree->Add(name);
-  if (!RunTree)
-    return;
-  printf("files in chain:\n");
-  RunTree->GetListOfFiles()->Print();
-  Long64_t ntriggers = RunTree->GetEntries();
-  printf(" total triggers in this chain %lld \n", ntriggers);
-  if(maxEntry==0)
-    maxEntry = ntriggers;
-  RunTree->GetListOfBranches()->ls();
+cout << " the tag is  " << tag << endl;
+/* get RunTree */
+RunTree = new TChain("RunTree");
+TString name;
+name.Form("caenData/anaCRun*%s*.root", tag.Data());
+printf("open chain with %s \n", name.Data());
+RunTree->Add(name);
+if (!RunTree)
+  return;
+printf("files in chain:\n");
+RunTree->GetListOfFiles()->Print();
+Long64_t ntriggers = RunTree->GetEntries();
+printf(" total triggers in this chain %lld \n", ntriggers);
+if(maxEntry==0)
+  maxEntry = ntriggers;
+RunTree->GetListOfBranches()->ls();
   TString sentries;
   sentries.Form("-%llu",maxEntry);
   fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "recreate");
