@@ -117,12 +117,9 @@ RunTree->GetListOfBranches()->ls();
   // make histos
   for (unsigned i = 0; i < NCHAN; ++i)
   {
-    double limit = 2000;
-    int nbins = 2000.;
-    if (i > 8){
-      limit = 5000.;
-      nbins = 5000;
-    }
+    double limit = 40;
+    int nbins = 400.;
+    // normalized to SPE
     hTotSum.push_back(new TH1D(Form("TotPeakSumChan%i", i), Form("tot peak sum chan %i", i), nbins, 0, limit));
     hPreSum.push_back(new TH1D(Form("PrePeakSumChan%i", i), Form("pre peak sum chan %i", i), nbins, 0, limit));
     hTrigSum.push_back(new TH1D(Form("TrigPeakSumChan%i", i), Form("trig peak sum chan %i", i), nbins, 0, limit));
