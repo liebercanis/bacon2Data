@@ -37,6 +37,7 @@ void loop(Long64_t maxEntry)
     double sipmLate = 0;
     double trigEventSumArea = 0;
     double trigEventSumPeak = 0;
+    double trigTotPeak = 0;
 
     while ((aBranch = (TBranchElement *)next()))
     {
@@ -60,6 +61,7 @@ void loop(Long64_t maxEntry)
         trigLate += det->latePeakSum/y[id];
         trigEventSumPeak += det->trigPeakSum/y[id];
         trigEventSumArea += det->trigSum;
+        trigTotPeak += (det->trigPeakSum + det->latePeakSum)/y[id];
       }
       else
       {
@@ -70,7 +72,7 @@ void loop(Long64_t maxEntry)
     }
     if (trigEventSumPeak<0)
       trigEventSumPeak = 0;
-    ntSum->Fill(trigEventSumArea, trigEventSumPeak, trigPre, trigTrig, trigLate, sipmPre, sipmTrig, sipmLate);
+    ntSum->Fill(trigEventSumArea, trigEventSumPeak, trigTotPeak, trigPre, trigTrig, trigLate, sipmPre, sipmTrig, sipmLate);
     if (entry == entry / 10000 * 10000)
       printf("... event %llu trig sum %.2E %.2E \n",entry,trigEventSumArea,trigEventSumPeak);
     hTrigEventSumArea->Fill(trigEventSumArea);
@@ -128,7 +130,7 @@ RunTree->GetListOfBranches()->ls();
   hTrigEventSumArea = new TH1D("TrigEventSumArea","trig sipm trigger window sum area ", 600, 0,6.E5);
   hTrigEventSumPeak = new TH1D("TrigEventSumPeak","trig sipm trigger window sum peak ", 400, 0,40);
 
-  ntSum = new TNtuple("ntSum", " ADC sums ", "trigSumArea:trigSumPeak:trigPre:trigTrig:trigLate:sipmPre:sipmTrig:sipmLate");
+  ntSum = new TNtuple("ntSum", " ADC sums ",  "trigSumArea:trigSumPeak:trigTotPeak:trigPre:trigTrig:trigLate:sipmPre:sipmTrig:sipmLate");
 
   loop(maxEntry);
 
