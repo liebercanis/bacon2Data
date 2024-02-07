@@ -50,14 +50,14 @@ void loop(Long64_t maxEntry)
         continue;
       TDet *det = (TDet *)aBranch->GetObject();
       //if(id==0) cout << "branch " << aBranch->GetName() << " entry " << entry << " TotSum " << det->totSum << endl;
-      if(det->totPeakSum>0) hTotSum[id]->Fill(det->totPeakSum);
-      if(det->prePeakSum > 0) hPreSum[id]->Fill(det->prePeakSum);
-      if(det->trigPeakSum > 0) hTrigSum[id]->Fill(det->trigPeakSum);
-      if(det->latePeakSum > 0) hLateSum[id]->Fill(det->latePeakSum);
+      if(det->totPeakSum>0)    hTotSum[id]->Fill(det->totPeakSum/y[id]);
+      if(det->prePeakSum > 0)  hPreSum[id]->Fill(det->prePeakSum/y[id]);
+      if(det->trigPeakSum > 0) hTrigSum[id]->Fill(det->trigPeakSum/y[id]);
+      if(det->latePeakSum > 0) hLateSum[id]->Fill(det->latePeakSum/y[id]);
       if(trig) {
-        trigPre  +=det->prePeakSum;
-        trigTrig +=det->trigPeakSum;
-        trigLate +=det->latePeakSum;
+        trigPre += det->prePeakSum/y[id];
+        trigTrig += det->trigPeakSum/y[id];
+        trigLate += det->latePeakSum/y[id];
         trigEventSumArea += det->trigSum;
         trigEventSumPeak += det->trigPeakSum/y[id];
       }
