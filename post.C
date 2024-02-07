@@ -12,14 +12,18 @@ std::vector<TH1D *> hPreSum;
 std::vector<TH1D *> hTrigSum;
 std::vector<TH1D *> hLateSum;
 
+double y[12];
+
+
+TH1D * hTrigEventSumArea;
+TH1D * hTrigEventSumPeak;
+
 void loop(Long64_t maxEntry)
 {
   // loop over entries
   for (Long64_t entry = 0; entry < maxEntry; ++ entry)
   {
     // get entry 
-    if(entry == entry/10000*10000)
-      printf("...at event %llu\n", entry);
     RunTree->GetEntry(entry);
     // get branch pointers and save in detList
     TIter next(RunTree->GetListOfBranches());
@@ -31,7 +35,8 @@ void loop(Long64_t maxEntry)
     double sipmPre = 0;
     double sipmTrig = 0;
     double sipmLate = 0;
-
+    double trigEventSumArea = 0;
+    double trigEventSumPeak = 0;
 
     while ((aBranch = (TBranchElement *)next()))
     {
@@ -53,19 +58,39 @@ void loop(Long64_t maxEntry)
         trigPre  +=det->prePeakSum;
         trigTrig +=det->trigPeakSum;
         trigLate +=det->latePeakSum;
-      } else {
+        trigEventSumArea += det->totSum;
+        trigEventSumPeak += det->totPeakSum/y[id];
+      }
+      else
+      {
         sipmPre += det->prePeakSum;
         sipmTrig += det->trigPeakSum;
         sipmLate += det->latePeakSum;
       }
     }
-    if(trigTrig>0&&sipmTrig>0) 
-      ntSum->Fill(trigPre, trigTrig, trigLate, sipmPre, sipmTrig, sipmLate);
+    ntSum->Fill(trigEventSumArea,trigEventSumPeak,trigPre, trigTrig, trigLate, sipmPre, sipmTrig, sipmLate);
+    if (entry == entry / 10000 * 10000)
+      printf("... event %llu trig sum %.2E %.2E \n",entry,trigEventSumArea,trigEventSumPeak);
+    hTrigEventSumArea->Fill(trigEventSumArea);
+    hTrigEventSumPeak->Fill(trigEventSumPeak);
   }
 }
 
-void post(TString tag = TString("11_26_2023"), Long64_t maxEntry=0)
+void post(TString tag = TString("12_26_2023"), Long64_t maxEntry = 0)
 {
+  /*gains-2024-02-01-17-06.root*/
+  y[0] = 229.5;
+  y[1] = 221;
+  y[2] = 236;
+  y[3] = 200.6;
+  y[4] = 229;
+  y[5] = 229; // not fit same as 4
+  y[6] = 231.6;
+  y[7] = 237.2;
+  y[8] = 232.6;
+  y[9] = 646.9;
+  y[10] = 619.5;
+  y[11] = 605;
   gStyle->SetOptStat(1001101);
   cout << " the tag is  " << tag << endl;
   /* get RunTree */
@@ -101,8 +126,10 @@ void post(TString tag = TString("11_26_2023"), Long64_t maxEntry=0)
     hTrigSum.push_back(new TH1D(Form("TrigPeakSumChan%i", i), Form("trig peak sum chan %i", i), nbins, 0, limit));
     hLateSum.push_back(new TH1D(Form("LatePeakSumChan%i", i), Form("late peak sum chan %i", i), nbins, 0, limit));
   }
+  hTrigEventSumArea = new TH1D("TrigEventSumArea","trig event sum area ", 600, 0,6.E5);
+  hTrigEventSumPeak = new TH1D("TrigEventSumPeak","trig event sum peak ", 20, 0,20);
 
-  ntSum = new TNtuple("ntSum", " ADC sums ", "trigPre:trigTrig:trigLate:sipmPre:sipmTrig:sipmLate");
+  ntSum = new TNtuple("ntSum", " ADC sums ", "trigSumArea:trigSumPeak:trigPre:trigTrig:trigLate:sipmPre:sipmTrig:sipmLate");
 
   loop(maxEntry);
 
