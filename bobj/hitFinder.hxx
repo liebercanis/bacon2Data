@@ -69,6 +69,7 @@ public:
   TDirectory *fftDir;
   TDirectory *finderDir;
   TDirectory *splitDir;
+  TDirectory *sumWaveDir;
   Long64_t theEvent;
   bool isCAEN;
   bool verbose;
@@ -122,6 +123,7 @@ public:
   hitMap makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge);
   void plotWave(int idet, Long64_t jentry);
   void plotEvent(unsigned ichan, Long64_t ievent);
+  void plotSumEvent(Long64_t ievent);
   // careful with indicies ichan and idet!
   void plotSplitEvent(unsigned idet, Long64_t ievent);
   void trimPeaks(int idet, std::vector<Double_t> v);
@@ -170,4 +172,5 @@ public:
     std::vector<TH1D *> hHitSum;
     std::vector<TH1D *> hUnFilteredSummedWave;
     std::vector<TH1D *> hFilteredSummedWave;
+    TH1D* hEvAllSumWave;
   };

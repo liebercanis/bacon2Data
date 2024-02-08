@@ -72,6 +72,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   fftDir = fout->mkdir("fftDir");
   finderDir = fout->mkdir("finderDir");
   splitDir = fout->mkdir("splitDir");
+  sumWaveDir = fout->mkdir("sumWaveDir");
   tag = theTag;
   tbrun = brun;
   nsamples = nSamples;
@@ -143,6 +144,10 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     hHitSum.push_back(new TH1D(Form("HitSum%s", deti->GetName()), Form("HitSum%s", deti->GetName()), nsamples, 0, nsamples));
     printf(" create  index %i vchan %i %s %s \n", index, id, hEvWave[index]->GetName(), hEvWave[index]->GetTitle());
   }
+
+  hEvAllSumWave = new TH1D("EvAllSumWave","EvAllSumWave", nsamples, 0, nsamples);
+  hEvAllSumWave->SetDirectory(nullptr);
+
 
   fout->cd("sumDir");
   for (unsigned index = 0; index < vchan.size(); ++index)
@@ -357,13 +362,15 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   // if (gotTemplate) {
   //   digi = fdigi;
   //}
-
+  hEvAllSumWave->Reset("ICESM");
   for (unsigned isample = 0; isample < digi.size(); isample++)
   {
     hEvWave[idet]->SetBinContent(isample + 1, digi[isample]);
     hEvSmooth[idet]->SetBinContent(isample + 1, digi[isample]);
     hEvFiltWave[idet]->SetBinContent(isample + 1, fdigi[isample]);
     hInvFFT[idet]->SetBinContent(isample + 1, fdigi[isample]);
+    // sum all waves for this event
+    hEvAllSumWave->SetBinContent(isample + 1, hEvAllSumWave->GetBinContent(isample + 1) + digi[isample]);
   }
   // smooth and fill vector
   hEvSmooth[idet]->Smooth(1); // one time
@@ -1282,4 +1289,15 @@ void hitFinder::plotEvent(unsigned ichan, Long64_t ievent)
   */
 
   fout->cd();
+}
+
+void hitFinder::plotSumEvent(Long64_t ievent)
+{
+  // evDir->cd();
+  sumWaveDir->cd();
+  TString histName;
+  TString histTitle;
+  histName.Form("EvAllSumWave%lli", ievent);
+  TH1D *hwave = (TH1D *)hEvAllSumWave->Clone(histName);
+  hwave->SetTitle(histName);
 }

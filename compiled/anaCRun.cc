@@ -541,6 +541,12 @@ bool anaCRun::anaEvent(Long64_t entry)
       tbrun->fill();
       return false;
     }
+    TDirectory *sumWaveDir = (TDirectory *)fout->FindObject("sumWaveDir");
+    if (!sumWaveDir)
+    {
+      cout << " Error no sumWaveDir" << endl;
+      return false;
+    }
   } // second channel loop after pulse finding
 
   /**** second cosmic cut.****/
@@ -593,40 +599,46 @@ bool anaCRun::anaEvent(Long64_t entry)
       finder->plotEvent(tdet->channel, entry);
     }
 
-    if (trig && tdet->hits.size() ==0  && fftDir->GetList()->GetEntries() < 2000)
+    TDirectory *sumWaveDir = (TDirectory *)fout->FindObject("sumWaveDir");
+    if (sumWaveDir->GetList()->GetEntries() < 5000)
     {
-      printf("!!!!!! anaCRuna::event plot event %llu idet %i chan %i hits %lu \n", entry,idet,tdet->channel, tdet->hits.size());
-      finder->plotEvent(tdet->channel, entry);
+      finder->plotSumEvent(entry);
     }
 
-    // loop over hits
-    //printf(" event %llu  det %u nhits %lu \n", entry, idet, tdet->hits.size());
-    // add peak sums
-    if (tdet->hits.size()==0)
-      hNoPeak->SetBinContent(tdet->channel + 1, hNoPeak->GetBinContent(tdet->channel+1) + 1);
-    for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
-    {
-      TDetHit thit = tdet->hits[ihit];
-      hQSum[idet]->Fill(thit.qsum);
-      hQPeak[idet]->Fill(thit.qpeak);
-      unsigned hitTime = unsigned(thit.startTime);
-      // do peak sums
-      tdet->totPeakSum += thit.qpeak;
-      //printf(" \t ihit %u startTime %u peak %f sum %f\n",ihit,hitTime,thit.qpeak,tdet->totPeakSum);
-      if ( hitTime < trigStart)
-        tdet->prePeakSum += thit.qpeak;
-      else if (hitTime < trigEnd)
+    if (trig && tdet->hits.size() == 0 && fftDir->GetList()->GetEntries() < 2000)
       {
-        tdet->trigPeakSum += thit.qpeak;
+        printf("!!!!!! anaCRuna::event plot event %llu idet %i chan %i hits %lu \n", entry, idet, tdet->channel, tdet->hits.size());
+        finder->plotEvent(tdet->channel, entry);
       }
-      else
-        tdet->latePeakSum += thit.qpeak;
 
-      // do threshold for summed waveform
-      //if (thit.qsum > hitThreshold)
-      //{
-      sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
-      sumPeakWave[idet]->SetBinContent(thit.firstBin + 1, sumPeakWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
+      // loop over hits
+      // printf(" event %llu  det %u nhits %lu \n", entry, idet, tdet->hits.size());
+      // add peak sums
+      if (tdet->hits.size() == 0)
+        hNoPeak->SetBinContent(tdet->channel + 1, hNoPeak->GetBinContent(tdet->channel + 1) + 1);
+      for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
+      {
+        TDetHit thit = tdet->hits[ihit];
+        hQSum[idet]->Fill(thit.qsum);
+        hQPeak[idet]->Fill(thit.qpeak);
+        unsigned hitTime = unsigned(thit.startTime);
+        // do peak sums
+        tdet->totPeakSum += thit.qpeak;
+        // printf(" \t ihit %u startTime %u peak %f sum %f\n",ihit,hitTime,thit.qpeak,tdet->totPeakSum);
+        if (hitTime < trigStart)
+          tdet->prePeakSum += thit.qpeak;
+        else if (hitTime < trigEnd)
+        {
+          tdet->trigPeakSum += thit.qpeak;
+        }
+        else
+          tdet->latePeakSum += thit.qpeak;
+
+        // do threshold for summed waveform
+        // if (thit.qsum > hitThreshold)
+        //{
+        sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
+        sumPeakWave[idet]->SetBinContent(thit.firstBin + 1, sumPeakWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
         // only count hits passing cut
       histHitCount->SetBinContent(tdet->channel + 1, histHitCount->GetBinContent(tdet->channel+1) + 1);
       //}
@@ -647,7 +659,7 @@ bool anaCRun::anaEvent(Long64_t entry)
                tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
        */
     }
-  }
+    }
 
   //printf(" event %llu  pass %i fail 1 %i cosmic only %i fail both %i \n",entry, int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));
   ntChanSum->Fill(&fsum[0]); // fill sumHitWave and Q sums
