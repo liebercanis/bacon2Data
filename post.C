@@ -2,6 +2,7 @@ TChain *RunTree;
 TFile *fout;
 TString tag;
 TNtuple* ntSum;
+TNtuple* ntHit;
 enum
 {
   NCHAN = 12
@@ -17,6 +18,9 @@ double y[12];
 
 TH1D * hTrigEventSumArea;
 TH1D * hTrigEventSumPeak;
+TH2D *hTrigHitPeakTime;
+TH2D *hTrigHitPeakTimeCoarse;
+TH2D *hAllHitPeakTimeCoarse;
 
 void loop(Long64_t maxEntry)
 {
@@ -62,12 +66,23 @@ void loop(Long64_t maxEntry)
         trigEventSumPeak += det->trigPeakSum/y[id];
         trigEventSumArea += det->trigSum;
         trigTotPeak += (det->trigPeakSum + det->latePeakSum)/y[id];
+        
       }
       else
       {
         sipmPre += det->prePeakSum/y[id];
         sipmTrig += det->trigPeakSum/y[id];
         sipmLate += det->latePeakSum/y[id];
+      }
+      // loop over hits
+      for (unsigned ihit = 0; ihit < det->hits.size(); ++ihit)
+      {
+        TDetHit hiti = det->hits[ihit];
+        // printf(" det %i time %.0f qpeak %f \n",id,det->hits[ihit].startTime, det->hits[ihit].qpeak);
+        if(trig) hTrigHitPeakTime->Fill(det->hits[ihit].startTime, det->hits[ihit].qpeak / y[id]);
+        if(trig) hTrigHitPeakTimeCoarse->Fill(det->hits[ihit].startTime, det->hits[ihit].qpeak / y[id]);
+        hAllHitPeakTimeCoarse->Fill(det->hits[ihit].startTime, det->hits[ihit].qpeak / y[id]);
+        ntHit->Fill(double(entry), double(id), det->hits[ihit].startTime, det->hits[ihit].qpeak / y[id]);
       }
     }
     if (trigEventSumPeak<0)
@@ -129,9 +144,12 @@ RunTree->GetListOfBranches()->ls();
   }
   hTrigEventSumArea = new TH1D("TrigEventSumArea","trig sipm trigger window sum area ", 600, 0,6.E5);
   hTrigEventSumPeak = new TH1D("TrigEventSumPeak","trig sipm trigger window sum peak ", 400, 0,40);
+  hTrigHitPeakTime = new TH2D("TrigHitPeakTime", "trig summed trig peak versus time ", 7500,0,7500, 400, 0, 40);
+  hTrigHitPeakTimeCoarse = new TH2D("TrigHitPeakTimeCoarse", "trig summed trig peak versus time ", 75,0,7500, 400, 0, 40);
+  hAllHitPeakTimeCoarse = new TH2D("AllHitPeakTimeCoarse", "trig summed trig peak versus time ", 75,0,7500, 400, 0, 40);
 
   ntSum = new TNtuple("ntSum", " ADC sums ",  "trigSumArea:trigSumPeak:trigTotPeak:trigPre:trigTrig:trigLate:sipmPre:sipmTrig:sipmLate");
-
+  ntHit = new TNtuple("ntHit", " hits ", "event:chan:time:qpeak");
   loop(maxEntry);
 
   fout->Write();
