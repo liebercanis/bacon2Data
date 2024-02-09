@@ -21,6 +21,7 @@ TH1D * hTrigEventSumPeak;
 TH2D *hTrigHitPeakTime;
 TH2D *hTrigHitPeakTimeCoarse;
 TH2D *hAllHitPeakTimeCoarse;
+TH2D *hAllHitPeakTime;
 
 void loop(Long64_t maxEntry)
 {
@@ -81,6 +82,7 @@ void loop(Long64_t maxEntry)
         // printf(" det %i time %.0f qpeak %f \n",id,det->hits[ihit].startTime, det->hits[ihit].qpeak);
         if(trig) hTrigHitPeakTime->Fill(det->hits[ihit].startTime, det->hits[ihit].qpeak / y[id]);
         if(trig) hTrigHitPeakTimeCoarse->Fill(det->hits[ihit].startTime, det->hits[ihit].qpeak / y[id]);
+        hAllHitPeakTime->Fill(det->hits[ihit].startTime, det->hits[ihit].qpeak / y[id]);
         hAllHitPeakTimeCoarse->Fill(det->hits[ihit].startTime, det->hits[ihit].qpeak / y[id]);
         ntHit->Fill(double(entry), double(id), det->hits[ihit].startTime, det->hits[ihit].qpeak / y[id]);
       }
@@ -145,6 +147,7 @@ RunTree->GetListOfBranches()->ls();
   hTrigEventSumArea = new TH1D("TrigEventSumArea","trig sipm trigger window sum area ", 600, 0,6.E5);
   hTrigEventSumPeak = new TH1D("TrigEventSumPeak","trig sipm trigger window sum peak ", 400, 0,40);
   hTrigHitPeakTime = new TH2D("TrigHitPeakTime", "trig summed trig peak versus time ", 7500,0,7500, 400, 0, 40);
+  hAllHitPeakTime = new TH2D("AllHitPeakTime", "trig summed trig peak versus time ", 7500,0,7500, 400, 0, 40);
   hTrigHitPeakTimeCoarse = new TH2D("TrigHitPeakTimeCoarse", "trig summed trig peak versus time ", 75,0,7500, 400, 0, 40);
   hAllHitPeakTimeCoarse = new TH2D("AllHitPeakTimeCoarse", "trig summed trig peak versus time ", 75,0,7500, 400, 0, 40);
 
