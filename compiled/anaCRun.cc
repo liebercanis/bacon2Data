@@ -317,7 +317,6 @@ bool anaCRun::anaEvent(Long64_t entry)
   eventData->year = rawEventData->year;
   eventData->isdst = rawEventData->isdst;
   QPEPeak = 100;
-  tbrun->clear();
   // loop over channels
   for (unsigned ib = 0; ib < rawBr.size(); ++ib)
   {
@@ -471,7 +470,6 @@ bool anaCRun::anaEvent(Long64_t entry)
   if (!eventPass)
   {
     printf(" event fails with pass bit  %x \n", passBit);
-    tbrun->fill();
     return eventPass;
   }
   // continue if event passes
@@ -538,7 +536,6 @@ bool anaCRun::anaEvent(Long64_t entry)
     {
       cout << " Error no fftDir" << endl;
       fout->ls();
-      tbrun->fill();
       return false;
     }
     TDirectory *sumWaveDir = (TDirectory *)fout->FindObject("sumWaveDir");
@@ -572,7 +569,6 @@ bool anaCRun::anaEvent(Long64_t entry)
   {
     passBit |= 0x8;
     printf(" event fails %x \n",passBit);
-    tbrun->fill();
     return eventPass;
   }
   // fill total light
@@ -675,7 +671,6 @@ bool anaCRun::anaEvent(Long64_t entry)
       tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
   }
  */ 
-  tbrun->fill();
   return eventPass;
 } // anaEvent
 // revised derivative Dec 8 2022 MG
@@ -951,6 +946,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   printf("... total entries  %llu looping over %llu firstEntry %llu \n ", rawTree->GetEntries(), nentries,firstEntry);
   for (Long64_t entry = firstEntry; entry < nentries; ++entry)
   {
+    tbrun->clear();
     if (entry / 1000 * 1000 == entry)
     {
       printf("... entry %llu pass %u fail %u \n", entry, npass, nfail);
@@ -971,9 +967,9 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     // if(passBit!=0)
     //   printf("event fails with passBit = %x npass %i nfail %i \n", passBit,npass,nfail);
     hEventPass->Fill(passBit);
+    tbrun->fill();
   }
   printf(" \n \n At END OF FILE total pass  = %i  \n", npass);
-  
 
   TString graphName = TString("slopeGraph");
   TString graphTitle = TString(Form("slope-graph-%s", shortName.c_str()));
