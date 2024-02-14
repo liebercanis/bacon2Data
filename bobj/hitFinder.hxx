@@ -122,13 +122,11 @@ public:
   void makePeaks(int idet, std::vector<Double_t> v);
   hitMap makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge);
   void plotWave(int idet, Long64_t jentry);
-  void plotEvent(unsigned ichan, Long64_t ievent);
-  void plotSumEvent(Long64_t ievent);
+  void plotEvent(TDirectory* dir, unsigned ichan, Long64_t ievent);
   // careful with indicies ichan and idet!
-  void plotSplitEvent(unsigned idet, Long64_t ievent);
+  void printPeakList();
   void trimPeaks(int idet, std::vector<Double_t> v);
   void splitPeaks(int idet);
-  void printPeakList();
   bool gotTemplate;
   bool getTemplate(int ichan);
   //void templateFFT(std::vector<double> rdigi);

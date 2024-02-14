@@ -300,7 +300,7 @@ void hitFinder::printPeakList()
 void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, double theDerivativeThreshold, double theHitThreshold,unsigned step)
 {
   // PMT bad
-  if (ichan > 11)
+  if (ichan==12)
     return;
   /*if(ichan == 7 && ievent==0 )
     verbose = true;
@@ -459,7 +459,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
     if (splitCount[idet] > 0 && splitDir->GetList()->GetEntries() < 500){
       printf(" plotSplitEvent %llu %i \n",theEvent,idet);
-      plotSplitEvent(idet, theEvent);
+      plotEvent(splitDir, idet, theEvent);
     }
 
   for (unsigned isample = 0; isample < hdigi.size(); isample++)
@@ -835,6 +835,8 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
       printf(" hitFinder::makeHits %llu insert hit idet %i  number %lu time %f (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, detHits.size(), hitTime, dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
   }
 
+  // do not split summed wave last channel = 13
+  if(idet<13) {
   int nhit = 0;
   for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
   {
@@ -860,6 +862,7 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
         //
       }
     }
+  }
   }
   // first time, charge from map
   /*
@@ -1193,30 +1196,14 @@ void hitFinder::plotWave(int idet, Long64_t jentry)
   can->Print(".gif");
 }
 
-void hitFinder::plotSplitEvent(unsigned idet, Long64_t ievent)
-{
-  // evDir->cd();
-  splitDir->cd();
-  TString histName;
-  TString detName = tbrun->detList[idet]->GetName();
 
-  histName.Form("EvSplitWave%lli_%s", ievent, detName.Data());
-  TH1D *hwave = (TH1D *)hEvWave[idet]->Clone(histName);
-  hwave->SetTitle(histName);
-
-  histName.Form("EvSplitPeakWave%lli_%s", ievent, detName.Data());
-  TH1D *hhitPeakWave = (TH1D *)hEvHitPeakWave[idet]->Clone(histName);
-  hhitPeakWave->SetTitle(histName);
-
-  fout->cd();
-}
-
-void hitFinder::plotEvent(unsigned ichan, Long64_t ievent)
+void hitFinder::plotEvent(TDirectory *dir, unsigned ichan, Long64_t ievent)
 {
   int idet = chanMap.at(ichan);
   int nhits = tbrun->detList[idet]->hits.size();
   // evDir->cd();
-  fftDir->cd();
+  dir->cd();
+  //printf("hitFinder::plotEvent %s ichan %i event %lld \n",dir->GetName(),ichan, ievent);
   TString histName;
   TString histTitle;
   TString detName = tbrun->detList[idet]->GetName();
@@ -1236,6 +1223,12 @@ void hitFinder::plotEvent(unsigned ichan, Long64_t ievent)
   TH1D *hdwave = (TH1D *)hEvDerWave[idet]->Clone(histName);
   hdwave->SetTitle(histName);
 
+  histTitle.Form("EvHitPeakWave%lli%s hits %i", ievent, detName.Data(), nhits);
+  histName.Form("EvHitPeakWave%lli%s", ievent, detName.Data());
+  TH1D *hhitPeakWave = (TH1D *)hEvHitPeakWave[idet]->Clone(histName);
+  hhitPeakWave->SetTitle(histTitle);
+
+  /*
   histName.Form("EvCross%lli%s", ievent, detName.Data());
   TH1D *hcross = (TH1D *)hEvCross[idet]->Clone(histName);
   hcross->SetTitle(histName);
@@ -1244,7 +1237,6 @@ void hitFinder::plotEvent(unsigned ichan, Long64_t ievent)
   TH1D *hpeakCross = (TH1D *)hEvPeakCross[idet]->Clone(histName);
   hpeakCross->SetTitle(histName);
 
-  /*
   histName.Form("EvFiltWave%lli_%s", ievent, detName.Data());
   TH1D *hfiltwave = (TH1D *)hEvFiltWave[idet]->Clone(histName);
 
@@ -1256,16 +1248,7 @@ void hitFinder::plotEvent(unsigned ichan, Long64_t ievent)
   
   histName.Form("EvHitWave%lli_%s", ievent, detName.Data());
   TH1D *hhitWave = (TH1D *)hEvHitWave[idet]->Clone(histName);
-  */
-
-
-  histTitle.Form("EvHitPeakWave%lli%s hits %i", ievent, detName.Data(),nhits);
-  histName.Form("EvHitPeakWave%lli%s", ievent, detName.Data());
-  TH1D *hhitPeakWave = (TH1D *)hEvHitPeakWave[idet]->Clone(histName);
-  hhitPeakWave->SetTitle(histTitle);
-  /*
-
-
+  
   histName.Form("EvFFTFilt%lli_DET%1i_%s", ievent, idet, detName.Data());
   TH1D *hfftfilt = (TH1D *)hFFTFilt[idet]->Clone(histName);
 
@@ -1289,15 +1272,4 @@ void hitFinder::plotEvent(unsigned ichan, Long64_t ievent)
   */
 
   fout->cd();
-}
-
-void hitFinder::plotSumEvent(Long64_t ievent)
-{
-  // evDir->cd();
-  sumWaveDir->cd();
-  TString histName;
-  TString histTitle;
-  histName.Form("EvAllSumWave%lli", ievent);
-  TH1D *hwave = (TH1D *)hEvAllSumWave->Clone(histName);
-  hwave->SetTitle(histName);
 }
