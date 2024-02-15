@@ -47,10 +47,12 @@ public:
     DOUBLEUPCROSS,
     DOUBLEDOWNCROSS
   };
-  // add one for summed waveform 0-12 channels, 13 summed
+  // add two for summed waveform 0-12 channels, 13 summed trigger 14 summed nontrigger
+  // NONSUMCANNELS are nonsummed
   enum
   {
-    CHANNELS = 14
+    CHANNELS = 15,
+    NONSUMCHANNELS = CHANNELS-2
   };
   enum
   {
@@ -136,7 +138,7 @@ public:
   void derivativeCount(TDet *idet, Double_t rms); // not used
   void negativeCrossingCount(int ichan);
   void thresholdCrossingCount(double thresh);
-  std::vector<double> sumDigi();
+  std::vector<double> sumDigi(int ichan);
 
   TDirectory *rawSumDir;
   TDirectory *badDir;
@@ -149,17 +151,24 @@ public:
   double QPEPeak;
 };
 
-std::vector<double> anaCRun::sumDigi()
+std::vector<double> anaCRun::sumDigi(int ichan)
 {
   std::vector<double> digiSum;
   // loop over summed times
   for (unsigned j = 0; j < rawBr[0]->rdigi.size(); ++j) {
     double summedDigi = 0;
   // loop over branches < 13 to sum digi at this sample time
-  for (unsigned ic = 0; ic < rawBr.size() - 1; ++ic){
-    TDet *idet = tbrun->getDet(ic);
-    summedDigi += double(rawBr[ic]->rdigi[j]) - idet->base;
-  }
+  if(ichan==13)
+    for (unsigned ic = 9; ic < 12; ++ic){
+      TDet *idet = tbrun->getDet(ic);
+      summedDigi += double(rawBr[ic]->rdigi[j]) - idet->base;
+    }
+  else
+    for (unsigned ic = 0; ic < 9; ++ic)
+    {
+      TDet *idet = tbrun->getDet(ic);
+      summedDigi += double(rawBr[ic]->rdigi[j]) - idet->base;
+    }
   digiSum.push_back(summedDigi);
   }
   return digiSum;
@@ -336,7 +345,7 @@ bool anaCRun::anaEvent(Long64_t entry)
   eventData->isdst = rawEventData->isdst;
   QPEPeak = 100;
   // loop over channels but not including summed channel
-  for (unsigned ib = 0; ib < rawBr.size()-1; ++ib)
+  for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
   {
     unsigned ichan = ib;
     // define trigger sipms
@@ -469,7 +478,7 @@ bool anaCRun::anaEvent(Long64_t entry)
   // defined in class as int
   passBit = 0;
   bool eventPass = true;
-  for (unsigned ib = 0; ib < rawBr.size()-1; ++ib)
+  for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
   {
     unsigned ichan = ib;
     bool trig = ichan == 9 || ichan == 10 || ichan == 11;
@@ -507,9 +516,9 @@ bool anaCRun::anaEvent(Long64_t entry)
     //   continue;
 
     
-    /* take care here for summed ib=CHANNELS-1 and set appropriate hitThreshold */
+    /* take care here for summed ib=CHANNELS-2 and set appropriate hitThreshold */
     digi.clear();
-    if(ib<rawBr.size()-1) {
+    if(ib<NONSUMCHANNELS) {
       hitThreshold = 5.0 * channelSigmaValue[ib];
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
       {
@@ -518,8 +527,9 @@ bool anaCRun::anaEvent(Long64_t entry)
       }
     // build summed wave 
     } else {
-      hitThreshold = 100.0 * channelSigmaValue[ib];
-      digi = sumDigi();
+      if(ib==13) hitThreshold = 100.0 * channelSigmaValue[ib];
+      if(ib==14) hitThreshold = 50.0 * channelSigmaValue[ib];
+      digi = sumDigi(ib);
     }
 
     // fill histograms
@@ -584,13 +594,13 @@ bool anaCRun::anaEvent(Long64_t entry)
     }
   }
   */
-  if (!eventPass)
-  {
-    passBit |= 0x8;
-    printf(" event fails %x \n", passBit);
-    return eventPass;
+    if (!eventPass)
+    {
+      passBit |= 0x8;
+      printf(" event fails %x \n", passBit);
+      return eventPass;
     }
-    // fill total light
+  // fill total light
     vector<float> fsum;
     fsum.resize(tbrun->detList.size());
 
@@ -617,7 +627,7 @@ bool anaCRun::anaEvent(Long64_t entry)
       }
 
       TDirectory *sumWaveDir = (TDirectory *)fout->FindObject("sumWaveDir");
-      if (idet==CHANNELS-1 && sumWaveDir->GetList()->GetEntries() < 5000)
+      if (idet == 13 || idet == 14 && tdet->hits.size() > 0 && sumWaveDir->GetList()->GetEntries() < 5000)
       {
         //  printf("xxxxxxx anaCRun::event event %llu chan %i hits %lu der thresh %f hit thresh %f \n", entry, tdet->channel, tdet->hits.size(), derivativeThreshold, hitThreshold);
         finder->plotEvent(sumWaveDir, tdet->channel, entry);
@@ -878,16 +888,15 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
 
   // fout->append(tbrun->btree);
-  int totalchannels = rawBr.size() + 1;
   ntChan = new TNtuple("ntchan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peakmax:sum2:sum:negcrossings:thresholds:pass");
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
   hEventPass = new TH1D("EventPass", " event failures", 16, 0, 16);
-  evCount = new TH1D("eventcount", "event count", totalchannels, 0, totalchannels);
-  hNoPeak  = new TH1D("noPeak", "no peak events count by channel", totalchannels, 0, totalchannels);
-  histHitCount = new TH1D("hitCount", "hit count by channel", totalchannels, 0, totalchannels);
-  histQSum = new TH1D("histqsum", "qsum by channel", totalchannels, 0, totalchannels);
-  // nn/histqpe = new th1d("histqpe", "qpe by channel", totalchannels, 0, totalchannels);
-  histQPrompt = new TH1D("histqprompt", "qprompt by channel", totalchannels, 0, totalchannels);
+  evCount = new TH1D("eventcount", "event count", CHANNELS, 0, CHANNELS);
+  hNoPeak  = new TH1D("noPeak", "no peak events count by channel", CHANNELS, 0, CHANNELS);
+  histHitCount = new TH1D("hitCount", "hit count by channel", CHANNELS, 0, CHANNELS);
+  histQSum = new TH1D("histqsum", "qsum by channel", CHANNELS, 0, CHANNELS);
+  // nn/histqpe = new th1d("histqpe", "qpe by channel", CHANNELS, 0, CHANNELS);
+  histQPrompt = new TH1D("histqprompt", "qprompt by channel", CHANNELS, 0, CHANNELS);
   histQSum->Sumw2();
   histQPrompt->Sumw2();
 
@@ -1059,8 +1068,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     fout->Append(grChannelSigma);
   }
 
-  printf(" ******* FINISHED***** \n \t hits by channel  \n");
-  for (int ibin = 0; ibin < histHitCount->GetNbinsX() -1; ++ibin)
+  printf(" ******* FINISHED***** \n \t hits by channels %i   \n",histHitCount->GetNbinsX());
+  for (int ibin = 0; ibin < histHitCount->GetNbinsX(); ++ibin)
     printf(" chan %i count %i ; zero %i \n", ibin, int(histHitCount->GetBinContent(ibin+1)), int(hNoPeak->GetBinContent(ibin+1)));
   printf("  \n");
 
