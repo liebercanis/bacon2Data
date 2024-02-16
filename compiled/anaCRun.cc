@@ -149,6 +149,7 @@ public:
   TDirectory *pmtDir;
   Long64_t nentries;
   double QPEPeak;
+  double nominalGain; // average
 };
 
 std::vector<double> anaCRun::sumDigi(int ichan)
@@ -520,6 +521,8 @@ bool anaCRun::anaEvent(Long64_t entry)
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
       {
         double val = double(rawBr[ib]->rdigi[j]) - idet->base;
+        // scale by nominal gain
+        val *= nominalGain / sipmGain[ib];
         digi.push_back(val);
       }
     // build summed wave 
@@ -1089,6 +1092,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
 anaCRun::anaCRun(TString theTag)
 {
+  nominalGain = 270.5;
   tag = theTag;
   cout << " anaCRun::anaCRun instance of anaCRun with tag= " << tag << " CHANNELS = " << CHANNELS-1 << endl;
 
