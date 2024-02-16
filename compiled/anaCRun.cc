@@ -163,8 +163,8 @@ std::vector<double> anaCRun::sumDigi(int ichan)
     for (unsigned ic = 0; ic < NONSUMCHANNELS-1; ++ic){
       TDet *idet = tbrun->getDet(ic);
       double val = double(rawBr[ic]->rdigi[j]) - idet->base;
-      // scale by nominal gain and take average guessing 2 plus a bit for others
-      val *= nominalGain / sipmGain[ic] / double(3); // skip PMT
+      // scale by nominal gain 
+      val *= nominalGain / sipmGain[ic]; 
       summedDigi += val;
     }
     digiSum.push_back(summedDigi);
