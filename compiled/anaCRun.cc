@@ -153,7 +153,7 @@ public:
 
 std::vector<double> anaCRun::sumDigi(int ichan)
 {
-  double gainRatio = 220. / 620;  // approximate read from graph 
+  double gainRatio = 271. / 624; // from ave in gains-2024-02-15-17-26-save.root
   std::vector<double> digiSum;
   // loop over summed times
   for (unsigned j = 0; j < rawBr[0]->rdigi.size(); ++j) {
@@ -161,9 +161,10 @@ std::vector<double> anaCRun::sumDigi(int ichan)
   // loop over branches < 13 to sum digi at this sample time
     for (unsigned ic = 0; ic < NONSUMCHANNELS; ++ic){
        TDet *idet = tbrun->getDet(ic);
-      double val = double(rawBr[ic]->rdigi[j]);
-      if(ic>8) val *= gainRatio;
-      summedDigi += val-idet->base;
+       double val = double(rawBr[ic]->rdigi[j]) - idet->base;
+       if (ic > 8)
+         val *= gainRatio;
+       summedDigi += val;
     }
     digiSum.push_back(summedDigi);
   }
