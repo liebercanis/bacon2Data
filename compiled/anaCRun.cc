@@ -51,8 +51,8 @@ public:
   // NONSUMCANNELS are nonsummed
   enum
   {
-    CHANNELS = 15,
-    NONSUMCHANNELS = CHANNELS-2
+    CHANNELS = 14,
+    NONSUMCHANNELS = CHANNELS-1
   };
   enum
   {
@@ -153,23 +153,19 @@ public:
 
 std::vector<double> anaCRun::sumDigi(int ichan)
 {
+  double gainRatio = 220. / 620;  // approximate read from graph 
   std::vector<double> digiSum;
   // loop over summed times
   for (unsigned j = 0; j < rawBr[0]->rdigi.size(); ++j) {
     double summedDigi = 0;
   // loop over branches < 13 to sum digi at this sample time
-  if(ichan==13)
-    for (unsigned ic = 9; ic < 12; ++ic){
-      TDet *idet = tbrun->getDet(ic);
-      summedDigi += double(rawBr[ic]->rdigi[j]) - idet->base;
+    for (unsigned ic = 0; ic < NONSUMCHANNELS; ++ic){
+       TDet *idet = tbrun->getDet(ic);
+      double val = double(rawBr[ic]->rdigi[j]);
+      if(ic>8) val *= gainRatio;
+      summedDigi += val-idet->base;
     }
-  else
-    for (unsigned ic = 0; ic < 9; ++ic)
-    {
-      TDet *idet = tbrun->getDet(ic);
-      summedDigi += double(rawBr[ic]->rdigi[j]) - idet->base;
-    }
-  digiSum.push_back(summedDigi);
+    digiSum.push_back(summedDigi);
   }
   return digiSum;
 }
@@ -527,8 +523,7 @@ bool anaCRun::anaEvent(Long64_t entry)
       }
     // build summed wave 
     } else {
-      if(ib==13) hitThreshold = 100.0 * channelSigmaValue[ib];
-      if(ib==14) hitThreshold = 50.0 * channelSigmaValue[ib];
+      hitThreshold = 50.0 * channelSigmaValue[ib];
       digi = sumDigi(ib);
     }
 
