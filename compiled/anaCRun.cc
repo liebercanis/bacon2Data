@@ -835,7 +835,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   string sfilename(theFile.Data());
   string shortName = sfilename.substr(0, sfilename.find_last_of("."));
   cout << " anaCRunFile  with shortName= " << shortName << endl;
-  TString gainFileName = TString("gains-2023-12-21-13-16.root");
+  // new gain file
+  TString gainFileName = TString("gains-2024-02-15-17-26-save.root");
   cout << "read gains from file " << gainFileName << endl;
   readGains(gainFileName);
 
