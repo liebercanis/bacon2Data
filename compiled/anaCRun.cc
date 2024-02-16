@@ -159,13 +159,13 @@ std::vector<double> anaCRun::sumDigi(int ichan)
   // loop over summed times
   for (unsigned j = 0; j < rawBr[0]->rdigi.size(); ++j) {
     double summedDigi = 0;
-  // loop over branches < 13 to sum digi at this sample time
-    for (unsigned ic = 0; ic < NONSUMCHANNELS; ++ic){
-       TDet *idet = tbrun->getDet(ic);
-       double val = double(rawBr[ic]->rdigi[j]) - idet->base;
-       if (ic > 8)
-         val *= gainRatio;
-       summedDigi += val;
+    // loop over branches < 12 to sum digi at this sample time
+    for (unsigned ic = 0; ic < NONSUMCHANNELS-1; ++ic){
+      TDet *idet = tbrun->getDet(ic);
+      double val = double(rawBr[ic]->rdigi[j]) - idet->base;
+      // scale by nominal gain and take average guessing 2 plus a bit for others
+      val *= nominalGain / sipmGain[ic] / double(3); // skip PMT
+      summedDigi += val;
     }
     digiSum.push_back(summedDigi);
   }
@@ -191,15 +191,23 @@ bool anaCRun::readGains(TString fileName)
   cout << "found graph named " << gGain->GetName() << " in file "  << fileName << endl;
   sipmGain.clear();
   sipmGainError.clear();
+  sipmGain.resize(NONSUMCHANNELS);
+  sipmGainError.resize(NONSUMCHANNELS);
+  for (unsigned long j = 0; j < sipmGain.size(); ++j) {
+    sipmGain[j] = nominalGain;
+    sipmGainError[j] = sqrt(nominalGain);
+  }
   for (int i = 0; i < gGain->GetN(); ++i)
   {
-    sipmGain.push_back(gGain->GetPointY(i));
-    sipmGainError.push_back(gGain->GetErrorY(i));
+    int index = int(gGain->GetPointX(i));
+    sipmGain[index]= gGain->GetPointY(i);
+    sipmGainError[index] = gGain->GetErrorY(i);
   }
 
   printf("stored gains %lu \n", sipmGain.size());
-  for (unsigned long j = 0; j < sipmGain.size(); ++j)
-    printf(" %lu  gain %.4f error %.4f   \n", j, sipmGain[j], sipmGainError[j]);
+  for (unsigned long j = 0; j < sipmGain.size(); ++j){
+      printf(" %lu  gain %.4f error %.4f   \n", j, sipmGain[j], sipmGainError[j]);
+  }
   return true;
 }
 
@@ -330,7 +338,8 @@ void anaCRun::getSummedHists()
 /* analyze rawBr */
 bool anaCRun::anaEvent(Long64_t entry)
 {
-  double derivativeThreshold = 40.;
+  // previously 40 but channel 9 was missing peaks
+  double derivativeThreshold = 30.;
   double hitThreshold;
   // copy event data
   eventData->evtime = rawEventData->evtime;
@@ -516,18 +525,18 @@ bool anaCRun::anaEvent(Long64_t entry)
     
     /* take care here for summed ib=CHANNELS-2 and set appropriate hitThreshold */
     digi.clear();
+    // wich nominal gain, hit treshold id the same
+    hitThreshold = 5.0 * channelSigmaValue[ib]; 
     if(ib<NONSUMCHANNELS) {
-      hitThreshold = 5.0 * channelSigmaValue[ib];
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
       {
         double val = double(rawBr[ib]->rdigi[j]) - idet->base;
-        // scale by nominal gain
+        // scale all channels by nominal gain
         val *= nominalGain / sipmGain[ib];
         digi.push_back(val);
       }
     // build summed wave 
     } else {
-      hitThreshold = 50.0 * channelSigmaValue[ib];
       digi = sumDigi(ib);
     }
 
