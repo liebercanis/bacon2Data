@@ -525,8 +525,9 @@ bool anaCRun::anaEvent(Long64_t entry)
     
     /* take care here for summed ib=CHANNELS-2 and set appropriate hitThreshold */
     digi.clear();
-    // wich nominal gain, hit treshold id the same
-    hitThreshold = 5.0 * channelSigmaValue[ib]; 
+    // which nominal gain, hit threshold id the same
+    hitThreshold = 5.0 * channelSigmaValue[ib];  // 5*10
+    //hitThreshold = 0.1*nominalGain; 
     if(ib<NONSUMCHANNELS) {
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
       {
@@ -537,6 +538,7 @@ bool anaCRun::anaEvent(Long64_t entry)
       }
     // build summed wave 
     } else {
+      hitThreshold = nominalGain;
       digi = sumDigi(ib);
     }
 
