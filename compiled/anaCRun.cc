@@ -637,7 +637,7 @@ bool anaCRun::anaEvent(Long64_t entry)
       TDirectory *sumWaveDir = (TDirectory *)fout->FindObject("sumWaveDir");
       if (idet == 13 && tdet->hits.size() > 1 && sumWaveDir->GetList()->GetEntries() < 5000)
       {
-         printf("xxxxxxx anaCRun::event event %llu chan %i hits %lu der thresh %f hit thresh %f \n", entry, tdet->channel, tdet->hits.size(), derivativeThreshold, hitThreshold);
+         //printf("xxxxxxx anaCRun::event event %llu chan %i hits %lu der thresh %f hit thresh %f \n", entry, tdet->channel, tdet->hits.size(), derivativeThreshold, hitThreshold);
         finder->plotEvent(sumWaveDir, tdet->channel, entry);
       }
 
