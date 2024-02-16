@@ -1,4 +1,4 @@
-////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
 //  M.Gold April 2023 read CAEN files
 /////////////////////////////////////////////////////////
 #include <sstream>
@@ -635,15 +635,15 @@ bool anaCRun::anaEvent(Long64_t entry)
       }
 
       TDirectory *sumWaveDir = (TDirectory *)fout->FindObject("sumWaveDir");
-      if (idet == 13 || idet == 14 && tdet->hits.size() > 0 && sumWaveDir->GetList()->GetEntries() < 5000)
+      if (idet == 13 && tdet->hits.size() > 1 && sumWaveDir->GetList()->GetEntries() < 5000)
       {
-        //  printf("xxxxxxx anaCRun::event event %llu chan %i hits %lu der thresh %f hit thresh %f \n", entry, tdet->channel, tdet->hits.size(), derivativeThreshold, hitThreshold);
+         printf("xxxxxxx anaCRun::event event %llu chan %i hits %lu der thresh %f hit thresh %f \n", entry, tdet->channel, tdet->hits.size(), derivativeThreshold, hitThreshold);
         finder->plotEvent(sumWaveDir, tdet->channel, entry);
       }
 
       if (trig && tdet->hits.size() == 0 && fftDir->GetList()->GetEntries() < 2000)
       {
-        printf("!!!!!! anaCRuna::event plot event %llu idet %i chan %i hits %lu \n", entry, idet, tdet->channel, tdet->hits.size());
+        //printf("!!!!!! anaCRuna::event plot event %llu idet %i chan %i hits %lu \n", entry, idet, tdet->channel, tdet->hits.size());
         finder->plotEvent(fftDir, tdet->channel, entry);
       }
 
