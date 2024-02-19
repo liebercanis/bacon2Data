@@ -88,6 +88,7 @@ public:
   vector<TH1D *> hQSum;
   vector<TH1D *> hQPeak;
   vector<TH1D *> hQPEShape;
+  vector<TH1D *> hSingletShape;
   TH1D *hEvBaseWave;
   vector<TH1D *> hEvGaus;
   vector<TH1D *> hChannelGaus;
@@ -215,6 +216,7 @@ void anaCRun::clear()
 {
   hQSum.clear();
   hQPEShape.clear();
+  hSingletShape.clear();
   hQPeak.clear();
   chanMap.clear();
   baseHist.clear();
@@ -624,7 +626,7 @@ bool anaCRun::anaEvent(Long64_t entry)
       // add some event plots
       bool trig = tdet->channel == 9 || tdet->channel == 10 || tdet->channel == 11;
       TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
-      if (!trig && tdet->hits.size() > 0 && fftDir->GetList()->GetEntries() < 2000)
+      if (trig&&tdet->hits.size() > 0 && fftDir->GetList()->GetEntries() < 2000)
       {
         /* printf("!!!!!! anaCRuna::event plot event %llu idet %i chan %i hits %lu \n", entry,idet,tdet->channel, tdet->hits.size());
         for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
@@ -634,7 +636,10 @@ bool anaCRun::anaEvent(Long64_t entry)
         }
         */
         finder->plotEvent(fftDir, tdet->channel, entry);
+        finder->plotEvent(fftDir,8, entry);
       }
+
+
 
       TDirectory *sumWaveDir = (TDirectory *)fout->FindObject("sumWaveDir");
       if (idet == 13 && tdet->hits.size() > 1 && sumWaveDir->GetList()->GetEntries() < 5000)
@@ -691,7 +696,17 @@ bool anaCRun::anaEvent(Long64_t entry)
           hQPEShape[idet]->SetBinContent(fillBin, hQPEShape[idet]->GetBinContent(fillBin) + val);
         }
       }
-      
+
+      if (thit.startTime > trigStart && thit.startTime < trigEnd)
+      {
+        for (unsigned jbin = thit.firstBin; jbin < thit.lastBin; ++jbin)
+        {
+          int fillBin = hSingletShape[idet]->GetNbinsX() / 2 + jbin - thit.peakBin;
+          double val = double(rawBr[idet]->rdigi[jbin]) - tdet->base;
+          hSingletShape[idet]->SetBinContent(fillBin, hSingletShape[idet]->GetBinContent(fillBin) + val);
+        }
+      }
+
       /*
       if (trig)
         printf(" anaCRun::event %llu det %i nhits %lu , tot %f pre %f trig %f late %f\n", entry, tdet->channel, tdet->hits.size(),
@@ -965,6 +980,9 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     // else if(ichan==12) limit = 10000;
     hQPEShape.push_back(new TH1D(Form("QPEShapeChan%i", ichan), Form("QPEShapeChan%i", ichan), 400, -100, 300));
     hQPEShape[hQPEShape.size() - 1]->SetMarkerStyle(20);
+
+    hSingletShape.push_back(new TH1D(Form("SingletShapeChan%i", ichan), Form("SingletShapeChan%i", ichan), 400, -100, 300));
+    hSingletShape[hSingletShape.size() - 1]->SetMarkerStyle(20);
 
     hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 1000, 0, limit));
     hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 1000, 0, plimit));
