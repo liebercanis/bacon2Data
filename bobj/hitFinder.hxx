@@ -153,6 +153,7 @@ public:
 
     TH1D *hWFilter;
     TH1D *hDeriv8;
+    std::vector<TH1D *> hCrossingBin;
     std::vector<TH1D *> hFFT;
     std::vector<TH1D *> hInvFFT;
     std::vector<TH1D *> hFFTFilt;

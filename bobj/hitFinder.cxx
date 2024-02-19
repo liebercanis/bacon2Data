@@ -112,9 +112,20 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     printf(" create  index %i vchan %i %s %s \n", index, id, hFFT[index]->GetName(), hFFT[index]->GetTitle());
   }
 
+
   htemplate = new TH1D("template", "template", nsamples, 0, nsamples);
   htemplateFFT = new TH1D("templateFFT", "templateFFT", nsamples / 2, 0, nsamples / 2);
   hWFilter = new TH1D("WFilter", "WFilter", nsamples / 2, 0, nsamples / 2);
+  
+  
+  splitDir->cd();
+  for (unsigned index = 0; index < vchan.size(); ++index)
+  {
+    int id = vchan[index];
+    TDet *deti = tbrun->getDet(id);
+    chanMap.insert(std::pair<int, int>(id, index));
+    hCrossingBin.push_back(new TH1D(Form("CrossingBin%i", id), Form("Crossing Bin chan  %i ", id), nsamples / 2, 0, nsamples / 2));
+  }
 
   fout->cd();
   hDeriv8 = new TH1D("Deriv8", "Deriv8", nsamples, 0, nsamples);
@@ -736,6 +747,7 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
       // if(vChannel[idet]==6) printf(" %lli add det %i  imax %i val %f icross %u from (%u,%u) %i\n",theEvent, idet, imax, maxVal, crossingBin[icross], ilow, ihigh,icross);
     }
   }
+
 }
 
 hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
@@ -835,6 +847,8 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
 
     if (used)
       continue;
+    
+    hCrossingBin[idet]->Fill(klow);
 
     detHits.insert(std::pair<Double_t, TDetHit>(hitTime, dhit));
     hPeakNWidth->Fill(dhit.lastBin - dhit.firstBin + 1);
