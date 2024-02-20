@@ -540,6 +540,7 @@ bool anaCRun::anaEvent(Long64_t entry)
       }
     // build summed wave 
     } else {
+      hitThreshold = 0.74 * nominalGain;
       digi = sumDigi(ib);
     }
 
