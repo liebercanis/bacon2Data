@@ -112,19 +112,19 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     printf(" create  index %i vchan %i %s %s \n", index, id, hFFT[index]->GetName(), hFFT[index]->GetTitle());
   }
 
-
   htemplate = new TH1D("template", "template", nsamples, 0, nsamples);
   htemplateFFT = new TH1D("templateFFT", "templateFFT", nsamples / 2, 0, nsamples / 2);
   hWFilter = new TH1D("WFilter", "WFilter", nsamples / 2, 0, nsamples / 2);
-  
-  
+
   splitDir->cd();
   for (unsigned index = 0; index < vchan.size(); ++index)
   {
     int id = vchan[index];
     TDet *deti = tbrun->getDet(id);
     chanMap.insert(std::pair<int, int>(id, index));
-    hCrossingBin.push_back(new TH1D(Form("CrossingBin%i", id), Form("Crossing Bin chan  %i ", id), nsamples / 2, 0, nsamples / 2));
+    hCrossingBinA.push_back(new TH1D(Form("CrossingBinA%i", id), Form("Crossing Bin chan  %i ", id), nsamples / 2, 0, nsamples / 2));
+    hCrossingBinB.push_back(new TH1D(Form("CrossingBinB%i", id), Form("Crossing Bin chan  %i ", id), nsamples / 2, 0, nsamples / 2));
+    hCrossingBinC.push_back(new TH1D(Form("CrossingBinC%i", id), Form("Crossing Bin chan  %i ", id), nsamples / 2, 0, nsamples / 2));
   }
 
   fout->cd();
@@ -168,9 +168,9 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     hFilteredSummedWave.push_back(new TH1D(Form("FilteredSummedWave%s", deti->GetName()), Form("filtered summed wave%s", deti->GetName()), nsamples, 0, nsamples));
   }
   fout->cd();
-
-  ntFinder = new TNtuple("finder", " hit finder ", "chan:ncross:npeak");
-  ntSplit = new TNtuple("split", " split for finder ", "event:chan:cross:nsplit:bin:ratio:batr:width");
+  //ntFinder->Fill(float(theEvent), float(idet), float(detHits.size()), float(dhit.firstBin), float(dhit.startTime), float(dhit.peakBin), float(dhit.lastBin));
+  ntFinder = new TNtuple("ntFinder", " hit finder ", "event:chan:nhit:first:start:peak:last:qpeak");
+  ntSplit = new TNtuple("ntSplit", " split for finder ", "event:chan:cross:nsplit:bin:ratio:batr:width");
 
   int templateChan = 8;
   gotTemplate = getTemplate(templateChan);
@@ -482,7 +482,6 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   }
 
   //
-  ntFinder->Fill(float(idet), float(crossings.size()), float(peakList.size()));
   if (1)
   {
     TDet *tdet = tbrun->detList[idet];
@@ -692,6 +691,7 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     if (!(crossings[icross] == PUP || crossings[icross] == NUP))
       continue;
     // find local max
+    hCrossingBinA[idet]->Fill(crossingBin[icross]);
     unsigned imax = 0;
     double maxVal = -99999.;
     for (unsigned ibin = crossingBin[icross]; ibin < v.size(); ++ibin)
@@ -705,17 +705,28 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     if (verbose)
       printf(" hitFinder::makePeaks cross det %i icross %i maxVal %f  \n", idet, icross, maxVal);
 
-    unsigned ilow = v.size();
+    unsigned ilow = crossingBin[icross];
+    //unsigned ilow = v.size();
     unsigned ihigh = 0;
     // LLLLLLL low will be 10% of peak value need to correct for rise time
-    double lowCut = 0.1 * maxVal;
+    // double lowCut = 0.1 * maxVal;
+    double nominalGain = 270.5;
+    double lowCut = 0.1 * nominalGain;
+    //if(idet>8) lowCut = nominalGain;
 
     for (unsigned ibin = imax; ibin < v.size(); --ibin)
     {
+      //if (( idet == 9 || idet==8 )&& crossingBin[icross]>740) printf("\t idet %i %u %u %f \n",idet, crossingBin[icross] , ibin, v[ibin]);
       if (v[ibin] < lowCut) // define start of peak at 0.1 max
         break;
       ilow = ibin;
     }
+    ///if(idet>8) ilow = crossingBin[icross];
+
+    //if ((idet == 9 || idet == 8) && crossingBin[icross] <800 )
+    //  printf(" hitFinder::makePeaks cross det %i  maxVal %f imax %i icross %i ilow %u \n", idet, maxVal, imax, crossingBin[icross], ilow);
+
+    hCrossingBinB[idet]->Fill(ilow);
     // look high
     for (unsigned ibin = imax; ibin < v.size(); ++ibin)
     {
@@ -744,10 +755,10 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
         printf(" hitFinder::makePeaks add det %i  imax %i val %f icross %u from (%u,%u) \n", idet, imax, maxVal, crossingBin[icross], ilow, ihigh);
       peakList.push_back(std::make_pair(ilow, ihigh));
       peakKind.push_back(0);
+      hCrossingBinC[idet]->Fill(ilow);
       // if(vChannel[idet]==6) printf(" %lli add det %i  imax %i val %f icross %u from (%u,%u) %i\n",theEvent, idet, imax, maxVal, crossingBin[icross], ilow, ihigh,icross);
     }
   }
-
 }
 
 hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
@@ -797,7 +808,7 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
     }
     // cut small peaks below hitThreshold
     hPeakCut[idet]->Fill(qpeak);
-    if (qpeak < hitThreshold) 
+    if (qpeak < hitThreshold)
       continue;
 
     unsigned kstart = TMath::Max(unsigned(0), klow - 20);
@@ -844,11 +855,10 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
           printf("hitFinder::makeHit found multiple hits det %i this (%i,%i.%i) last peak (%i,%i,%i) dethit size %lu \n", idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, dhit.firstBin, dhit.peakBin, dhit.lastBin, detHits.size());
       }
     }
+    ntFinder->Fill(float(theEvent), float(idet), float(detHits.size()), float(dhit.firstBin), float(dhit.startTime), float(dhit.peakBin), float(dhit.lastBin), dhit.qpeak);
 
     if (used)
       continue;
-    
-    hCrossingBin[idet]->Fill(klow);
 
     detHits.insert(std::pair<Double_t, TDetHit>(hitTime, dhit));
     hPeakNWidth->Fill(dhit.lastBin - dhit.firstBin + 1);

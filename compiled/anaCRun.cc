@@ -52,7 +52,7 @@ public:
   enum
   {
     CHANNELS = 14,
-    NONSUMCHANNELS = CHANNELS-1
+    NONSUMCHANNELS = CHANNELS - 1
   };
   enum
   {
@@ -60,10 +60,13 @@ public:
   };
   unsigned trigStart = 600;
   unsigned trigEnd = 1200;
+  double peakCut = 4.5;
+  int nominalTrigger = 735;
+  double triggerSigma = 3.0; // samples
   TFile *fout;
   TFile *fin;
   TTree *rawTree;
-  int passBit;
+  TNtuple *ntHit;
   // vectors for gains
   std::vector<double> sipmGain;
   std::vector<double> sipmGainError;
@@ -75,6 +78,8 @@ public:
   TBRun *tbrun;
   TNtuple *ntChan;
   TNtuple *ntChanSum;
+  TNtuple *ntTrigTime;
+  TNtuple *ntSpeYield;
   vector<TH1D *> baseHist;
   vector<TH1D *> noiseHist;
   vector<TH1D *> skewHist;
@@ -92,6 +97,10 @@ public:
   TH1D *hEvBaseWave;
   vector<TH1D *> hEvGaus;
   vector<TH1D *> hChannelGaus;
+  TH1D *hCountPre;
+  TH1D *hCountLate;
+  TH1D *hCountLateTime;
+  TH2D *hCountLateTimeQpeak;
   TH1D *evCount;
   TH1D *histQSum;
   TH1D *hEventPass;
@@ -105,6 +114,11 @@ public:
   TH1D *cosmicCut2;
   // TH1D *histQPE;
   TH1D *histQPrompt;
+  TH1D *hTriggerTimeAll;
+  TH1D *hTriggerHitTimeAll;
+  TH1D *hTriggerTime;
+  TH1D *hTriggerTimeTrig;
+  TH1D *hTriggerShift;
   vector<double> channelSigmaValue;
   vector<double> channelSigma;
   vector<double> channelSigmaErr;
@@ -127,19 +141,22 @@ public:
   Long64_t currentBufferCount;
   anaCRun(TString theTag = TString("dirName"));
   ~anaCRun() {}
-  Long64_t anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t firstEntry=0);
+  Long64_t anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t firstEntry = 0);
   void clear();
   bool openFile(TString fileName);
   unsigned getListOfFiles(TString dir);
-  bool readGains(TString fileName );
+  bool readGains(TString fileName);
   void getSummedHists();
   unsigned getBranches();
-  bool anaEvent(Long64_t entry);
+  int anaEvent(Long64_t entry);                   // return passFlag
   void differentiate(unsigned diffStep);          // not used
   void derivativeCount(TDet *idet, Double_t rms); // not used
   void negativeCrossingCount(int ichan);
   void thresholdCrossingCount(double thresh);
   std::vector<double> sumDigi(int ichan);
+  unsigned triggerTime(int ichan);
+  std::vector<unsigned> trigTimes;
+  std::vector<double> speCount;
 
   TDirectory *rawSumDir;
   TDirectory *badDir;
@@ -151,21 +168,40 @@ public:
   Long64_t nentries;
   double QPEPeak;
   double nominalGain; // average
+  unsigned firstTime;
 };
+
+/** get trigger time **/
+unsigned anaCRun::triggerTime(int ic)
+{
+  TDet *idet = tbrun->getDet(ic);
+  unsigned time = 800;
+  for (unsigned j = 00; j < 800; ++j)
+  {
+    double val = double(rawBr[ic]->rdigi[j]) - idet->base;
+    val *= nominalGain / sipmGain[ic];
+    time = j;
+    if (val > 0.5 * nominalGain)
+      break;
+  }
+  return time;
+}
 
 std::vector<double> anaCRun::sumDigi(int ichan)
 {
   double gainRatio = 271. / 624; // from ave in gains-2024-02-15-17-26-save.root
   std::vector<double> digiSum;
   // loop over summed times
-  for (unsigned j = 0; j < rawBr[0]->rdigi.size(); ++j) {
+  for (unsigned j = 0; j < rawBr[0]->rdigi.size(); ++j)
+  {
     double summedDigi = 0;
     // loop over branches < 12 to sum digi at this sample time
-    for (unsigned ic = 0; ic < NONSUMCHANNELS-1; ++ic){
+    for (unsigned ic = 0; ic < NONSUMCHANNELS - 1; ++ic)
+    {
       TDet *idet = tbrun->getDet(ic);
       double val = double(rawBr[ic]->rdigi[j]) - idet->base;
-      // scale by nominal gain 
-      val *= nominalGain / sipmGain[ic]; 
+      // scale by nominal gain
+      val *= nominalGain / sipmGain[ic];
       summedDigi += val;
     }
     digiSum.push_back(summedDigi);
@@ -189,25 +225,27 @@ bool anaCRun::readGains(TString fileName)
     cout << "no gGain in file " << endl;
     return false;
   }
-  cout << "found graph named " << gGain->GetName() << " in file "  << fileName << endl;
+  cout << "found graph named " << gGain->GetName() << " in file " << fileName << endl;
   sipmGain.clear();
   sipmGainError.clear();
   sipmGain.resize(NONSUMCHANNELS);
   sipmGainError.resize(NONSUMCHANNELS);
-  for (unsigned long j = 0; j < sipmGain.size(); ++j) {
+  for (unsigned long j = 0; j < sipmGain.size(); ++j)
+  {
     sipmGain[j] = nominalGain;
     sipmGainError[j] = sqrt(nominalGain);
   }
   for (int i = 0; i < gGain->GetN(); ++i)
   {
     int index = int(gGain->GetPointX(i));
-    sipmGain[index]= gGain->GetPointY(i);
+    sipmGain[index] = gGain->GetPointY(i);
     sipmGainError[index] = gGain->GetErrorY(i);
   }
 
   printf("stored gains %lu \n", sipmGain.size());
-  for (unsigned long j = 0; j < sipmGain.size(); ++j){
-      printf(" %lu  gain %.4f error %.4f   \n", j, sipmGain[j], sipmGainError[j]);
+  for (unsigned long j = 0; j < sipmGain.size(); ++j)
+  {
+    printf(" %lu  gain %.4f error %.4f   \n", j, sipmGain[j], sipmGainError[j]);
   }
   return true;
 }
@@ -245,7 +283,7 @@ void anaCRun::clear()
   sipmGainError.clear();
   // fill channel sigma in order of branches
   channelSigmaValue.resize(CHANNELS);
-  for (unsigned long j = 0; j < channelSigmaValue.size(); ++j )
+  for (unsigned long j = 0; j < channelSigmaValue.size(); ++j)
     channelSigmaValue[j] = 10;
 }
 
@@ -338,8 +376,11 @@ void anaCRun::getSummedHists()
 }
 
 /* analyze rawBr */
-bool anaCRun::anaEvent(Long64_t entry)
+int anaCRun::anaEvent(Long64_t entry)
 {
+  speCount.resize(NONSUMCHANNELS);
+  std::fill(speCount.begin(), speCount.end(),0);
+  int passFlag = 0;
   // previously 40 but channel 9 was missing peaks
   double derivativeThreshold = 30.;
   double hitThreshold;
@@ -369,7 +410,7 @@ bool anaCRun::anaEvent(Long64_t entry)
     }
 
     int nbins = rawBr[ib]->rdigi.size();
-    //cout << ib << " nbins " << nbins << " max hist " << hEvGaus.size() << " rawBr.size() " << rawBr.size() << endl;
+    // cout << ib << " nbins " << nbins << " max hist " << hEvGaus.size() << " rawBr.size() " << rawBr.size() << endl;
 
     // sanity check
     if (rawBr[ib]->rdigi.size() != WAVELENGTH)
@@ -385,7 +426,6 @@ bool anaCRun::anaEvent(Long64_t entry)
     }
     base /= double(baseLength);
 
-
     // baseline correction from fitted Gaussian
     hEvGaus[ib]->Reset("ICES");
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
@@ -394,8 +434,7 @@ bool anaCRun::anaEvent(Long64_t entry)
       hEvGaus[ib]->Fill(val);
     }
     // get the distribution mode
-    double mode = hEvGaus[ib]->GetBinLowEdge(hEvGaus[ib]->GetMaximumBin())
-     + 0.5 * hEvGaus[ib]->GetBinWidth(hEvGaus[ib]->GetMaximumBin());
+    double mode = hEvGaus[ib]->GetBinLowEdge(hEvGaus[ib]->GetMaximumBin()) + 0.5 * hEvGaus[ib]->GetBinWidth(hEvGaus[ib]->GetMaximumBin());
 
     hEvGaus[ib]->Fit("gaus", "QO", "", hEvGaus[ib]->GetMean() - 100, hEvGaus[ib]->GetMean() + 100);
     TF1 *gfit = (TF1 *)hEvGaus[ib]->GetListOfFunctions()->FindObject("gaus");
@@ -441,7 +480,7 @@ bool anaCRun::anaEvent(Long64_t entry)
      *  fill baseline subtracted vector digi
      *********/
     digi.clear();
-    for (unsigned j = 0; j < rawBr[ib]->rdigi.size()-1; ++j)
+    for (unsigned j = 0; j < rawBr[ib]->rdigi.size() - 1; ++j)
     {
       double val = double(rawBr[ib]->rdigi[j]) - idet->base;
       baseHist[ichan]->Fill(val);
@@ -480,93 +519,148 @@ bool anaCRun::anaEvent(Long64_t entry)
     ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peakMax), float(idet->trigSum), float(idet->totSum), float(crossings.size()), float(thresholds.size()), float(idet->pass));
 
   } // channel loop
-  
-  // fill output Tree for each event
-  // cout << "finished " << entry << endl;
 
-  // defined in class as int
-  passBit = 0;
-  bool eventPass = true;
-  for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
+  /* find trigger time from trigger sipms */
+  trigTimes.resize(12);
+  for (unsigned ic = 0; ic < 12; ++ic)
   {
-    unsigned ichan = ib;
-    bool trig = ichan == 9 || ichan == 10 || ichan == 11;
-
-    TDet *idet = tbrun->getDet(ichan);
-    if (!idet->pass){
-      // printf(" %llu bad chan %u thresh %u crossing %u \n ", entry,ichan, idet->thresholds, idet->crossings);
-      eventPass = false;
-      passBit |= 0x1;
-      printf(".... set bit theshold  %i %i %i\n", ichan, idet->thresholds, passBit);
-    }
-
+    unsigned time = triggerTime(ic);
+    trigTimes[ic] = time;
+    //if (time < nominalTrigger - 5 * triggerSigma)
+    if (time < 695 )
+      passFlag |= 0x1;
+    if (time < 790)
+      hTriggerTimeAll->Fill(double(time));
   }
 
-  evCount->Fill(-1); // underflow bin
-  if (!eventPass)
+  /* ave trigger sipm times */
+  double timeAve = 0;
+  double nave = 0;
+  for (unsigned ic = 9; ic < 12; ++ic)
   {
-    printf(" event fails with pass bit  %x \n", passBit);
-    return eventPass;
+    hTriggerTimeTrig->Fill(double(trigTimes[ic]));
+    if (trigTimes[ic] < 800)
+    {
+      timeAve += double(trigTimes[ic]);
+      ++nave;
+    }
+  }
+  firstTime = nominalTrigger;
+  if (nave > 0)
+    firstTime = unsigned(timeAve / nave);
+
+  if (firstTime < 710 || firstTime>750)
+    passFlag |= 0x2;
+
+  ntTrigTime->Fill(entry, firstTime,
+                   trigTimes[0], trigTimes[1], trigTimes[2],
+                   trigTimes[3], trigTimes[4], trigTimes[5],
+                   trigTimes[6], trigTimes[7], trigTimes[8],
+                   trigTimes[9], trigTimes[10], trigTimes[11]);
+
+  
+  hTriggerTime->Fill(double(firstTime));
+
+  /* *******
+        do pulse finding on summed line for event cuts
+  ****   */
+  digi.clear();
+  hitThreshold = 0.74 * nominalGain;
+  digi = sumDigi(NONSUMCHANNELS);
+  TDet *tdet = tbrun->getDet(NONSUMCHANNELS);
+  tdet->hits.clear();
+  finder->event(NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold, 1); // DEG suggests 10
+  // which nominal gain, hit threshold id the same
+
+  // event cuts
+  int nPreHits = 0;
+  int nLateHits = 0;
+  for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
+  {
+    TDetHit hiti = tdet->hits[ihit];
+    ULong_t hitStartTime = ULong_t(tdet->hits[ihit].startTime);
+    if (hitStartTime < nominalTrigger - 80 * triggerSigma)
+    {
+      ++nPreHits;
+    }
+    hCountLateTimeQpeak->Fill(hitStartTime, tdet->hits[ihit].qpeak / nominalGain);
+    if (hitStartTime > nominalTrigger + 80. * triggerSigma && tdet->hits[ihit].qpeak / nominalGain > peakCut)
+    {
+      ++nLateHits;
+      hCountLateTime->Fill(tdet->hits[ihit].startTime);
+    }
+    // if (hitStartTime > 600 && hitStartTime < 800 && hitStartTime < firstTime)
+    //   firstTime = hitStartTime;
+  }
+  hCountPre->Fill(nPreHits);
+  hCountLate->Fill(nLateHits);
+
+  if (nPreHits > 0)
+    passFlag |= 0x4;
+  if (nLateHits > 0)
+    passFlag |= 0x8;
+
+  evCount->Fill(-1); // underflow bin
+  if (passFlag != 0)
+  {
+    return passFlag;
   }
   // continue if event passes
 
-  /* end of first step return here if not doing pulse finding
-     return eventPass;
-  */
-
- /* start of second channel loop doing pulse finding */
-  for (unsigned ib = 0; ib < rawBr.size(); ++ib)
+  /*******
+        start of second channel loop doing pulse finding
+        align to nominalTrigger
+        defined as timeShift>0 shift right
+   ********/
+  int timeShift = nominalTrigger - firstTime;
+  hTriggerShift->Fill(timeShift);
+  // timeShift = 0; // for debugging!!
+  int absShift = TMath::Abs(timeShift);
+  ULong_t jstart = TMath::Max(-timeShift, 0);
+  ULong_t jstop = TMath::Min(int(rawBr[0]->rdigi.size()), int(rawBr[0]->rdigi.size()) - timeShift);
+  // printf("first %i shift %i  jstart %lu jstop %lu\n",firstTime,timeShift,jstart,jstop);
+  for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
   {
     unsigned ichan = ib;
     TDet *idet = tbrun->getDet(ib);
     bool trig = ichan == 9 || ichan == 10 || ichan == 11;
     int nbins = rawBr[ib]->rdigi.size();
-    // if (nbins != 1024)
-    //   continue;
 
-    
     /* take care here for summed ib=CHANNELS-2 and set appropriate hitThreshold */
     digi.clear();
-    // which nominal gain, hit threshold id the same
+    digi.resize(rawBr[ib]->rdigi.size());
+    std::fill(digi.begin(), digi.end(), ULong_t(0));
+    // which nominal gain, hit threshold id the samea
     hitThreshold = 0.25 * nominalGain;
-    // hitThreshold = 0.1*nominalGain;
-    if(ib<NONSUMCHANNELS) {
-      for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
-      {
-        double val = double(rawBr[ib]->rdigi[j]) - idet->base;
-        // scale all channels by nominal gain
-        val *= nominalGain / sipmGain[ib];
-        digi.push_back(val);
-      }
-    // build summed wave 
-    } else {
-      hitThreshold = 0.74 * nominalGain;
-      digi = sumDigi(ib);
+    for (ULong_t j = jstart; j < jstop; ++j)
+    {
+      double val = double(rawBr[ib]->rdigi[j]) - idet->base;
+      // scale all channels by nominal gain
+      val *= nominalGain / sipmGain[ib];
+      if (timeShift > 0)
+        digi[j + ULong_t(absShift)] = val;
+      else
+        digi[j - ULong_t(absShift)] = val;
     }
 
     // fill histograms
-    for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j){
+    for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+    {
       if (idet->pass)
       {
         sumWave[ib]->SetBinContent(j + 1, sumWave[ib]->GetBinContent(j + 1) + digi[j]);
         valHist[ib]->Fill(digi[j]);
-        // histogram bad events
-      } else {
-          sumWaveB[ib]->SetBinContent(j + 1, sumWaveB[ib]->GetBinContent(j + 1) + digi[j]);
-          valHistB[ib]->Fill(digi[j]);
+        // histogram//  bad events
+      }
+      else
+      {
+        sumWaveB[ib]->SetBinContent(j + 1, sumWaveB[ib]->GetBinContent(j + 1) + digi[j]);
+        valHistB[ib]->Fill(digi[j]);
       }
     }
 
     evCount->Fill(ib); // chan 0 from GetBinContent(0)
 
-    // pulse finding use a fixed cut on derivative
-    //printf("call finder chan %i entry %lld n= %lu  derivative threshold %f hit threshold %f  sigma  %f base %f \n", ichan, entry, digi.size(), derivativeThreshold, hitThreshold, channelSigmaValue[ib], idet->base);
-    /* this bug fixed
-    for (unsigned i = 0; i < digi.size(); ++i)
-      if ( abs(digi[i])  > 1.0E9)
-        printf("ERROR before calling finder digi bin %u val  %E raw %E  \n", i, digi[i], double(rawBr[ib]->rdigi[i]));
-        */
-    
     TDet *tdet = tbrun->getDet(ib);
     tdet->hits.clear();
     finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold, 1); // DEG suggests 10
@@ -586,108 +680,83 @@ bool anaCRun::anaEvent(Long64_t entry)
     }
   } // second channel loop after pulse finding
 
-  
-  /**** second cosmic cut.****/
-  /*
-  TDet *tdet = tbrun->detList[12];
-  bool cosmicTwo = true;
-  if (tdet->channel != 12)
-    printf("ERROR! detlist miss match to channel 12!!!\n");
-  else
-  {
-    // loop over hits
-    for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
-    {
-      TDetHit thit = tdet->hits[ihit];
-      if (thit.startTime > 1000)
-        cosmicCut2->Fill(thit.qpeak);
-      if (thit.startTime > 1000 && thit.qpeak > 500) // changed from 1000 Tue Sep 12 16:02:10 MDT 2023
-        eventPass = false;
-    }
-  }
-  */
-    if (!eventPass)
-    {
-      passBit |= 0x8;
-      printf(" event fails %x \n", passBit);
-      return eventPass;
-    }
   // fill total light
-    vector<float> fsum;
-    fsum.resize(tbrun->detList.size());
+  vector<float> fsum;
+  fsum.resize(tbrun->detList.size());
+  // loop over detector channels
+  for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
+  {
+    TDet *tdet = tbrun->detList[idet];
+    // printf(" anaCRuna::event at event %llu idet %i chan %i hits %lu \n", entry, idet, tdet->channel, tdet->hits.size());
+    fsum[tdet->channel] = tdet->totSum;
 
-    // loop over detector channels
-    for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
+    // add some event plots
+    bool trig = tdet->channel == 9 || tdet->channel == 10 || tdet->channel == 11;
+    TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
+    if (trig && tdet->hits.size() > 0 && fftDir->GetList()->GetEntries() < 2000)
     {
-      TDet *tdet = tbrun->detList[idet];
-      // printf(" anaCRuna::event at event %llu idet %i chan %i hits %lu \n", entry, idet, tdet->channel, tdet->hits.size());
-      fsum[tdet->channel] = tdet->totSum;
-
-      // add some event plots
-      bool trig = tdet->channel == 9 || tdet->channel == 10 || tdet->channel == 11;
-      TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
-      if (trig&&tdet->hits.size() > 0 && fftDir->GetList()->GetEntries() < 2000)
-      {
-        /* printf("!!!!!! anaCRuna::event plot event %llu idet %i chan %i hits %lu \n", entry,idet,tdet->channel, tdet->hits.size());
-        for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
-        {
-          TDetHit thit = tdet->hits[ihit];
-          // printf("\t peak %u start bin %i peak %f \n", ihit,thit.firstBin, thit.qpeak);
-        }
-        */
-        finder->plotEvent(fftDir, tdet->channel, entry);
-        finder->plotEvent(fftDir,8, entry);
-      }
-
-
-
-      TDirectory *sumWaveDir = (TDirectory *)fout->FindObject("sumWaveDir");
-      if (idet == 13 && tdet->hits.size() > 1 && sumWaveDir->GetList()->GetEntries() < 5000)
-      {
-         //printf("xxxxxxx anaCRun::event event %llu chan %i hits %lu der thresh %f hit thresh %f \n", entry, tdet->channel, tdet->hits.size(), derivativeThreshold, hitThreshold);
-        finder->plotEvent(sumWaveDir, tdet->channel, entry);
-      }
-
-      if (trig && tdet->hits.size() == 0 && fftDir->GetList()->GetEntries() < 2000)
-      {
-        //printf("!!!!!! anaCRuna::event plot event %llu idet %i chan %i hits %lu \n", entry, idet, tdet->channel, tdet->hits.size());
-        finder->plotEvent(fftDir, tdet->channel, entry);
-      }
-
-
-      // loop over hits
-      // printf(" event %llu  det %u nhits %lu \n", entry, idet, tdet->hits.size());
-      // add peak sums
-      if (tdet->hits.size() == 0)
-        hNoPeak->SetBinContent(tdet->channel + 1, hNoPeak->GetBinContent(tdet->channel + 1) + 1);
+      /* printf("!!!!!! anaCRuna::event plot event %llu idet %i chan %i hits %lu \n", entry,idet,tdet->channel, tdet->hits.size());
       for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
       {
         TDetHit thit = tdet->hits[ihit];
-        hQSum[idet]->Fill(thit.qsum);
-        hQPeak[idet]->Fill(thit.qpeak);
-        unsigned hitTime = unsigned(thit.startTime);
-        // do peak sums
-        tdet->totPeakSum += thit.qpeak;
-        // printf(" \t ihit %u startTime %u peak %f sum %f\n",ihit,hitTime,thit.qpeak,tdet->totPeakSum);
-        if (hitTime < trigStart)
-          tdet->prePeakSum += thit.qpeak;
-        else if (hitTime < trigEnd)
-        {
-          tdet->trigPeakSum += thit.qpeak;
-        }
-        else
-          tdet->latePeakSum += thit.qpeak;
+        // printf("\t peak %u start bin %i peak %f \n", ihit,thit.firstBin, thit.qpeak);
+      }
+      */
+      finder->plotEvent(fftDir, tdet->channel, entry);
+      // finder->plotEvent(fftDir, 8, entry);
+    }
 
-        // do threshold for summed waveform
-        // if (thit.qsum > hitThreshold)
-        //{
-        sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
-        sumPeakWave[idet]->SetBinContent(thit.firstBin + 1, sumPeakWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
-        // only count hits passing cut
-      histHitCount->SetBinContent(tdet->channel + 1, histHitCount->GetBinContent(tdet->channel+1) + 1);
-      //}
+    TDirectory *sumWaveDir = (TDirectory *)fout->FindObject("sumWaveDir");
+    if (idet == 13 && tdet->hits.size() > 1 && sumWaveDir->GetList()->GetEntries() < 5000)
+    {
+      // printf("xxxxxxx anaCRun::event event %llu chan %i hits %lu der thresh %f hit thresh %f \n", entry, tdet->channel, tdet->hits.size(), derivativeThreshold, hitThreshold);
+      finder->plotEvent(sumWaveDir, tdet->channel, entry);
+    }
 
-      if ( thit.startTime > trigEnd)
+    if (trig && tdet->hits.size() == 0 && fftDir->GetList()->GetEntries() < 2000)
+    {
+      // printf("!!!!!! anaCRuna::event plot event %llu idet %i chan %i hits %lu \n", entry, idet, tdet->channel, tdet->hits.size());
+      finder->plotEvent(fftDir, tdet->channel, entry);
+    }
+
+    // loop over hits
+    // printf(" event %llu  det %u nhits %lu \n", entry, idet, tdet->hits.size());
+    // add peak sums
+    if (tdet->hits.size() == 0)
+      hNoPeak->SetBinContent(tdet->channel + 1, hNoPeak->GetBinContent(tdet->channel + 1) + 1);
+    int firstHitTime = rawBr[NONSUMCHANNELS]->rdigi.size();
+    for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
+    {
+      TDetHit thit = tdet->hits[ihit];
+      hQSum[idet]->Fill(thit.qsum);
+      hQPeak[idet]->Fill(thit.qpeak);
+      unsigned hitTime = unsigned(thit.startTime);
+      // do peak sums
+      tdet->totPeakSum += thit.qpeak;
+      // printf(" \t ihit %u startTime %u peak %f sum %f\n",ihit,hitTime,thit.qpeak,tdet->totPeakSum);
+      if (hitTime > 600 && hitTime < 800 && hitTime < firstHitTime)
+        firstHitTime = hitTime;
+      //
+      if (hitTime < trigStart)
+        tdet->prePeakSum += thit.qpeak;
+      else if (hitTime < trigEnd)
+      {
+        tdet->trigPeakSum += thit.qpeak;
+      }
+      else
+        tdet->latePeakSum += thit.qpeak;
+
+      // do threshold for summed waveform
+      // if (thit.qsum > hitThreshold)
+      sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
+      sumPeakWave[idet]->SetBinContent(thit.firstBin + 1, sumPeakWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
+      // only count hits passing cut
+      histHitCount->SetBinContent(tdet->channel + 1, histHitCount->GetBinContent(tdet->channel + 1) + 1);
+      ntHit->Fill(double(entry), double(passFlag), double(idet), thit.startTime, thit.peakt, thit.qpeak / nominalGain);
+      // sum of photons in SPE for this channel
+      speCount[idet]+= thit.qpeak / nominalGain;
+
+      if (thit.startTime > trigEnd)
       {
         for (unsigned jbin = thit.firstBin; jbin < thit.lastBin; ++jbin)
         {
@@ -712,50 +781,56 @@ bool anaCRun::anaEvent(Long64_t entry)
         printf(" anaCRun::event %llu det %i nhits %lu , tot %f pre %f trig %f late %f\n", entry, tdet->channel, tdet->hits.size(),
                tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
        */
-    }
-    }
+    } // hit loop
+    hTriggerHitTimeAll->Fill(firstHitTime);
+  } // det loop
 
-  //printf(" event %llu  pass %i fail 1 %i cosmic only %i fail both %i \n",entry, int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));
+  // printf(" event %llu  pass %i fail 1 %i cosmic only %i fail both %i \n",entry, int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));
   ntChanSum->Fill(&fsum[0]); // fill sumHitWave and Q sums
-  //printf(" !!!!! end of event %llu event returns with pass bit  %x \n",entry, passBit);
-  // was debugging 
+  ntSpeYield->Fill(entry, 
+                   speCount[0], speCount[1], speCount[2],
+                   speCount[3], speCount[4], speCount[5],
+                   speCount[6], speCount[7], speCount[8],
+                   speCount[9], speCount[10], speCount[11]);
+  // printf(" !!!!! end of event %llu event returns with pass bit  %x \n",entry, eventPass);
+  //  was debugging
   /*
   for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
   {
     TDet *tdet = tbrun->detList[idet];
-    if(idet>8&&idet<12) 
-      printf(" anaCRun::event %llu det %i nhits %lu , tot %f pre %f trig %f late %f\n", 
+    if(idet>8&&idet<12)
+      printf(" anaCRun::event %llu det %i nhits %lu , tot %f pre %f trig %f late %f\n",
       entry, tdet->channel, tdet->hits.size(),
       tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
   }
- */ 
-  return eventPass;
-  } // anaEvent
-  // revised derivative Dec 8 2022 MG
-  void anaCRun::differentiate(unsigned diffStep)
+ */
+  return passFlag;
+} // anaEvent
+// revised derivative Dec 8 2022 MG
+void anaCRun::differentiate(unsigned diffStep)
+{
+  ddigi.clear();
+  Double_t sump = 0;
+  Double_t summ = 0;
+  unsigned nsamples = digi.size();
+  ddigi.push_back(0); // first entry is zero
+  for (unsigned i = 1; i < nsamples; ++i)
   {
-    ddigi.clear();
-    Double_t sump = 0;
-    Double_t summ = 0;
-    unsigned nsamples = digi.size();
-    ddigi.push_back(0); // first entry is zero
-    for (unsigned i = 1; i < nsamples; ++i)
-    {
-      // sum limit
-      int maxSum = diffStep;
-      if (i < diffStep)
-        maxSum = i;
-      if (nsamples - 1 - i < diffStep)
-        maxSum = nsamples - 1 - i;
-      //
-      sump = 0;
-      for (unsigned j = 0; j < maxSum; ++j)
-        sump += digi[i + 1 + j];
-      summ = 0;
-      for (unsigned j = 0; j < maxSum; ++j)
-        summ = digi[i - 1 - j];
-      ddigi.push_back(sump - summ);
-    }
+    // sum limit
+    int maxSum = diffStep;
+    if (i < diffStep)
+      maxSum = i;
+    if (nsamples - 1 - i < diffStep)
+      maxSum = nsamples - 1 - i;
+    //
+    sump = 0;
+    for (unsigned j = 0; j < maxSum; ++j)
+      sump += digi[i + 1 + j];
+    summ = 0;
+    for (unsigned j = 0; j < maxSum; ++j)
+      summ = digi[i - 1 - j];
+    ddigi.push_back(sump - summ);
+  }
 }
 
 void anaCRun::negativeCrossingCount(int ichan)
@@ -853,8 +928,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   clear();
   currentBuffer = -1;
   currentBufferCount = 0;
-  printf(" anaCRun::anaCRunFile starting anaCRun file %s maxEntries %llu firstEntry %llu \n", 
-    theFile.Data(), maxEntries, firstEntry);
+  printf(" anaCRun::anaCRunFile starting anaCRun file %s maxEntries %llu firstEntry %llu \n",
+         theFile.Data(), maxEntries, firstEntry);
   if (!openFile(theFile)) // and get branches
   {
     printf("cannot open file!\n");
@@ -871,12 +946,13 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   // need to fill rawBr[0]->rdigi.size()
   printf("Read zeroth entry from tree \n");
-  if(!rawTree){
+  if (!rawTree)
+  {
     printf("EEEEEE rawTree is null!!!!!\n");
     return 0;
   }
   cout << " RawTree still has has " << rawTree->GetEntries() << " entries " << endl;
-  cout << " rawTree return "<< rawTree->GetEntry(0) << endl;
+  cout << " rawTree return " << rawTree->GetEntry(0) << endl;
   printf("got rawTree entry 0 \n");
   printf("\n\n\t\t >>>>>>>>> start of file %i %i %i : %i <<<<<<<<<<<< \n", rawEventData->day, rawEventData->mon, rawEventData->year, rawEventData->hour);
   printf("\t\t SIZE OF WAVEFORM = %lu \n", rawBr[0]->rdigi.size());
@@ -888,7 +964,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   Long64_t nentries = rawTree->GetEntries();
   if (maxEntries > 0)
     nentries = TMath::Min(maxEntries, nentries);
-  printf("... total entries  %llu looping over %llu starting from %llu \n ", rawTree->GetEntries(), nentries,firstEntry);
+  printf("... total entries  %llu looping over %llu starting from %llu \n ", rawTree->GetEntries(), nentries, firstEntry);
 
   // open outout file and make histograms
 
@@ -913,12 +989,17 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     tbrun->addDet(it);
   }
 
-  // fout->append(tbrun->btree);
+  // fout->append(tbrun->btree);e("ntHit", " hits
+  ntHit = new TNtuple("ntHit", "hit ntuple", "event:flag:chan:time:peakTime:qpeak");
   ntChan = new TNtuple("ntchan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peakmax:sum2:sum:negcrossings:thresholds:pass");
+  ntSpeYield = new TNtuple("ntSpeYield", "spe per sipm",
+                           "event:spe0:spe1:spe2:spe3:spe4:spe5:spe6:spe7:spe8:spe9:spe10:spe11");
+  ntTrigTime = new TNtuple("ntTrigTime", "trigger time ntuple",
+                           "event:tave:trig0:trig1:trig2:trig3:trig4:trig5:trig6:trig7:trig8:trig9:trig10:trig11");
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
   hEventPass = new TH1D("EventPass", " event failures", 16, 0, 16);
   evCount = new TH1D("eventcount", "event count", CHANNELS, 0, CHANNELS);
-  hNoPeak  = new TH1D("noPeak", "no peak events count by channel", CHANNELS, 0, CHANNELS);
+  hNoPeak = new TH1D("noPeak", "no peak events count by channel", CHANNELS, 0, CHANNELS);
   histHitCount = new TH1D("hitCount", "hit count by channel", CHANNELS, 0, CHANNELS);
   histQSum = new TH1D("histqsum", "qsum by channel", CHANNELS, 0, CHANNELS);
   // nn/histqpe = new th1d("histqpe", "qpe by channel", CHANNELS, 0, CHANNELS);
@@ -929,6 +1010,24 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   //
   anaDir = fout->mkdir("anadir");
   anaDir->cd();
+  hTriggerTimeTrig = new TH1D("TriggerTimeTrig", " first hit time in trigger Sipm", 800,0, 800);
+  hTriggerTime = new TH1D("TriggerTime", " ave of trigger Sipm times ", 800, 0, 800);
+  hTriggerShift = new TH1D("TriggerShift", " ave trigger time shift ", 40, -20, 20);
+  hTriggerTimeAll = new TH1D("TriggerTimeAll", " first time all channels ", 800, 00, 800);
+  hTriggerHitTimeAll = new TH1D("TriggerHitTimeAll", " first hit time all channels ", 80, 0, 800);
+  TString htitle;
+  hCountPre = new TH1D("CountPre", " hits sample<600 in sum", 20, 0, 20);
+  htitle.Form("hits qpeak>%.2f SPE sample>1000 in sum", peakCut);
+  hCountLate = new TH1D("CountLate", htitle, 20, 0, 20);
+  htitle.Form("number of late time hits with qpeak>%.2f", peakCut);
+  hCountLate->GetXaxis()->SetTitle(htitle);
+  htitle.Form("hits qpeak>%.2f SPE sample>1000 in sum", peakCut);
+  hCountLateTime = new TH1D("CountLateTime ", htitle, 30, 0, 7500);
+  hCountLateTime->GetXaxis()->SetTitle("sample time");
+  hCountLateTime->Sumw2();
+  hCountLateTimeQpeak = new TH2D("CountLateTimeQpeak", " sample>1000 in sum qpeak vs time ", 30, 0, 7500, 20, 0, 20);
+  hCountLateTimeQpeak->GetXaxis()->SetTitle("sample time");
+  hCountLateTimeQpeak->GetYaxis()->SetTitle("qpeak [SPE]");
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
     unsigned ichan = i;
@@ -994,17 +1093,17 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   fout->cd();
 
   // fout->ls();
-  cout  << " make hitFinder dets = " << CHANNELS  << "  size " << rawBr[0]->rdigi.size() << endl;
+  cout << " make hitFinder dets = " << CHANNELS << "  size " << rawBr[0]->rdigi.size() << endl;
   vector<int> chanList;
-  for (int ichan = 0; ichan < CHANNELS ; ++ichan)
+  for (int ichan = 0; ichan < CHANNELS; ++ichan)
     chanList.push_back(ichan);
-  
+
   finder = NULL;
   finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList, channelSigmaValue);
 
-  unsigned npass = 0;
-  unsigned nfail = 0;
-  printf("... total entries  %llu looping over %llu firstEntry %llu \n ", rawTree->GetEntries(), nentries,firstEntry);
+  int npass = 0;
+  int nfail = 0;
+  printf("... total entries  %llu looping over %llu firstEntry %llu \n ", rawTree->GetEntries(), nentries, firstEntry);
   for (Long64_t entry = firstEntry; entry < nentries; ++entry)
   {
     tbrun->clear();
@@ -1019,18 +1118,23 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     }
     rawTree->GetEntry(entry);
 
-    
-    hEventPass->Fill(-1);
-    if (anaEvent(entry))
+    int passFlag = anaEvent(entry);
+    if (passFlag == 0)
+    {
       ++npass;
+    }
     else
+    {
       ++nfail;
-    // if(passBit!=0)
-    //   printf("event fails with passBit = %x npass %i nfail %i \n", passBit,npass,nfail);
-    hEventPass->Fill(passBit);
+      printf(" event %llu fails with pass bit  %x pass %i fail %i \n", entry, passFlag, npass, nfail);
+    }
+    hEventPass->Fill(-1);
+    hEventPass->SetBinContent(passFlag, hEventPass->GetBinContent(passFlag) + 1);
+    // if(eventPass!=0)
+    //   printf("event fails with eventPass = %x npass %i nfail %i \n", eventPass,npass,nfail);
     tbrun->fill();
   }
-  printf(" \n \n At END OF FILE total pass  = %i  \n", npass);
+  printf(" \n \n At END OF FILE total pass  = %i fail %i  \n", npass, nfail);
 
   TString graphName = TString("slopeGraph");
   TString graphTitle = TString(Form("slope-graph-%s", shortName.c_str()));
@@ -1097,22 +1201,24 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     fout->Append(grChannelSigma);
   }
 
-  printf(" ******* FINISHED***** \n \t hits by channels %i   \n",histHitCount->GetNbinsX());
+  printf(" ******* FINISHED***** \n \t hits by channels %i   \n", histHitCount->GetNbinsX());
   for (int ibin = 0; ibin < histHitCount->GetNbinsX(); ++ibin)
-    printf(" chan %i count %i ; zero %i \n", ibin, int(histHitCount->GetBinContent(ibin+1)), int(hNoPeak->GetBinContent(ibin+1)));
+    printf(" chan %i count %i ; zero %i \n", ibin, int(histHitCount->GetBinContent(ibin + 1)), int(hNoPeak->GetBinContent(ibin + 1)));
   printf("  \n");
 
-    // printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
-  printf(" FINISHED pass %i  fail %i thresh only %i cross only %i 1st cosmic only %i 2nd cosmic only %i output file %s  \n",
-         int(hEventPass->GetBinContent(1)),
-         int(nfail),
-         int(hEventPass->GetBinContent(1 + 1)),
-         int(hEventPass->GetBinContent(2 + 1)),
-         int(hEventPass->GetBinContent(4 + 1)),
-         int(hEventPass->GetBinContent(8 + 1)),
+  // printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
+  printf(" FINISHED %i pass %i  fail %i (0.3%f) output file %s  \n",
+         npass + nfail,
+         npass,
+         nfail,
+         double(nfail) / double(npass + nfail),
+         // int(hEventPass->GetBinContent(8 + 1)),
          fout->GetName());
 
   // hEventPass->Print("all");
+  printf("pass fractions total = %.0f \n", hEventPass->GetBinContent(0));
+  for (int ibin = 1; ibin < hEventPass->GetNbinsX(); ++ibin)
+    printf(" bin %i fail %.f frac %.3f \n", ibin, hEventPass->GetBinContent(ibin), hEventPass->GetBinContent(ibin) / hEventPass->GetBinContent(0));
 
   fout->Write();
   fout->Close();
@@ -1123,10 +1229,10 @@ anaCRun::anaCRun(TString theTag)
 {
   nominalGain = 270.5;
   tag = theTag;
-  cout << " anaCRun::anaCRun instance of anaCRun with tag= " << tag << " CHANNELS = " << CHANNELS-1 << endl;
+  cout << " anaCRun::anaCRun instance of anaCRun with tag= " << tag << " CHANNELS = " << CHANNELS - 1 << endl;
 
   rawBr.clear();
- 
+
   for (int ichan = 0; ichan < CHANNELS; ++ichan)
   {
     TBRawEvent *rawEv = new TBRawEvent(ichan);
