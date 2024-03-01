@@ -154,8 +154,9 @@ public:
   void negativeCrossingCount(int ichan);
   void thresholdCrossingCount(double thresh);
   std::vector<double> sumDigi(int ichan);
-  unsigned triggerTime(int ichan);
+  unsigned triggerTime(int ichan, double &adc);
   std::vector<unsigned> trigTimes;
+  std::vector<double> adcBin;
   std::vector<double> speCount;
 
   TDirectory *rawSumDir;
@@ -172,17 +173,19 @@ public:
 };
 
 /** get trigger time **/
-unsigned anaCRun::triggerTime(int ic)
+unsigned anaCRun::triggerTime(int ic,double &adc)
 {
   TDet *idet = tbrun->getDet(ic);
-  unsigned time = 800;
-  for (unsigned j = 00; j < 800; ++j)
+  unsigned time = 0;
+  for (unsigned j = 0; j < 801; ++j)
   {
     double val = double(rawBr[ic]->rdigi[j]) - idet->base;
     val *= nominalGain / sipmGain[ic];
-    time = j;
-    if (val > 0.5 * nominalGain)
+    if (val > 0.5 * nominalGain){
+      adc = val;
+      time = j;
       break;
+    }
   }
   return time;
 }
@@ -522,14 +525,17 @@ int anaCRun::anaEvent(Long64_t entry)
 
   /* find trigger time from trigger sipms */
   trigTimes.resize(12);
+  adcBin.resize(12);
   for (unsigned ic = 0; ic < 12; ++ic)
   {
-    unsigned time = triggerTime(ic);
+    double val = 0;
+    unsigned time = triggerTime(ic, val);
     trigTimes[ic] = time;
-    //if (time < nominalTrigger - 5 * triggerSigma)
-    if (time < 695 )
+    adcBin[ic] = val;
+    // if (time < nominalTrigger - 5 * triggerSigma)
+    if (time>0 && time < 695 )
       passFlag |= 0x1;
-    if (time < 790)
+    if (time>0)
       hTriggerTimeAll->Fill(double(time));
   }
 
@@ -553,8 +559,8 @@ int anaCRun::anaEvent(Long64_t entry)
     passFlag |= 0x2;
 
   ntTrigTime->Fill(entry, firstTime,
-                   trigTimes[0], trigTimes[1], trigTimes[2],
-                   trigTimes[3], trigTimes[4], trigTimes[5],
+                   adcBin[6], adcBin[7], adcBin[8],
+                   adcBin[9], adcBin[10], adcBin[11],
                    trigTimes[6], trigTimes[7], trigTimes[8],
                    trigTimes[9], trigTimes[10], trigTimes[11]);
 
@@ -788,7 +794,7 @@ int anaCRun::anaEvent(Long64_t entry)
   // printf(" event %llu  pass %i fail 1 %i cosmic only %i fail both %i \n",entry, int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));
   ntChanSum->Fill(&fsum[0]); // fill sumHitWave and Q sums
   ntSpeYield->Fill(entry, 
-                   speCount[0], speCount[1], speCount[2],
+                   speCount[0],speCount[1], speCount[2],
                    speCount[3], speCount[4], speCount[5],
                    speCount[6], speCount[7], speCount[8],
                    speCount[9], speCount[10], speCount[11]);
@@ -995,7 +1001,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   ntSpeYield = new TNtuple("ntSpeYield", "spe per sipm",
                            "event:spe0:spe1:spe2:spe3:spe4:spe5:spe6:spe7:spe8:spe9:spe10:spe11");
   ntTrigTime = new TNtuple("ntTrigTime", "trigger time ntuple",
-                           "event:tave:trig0:trig1:trig2:trig3:trig4:trig5:trig6:trig7:trig8:trig9:trig10:trig11");
+                           "event:tave:adc6:adc7:adc8:adc9:adc10:adc11:trig6:trig7:trig8:trig9:trig10:trig11");
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
   hEventPass = new TH1D("EventPass", " event failures", 16, 0, 16);
   evCount = new TH1D("eventcount", "event count", CHANNELS, 0, CHANNELS);
