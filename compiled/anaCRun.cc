@@ -627,6 +627,7 @@ void anaCRun::doTimeShiftAndNorm()
     digi.clear();
     hitThreshold = 0.74 * nominalGain;
     digi = sumDigi(NONSUMCHANNELS);
+    printf("22 event %lld %lu \n",entry,fixedDigi.size());
     TDet *tdet = tbrun->getDet(NONSUMCHANNELS);
     tdet->hits.clear();
     finder->event(NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold, 1); // DEG suggests 10
@@ -674,6 +675,8 @@ void anaCRun::doTimeShiftAndNorm()
     
     for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
     {
+        printf("33 event %lld %lu %i \n",entry,fixedDigi.size(),ib);
+      
       unsigned ichan = ib;
       TDet *idet = tbrun->getDet(ib);
       bool trig = ichan == 9 || ichan == 10 || ichan == 11;
