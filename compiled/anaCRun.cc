@@ -847,6 +847,7 @@ void anaCRun::doTimeShiftAndNorm()
         tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
     }
    */
+    printf("44 event %lld %lu %i \n",entry,fixedDigi.size(),ib);
     return passFlag;
   } // anaEvent
   // revised derivative Dec 8 2022 MG
