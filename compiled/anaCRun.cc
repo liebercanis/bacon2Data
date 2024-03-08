@@ -198,6 +198,7 @@ unsigned anaCRun::triggerTime(int ic,double &adc)
 // shift the times and apply gain norm
 void anaCRun::doTimeShiftAndNorm()
 {
+  fixedDigi.clear();
   int timeShift = nominalTrigger - firstTime;
   // timeShift = 0; // for debugging!!
   int absShift = TMath::Abs(timeShift);
@@ -618,9 +619,6 @@ void anaCRun::doTimeShiftAndNorm()
           normalize to nominal gain
      ********/
     doTimeShiftAndNorm();
-
-    for (unsigned i = 0; i < fixedDigi.size(); ++i)
-      printf(" %llu %u %lu ", entry, firstTime, fixedDigi[i].size());
 
       /* *******
             do pulse finding on summed line for event cuts
