@@ -619,10 +619,13 @@ void anaCRun::doTimeShiftAndNorm()
      ********/
     doTimeShiftAndNorm();
 
-    /* *******
-          do pulse finding on summed line for event cuts
-    ****   */
-    digi.clear();
+    for (unsigned i = 0; i < fixedDigi.size(); ++i)
+      printf(" %llu %u %lu ", entry, firstTime, fixedDigi[i].size());
+
+      /* *******
+            do pulse finding on summed line for event cuts
+      ****   */
+      digi.clear();
     hitThreshold = 0.74 * nominalGain;
     digi = sumDigi(NONSUMCHANNELS);
     TDet *tdet = tbrun->getDet(NONSUMCHANNELS);
