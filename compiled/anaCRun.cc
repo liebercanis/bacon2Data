@@ -194,31 +194,30 @@ unsigned anaCRun::triggerTime(int ic,double &adc)
   }
   return time;
 }
-
-// shift the times and apply gain norm
+//shift the times and apply gain norm void anaCRun::doTimeShiftAndNorm()
+//bug fixed
 void anaCRun::doTimeShiftAndNorm()
 {
   fixedDigi.clear();
   int timeShift = nominalTrigger - firstTime;
   // timeShift = 0; // for debugging!!
-  int absShift = TMath::Abs(timeShift);
-  ULong_t jstart = TMath::Max(-timeShift, 0);
-  ULong_t jstop = TMath::Min(int(rawBr[0]->rdigi.size()), int(rawBr[0]->rdigi.size()) - timeShift);
   // loop over all branches
   std::vector<double> fDigi;
+  fDigi.clear();
+  fDigi.resize(rawBr[0]->rdigi.size());
+  std::fill(fDigi.begin(), fDigi.end(), ULong_t(0));
   for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
   {
+    // printf(" first %u  shift %i off %u chan %u \n",firstTime, timeShift,timeOffset,ib);
     if (ib < 9)
-      timeShift += int(timeOffset); // amplifier delay
+      timeShift += TMath::Min(int(rawBr[0]->rdigi.size()), int(timeOffset)); // amplifier delay
+    // after doing time shift set jstsart,jstop,absShift
+    ULong_t jstart = TMath::Max(-timeShift, 0);
+    ULong_t jstop = TMath::Min(int(rawBr[0]->rdigi.size()), int(rawBr[0]->rdigi.size()) - timeShift);
+    int absShift = TMath::Abs(timeShift);
     hTriggerShift->Fill(timeShift);
-    unsigned ichan = ib;
     TDet *idet = tbrun->getDet(ib);
-    int nbins = rawBr[ib]->rdigi.size();
-
     /* take care here for summed ib=CHANNELS-2 and set appropriate hitThreshold */
-    fDigi.clear();
-    fDigi.resize(rawBr[ib]->rdigi.size());
-    std::fill(fDigi.begin(), fDigi.end(), ULong_t(0));
     // which nominal gain, hit threshold id the samea
     for (ULong_t j = jstart; j < jstop; ++j)
     {
@@ -847,7 +846,6 @@ void anaCRun::doTimeShiftAndNorm()
         tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
     }
    */
-    printf("44 event %lld %lu %i \n",entry,fixedDigi.size(),ib);
     return passFlag;
   } // anaEvent
   // revised derivative Dec 8 2022 MG
