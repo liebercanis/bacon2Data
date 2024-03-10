@@ -148,7 +148,7 @@ public:
   bool readGains(TString fileName);
   void getSummedHists();
   unsigned getBranches();
-  int anaEvent(Long64_t entry);                   // return passFlag
+  int anaEvent(Long64_t entry);                   // return passBit
   void differentiate(unsigned diffStep);          // not used
   void derivativeCount(TDet *idet, Double_t rms); // not used
   void negativeCrossingCount(int ichan);
@@ -173,8 +173,8 @@ public:
   double nominalGain=227.4; // average
   unsigned firstTime; // corrected trigger time for event
   unsigned timeOffset = 17;
-  unsigned timeEarlyCut = 690;
-  unsigned timeLateCut = 750;
+  ULong_t timeEarlyCut = 690;
+  ULong_t timeLateCut = 1000;
 };
 
 /** get trigger time **/
@@ -422,7 +422,7 @@ void anaCRun::doTimeShiftAndNorm()
   {
     speCount.resize(NONSUMCHANNELS);
     std::fill(speCount.begin(), speCount.end(), 0);
-    int passFlag = 0;
+    int passBit = 0;
     // previously 40 but channel 9 was missing peaks
     double derivativeThreshold = 30.;
     double hitThreshold;
@@ -574,9 +574,9 @@ void anaCRun::doTimeShiftAndNorm()
       // if (time < nominalTrigger - 5 * triggerSigma)
       if (ic < 9&&time>0) // add in amplifier delay zero not found 
         time += timeOffset;
-      if (time > 0 && time < timeEarlyCut) {
-        printf(" failed timeEarlyCut event %llu chan %i %u %u \n", entry, ic, time, timeEarlyCut);
-        passFlag |= 0x1;
+      if (time > 0 && time < unsigned(timeEarlyCut)) {
+        printf(" failed timeEarlyCut event %llu chan %i %u %lu \n", entry, ic, time, timeEarlyCut);
+        passBit |= 0x1;
       }
       if (time > 0)
         hTriggerTimeAll->Fill(double(time));
@@ -598,8 +598,8 @@ void anaCRun::doTimeShiftAndNorm()
     if (nave > 0)
       firstTime = unsigned(timeAve / nave);
 
-    if (firstTime < timeEarlyCut || firstTime > timeLateCut)
-      passFlag |= 0x2;
+    if (firstTime > timeLateCut)
+      passBit |= 0x2;
 
     ntTrigTime->Fill(entry, firstTime,
                      adcBin[6], adcBin[7], adcBin[8],
@@ -618,15 +618,14 @@ void anaCRun::doTimeShiftAndNorm()
           normalize to nominal gain
      ********/
     doTimeShiftAndNorm();
-    printf(" event %lld %lu \n",entry,fixedDigi.size());
 
     /* *******
           do pulse finding on summed line for event cuts
     ****   */
     digi.clear();
-    hitThreshold = 0.74 * nominalGain;
+    //hitThreshold = 0.74 * nominalGain;
+    hitThreshold = 2.0 * nominalGain;
     digi = sumDigi(NONSUMCHANNELS);
-    printf("22 event %lld %lu \n",entry,fixedDigi.size());
     TDet *tdet = tbrun->getDet(NONSUMCHANNELS);
     tdet->hits.clear();
     finder->event(NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold, 1); // DEG suggests 10
@@ -639,14 +638,16 @@ void anaCRun::doTimeShiftAndNorm()
     {
       TDetHit hiti = tdet->hits[ihit];
       ULong_t hitStartTime = ULong_t(tdet->hits[ihit].startTime);
-      if (hitStartTime < nominalTrigger - 80 * triggerSigma)
+      if (hitStartTime < timeEarlyCut)
       {
-        ++nPreHits;
+          ++nPreHits;
+          printf("event %llu cut %lu hitStartTime %lu  qpeak %f nPreHits %i \n", entry, timeEarlyCut, hitStartTime, hiti.qpeak, nPreHits);
       }
       hCountLateTimeQpeak->Fill(hitStartTime, tdet->hits[ihit].qpeak / nominalGain);
-      if (hitStartTime > nominalTrigger + 80. * triggerSigma && tdet->hits[ihit].qpeak / nominalGain > peakCut)
+      if (hitStartTime > timeLateCut && tdet->hits[ihit].qpeak / nominalGain > peakCut)
       {
         ++nLateHits;
+          printf("event %llu cut %lu hitStartTime %lu  qpeak %f nLateHits %i \n", entry, timeLateCut, hitStartTime, hiti.qpeak, nLateHits);
         hCountLateTime->Fill(tdet->hits[ihit].startTime);
       }
       // if (hitStartTime > 600 && hitStartTime < 800 && hitStartTime < firstTime)
@@ -656,14 +657,14 @@ void anaCRun::doTimeShiftAndNorm()
     hCountLate->Fill(nLateHits);
 
     if (nPreHits > 0)
-      passFlag |= 0x4;
+      passBit |= 0x4;
     if (nLateHits > 0)
-      passFlag |= 0x8;
+      passBit |= 0x8;
 
     evCount->Fill(-1); // underflow bin
-    if (passFlag != 0)
+    if (passBit != 0)
     {
-      return passFlag;
+      return passBit;
     }
     // continue if event passes
 
@@ -674,8 +675,6 @@ void anaCRun::doTimeShiftAndNorm()
     
     for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
     {
-        printf("33 event %lld %lu %i \n",entry,fixedDigi.size(),ib);
-      
       unsigned ichan = ib;
       TDet *idet = tbrun->getDet(ib);
       bool trig = ichan == 9 || ichan == 10 || ichan == 11;
@@ -794,7 +793,7 @@ void anaCRun::doTimeShiftAndNorm()
         sumPeakWave[idet]->SetBinContent(thit.firstBin + 1, sumPeakWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
         // only count hits passing cut
         histHitCount->SetBinContent(tdet->channel + 1, histHitCount->GetBinContent(tdet->channel + 1) + 1);
-        ntHit->Fill(double(entry), double(passFlag), double(idet), thit.startTime, thit.peakt, thit.qpeak / nominalGain);
+        ntHit->Fill(double(entry), double(passBit), double(idet), thit.startTime, thit.peakt, thit.qpeak / nominalGain);
         // sum of photons in SPE for this channel
         speCount[idet] += thit.qpeak / nominalGain;
 
@@ -846,7 +845,7 @@ void anaCRun::doTimeShiftAndNorm()
         tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
     }
    */
-    return passFlag;
+    return passBit;
   } // anaEvent
   // revised derivative Dec 8 2022 MG
   void anaCRun::differentiate(unsigned diffStep)
@@ -1160,18 +1159,18 @@ void anaCRun::doTimeShiftAndNorm()
       }
       rawTree->GetEntry(entry);
 
-      int passFlag = anaEvent(entry);
-      if (passFlag == 0)
+      int passBit = anaEvent(entry);
+      if (passBit == 0)
       {
         ++npass;
       }
       else
       {
         ++nfail;
-        printf(" event %llu fails with pass bit  %x pass %i fail %i \n", entry, passFlag, npass, nfail);
+        //printf(" event %llu fails with pass bit  %x pass %i fail %i \n", entry, passBit, npass, nfail);
       }
       hEventPass->Fill(-1);
-      hEventPass->SetBinContent(passFlag, hEventPass->GetBinContent(passFlag) + 1);
+      hEventPass->SetBinContent(passBit, hEventPass->GetBinContent(passBit) + 1);
       // if(eventPass!=0)
       //   printf("event fails with eventPass = %x npass %i nfail %i \n", eventPass,npass,nfail);
       tbrun->fill();
