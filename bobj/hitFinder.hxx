@@ -161,6 +161,7 @@ public:
     std::vector<TH1D *> hFFTFilt;
     std::vector<TH1D *> hEvWave;
     std::vector<TH1D *> hPeakCut;
+    std::vector<TH2D *> hPeakCutAndTime;
     std::vector<TH1D *> hEvHitPeakWave;
     std::vector<TH1D *> hEvSmooth;
     std::vector<TH1D *> hEvCross;

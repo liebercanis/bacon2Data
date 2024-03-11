@@ -58,11 +58,7 @@ public:
   {
     WAVELENGTH = 7500
   };
-  unsigned trigStart = 600;
-  unsigned trigEnd = 1200;
-  double peakCut = 4.5;
-  int nominalTrigger = 729;
-  double triggerSigma = 3.0; // samples
+  
   TFile *fout;
   TFile *fin;
   TTree *rawTree;
@@ -170,11 +166,19 @@ public:
   TDirectory *pmtDir;
   Long64_t nentries;
   double QPEPeak;
+  // 
+  unsigned trigStart = 600;
+  unsigned trigEnd = 1200;
+  int nominalTrigger = 729;
   double nominalGain=227.4; // average
   unsigned firstTime; // corrected trigger time for event
   unsigned timeOffset = 17;
+  ULong_t taveEarlyCut = 710;
+  ULong_t taveLateCut = 740;
   ULong_t timeEarlyCut = 690;
   ULong_t timeLateCut = 1000;
+  double peakCut = 4.5;
+  double hitThreshold13 = 1.8*nominalGain; //400.; //ADC counts
 };
 
 /** get trigger time **/
@@ -574,8 +578,8 @@ void anaCRun::doTimeShiftAndNorm()
       // if (time < nominalTrigger - 5 * triggerSigma)
       if (ic < 9&&time>0) // add in amplifier delay zero not found 
         time += timeOffset;
-      if (time > 0 && time < unsigned(timeEarlyCut)) {
-        printf(" failed timeEarlyCut event %llu chan %i %u %lu \n", entry, ic, time, timeEarlyCut);
+      if (time > 0 && time < unsigned(taveEarlyCut)) {
+        printf(" failed timeEarlyCut event %llu chan %i cut %lu time %u \n", entry, ic,taveEarlyCut,time);
         passBit |= 0x1;
       }
       if (time > 0)
@@ -588,7 +592,7 @@ void anaCRun::doTimeShiftAndNorm()
     for (unsigned ic = 9; ic < 12; ++ic)
     {
       hTriggerTimeTrig->Fill(double(trigTimes[ic]));
-      if (trigTimes[ic] < 800)
+      if (trigTimes[ic] < taveLateCut)
       {
         timeAve += double(trigTimes[ic]);
         ++nave;
@@ -624,7 +628,7 @@ void anaCRun::doTimeShiftAndNorm()
     ****   */
     digi.clear();
     //hitThreshold = 0.74 * nominalGain;
-    hitThreshold = 2.0 * nominalGain;
+    hitThreshold = hitThreshold13;
     digi = sumDigi(NONSUMCHANNELS);
     TDet *tdet = tbrun->getDet(NONSUMCHANNELS);
     tdet->hits.clear();
@@ -641,13 +645,13 @@ void anaCRun::doTimeShiftAndNorm()
       if (hitStartTime < timeEarlyCut)
       {
           ++nPreHits;
-          printf("event %llu cut %lu hitStartTime %lu  qpeak %f nPreHits %i \n", entry, timeEarlyCut, hitStartTime, hiti.qpeak, nPreHits);
+          //printf("event %llu cut %lu hitStartTime %lu  qpeak %f nPreHits %i \n", entry, timeEarlyCut, hitStartTime, hiti.qpeak, nPreHits);
       }
       hCountLateTimeQpeak->Fill(hitStartTime, tdet->hits[ihit].qpeak / nominalGain);
       if (hitStartTime > timeLateCut && tdet->hits[ihit].qpeak / nominalGain > peakCut)
       {
         ++nLateHits;
-          printf("event %llu cut %lu hitStartTime %lu  qpeak %f nLateHits %i \n", entry, timeLateCut, hitStartTime, hiti.qpeak, nLateHits);
+          //printf("event %llu cut %lu hitStartTime %lu  qpeak %f nLateHits %i \n", entry, timeLateCut, hitStartTime, hiti.qpeak, nLateHits);
         hCountLateTime->Fill(tdet->hits[ihit].startTime);
       }
       // if (hitStartTime > 600 && hitStartTime < 800 && hitStartTime < firstTime)
@@ -775,7 +779,7 @@ void anaCRun::doTimeShiftAndNorm()
         // do peak sums
         tdet->totPeakSum += thit.qpeak;
         // printf(" \t ihit %u startTime %u peak %f sum %f\n",ihit,hitTime,thit.qpeak,tdet->totPeakSum);
-        if (hitTime > 600 && hitTime < 800 && hitTime < firstHitTime)
+        if (hitTime > timeEarlyCut && hitTime < timeLateCut && hitTime < firstHitTime)
           firstHitTime = hitTime;
         //
         if (hitTime < trigStart)

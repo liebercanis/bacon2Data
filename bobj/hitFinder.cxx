@@ -145,6 +145,8 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     hDigiVal.push_back(new TH1D(Form("DigiVal%i", id), Form("digi value chan %id", id), 2000, -1000., 1000.));
     hDerivativeVal.push_back(new TH1D(Form("DerivativeVal%i", id), Form("derivative value chan %i", id), 2000, -1000., 1000.));
     hPeakCut.push_back(new TH1D(Form("PeakCut%i", id), Form("peak cut chan %i", id), 1000, 0., 1000.));
+    hPeakCutAndTime.push_back(new TH2D(Form("PeakCutAndTime%i", id), Form("peak cut ADC vs time chan %i", id), 
+      30, 0, 7500, 100, 0, 1000));
     hEvWave[index]->SetDirectory(nullptr);
     hEvHitPeakWave[index]->SetDirectory(nullptr);
     hEvCross[index]->SetDirectory(nullptr);
@@ -808,6 +810,7 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
     }
     // cut small peaks below hitThreshold
     hPeakCut[idet]->Fill(qpeak);
+    hPeakCutAndTime[idet]->Fill(peakt,qpeak);
     if (qpeak < hitThreshold)
       continue;
 
