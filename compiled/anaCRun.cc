@@ -178,7 +178,7 @@ public:
   ULong_t taveEarlyCut = 710;
   ULong_t taveLateCut = 740;
   ULong_t timeEarlyCut = 690;
-  ULong_t timeLateCut = 1100;
+  ULong_t timeLateCut = 890;
   double prePeakCut = 2.5;
   double latePeakCut = 2.5;
 };
@@ -604,7 +604,7 @@ void anaCRun::doTimeShiftAndNorm()
     if (nave > 0)
       firstTime = unsigned(timeAve / nave);
 
-    if (firstTime > timeLateCut) {
+    if (firstTime < taveEarlyCut || firstTime > taveLateCut) {
         printf(" failed timeLateCut event %llu cut %lu time %u \n", entry,timeLateCut,firstTime);
       passBit |= 0x2;
     }
@@ -652,15 +652,15 @@ void anaCRun::doTimeShiftAndNorm()
       if (hitStartTime < timeEarlyCut && tdet->hits[ihit].qpeak / nominalGain > prePeakCut)
       {
           ++nPreHits;
-          printf("event preHits %llu cut %lu hitStartTime %lu  qpeak %f nPreHits %i \n", entry, timeEarlyCut, hitStartTime, hiti.qpeak, nPreHits);
+          //printf("event preHits %llu cut %lu hitStartTime %lu  qpeak %.2f nPreHits %i \n", entry, timeEarlyCut, hitStartTime, hiti.qpeak, nPreHits);
       }
       if (hitStartTime < timeLateCut)
         hLateQpeak->Fill(tdet->hits[ihit].qpeak / nominalGain);
       if (hitStartTime > timeLateCut && tdet->hits[ihit].qpeak / nominalGain > latePeakCut)
       {
          ++nLateHits;
-         printf("event lateHits %llu cut %lu hitStartTime %lu  qpeak %f nLateHits %i \n", entry, timeLateCut, hitStartTime, hiti.qpeak, nLateHits);
-         hCountLateTime->Fill(tdet->hits[ihit].startTime);
+         //printf("event lateHits %llu cut %lu hitStartTime %lu  qpeak %.2f nLateHits %i \n", entry, timeLateCut, hitStartTime, hiti.qpeak, nLateHits);
+         //hCountLateTime->Fill(tdet->hits[ihit].startTime);
       }
       // if (hitStartTime > 600 && hitStartTime < 800 && hitStartTime < firstTime)
       //   firstTime = hitStartTime;
