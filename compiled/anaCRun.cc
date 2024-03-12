@@ -93,6 +93,8 @@ public:
   TH1D *hEvBaseWave;
   vector<TH1D *> hEvGaus;
   vector<TH1D *> hChannelGaus;
+  TH1D *hPreQpeak;
+  TH1D *hLateQpeak;
   TH1D *hCountPre;
   TH1D *hCountLate;
   TH1D *hCountLateTime;
@@ -176,9 +178,9 @@ public:
   ULong_t taveEarlyCut = 710;
   ULong_t taveLateCut = 740;
   ULong_t timeEarlyCut = 690;
-  ULong_t timeLateCut = 1000;
-  double peakCut = 4.5;
-  double hitThreshold13 = 1.8*nominalGain; //400.; //ADC counts
+  ULong_t timeLateCut = 1100;
+  double prePeakCut = 2.5;
+  double latePeakCut = 2.5;
 };
 
 /** get trigger time **/
@@ -602,8 +604,10 @@ void anaCRun::doTimeShiftAndNorm()
     if (nave > 0)
       firstTime = unsigned(timeAve / nave);
 
-    if (firstTime > timeLateCut)
+    if (firstTime > timeLateCut) {
+        printf(" failed timeLateCut event %llu cut %lu time %u \n", entry,timeLateCut,firstTime);
       passBit |= 0x2;
+    }
 
     ntTrigTime->Fill(entry, firstTime,
                      adcBin[6], adcBin[7], adcBin[8],
@@ -628,7 +632,7 @@ void anaCRun::doTimeShiftAndNorm()
     ****   */
     digi.clear();
     //hitThreshold = 0.74 * nominalGain;
-    hitThreshold = hitThreshold13;
+    hitThreshold = 0.25*nominalGain;
     digi = sumDigi(NONSUMCHANNELS);
     TDet *tdet = tbrun->getDet(NONSUMCHANNELS);
     tdet->hits.clear();
@@ -642,17 +646,21 @@ void anaCRun::doTimeShiftAndNorm()
     {
       TDetHit hiti = tdet->hits[ihit];
       ULong_t hitStartTime = ULong_t(tdet->hits[ihit].startTime);
+      hCountLateTimeQpeak->Fill(hitStartTime, tdet->hits[ihit].qpeak / nominalGain);
       if (hitStartTime < timeEarlyCut)
+        hPreQpeak->Fill(tdet->hits[ihit].qpeak / nominalGain);
+      if (hitStartTime < timeEarlyCut && tdet->hits[ihit].qpeak / nominalGain > prePeakCut)
       {
           ++nPreHits;
-          //printf("event %llu cut %lu hitStartTime %lu  qpeak %f nPreHits %i \n", entry, timeEarlyCut, hitStartTime, hiti.qpeak, nPreHits);
+          printf("event preHits %llu cut %lu hitStartTime %lu  qpeak %f nPreHits %i \n", entry, timeEarlyCut, hitStartTime, hiti.qpeak, nPreHits);
       }
-      hCountLateTimeQpeak->Fill(hitStartTime, tdet->hits[ihit].qpeak / nominalGain);
-      if (hitStartTime > timeLateCut && tdet->hits[ihit].qpeak / nominalGain > peakCut)
+      if (hitStartTime < timeLateCut)
+        hLateQpeak->Fill(tdet->hits[ihit].qpeak / nominalGain);
+      if (hitStartTime > timeLateCut && tdet->hits[ihit].qpeak / nominalGain > latePeakCut)
       {
-        ++nLateHits;
-          //printf("event %llu cut %lu hitStartTime %lu  qpeak %f nLateHits %i \n", entry, timeLateCut, hitStartTime, hiti.qpeak, nLateHits);
-        hCountLateTime->Fill(tdet->hits[ihit].startTime);
+         ++nLateHits;
+         printf("event lateHits %llu cut %lu hitStartTime %lu  qpeak %f nLateHits %i \n", entry, timeLateCut, hitStartTime, hiti.qpeak, nLateHits);
+         hCountLateTime->Fill(tdet->hits[ihit].startTime);
       }
       // if (hitStartTime > 600 && hitStartTime < 800 && hitStartTime < firstTime)
       //   firstTime = hitStartTime;
@@ -1061,18 +1069,23 @@ void anaCRun::doTimeShiftAndNorm()
     hTriggerTimeAll = new TH1D("TriggerTimeAll", " first time all channels ", 800, 00, 800);
     hTriggerHitTimeAll = new TH1D("TriggerHitTimeAll", " first hit time all channels ", 80, 0, 800);
     TString htitle;
+    htitle.Form(" pre time < %lu normalized qpeak", timeEarlyCut);
+    hPreQpeak = new TH1D("PreQpeak",htitle, 100, 0, 10);
+    htitle.Form(" pre time > %lu normalized qpeak", timeLateCut);
+    hLateQpeak = new TH1D("LateQpeak",htitle, 100, 0, 10);
     hCountPre = new TH1D("CountPre", " hits sample<600 in sum", 20, 0, 20);
-    htitle.Form("hits qpeak>%.2f SPE sample>1000 in sum", peakCut);
+    htitle.Form("hits qpeak>%.2f SPE sample>1000 in sum", latePeakCut);
     hCountLate = new TH1D("CountLate", htitle, 20, 0, 20);
-    htitle.Form("number of late time hits with qpeak>%.2f", peakCut);
+    htitle.Form("number of late time hits with qpeak>%.2f", latePeakCut);
     hCountLate->GetXaxis()->SetTitle(htitle);
-    htitle.Form("hits qpeak>%.2f SPE sample>1000 in sum", peakCut);
+    htitle.Form("hits qpeak>%.2f SPE sample>1000 in sum", latePeakCut);
     hCountLateTime = new TH1D("CountLateTime ", htitle, 30, 0, 7500);
     hCountLateTime->GetXaxis()->SetTitle("sample time");
     hCountLateTime->Sumw2();
     hCountLateTimeQpeak = new TH2D("CountLateTimeQpeak", " sample>1000 in sum qpeak vs time ", 30, 0, 7500, 20, 0, 20);
     hCountLateTimeQpeak->GetXaxis()->SetTitle("sample time");
     hCountLateTimeQpeak->GetYaxis()->SetTitle("qpeak [SPE]");
+
     for (unsigned i = 0; i < rawBr.size(); ++i)
     {
       unsigned ichan = i;
