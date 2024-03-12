@@ -659,9 +659,10 @@ void anaCRun::doTimeShiftAndNorm()
       if (hitStartTime > timeLateCut && tdet->hits[ihit].qpeak / nominalGain > latePeakCut)
       {
          ++nLateHits;
-        hCountLate->Fill(hitStartTime);
-         //printf("event lateHits %llu cut %lu hitStartTime %lu  qpeak %.2f nLateHits %i \n", entry, timeLateCut, hitStartTime, hiti.qpeak, nLateHits);
-         //hCountLateTime->Fill(tdet->hits[ihit].startTime);
+         hCountLate->Fill(hitStartTime);
+         //cout << " hCountLate " << hCountLate->GetEntries() << endl;
+         // printf("event lateHits %llu cut %lu hitStartTime %lu  qpeak %.2f nLateHits %i \n", entry, timeLateCut, hitStartTime, hiti.qpeak, nLateHits);
+         // hCountLateTime->Fill(tdet->hits[ihit].startTime);
       }
       // if (hitStartTime > 600 && hitStartTime < 800 && hitStartTime < firstTime)
       //   firstTime = hitStartTime;
