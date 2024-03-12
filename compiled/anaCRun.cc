@@ -660,7 +660,6 @@ void anaCRun::doTimeShiftAndNorm()
       {
          ++nLateHits;
          hCountLateTime->Fill(hitStartTime);
-         //cout << " hCountLate " << hCountLate->GetEntries() << endl;
          // printf("event lateHits %llu cut %lu hitStartTime %lu  qpeak %.2f nLateHits %i \n", entry, timeLateCut, hitStartTime, hiti.qpeak, nLateHits);
          // hCountLateTime->Fill(tdet->hits[ihit].startTime);
       }
@@ -1076,15 +1075,15 @@ void anaCRun::doTimeShiftAndNorm()
     htitle.Form(" pre time > %lu normalized qpeak", timeLateCut);
     hLateQpeak = new TH1D("LateQpeak",htitle, 100, 0, 10);
     hCountPre = new TH1D("CountPre", " hits sample<600 in sum", 20, 0, 20);
-    htitle.Form("hits qpeak>%.2f SPE sample>1000 in sum", latePeakCut);
+    htitle.Form("hits qpeak>%.2f SPE sample>%luin sum", latePeakCut,timeLateCut);
     hCountLate = new TH1D("CountLate", htitle, 20, 0, 20);
     htitle.Form("number of late time hits with qpeak>%.2f", latePeakCut);
     hCountLate->GetXaxis()->SetTitle(htitle);
-    htitle.Form("hits qpeak>%.2f SPE sample>1000 in sum", latePeakCut);
+    htitle.Form("hits qpeak>%.2f SPE sample>%lu in sum", latePeakCut, timeLateCut);
     hCountLateTime = new TH1D("CountLateTime ", htitle, 30, 0, 7500);
     hCountLateTime->GetXaxis()->SetTitle("sample time");
     hCountLateTime->Sumw2();
-    hCountLateTimeQpeak = new TH2D("CountLateTimeQpeak", " sample>1000 in sum qpeak vs time ", 30, 0, 7500, 20, 0, 20);
+    hCountLateTimeQpeak = new TH2D("CountLateTimeQpeak", " sample>890 in sum qpeak vs time ", 30, 0, 7500, 20, 0, 20);
     hCountLateTimeQpeak->GetXaxis()->SetTitle("sample time");
     hCountLateTimeQpeak->GetYaxis()->SetTitle("qpeak [SPE]");
 
