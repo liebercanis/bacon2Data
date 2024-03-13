@@ -205,7 +205,6 @@ unsigned anaCRun::triggerTime(int ic,double &adc)
 void anaCRun::doTimeShiftAndNorm()
 {
   fixedDigi.clear();
-  int timeShift = nominalTrigger - firstTime;
   // timeShift = 0; // for debugging!!
   // loop over all branches
   std::vector<double> fDigi;
@@ -215,14 +214,16 @@ void anaCRun::doTimeShiftAndNorm()
   for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
   {
     // printf(" first %u  shift %i off %u chan %u \n",firstTime, timeShift,timeOffset,ib);
+    int timeShift = nominalTrigger - firstTime;
     if (ib < 9)
-      timeShift += TMath::Min(int(rawBr[0]->rdigi.size()), int(timeOffset)); // amplifier delay
+      timeShift += int(timeOffset); // amplifier delay
     // after doing time shift set jstsart,jstop,absShift
     ULong_t jstart = TMath::Max(-timeShift, 0);
     ULong_t jstop = TMath::Min(int(rawBr[0]->rdigi.size()), int(rawBr[0]->rdigi.size()) - timeShift);
     int absShift = TMath::Abs(timeShift);
     hTriggerShift->Fill(timeShift);
     TDet *idet = tbrun->getDet(ib);
+    //printf(" chan %u nominal %i first %i shift %i\n",ib,nominalTrigger,firstTime,timeShift);
     /* take care here for summed ib=CHANNELS-2 and set appropriate hitThreshold */
     // which nominal gain, hit threshold id the samea
     for (ULong_t j = jstart; j < jstop; ++j)
@@ -693,6 +694,7 @@ void anaCRun::doTimeShiftAndNorm()
       int nbins = rawBr[ib]->rdigi.size();
 
       /* take care here for summed ib=CHANNELS-2 and set appropriate hitThreshold */
+      digi.clear();
       digi = fixedDigi[ib];
       hitThreshold = 0.25 * nominalGain;
       // used time aligned and gain normaized waveforms
