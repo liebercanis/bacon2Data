@@ -1,4 +1,4 @@
-///////////////////////////////////////////////////////g
+//////////////////////////////////////////////////////g
 //  M.Gold April 2023 read CAEN files
 /////////////////////////////////////////////////////////
 #include <sstream>
@@ -151,7 +151,7 @@ public:
   void derivativeCount(TDet *idet, Double_t rms); // not used
   void negativeCrossingCount(int ichan);
   void thresholdCrossingCount(double thresh);
-  std::vector<double> sumDigi(int ichan);
+  std::vector<double> sumDigi();
   unsigned triggerTime(int ichan, double &adc);
   void doTimeShiftAndNorm();
   std::vector<std::vector<double>> fixedDigi; // all the fixed waveforms
@@ -240,7 +240,7 @@ void anaCRun::doTimeShiftAndNorm()
 }
 
   // we must also do the time shift here
-  std::vector<double> anaCRun::sumDigi(int ichan)
+  std::vector<double> anaCRun::sumDigi()
   {
     std::vector<double> digiSum;
     // fix all the waveforms
@@ -633,7 +633,7 @@ void anaCRun::doTimeShiftAndNorm()
     digi.clear();
     //hitThreshold = 0.74 * nominalGain;
     hitThreshold = 0.25*nominalGain;
-    digi = sumDigi(NONSUMCHANNELS);
+    digi = sumDigi();
     TDet *tdet = tbrun->getDet(NONSUMCHANNELS);
     tdet->hits.clear();
     finder->event(NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold, 1); // DEG suggests 10
@@ -654,7 +654,7 @@ void anaCRun::doTimeShiftAndNorm()
           ++nPreHits;
           // printf("event preHits %llu cut %lu hitStartTime %lu  qpeak %.2f nPreHits %i \n", entry, timeEarlyCut, hitStartTime, hiti.qpeak, nPreHits);
       }
-      if (hitStartTime < timeLateCut)
+      if (hitStartTime > timeLateCut)
         hLateQpeak->Fill(tdet->hits[ihit].qpeak / nominalGain);
       if (hitStartTime > timeLateCut && tdet->hits[ihit].qpeak / nominalGain > latePeakCut)
       {
@@ -685,7 +685,6 @@ void anaCRun::doTimeShiftAndNorm()
           start of second channel loop doing pulse finding
      ********/
 
-    
     for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
     {
       unsigned ichan = ib;
