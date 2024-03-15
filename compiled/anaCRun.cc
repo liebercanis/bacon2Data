@@ -748,18 +748,26 @@ void anaCRun::doTimeShiftAndNorm()
       // add some event plots
       bool trig = tdet->channel == 9 || tdet->channel == 10 || tdet->channel == 11;
       TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
-      if (trig && tdet->hits.size() > 0 && fftDir->GetList()->GetEntries() < 2000)
+      TDirectory *finderDir = (TDirectory *)fout->FindObject("finderDir");
+      if (finderDir->GetList()->GetEntries() < 2000)
       {
-        /* printf("!!!!!! anaCRuna::event plot event %llu idet %i chan %i hits %lu \n", entry,idet,tdet->channel, tdet->hits.size());
+       // count late hits
+        int lateHits = 0;
+        TDetHit tlateHit;
         for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
         {
           TDetHit thit = tdet->hits[ihit];
-          // printf("\t peak %u start bin %i peak %f \n", ihit,thit.firstBin, thit.qpeak);
+          if(thit.startTime>4000)
+            ++lateHits;
+          tlateHit = thit;
         }
-        */
-        finder->plotEvent(fftDir, tdet->channel, entry);
-        // finder->plotEvent(fftDir, 8, entry);
+        if (lateHits > 0 && tdet->channel<9) {
+          finder->plotEvent(finderDir, tdet->channel, entry);
+          //printf("\t plotEvent %lld late %i start time %f peak %f \n", entry,lateHits,tlateHit.startTime, tlateHit.qpeak);
+        }
+
       }
+        // finder->plotEvent(fftDir, 8, entry);
 
       TDirectory *sumWaveDir = (TDirectory *)fout->FindObject("sumWaveDir");
       if (idet == 13 && tdet->hits.size() > 1 && sumWaveDir->GetList()->GetEntries() < 5000)
