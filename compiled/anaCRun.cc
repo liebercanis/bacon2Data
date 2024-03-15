@@ -179,7 +179,7 @@ public:
   ULong_t taveLateCut = 740;
   ULong_t timeEarlyCut = 690;
   ULong_t timeLateCut = 890;
-  double prePeakCut = 2.5;
+  double prePeakCut = 0.5;
   double latePeakCut = 2.5;
 };
 
