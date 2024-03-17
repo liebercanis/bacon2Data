@@ -605,7 +605,7 @@ void anaCRun::doTimeShiftAndNorm()
     if (nave > 0)
       firstTime = unsigned(timeAve / nave);
 
-    if (firstTime < taveEarlyCut || firstTime > taveLateCut) {
+    if (firstTime > taveLateCut) {
         printf(" failed timeLateCut event %llu cut %lu time %u \n", entry,timeLateCut,firstTime);
       passBit |= 0x2;
     }
@@ -661,7 +661,7 @@ void anaCRun::doTimeShiftAndNorm()
       {
          ++nLateHits;
          hCountLateTime->Fill(hitStartTime);
-         // printf("event lateHits %llu cut %lu hitStartTime %lu  qpeak %.2f nLateHits %i \n", entry, timeLateCut, hitStartTime, hiti.qpeak, nLateHits);
+         //printf("event lateHits %llu cut %lu hitStartTime %lu  qpeak %.2f nLateHits %i \n", entry, timeLateCut, hitStartTime, hiti.qpeak, nLateHits);
          // hCountLateTime->Fill(tdet->hits[ihit].startTime);
       }
       // if (hitStartTime > 600 && hitStartTime < 800 && hitStartTime < firstTime)
@@ -672,8 +672,10 @@ void anaCRun::doTimeShiftAndNorm()
 
     if (nPreHits > 0)
       passBit |= 0x4;
-    if (nLateHits > 0)
+    if (nLateHits > 0) {
+        //printf(" failed nLate event %llu nLate %i \n", entry,nLateHits);
       passBit |= 0x8;
+    }
 
     evCount->Fill(-1); // underflow bin
     if (passBit != 0)
@@ -1177,7 +1179,7 @@ void anaCRun::doTimeShiftAndNorm()
       if (entry / 1000 * 1000 == entry)
       {
         printf("... entry %llu pass %u fail %u \n", entry, npass, nfail);
-        // hEventPass->Print("all");
+        hEventPass->Print("all");
         if(npass>0) {
           printf(" \t hits by channel  \n");
           for (int ibin = 0; ibin < histHitCount->GetNbinsX() - 1; ++ibin)
@@ -1199,7 +1201,8 @@ void anaCRun::doTimeShiftAndNorm()
         //printf(" event %llu fails with pass bit  %x pass %i fail %i \n", entry, passBit, npass, nfail);
       }
       hEventPass->Fill(-1);
-      hEventPass->SetBinContent(passBit, hEventPass->GetBinContent(passBit) + 1);
+      hEventPass->SetBinContent(passBit+1, hEventPass->GetBinContent(passBit+1) + 1);
+      //printf(" event %lld passbit %x bin 0 %f \n",entry, passBit,hEventPass->GetBinContent(0));
       // if(eventPass!=0)
       //   printf("event fails with eventPass = %x npass %i nfail %i \n", eventPass,npass,nfail);
       tbrun->fill();
@@ -1290,6 +1293,8 @@ void anaCRun::doTimeShiftAndNorm()
     printf("pass fractions total = %.0f \n", hEventPass->GetBinContent(0));
     for (int ibin = 1; ibin < hEventPass->GetNbinsX(); ++ibin)
       printf(" bin %i fail %.f frac %.3f \n", ibin, hEventPass->GetBinContent(ibin), hEventPass->GetBinContent(ibin) / hEventPass->GetBinContent(0));
+
+    hEventPass->Print("all");
 
     fout->Write();
     fout->Close();
