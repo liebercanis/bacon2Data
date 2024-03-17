@@ -813,7 +813,6 @@ void anaCRun::doTimeShiftAndNorm()
         // if (thit.qsum > hitThreshold)
         sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
         sumPeakWave[idet]->SetBinContent(thit.firstBin + 1, sumPeakWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
-        // only count hits passing cut
         histHitCount->SetBinContent(tdet->channel + 1, histHitCount->GetBinContent(tdet->channel + 1) + 1);
         ntHit->Fill(double(entry), double(passBit), double(idet), thit.startTime, thit.peakt, thit.qpeak / nominalGain);
         // sum of photons in SPE for this channel
@@ -1179,10 +1178,13 @@ void anaCRun::doTimeShiftAndNorm()
       {
         printf("... entry %llu pass %u fail %u \n", entry, npass, nfail);
         // hEventPass->Print("all");
-        printf(" \t hits by channel  \n");
-        for (int ibin = 0; ibin < histHitCount->GetNbinsX() - 1; ++ibin)
-          printf(" chan %i count %i ; zero %i \n", ibin, int(histHitCount->GetBinContent(ibin + 1)), int(hNoPeak->GetBinContent(ibin + 1)));
-        printf("  \n");
+        if(npass>0) {
+          printf(" \t hits by channel  \n");
+          for (int ibin = 0; ibin < histHitCount->GetNbinsX() - 1; ++ibin)
+          printf(" chan %i count %i frac %f ; zero %i \n", ibin, 
+          int(histHitCount->GetBinContent(ibin + 1)),double(histHitCount->GetBinContent(ibin + 1))/double(npass), int(hNoPeak->GetBinContent(ibin + 1)));
+          printf("  \n");
+        }
       }
       rawTree->GetEntry(entry);
 
@@ -1270,8 +1272,9 @@ void anaCRun::doTimeShiftAndNorm()
     }
 
     printf(" ******* FINISHED***** \n \t hits by channels %i   \n", histHitCount->GetNbinsX());
-    for (int ibin = 0; ibin < histHitCount->GetNbinsX(); ++ibin)
-      printf(" chan %i count %i ; zero %i \n", ibin, int(histHitCount->GetBinContent(ibin + 1)), int(hNoPeak->GetBinContent(ibin + 1)));
+    for (int ibin = 0; ibin < histHitCount->GetNbinsX() - 1; ++ibin)
+      printf(" chan %i count %i frac %f ; zero %i \n", ibin,
+             int(histHitCount->GetBinContent(ibin + 1)), double(histHitCount->GetBinContent(ibin + 1)) / double(npass), int(hNoPeak->GetBinContent(ibin + 1)));
     printf("  \n");
 
     // printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
