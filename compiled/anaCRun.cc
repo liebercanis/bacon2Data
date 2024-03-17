@@ -1200,8 +1200,9 @@ void anaCRun::doTimeShiftAndNorm()
         ++nfail;
         //printf(" event %llu fails with pass bit  %x pass %i fail %i \n", entry, passBit, npass, nfail);
       }
-      hEventPass->Fill(-1);
-      hEventPass->SetBinContent(passBit+1, hEventPass->GetBinContent(passBit+1) + 1);
+      //hEventPass->Fill(-1);
+      // use total entries for all and bin 0 for passing
+      hEventPass->SetBinContent(passBit, hEventPass->GetBinContent(passBit) + 1);
       //printf(" event %lld passbit %x bin 0 %f \n",entry, passBit,hEventPass->GetBinContent(0));
       // if(eventPass!=0)
       //   printf("event fails with eventPass = %x npass %i nfail %i \n", eventPass,npass,nfail);
@@ -1281,9 +1282,10 @@ void anaCRun::doTimeShiftAndNorm()
     printf("  \n");
 
     // printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
-    printf(" FINISHED %i pass %i  fail %i (0.3%f) output file %s  \n",
+    printf(" FINISHED %i ( %i ) pass %i (%i) fail %i ( frac %0.3f ) output file %s  \n",
            npass + nfail,
-           npass,
+           int(hEventPass->GetEntries()),
+           npass, int(hEventPass->GetBinContent(0)),
            nfail,
            double(nfail) / double(npass + nfail),
            // int(hEventPass->GetBinContent(8 + 1)),
