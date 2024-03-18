@@ -180,7 +180,7 @@ public:
   ULong_t timeEarlyCut = 690;
   ULong_t timeLateCut = 890;
   double prePeakCut = 0.5;
-  double latePeakCut = 2.5;
+  double latePeakCut = 3.5; // march 18 2024 2.5;
 };
 
 /** get trigger time **/
