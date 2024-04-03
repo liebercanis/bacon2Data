@@ -1217,7 +1217,6 @@ void hitFinder::plotWave(int idet, Long64_t jentry)
   for (int i = 0; i < fdigi.size(); ++i)
     hfilt->SetBinContent(i + 1, fdigi[i]);
 
-  /**
   TString cname;
   cname.Form("det-%i-event-%lli-nhits-%ld", idet, jentry, detHits.size());
   TCanvas *can = new TCanvas(cname, cname);
@@ -1231,7 +1230,6 @@ void hitFinder::plotWave(int idet, Long64_t jentry)
   can->cd(4);
   hhit->Draw();
   can->Print(".gif");
-  */
 }
 
 void hitFinder::plotEvent(TDirectory *dir, unsigned ichan, Long64_t ievent)
