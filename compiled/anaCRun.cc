@@ -1184,7 +1184,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     if (entry / 1000 * 1000 == entry)
     {
       printf("... entry %llu pass %u fail %u \n", entry, npass, nfail);
-      hEventPass->Print("all");
+      //hEventPass->Print("all");
       if (npass > 0)
       {
         printf(" \t hits by channel  \n");
@@ -1195,6 +1195,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
       }
     }
     rawTree->GetEntry(entry);
+
+    continue;
 
     int passBit = anaEvent(entry);
     if (passBit == 0)
