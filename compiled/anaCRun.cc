@@ -1196,8 +1196,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     }
     rawTree->GetEntry(entry);
 
-    continue;
-
     int passBit = anaEvent(entry);
     if (passBit == 0)
     {
