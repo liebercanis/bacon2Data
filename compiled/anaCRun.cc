@@ -725,6 +725,9 @@ int anaCRun::anaEvent(Long64_t entry)
 
     TDet *tdet = tbrun->getDet(ib);
     tdet->hits.clear();
+    derivativeThreshold = 20.;
+    if (ichan >8 ) //lower for trigger sipms
+      derivativeThreshold = 10.;
     finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold, 1); // DEG suggests 10
 
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
@@ -772,6 +775,10 @@ int anaCRun::anaEvent(Long64_t entry)
       {
         finder->plotEvent(finderDir, tdet->channel, entry);
         // printf("\t plotEvent %lld late %i start time %f peak %f \n", entry,lateHits,tlateHit.startTime, tlateHit.qpeak);
+      }
+      if (tdet->channel ==9)
+      {
+        finder->plotEvent(finderDir, tdet->channel, entry);
       }
     }
     // finder->plotEvent(fftDir, 8, entry);
@@ -1184,7 +1191,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     if (entry / 1000 * 1000 == entry)
     {
       printf("... entry %llu pass %u fail %u \n", entry, npass, nfail);
-      //hEventPass->Print("all");
+      //hEventPass->Print("all"); bacondaq seg violated here
       if (npass > 0)
       {
         printf(" \t hits by channel  \n");

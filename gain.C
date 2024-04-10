@@ -37,7 +37,7 @@ double fline(double *x, double *par)
 void gain()
 {
   //TH1D *hFit = new TH1D("GausFit", "GausFit", 4000, -20.E3, 200.E3);
-  TFile *fin = new TFile("post-12_28_2023-10127754.root", "readonly");
+  TFile *fin = new TFile("post-12_28_2023-23376.root", "readonly");
   std::string sdate = currentDate();
   TFile *fout = new TFile(Form("gains-%s.root", sdate.c_str()), "recreate");
   TF1 *line = new TF1("myLine", fline, 0, 2.E5, 2);
@@ -51,6 +51,15 @@ void gain()
     hlist.push_back(hist);
   }
   cout << " got " << hlist.size() << endl;
+
+  /*
+  TCanvas *allCan = new TCanvas("allCan","allCan");
+  hlist[11]->Draw();
+  for (int i=0; i < hlist.size() - 1; ++i)
+    hlist[i]->Draw("sames");
+    */
+
+
   TSpectrum *s = new TSpectrum();
 
   /*
@@ -110,6 +119,8 @@ void gain()
     */
     int nfound = s->SearchHighRes(source, dest, nbins, 8, .1, kTRUE, 2, kTRUE, 2);
     printf("\n\npeaks for hist %s found %i \n", hlist[i]->GetName(), nfound);
+    if(nfound==0)
+      continue;
     Double_t *xpeaks = s->GetPositionX();
     for (int k = 0; k < nfound; k++)
     {
@@ -284,5 +295,6 @@ void gain()
   gGain->Draw("AP");
   canGain->Print(".png");
   fout->Add(gGain);
+  gGain->Print();
   fout->Write();
 }

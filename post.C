@@ -4,6 +4,7 @@ TFile *fout;
 TString tag;
 TNtuple *ntSum;
 TNtuple *ntHit;
+int passBit;
 enum
 {
   NCHAN = 14
@@ -17,6 +18,7 @@ std::vector<TH1D *> hLateSum;
 double y[NCHAN];
 double nominalGain;
 
+TH1D *hPassBit;
 TH1D *hTrigEventSumArea;
 TH1D *hTrigEventSumPeak;
 TH2D *hTrigHitPeakTime;
@@ -28,8 +30,14 @@ TH1D *hTrigLatePeaks;
 TH1D *hSipmLatePeaks;
 TH1D *hTrigLatePeaksFit;
 TH1D *hSipmLatePeaksFit;
+TH1D *hCountPre;
+TH1D *hCountLate;
+TH1D *hCountLateTime;
+TH2D *hCountLateTimeQpeak;
+
 unsigned sipmCut;
 unsigned trigCut;
+double peakCut;
 
 void loop(Long64_t maxEntry)
 {
@@ -38,6 +46,9 @@ void loop(Long64_t maxEntry)
   // loop over entries
   for (Long64_t entry = 0; entry < maxEntry; ++entry)
   {
+    passBit = 0;
+    int nPre = 0;
+    int nLate = 0;
     // get entry
     RunTree->GetEntry(entry);
     // get branch pointers and save in detList
@@ -69,10 +80,12 @@ void loop(Long64_t maxEntry)
         continue;
       TDet *det = (TDet *)aBranch->GetObject();
       // if(id==0) cout << "branch " << aBranch->GetName() << " entry " << entry << " TotSum " << det->totSum << endl;
-      hTotSum[id]->Fill(det->totPeakSum / nominalGain);
-      hPreSum[id]->Fill(det->prePeakSum / nominalGain);
-      hTrigSum[id]->Fill(det->trigPeakSum / nominalGain);
-      hLateSum[id]->Fill(det->latePeakSum / nominalGain);
+      // do not normlize to nominal
+      double oldNominal = 270.5;
+      hTotSum[id]->Fill(det->totPeakSum);
+      hPreSum[id]->Fill(det->prePeakSum);
+      hTrigSum[id]->Fill(det->trigPeakSum);
+      hLateSum[id]->Fill(det->latePeakSum);
       if (trig)
       {
         trigPre += det->prePeakSum / nominalGain;
@@ -89,6 +102,7 @@ void loop(Long64_t maxEntry)
         sipmLate += det->latePeakSum / nominalGain;
       }
       // loop over hits
+
       for (unsigned ihit = 0; ihit < det->hits.size(); ++ihit)
       {
         TDetHit hiti = det->hits[ihit];
@@ -111,10 +125,35 @@ void loop(Long64_t maxEntry)
         if (!trig && (det->hits[ihit].startTime > 800 || det->hits[ihit].startTime < 600) && det->hits[ihit].qpeak / nominalGain > 10)
           sipmIsCut = true;
 
+        /*
         if ((det->hits[ihit].startTime > 800 || det->hits[ihit].startTime < 600) && det->hits[ihit].qpeak / nominalGain > 10)
           printf("xxxxx event %llu chan %i time %f qpeak %f\n", entry, id, det->hits[ihit].startTime, det->hits[ihit].qpeak / nominalGain);
+          */
       }
-    }
+
+      // pre cut
+      int npreHits = 0;
+      int nlateHits = 0;
+      if (id == 13)
+      {
+        for (unsigned ihit = 0; ihit < det->hits.size(); ++ihit)
+        {
+          TDetHit hiti = det->hits[ihit];
+          if (det->hits[ihit].startTime<600){
+            ++npreHits;
+            ++nPre;
+          }
+          hCountLateTimeQpeak->Fill(det->hits[ihit].startTime, det->hits[ihit].qpeak / nominalGain);
+          if (det->hits[ihit].startTime > 1000&&det->hits[ihit].qpeak/nominalGain>peakCut) {
+            ++nlateHits;
+            ++nLate;
+            hCountLateTime->Fill(det->hits[ihit].startTime);
+          }
+        }
+        hCountPre->Fill(npreHits);
+        hCountLate->Fill(nlateHits);
+      }
+    } // end branch loop
     if (trigEventSumPeak < 0)
       trigEventSumPeak = 0;
     ntSum->Fill(trigEventSumArea, trigEventSumPeak, trigTotPeak, trigPre, trigTrig, trigLate, sipmPre, sipmTrig, sipmLate);
@@ -126,11 +165,15 @@ void loop(Long64_t maxEntry)
       ++trigCut;
     if (sipmIsCut)
       ++sipmCut;
+    if(nPre>0) passBit |= 0x1;
+    if(nLate>0) passBit |= 0x2;
+    hPassBit->Fill(passBit);
   }
 }
 
 void post(TString tag = TString("12_28_2023"), Long64_t maxEntry = 0)
 {
+  peakCut = 6.5;
   /*gains-2024-02-01-17-06.root*/
   y[0] = 229.5;
   y[1] = 221;
@@ -144,9 +187,12 @@ void post(TString tag = TString("12_28_2023"), Long64_t maxEntry = 0)
   y[9] = 646.9;
   y[10] = 619.5;
   y[11] = 605;
-  nominalGain = 270.5;
+  nominalGain = 0;
+  for (int k = 0; k < 9; ++k)
+    nominalGain += y[k];
+  nominalGain /= 9.;
+  printf(" the tag is %s nominal gain = %f ",tag.Data(), nominalGain);
   gStyle->SetOptStat(1001101);
-  cout << " the tag is  " << tag << endl;
   /* get RunTree */
   RunTree = new TChain("RunTree");
   TString name;
@@ -183,6 +229,20 @@ void post(TString tag = TString("12_28_2023"), Long64_t maxEntry = 0)
   hAllHitPeakTime = new TH2D("AllHitPeakTime", "trig summed trig peak versus time ", 7500, 0, 7500, 400, 0, 40);
   hTrigHitPeakTimeCoarse = new TH2D("TrigHitPeakTimeCoarse", "trig summed trig peak versus time ", 75, 0, 7500, 400, 0, 40);
   hAllHitPeakTimeCoarse = new TH2D("AllHitPeakTimeCoarse", "trig summed trig peak versus time ", 75, 0, 7500, 400, 0, 40);
+  //
+  TString htitle;
+  hCountPre = new TH1D("CountPre"," hits sample<600 in sum",20,0,20);
+  htitle.Form("hits qpeak>%.2f SPE sample>1000 in sum",peakCut);
+  hCountLate = new TH1D("CountLate",htitle, 20, 0, 20);
+  htitle.Form("umber of late time hits with qpeak>%.2f", peakCut);
+  hCountLate->GetXaxis()->SetTitle(htitle);
+  htitle.Form("hits qpeak>%.2f SPE sample>1000 in sum",peakCut);
+  hCountLateTime= new TH1D("CountLateTime ",htitle,30,0,7500);
+  hCountLateTime->GetXaxis()->SetTitle("sample time");
+  hCountLateTime->Sumw2();
+  hCountLateTimeQpeak= new TH2D("CountLateTimeQpeak"," sample>1000 in sum qpeak vs time ",30,0,7500,20,0,20);
+  hCountLateTimeQpeak->GetXaxis()->SetTitle("sample time");
+  hCountLateTimeQpeak->GetYaxis()->SetTitle("qpeak [SPE]");
 
   ntSum = new TNtuple("ntSum", " ADC sums ", "trigSumArea:trigSumPeak:trigTotPeak:trigPre:trigTrig:trigLate:sipmPre:sipmTrig:sipmLate");
   ntHit = new TNtuple("ntHit", " hits ", "event:chan:time:qpeak");
@@ -191,6 +251,7 @@ void post(TString tag = TString("12_28_2023"), Long64_t maxEntry = 0)
   hTrigLatePeaksFit = new TH1D("TrigEventSumPeakFit", "trig sipm trigger late peaks ", 1000, 0, 100);
   hSipmLatePeaks = new TH1D("SipmEventSumPeak", "non-trig sipm late peaks ", 1000, 0, 100);
   hSipmLatePeaksFit = new TH1D("SipmEventSumPeakFit", "non-trig sipm late peaks ", 1000, 0, 100);
+  hPassBit = new TH1D("PassBit","pass bit", 4, 0, 4);
 
   //
   loop(maxEntry);
@@ -245,5 +306,7 @@ void post(TString tag = TString("12_28_2023"), Long64_t maxEntry = 0)
          maxEntry, trigCut, double(trigCut) / double(maxEntry), sipmCut, double(sipmCut) / double(maxEntry));
 
   fout->Write();
+  printf(" cut is %.2f \n", peakCut);
+  hPassBit->Print("all");
   // fout->ls();
 }
