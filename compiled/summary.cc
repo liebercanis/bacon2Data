@@ -1,4 +1,5 @@
 // revised June 7 to close files after reading
+// revised April 11 2024 for new gains and new anaCRun.cc
 #include <ctime>
 #include <iostream>
 #include <iterator>
@@ -548,7 +549,7 @@ void fileLoop()
     TList *sumList = sumDir->GetListOfKeys();
     TIter next(sumList);
     TKey *key;
-    // printf("addsumDirHistos %u \n", sumList->GetEntries());
+     printf("addsumDirHistos %u \n", sumList->GetEntries());
     while (TKey *key = (TKey *)next())
     {
       TClass *cl = gROOT->GetClass(key->GetClassName());
@@ -908,10 +909,10 @@ unsigned long countFiles()
 int main(int argc, char *argv[])
 {
   cout << "executing " << argv[0] << " make summary plots  " << endl;
-  printf(" usage: summary  <type=caen/sis> <dir> <start> <stop> \n ");
+  printf(" usage: summary  <dir> <type=caen/sis default caen>  \n ");
   if (argc < 2)
   {
-    printf("reguire <type> <dir> args\n");
+    printf("reguire <dir> args\n");
     exit(0);
   }
   TString tag("run");
@@ -921,39 +922,47 @@ int main(int argc, char *argv[])
     printf(" %i= %s ", jarg, argv[jarg]);
   printf("\n");
 
-  if (TString(argv[1]).Contains("caen") || TString(argv[1]).Contains("CAEN"))
+  if(argc<3) {
     theDataType = CAEN;
-  else
-    theDataType = SIS;
-
-  dirName = TString(argv[2]);
-  dirNameSlash = TString(argv[2]) + TString("/");
-
-  printf(" >>>> datatype %i (0=sis,1=caen) dir %s <<<<\n", theDataType, dirName.Data());
-
-  dopeTime = TDatime(2023, 3, 9, 22, 0, 0);
-
-  unsigned nfiles = countFiles();
-  if (nfiles == 0)
-    exit(0);
-
-  for (int i = 0; i < fileList.size(); ++i)
-    cout << i << "  " << fileList[i] << endl;
-
-  printf(" for %s found %lu files \n", tag.Data(), fileList.size());
-  maxFiles = fileList.size();
-  /*
-  startDate = TString("none");
-  endDate = TString("none");
-  if (argc > 4)
-  {
-    startDate = TString(argv[3]);
-    endDate = TString(argv[4]);
+  } else {
+      if (TString(argv[1]).Contains("caen") || TString(argv[1]).Contains("CAEN"))
+        theDataType = CAEN;
+      else
+        theDataType = SIS;
   }
-  */
-  if (argc > 3)
-  {
-    maxFiles = atoi(argv[3]);
+
+    dirName = TString(argv[1]);
+    dirNameSlash = TString(argv[1]) + TString("/");
+
+
+    dopeTime = TDatime(2023, 3, 9, 22, 0, 0);
+
+    unsigned nfiles = countFiles();
+    if (nfiles == 0){
+      printf(" >>>> datatype %i (0=sis,1=caen) dir %s nfiles =0 <<<<\n", theDataType, dirName.Data());
+      exit(0);
+    }
+
+    
+    printf(" >>>> datatype %i (0=sis,1=caen) dir %s nfiles %i <<<<\n", theDataType, dirName.Data(),nfiles);
+
+    for (int i = 0; i < fileList.size(); ++i)
+      cout << i << "  " << fileList[i] << endl;
+
+    printf(" for %s found %lu files \n", tag.Data(), fileList.size());
+    maxFiles = fileList.size();
+    /*
+    startDate = TString("none");
+    endDate = TString("none");
+    if (argc > 4)
+    {
+      startDate = TString(argv[3]);
+      endDate = TString(argv[4]);
+    }
+    */
+    if (argc > 3)
+    {
+      maxFiles = atoi(argv[3]);
   }
   // cleanup cuts;
   hEventPass = NULL;

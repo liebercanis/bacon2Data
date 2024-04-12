@@ -125,6 +125,8 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     hCrossingBinA.push_back(new TH1D(Form("CrossingBinA%i", id), Form("Crossing Bin chan  %i ", id), nsamples / 2, 0, nsamples / 2));
     hCrossingBinB.push_back(new TH1D(Form("CrossingBinB%i", id), Form("Crossing Bin chan  %i ", id), nsamples / 2, 0, nsamples / 2));
     hCrossingBinC.push_back(new TH1D(Form("CrossingBinC%i", id), Form("Crossing Bin chan  %i ", id), nsamples / 2, 0, nsamples / 2));
+
+    hCrossingMaxBin.push_back(new TH1D(Form("CrossingMaxBin%i", id), Form("Crossing max bin chan  %i ", id), nsamples / 2, 0, nsamples / 2));
   }
 
   fout->cd();
@@ -144,6 +146,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     hEvHitWave.push_back(new TH1D(Form("EvHitWave%s", deti->GetName()), Form("HitWave%s", deti->GetName()), nsamples, 0, nsamples));
     hDigiVal.push_back(new TH1D(Form("DigiVal%i", id), Form("digi value chan %id", id), 2000, -1000., 1000.));
     hDerivativeVal.push_back(new TH1D(Form("DerivativeVal%i", id), Form("derivative value chan %i", id), 2000, -1000., 1000.));
+    hDerivativeValTime.push_back(new TH2D(Form("DerivativeValTime%i", id), Form("derivative value vs sample chan %i", id), nsamples, 0, nsamples,  2000, -1000., 1000.));
     hPeakCut.push_back(new TH1D(Form("PeakCut%i", id), Form("peak cut chan %i", id), 1000, 0., 1000.));
     hPeakCutAndTime.push_back(new TH2D(Form("PeakCutAndTime%i", id), Form("peak cut ADC vs time chan %i", id), 
       30, 0, 7500, 100, 0, 1000));
@@ -403,6 +406,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   for (unsigned isample = 0; isample < ddigi.size(); isample++)
   {
     hDerivativeVal[idet]->Fill(ddigi[isample]);
+    hDerivativeValTime[idet]->Fill(double(isample),ddigi[isample]);
     hEvDerWave[idet]->SetBinContent(isample + 1, ddigi[isample]);
   }
   // find peaks
@@ -433,7 +437,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   // push hits to tbrun
   int icount = 0;
   bool triggerChannel = false;
-  double startTimeCut = 70.0;
+  double startTimeCut = 800.0; // cut for singlet 
   if (ichan == 9 || ichan == 10 || ichan == 11)
     triggerChannel = true;
 
@@ -452,7 +456,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     // fill hit peak wave
     hEvHitPeakWave[idet]->SetBinContent(hiti.peakBin, hiti.qpeak);
     // make sums with cut
-    if (hiti.qsum > hitQThreshold)
+    if (hiti.qsum > hitThreshold)
     {
       tbrun->detList[idet]->qarea += hiti.qsum;
       tbrun->detList[idet]->qpeak += hiti.qpeak;
@@ -462,6 +466,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
         tbrun->detList[idet]->hitPrompt += hiti.qpeak;
       }
     }
+    //printf(" hitFinder event %lld chan %i thres %f qpeak sum %f\n", ievent, ichan, hitThreshold, tbrun->detList[idet]->qpeak);
     if (!triggerChannel)
       hPeakValue->Fill(hiti.qpeak);
     hiti.SetTitle(Form("TDetHit %i event %llu chan %i index %i ", icount++, ievent, ichan, idet));
@@ -703,6 +708,7 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
       imax = ibin;
       maxVal = v[ibin];
     }
+    hCrossingMaxBin[idet]->Fill(imax);
 
     if (verbose)
       printf(" hitFinder::makePeaks cross det %i icross %i maxVal %f  \n", idet, icross, maxVal);
@@ -712,7 +718,6 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     unsigned ihigh = 0;
     // LLLLLLL low will be 10% of peak value need to correct for rise time
     // double lowCut = 0.1 * maxVal;
-    double nominalGain = 270.5;
     double lowCut = 0.1 * nominalGain;
     //if(idet>8) lowCut = nominalGain;
 

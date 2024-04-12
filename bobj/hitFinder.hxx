@@ -45,7 +45,7 @@ typedef std::map<Double_t, TDetHit, std::less<Double_t>> hitMap;
 typedef std::map<Double_t, TDetHit, std::less<Double_t>>::iterator hitMapIter;
 
 //const Double_t qnorm = 1.0;
-static double hitQThreshold = 1000;
+static double nominalGain = 270.5;
 
 class hitFinder
 {
@@ -156,6 +156,7 @@ public:
     std::vector<TH1D *> hCrossingBinA;
     std::vector<TH1D *> hCrossingBinB;
     std::vector<TH1D *> hCrossingBinC;
+    std::vector<TH1D *> hCrossingMaxBin;
     std::vector<TH1D *> hFFT;
     std::vector<TH1D *> hInvFFT;
     std::vector<TH1D *> hFFTFilt;
@@ -171,6 +172,7 @@ public:
     std::vector<TH1D *> hEvFiltWave;
     std::vector<TH1D *> hDigiVal;
     std::vector<TH1D *> hDerivativeVal;
+    std::vector<TH2D *> hDerivativeValTime;
     std::vector<TH1D *> hHitSum;
     std::vector<TH1D *> hUnFilteredSummedWave;
     std::vector<TH1D *> hFilteredSummedWave;

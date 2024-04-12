@@ -802,6 +802,9 @@ int anaCRun::anaEvent(Long64_t entry)
     if (tdet->hits.size() == 0)
       hNoPeak->SetBinContent(tdet->channel + 1, hNoPeak->GetBinContent(tdet->channel + 1) + 1);
     int firstHitTime = rawBr[NONSUMCHANNELS]->rdigi.size();
+    histQSum->Fill(tdet->qpeak);
+    histQPrompt->Fill(tdet->hitPrompt);
+    printf(" event %lld det %i sum qpeak %f sum qprompt %f\n", entry, idet, tdet->qpeak, tdet->hitPrompt);
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
     {
       TDetHit thit = tdet->hits[ihit];
