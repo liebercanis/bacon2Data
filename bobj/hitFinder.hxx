@@ -45,7 +45,6 @@ typedef std::map<Double_t, TDetHit, std::less<Double_t>> hitMap;
 typedef std::map<Double_t, TDetHit, std::less<Double_t>>::iterator hitMapIter;
 
 //const Double_t qnorm = 1.0;
-static double nominalGain = 270.5;
 
 class hitFinder
 {

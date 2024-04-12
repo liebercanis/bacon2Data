@@ -718,6 +718,7 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     unsigned ihigh = 0;
     // LLLLLLL low will be 10% of peak value need to correct for rise time
     // double lowCut = 0.1 * maxVal;
+    double nominalGain = 270.5;
     double lowCut = 0.1 * nominalGain;
     //if(idet>8) lowCut = nominalGain;
 
