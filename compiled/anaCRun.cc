@@ -1,4 +1,4 @@
-//////////////////////////////////////////////////////g
+  //////////////////////////////////////////////////////g
 //  M.Gold April 2023 read CAEN files
 /////////////////////////////////////////////////////////
 #include <sstream>
@@ -93,6 +93,13 @@ public:
   TH1D *hEvBaseWave;
   vector<TH1D *> hEvGaus;
   vector<TH1D *> hChannelGaus;
+
+  // for sums needed for gains
+  std::vector<TH1D *> hTotSum;
+  std::vector<TH1D *> hPreSum;
+  std::vector<TH1D *> hTrigSum;
+  std::vector<TH1D *> hLateSum;
+
   TH1D *hPreQpeak;
   TH1D *hLateQpeak;
   TH1D *hCountPre;
@@ -861,7 +868,16 @@ int anaCRun::anaEvent(Long64_t entry)
                tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
        */
     } // hit loop
+    
     hTriggerHitTimeAll->Fill(firstHitTime);
+    // fill sums
+    hTotSum[idet]->Fill(tdet->totPeakSum);
+    hPreSum[idet]->Fill(tdet->prePeakSum);
+    hTrigSum[idet]->Fill(tdet->trigPeakSum);
+    hLateSum[idet]->Fill(tdet->latePeakSum);
+    //printf(" anaCRun::event %llu det %i nhits %lu , tot %f pre %f trig %f late %f\n", entry, tdet->channel, tdet->hits.size(),
+    //       tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
+
   } // det loop
 
   // printf(" event %llu  pass %i fail 1 %i cosmic only %i fail both %i \n",entry, int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));
@@ -1132,6 +1148,14 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
       valHistB.push_back(new TH1D(Form("valBadChan%i", ichan), Form("valBadChan%i", ichan), 1000, -200, 200));
       hEvGaus.push_back(new TH1D(Form("evGaus%i", ichan), Form("evGaus%i", ichan), 200, -100, 100));
     }
+
+    // for summary //
+    double limit = 5.*nominalGain;
+    int nbins = 400.;
+    hTotSum.push_back(new TH1D(Form("TotPeakSumChan%i", i), Form("tot peak sum chan %i", i), nbins, 0, limit));
+    hPreSum.push_back(new TH1D(Form("PrePeakSumChan%i", i), Form("pre peak sum chan %i", i), nbins, 0, limit));
+    hTrigSum.push_back(new TH1D(Form("TrigPeakSumChan%i", i), Form("trig peak sum chan %i", i), nbins, 0, limit));
+    hLateSum.push_back(new TH1D(Form("LatePeakSumChan%i", i), Form("late peak sum chan %i", i), nbins, 0, limit));
   }
   cosmicCut1 = new TH1D("cosmicCut1", " cosmic total sum chan 12 ", 100, 0, 100);
   cosmicCut2 = new TH1D("cosmicCut2", " cosmic late large hit chan 12 ", 200, 0, 2000);
@@ -1296,6 +1320,15 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     printf(" chan %i count %i frac %f ; zero %i \n", ibin,
            int(histHitCount->GetBinContent(ibin + 1)), double(histHitCount->GetBinContent(ibin + 1)) / double(npass), int(hNoPeak->GetBinContent(ibin + 1)));
   printf("  \n");
+
+  printf(" \n \t ***** sums by channel with entries %.0f \n", hTotSum[0]->GetEntries());
+  for (int idet = 0; idet < hTotSum.size() ; ++idet){
+    printf(" \t chan %i means: tot %.2f pre %.2f trig %.2f late %.2f\n",idet,
+           hTotSum[idet]->GetMean(),
+           hPreSum[idet]->GetMean(),
+           hTrigSum[idet]->GetMean(),
+           hLateSum[idet]->GetMean());
+  }
 
   // printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
   printf(" FINISHED %i ( %i ) pass %i (%i) fail %i ( frac %0.3f ) output file %s  \n",
