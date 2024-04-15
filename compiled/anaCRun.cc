@@ -177,7 +177,7 @@ public:
   double QPEPeak;
   //
   unsigned trigStart = 600;
-  unsigned trigEnd = 1200;
+  unsigned trigEnd = 800;
   int nominalTrigger = 729;
   double nominalGain = 227.4; // average
   unsigned firstTime;         // corrected trigger time for event
