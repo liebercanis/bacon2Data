@@ -423,11 +423,14 @@ void fileLoop()
 {
   totalPass = 0;
   nFiles = 0;
-  printf("fileLoop over %lld files \n", maxFiles); // DEF would be nice to put in a way to look at the last maxFiles files
+  printf("\n +++++++ fileLoop over %lld files +++++ \n", maxFiles); 
+  // DEF would be nice to put in a way to look at the last maxFiles files
   for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
   {
     TString fullName = dirNameSlash + fileList[ifile];
     fin = new TFile(fullName);
+
+    printf(" \n ***** starting file %i  %s  *******\n", ifile, fin->GetName());
 
     eventCount = NULL;
     cout << " get event Count " << ifile << endl;
