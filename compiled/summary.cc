@@ -545,14 +545,16 @@ void fileLoop()
         fout->ls();
         if (ifile == 0)
         {
-          hRunLatePeakSum[ichan] = (TH1D *)hist->Clone("RunLatePeakSum");
+          TString runHistName;
+          runHistName.Form("RunLatePeakSumChan%i", ichan);
+          hRunLatePeakSum[ichan] = (TH1D *)hist->Clone(runHistName);
           fout->Add(hRunLatePeakSum[ichan]);
         }
         else
         {
           cout << "... looking for " << hRunLatePeakSum[ichan]->GetName() << endl;
           fout->GetObject(hRunLatePeakSum[ichan]->GetName(), hRunLatePeakSum[ichan]);
-          hRunLatePeakSum[ichan]->Add(hRunLatePeakSum[ichan]);
+          hRunLatePeakSum[ichan]->Add( hRunLatePeakSum[ichan] );
       }
       } else {
         printf("!! Warning this file does not contain %s hist !! \n", histname.Data());
