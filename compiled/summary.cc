@@ -541,7 +541,8 @@ void fileLoop()
       TH1D *hist=NULL;
       anaDir->GetObject(histname, hist);
       if(hist!=NULL) {
-        cout << ichan << "  " << hist->GetName() << endl;
+        cout <<" ichan " << ichan << "  " << hist->GetName() << endl;
+        fout->ls();
         if (ifile == 0)
         {
           hRunLatePeakSum[ichan] = (TH1D *)hist->Clone("RunLatePeakSum");
