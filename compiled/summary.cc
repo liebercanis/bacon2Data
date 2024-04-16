@@ -550,8 +550,9 @@ void fileLoop()
         }
         else
         {
+          cout << "... looking for " << hRunLatePeakSum[ichan]->GetName() << endl;
           fout->GetObject(hRunLatePeakSum[ichan]->GetName(), hRunLatePeakSum[ichan]);
-          hRunLatePeakSum[ichan]->Add(hist);
+          hRunLatePeakSum[ichan]->Add(hRunLatePeakSum[ichan]);
       }
       } else {
         printf("!! Warning this file does not contain %s hist !! \n", histname.Data());
