@@ -538,18 +538,22 @@ void fileLoop()
     {
       TString histname;
       histname.Form("LatePeakSumChan%i", ichan);
-      TH1D *hist;
+      TH1D *hist=NULL;
       anaDir->GetObject(histname, hist);
-      cout << ichan << "  " << hist->GetName() << endl;
-      if (ifile == 0)
-      {
-        hRunLatePeakSum[ichan] = (TH1D *)hist->Clone("RunLatePeakSum");
-        fout->Add(hRunLatePeakSum[ichan]);
+      if(hist!=NULL) {
+        cout << ichan << "  " << hist->GetName() << endl;
+        if (ifile == 0)
+        {
+          hRunLatePeakSum[ichan] = (TH1D *)hist->Clone("RunLatePeakSum");
+          fout->Add(hRunLatePeakSum[ichan]);
+        }
+        else
+        {
+          fout->GetObject(hRunLatePeakSum[ichan]->GetName(), hRunLatePeakSum[ichan]);
+          hRunLatePeakSum[ichan]->Add(hist);
       }
-      else
-      {
-        fout->GetObject(hRunLatePeakSum[ichan]->GetName(), hRunLatePeakSum[ichan]);
-        hRunLatePeakSum[ichan]->Add(hist);
+      } else {
+        printf("!! Warning this file does not contain %s hist !! \n", histname.Data());
       }
     }
 
