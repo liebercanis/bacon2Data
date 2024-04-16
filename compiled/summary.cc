@@ -542,18 +542,18 @@ void fileLoop()
       anaDir->GetObject(histname, hist);
       if(hist!=NULL) {
         cout <<" ichan " << ichan << "  " << hist->GetName() << endl;
-        fout->ls();
+        TString runHistName;
+        runHistName.Form("RunLatePeakSumChan%i", ichan);
         if (ifile == 0)
         {
-          TString runHistName;
-          runHistName.Form("RunLatePeakSumChan%i", ichan);
           hRunLatePeakSum[ichan] = (TH1D *)hist->Clone(runHistName);
+          cout << "... addding  " << hRunLatePeakSum[ichan]->GetName() << endl;
           fout->Add(hRunLatePeakSum[ichan]);
         }
         else
         {
-          cout << "... looking for " << hRunLatePeakSum[ichan]->GetName() << endl;
-          fout->GetObject(hRunLatePeakSum[ichan]->GetName(), hRunLatePeakSum[ichan]);
+          cout << "... looking for " << runHistName<< endl;
+          fout->GetObject(runHistName, hRunLatePeakSum[ichan]);
           hRunLatePeakSum[ichan]->Add( hRunLatePeakSum[ichan] );
       }
       } else {
@@ -1286,6 +1286,17 @@ int main(int argc, char *argv[])
     printf("effOther[%i]=%f ;\n", ichan, effOther[ichan]);
 
   //    fout->ls();
+  // get rid of first bin
+  for (int ihist = 0; ihist < hRunLatePeakSum.size(); ++ihist)
+  {
+    TString runHistName;
+    runHistName.Form("RunLatePeakSumChan%i", ihist);
+    fout->GetObject(runHistName, hRunLatePeakSum[ihist]);
+    hRunLatePeakSum[ihist]->SetBinContent(1, 0);
+    cout << " set to zero " <<  runHistName << " " << hRunLatePeakSum[ihist]->GetBinContent(1) << endl;
+    //dont need this fout->Add(hRunLatePeakSum[ihist]);
+  }
+
   fout->Purge(1);
   fout->Write();
   fout->Close();
