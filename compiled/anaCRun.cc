@@ -868,9 +868,8 @@ int anaCRun::anaEvent(Long64_t entry)
                tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
        */
     } // hit loop
-    
     hTriggerHitTimeAll->Fill(firstHitTime);
-    // fill sums
+    // fill sums do not fill for zero sums
     if (tdet->totPeakSum > 0)
       hTotSum[idet]->Fill(tdet->totPeakSum);
     if (tdet->prePeakSum > 0)
