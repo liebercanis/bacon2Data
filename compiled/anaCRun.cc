@@ -1,4 +1,4 @@
-  //////////////////////////////////////////////////////g
+//////////////////////////////////////////////////////g
 //  M.Gold April 2023 read CAEN files
 /////////////////////////////////////////////////////////
 #include <sstream>
@@ -871,10 +871,14 @@ int anaCRun::anaEvent(Long64_t entry)
     
     hTriggerHitTimeAll->Fill(firstHitTime);
     // fill sums
-    hTotSum[idet]->Fill(tdet->totPeakSum);
-    hPreSum[idet]->Fill(tdet->prePeakSum);
-    hTrigSum[idet]->Fill(tdet->trigPeakSum);
-    hLateSum[idet]->Fill(tdet->latePeakSum);
+    if (tdet->totPeakSum > 0)
+      hTotSum[idet]->Fill(tdet->totPeakSum);
+    if (tdet->prePeakSum > 0)
+      hPreSum[idet]->Fill(tdet->prePeakSum);
+    if (tdet->trigPeakSum > 0)
+      hTrigSum[idet]->Fill(tdet->trigPeakSum);
+    if (tdet->latePeakSum>0)  
+      hLateSum[idet]->Fill(tdet->latePeakSum);
     //printf(" anaCRun::event %llu det %i nhits %lu , tot %f pre %f trig %f late %f\n", entry, tdet->channel, tdet->hits.size(),
     //       tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
 
