@@ -1319,6 +1319,7 @@ int main(int argc, char *argv[])
   }
 
   fout->Purge(1);
+  fout->ls();
   fout->Write();
   fout->Close();
   cout << "summary finished " << maxFiles << " files written to " << fout->GetName() << endl;
