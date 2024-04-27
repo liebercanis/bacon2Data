@@ -1216,7 +1216,7 @@ int main(int argc, char *argv[])
     cout << "@ fitSlopes" << endl;
     fitSlopes();
     cout << "@ makeGraphs" << endl;
-    makeGraphs();
+    //makeGraphs();
   }
 
   // report
