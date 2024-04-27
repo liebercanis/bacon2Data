@@ -1322,7 +1322,7 @@ int main(int argc, char *argv[])
   fout->ls();
   fout->Write();
   fout->Close();
-  cout << "summary finished " << maxFiles << " files written to " << fout->GetName() << endl;
+  cout << "summary finished " << " total pass " << totalPass << " maxFiles  "<< maxFiles << " files written to " << fout->GetName() << endl;
   exit(0);
 }
 
