@@ -645,6 +645,11 @@ void fileLoop()
     printf("addsumDirHistos %u \n", sumList->GetEntries());
     while (TKey *key = (TKey *)next())
     {
+      TKey *keyprev = NULL;
+      keyprev = (TKey *)sumDir->GetListOfKeys()->Before(key);
+      if ( keyprev && ((key->GetName(), keyprev->GetName()) == 0) )
+          continue;
+      
       TClass *cl = gROOT->GetClass(key->GetClassName());
       if (!cl->InheritsFrom("TH1D"))
         continue;
