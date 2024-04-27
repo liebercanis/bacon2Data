@@ -747,7 +747,7 @@ void sumHistosChannel(int ichan, TString histSet)
   /* if (ichan > 8 && ichan < 12)
     return; // skip trigger sipms
   */
-  printf("sum histos ichan %i set %s \n", ichan, histSet.Data());
+  printf("sum histos ichan %i set %s QPEMean %f  \n", ichan, histSet.Data(),QPEMean[ichan]);
   // cout << " number of files " << vRunPeakWave[ichan].size() << endl;
 
   /* loop over ih = file number */
@@ -796,8 +796,8 @@ void sumHistosChannel(int ichan, TString histSet)
     }
     else
     {
-      hWaveToFit = new TH1D(Form("fitwaveChan%iFlile%i", ichan, ih), Form("fitwaveChan%iFlile%i", ichan, ih), nbinsx, xWaveLow, xWaveHigh);
-      hWaveToFitNotNormed = new TH1D(Form("notNormedWaveChan%iFlile%i", ichan, ih), Form("fitwaveChan%iFlile%i", ichan, ih), nbinsx, xWaveLow, xWaveHigh);
+      hWaveToFit = new TH1D(Form("fitwaveChan%iFlile%i", ichan, ih), Form("fitwaveChan%iFlile%i", ichan, ih), nbinsx, xlow,xup);
+      hWaveToFitNotNormed = new TH1D(Form("notNormedWaveChan%iFlile%i", ichan, ih), Form("fitwaveChan%iFlile%i", ichan, ih), nbinsx, xlow,xup);
     }
     // cout << hWaveToFit->GetName() << endl;
     hWaveToFit->SetMarkerStyle(21);
@@ -807,7 +807,7 @@ void sumHistosChannel(int ichan, TString histSet)
     hWaveToFitNotNormed->SetMarkerSize(0.2);
     hWaveToFitNotNormed->GetListOfFunctions()->Clear();
 
-    printf(" NNNNNN normalize to qpe chan %i file %i qpe %f !!!!!\n", ichan, ih, qpeChan);
+    printf(" NNNNNN normalize to qpe chan %i nbins %i file %i qpe %f !!!!!\n", ichan, waveToSum->GetNbinsX() , ih, qpeChan);
     /* loop over histogram bins */
     for (int ibin = 0; ibin < waveToSum->GetNbinsX(); ++ibin)
     {
@@ -902,7 +902,7 @@ void sumHistos()
 {
   printf("sumHistos: Number of files  %d \n", nFiles);
   ntQhit8 = new TNtuple("ntQhit8", " chan 8  ", "run:bin:qpe:qhit");
-  fout->Append(ntQhit8);
+  //fout->Append(ntQhit8);
   for (unsigned ichan = 0; ichan < vRunHitWave.size(); ++ichan)
   {
     TString histSet = TString("HitWave");
