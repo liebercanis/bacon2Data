@@ -1,4 +1,3 @@
-// revised June 7 to close files after reading
 // revised April 11 2024 for new gains and new anaCRun.cc
 #include <ctime>
 #include <iostream>
@@ -111,6 +110,7 @@ std::vector<TH1D *> hRunHitWave;
 std::vector<TH1D *> hRunPeakWave;
 std::vector<TH1D *> hRunSumWave;
 std::vector<TH1D *> hUnNormedHitWave;
+std::vector<TH1D *> hUnNormedSumWave;
 std::vector<TH1D *> hRunLatePeakSum;
 TDirectory *sumDir;
 TDirectory *fitSumDir;
@@ -149,6 +149,42 @@ double xWaveLow = 0;
 double xWaveHigh = 7500; // max sample
 
 /* start of code */
+
+// normalize to total pass
+void normalizeTotalPass(TString histSet)
+{
+  for (int ichan = 0; ichan < CHANNELS; ++ichan)
+  {
+    if(ichan==12) // skip broken PMT
+      continue; 
+    TString histName;
+    histName.Form("UnNormed%sChan%i", histSet.Data(), ichan);
+    TString saveName;
+    saveName.Form("Run%sChan%i", histSet.Data(), ichan);
+    TH1D *hist;
+    runSumDir->GetObject(histName, hist);
+    if (!hist)
+      printf("at line165 %s not found \n", histName.Data());
+    if (hist)
+    {
+        TH1D *hSave = (TH1D *)hist->Clone(saveName);
+        hSave->SetTitle(saveName);
+        sumHits[ichan] = hist->Integral();
+        for (int ibin = 0; ibin < hist->GetNbinsX(); ++ibin)
+        {
+          double xbin = hist->GetBinContent(ibin);
+          double ebin = hist->GetBinError(ibin);
+          //if (xbin < 0)
+          //  cout << " at line170 " << hist->GetName() << " ibin " << ibin << " xbin " << xbin << " ebin " << ebin << endl;
+          hSave->SetBinContent(ibin, xbin / double(totalPass));
+          hSave->SetBinError(ibin, ebin / double(totalPass));
+        }
+        cout << " at line171"
+             << " totalPass " << totalPass << "  " << hist->GetName() << " integral " << hist->Integral()
+             << " normed  " << hSave->GetName() << " integral " << hSave->Integral() << endl;
+    }
+  }
+}
 
 bool readGains(TString fileName)
 {
@@ -647,9 +683,9 @@ void fileLoop()
     {
       TKey *keyprev = NULL;
       keyprev = (TKey *)sumDir->GetListOfKeys()->Before(key);
-      if ( keyprev && ((key->GetName(), keyprev->GetName()) == 0) )
-          continue;
-      
+      if (keyprev && ((key->GetName(), keyprev->GetName()) == 0))
+        continue;
+
       TClass *cl = gROOT->GetClass(key->GetClassName());
       if (!cl->InheritsFrom("TH1D"))
         continue;
@@ -661,32 +697,46 @@ void fileLoop()
       TH1D *hRunClone;
       if (name.find("sumWave") != std::string::npos && name.find("Bad") == std::string::npos)
       {
-        cout << " sumWave clone " << name << " file " << ifile << endl;
+        //waveSumDir->cd();
+        cout << "line700  sumWave clone " << name << " file " << ifile << endl;
         string chan = name.substr(name.find_last_of("e") + 1);
         int ichan = stoi(chan);
-        hClone = (TH1D *)h->Clone(Form("RunSumWaveFile%uChan%i", ifile, ichan));
+        TString cloneName;
+        cloneName.Form("RunSumWaveFile%uChan%i", ifile, ichan);
+        hClone = (TH1D *)h->Clone(cloneName);
+        hClone->SetTitle(cloneName);
         hSumWave.push_back(hClone);
         waveSumDir->Add(hClone);
       }
       if (name.find("sumHitWave") != std::string::npos)
       {
-        cout << " sumHitWave clone " << name << " file " << ifile << endl;
+        //waveSumDir->cd();
+        cout << "line709  sumHitWave clone " << name << " file " << ifile << endl;
         string chan = name.substr(name.find_last_of("e") + 1);
         int ichan = stoi(chan);
-        hClone = (TH1D *)h->Clone(Form("RunHitWaveFile%uChan%i", ifile, ichan));
+        TString cloneName;
+        cloneName.Form("RunHitWaveFile%uChan%i", ifile, ichan);
+        hClone = (TH1D *)h->Clone(cloneName);
+        hClone->SetTitle(cloneName);
         TString histName;
         // histName.Form("RunHitWaveChan%i", ichan);
         // hRunClone = (TH1D *)h->Clone(histName);
         waveSumDir->Add(hClone);
         vRunHitWave[ichan].push_back(hClone);
+        cout << "line718  sumHitWave clone " << hClone->GetName()  
+              << " file " << ifile << " vRunHitWave " << vRunHitWave[ichan].size()  << endl;
         /*  do not sum here */
       }
       if (name.find("sumPeakWave") != std::string::npos)
       {
-        cout << " sumPeakWave clone " << name << " file " << ifile << endl;
+        //waveSumDir->cd();
+        cout << "line722 sumPeakWave clone " << name << " file " << ifile << endl;
         string chan = name.substr(name.find_last_of("e") + 1);
         int ichan = stoi(chan);
-        hClone = (TH1D *)h->Clone(Form("RunPeakWaveFile%uChan%i", ifile, ichan));
+        TString cloneName;
+        cloneName.Form("RunPeakWaveFile%uChan%i", ifile, ichan);
+        hClone = (TH1D *)h->Clone(cloneName);
+        hClone->SetTitle(cloneName);
         TString histName;
         // histName.Form("RunPeakWaveChan%i", ichan);
         // hRunClone = (TH1D *)h->Clone(histName);
@@ -700,12 +750,12 @@ void fileLoop()
       {
         string chan = name.substr(name.find_last_of("n") + 1);
         int ichan = stoi(chan);
-        cout << name << "string chan" << chan << " int " << ichan << endl;
+        cout <<"line739 "<< name << "string chan" << chan << " int " << ichan << endl;
 
         TString cloneName;
         cloneName.Form("runPeakSumCh%ifile%i", ichan, ifile);
         TH1D *hpAdd = (TH1D *)h->Clone(cloneName);
-        cout << " found RunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName() << " " << hpAdd->GetName() << endl;
+        cout << " line744 found RunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName() << " " << hpAdd->GetName() << endl;
         hpAdd->SetMarkerStyle(20);
         hpAdd->SetMarkerSize(0.5);
         vRunPeakSum[ichan].push_back(hpAdd);
@@ -719,7 +769,7 @@ void fileLoop()
         TString cloneName;
         cloneName.Form("runQSumCh%iFile%i", ichan, ifile);
         TH1D *hqAdd = (TH1D *)h->Clone(cloneName);
-        cout << " found RunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName() << " " << hqAdd->GetName()
+        cout << " line758 found RunQSum " << ichan << " " << fileList[ifile] << " " << h->GetName() << " " << hqAdd->GetName()
              << " max x  " << h->GetBinLowEdge(h->GetNbinsX() + 1) << endl;
         hqAdd->SetMarkerStyle(20);
         hqAdd->SetMarkerSize(0.5);
@@ -728,11 +778,11 @@ void fileLoop()
       }
     }
     cout << " end loop over sumDir keys " << endl; // loop over sumDir keys
-    if (ifile == 0)
-      fout->Write();
+    //waveSumDir->ls();
+    fout->Write();
     // if(ifile==0) fout->ls();
-    qpeSumDir->Write();
-    waveSumDir->Write();
+    //qpeSumDir->Write();
+    //waveSumDir->Write();
     fin->Close();
     totalPass += int(npass);
     ++nFiles;
@@ -743,62 +793,63 @@ void fileLoop()
 
 void sumHistosChannel(int ichan, TString histSet)
 {
+  if(ichan==12) // skip PMT
+    return;
   vecQPEMean[ichan] = QPEMean[ichan]; // starting value
   /* if (ichan > 8 && ichan < 12)
     return; // skip trigger sipms
   */
-  printf("sum histos ichan %i set %s QPEMean %f  \n", ichan, histSet.Data(),QPEMean[ichan]);
-  // cout << " number of files " << vRunPeakWave[ichan].size() << endl;
+  printf("line792 sumHistosChannel:: sum histos total pass %i ichan %i set %s QPEMean %f  \n", totalPass, ichan, histSet.Data(), QPEMean[ichan]);
 
-  /* loop over ih = file number */
-  for (unsigned ih = 0; ih < vRunPeakWave[ichan].size(); ++ih)
+  // sum over files
+  for (int ih = 0; ih < nFiles; ++ih)
   {
+
     TString histName;
     histName.Form("Run%sFile%uChan%i", histSet.Data(), ih, ichan);
     TH1D *waveToSum;
     waveSumDir->GetObject(histName, waveToSum);
     if (waveToSum == NULL)
     {
-      printf("skipping %s  chan %i file %i \n", histSet.Data(), ichan, ih);
+      printf("line799 skipping %s  %s chan %i file %i \n", histSet.Data(),histName.Data(), ichan, ih);
       continue;
     }
-    cout << "at " << waveToSum->GetName() << endl;
+    
+    // cout << "at line 765 waveToSum " << waveToSum->GetName() << endl;
 
-    waveToSum->SetXTitle(" time [ns] ");
-    if (histSet == TString("HitWave"))
+   waveToSum->SetXTitle(" time [ns] ");
+  if (histSet == TString("HitWave"))
       waveToSum->SetYTitle("summed yield in QPE");
-    else if (histSet == TString("SumWave"))
+  else if (histSet == TString("SumWave"))
       waveToSum->SetYTitle("summed yield [ADC]");
-    // new histogram
-    int nbinsx = waveToSum->GetNbinsX();
-    double xlow = waveToSum->GetXaxis()->GetBinLowEdge(0);
-    double xup = waveToSum->GetXaxis()->GetBinUpEdge(nbinsx);
+  // new histogram
+  int nbinsx = waveToSum->GetNbinsX();
+  double xlow = waveToSum->GetXaxis()->GetBinLowEdge(0);
+  double xup = waveToSum->GetXaxis()->GetBinUpEdge(nbinsx);
 
     // normalize to qpe.
-    double qpeChan = vecQPE[ichan][ih];
-    if (qpeChan <= 0 || isnan(qpeChan)) // bad value
-      qpeChan = vecQPEMean[ichan];
-    else if (qpeChan < 0.75 * vecQPEMean[ichan] || qpeChan > 1.50 * vecQPEMean[ichan]) // check if too far from mean;
-      qpeChan = vecQPEMean[ichan];
-    else // update mean
-    {
-      vecQPEMean[ichan] = (vecQPEMean[ichan] * double(vecQPENave[ichan]) + qpeChan) / double(vecQPENave[ichan] + 1);
-      vecQPENave[ichan] += 1;
-    }
+  double qpeChan = 227.4; // nominal gain vecQPE[ichan][ih]; come back to thhis
+  /*
+  if (qpeChan <= 0 || isnan(qpeChan)) // bad value
+    qpeChan = vecQPEMean[ichan];
+  else if (qpeChan < 0.75 * vecQPEMean[ichan] || qpeChan > 1.50 * vecQPEMean[ichan]) // check if too far from mean;
+    qpeChan = vecQPEMean[ichan];
+  else // update mean
+  {
+    vecQPEMean[ichan] = (vecQPEMean[ichan] * double(vecQPENave[ichan]) + qpeChan) / double(vecQPENave[ichan] + 1);
+    vecQPENave[ichan] += 1;
+  }
+  */
 
     fitSumDir->cd();
     TH1D *hWaveToFit;
     TH1D *hWaveToFitNotNormed;
-    if (theDataType == SIS)
-    {
-      hWaveToFit = new TH1D(Form("fitwaveChan%iFlile%i", ichan, ih), Form("fitwaveChan%iFlile%i", ichan, ih), nbinsx, 0, 8. * xup);
-      hWaveToFitNotNormed = new TH1D(Form("notNormedWaveChan%iFlile%i", ichan, ih), Form("fitwaveChan%iFlile%i", ichan, ih), nbinsx, xlow, 8. * xup);
-    }
-    else
-    {
-      hWaveToFit = new TH1D(Form("fitwaveChan%iFlile%i", ichan, ih), Form("fitwaveChan%iFlile%i", ichan, ih), nbinsx, xlow,xup);
-      hWaveToFitNotNormed = new TH1D(Form("notNormedWaveChan%iFlile%i", ichan, ih), Form("fitwaveChan%iFlile%i", ichan, ih), nbinsx, xlow,xup);
-    }
+    TString fitwaveName;
+    fitwaveName.Form("fitwave%sChan%iFile%i", histSet.Data(), ichan, ih);
+    TString notNormedName;
+    notNormedName.Form("notNormedWave%sChan%iFile%i", histSet.Data(), ichan, ih);
+    hWaveToFit = (TH1D *)waveToSum->Clone(fitwaveName);
+    hWaveToFitNotNormed = (TH1D *)waveToSum->Clone(notNormedName);
     // cout << hWaveToFit->GetName() << endl;
     hWaveToFit->SetMarkerStyle(21);
     hWaveToFit->SetMarkerSize(0.2);
@@ -807,8 +858,9 @@ void sumHistosChannel(int ichan, TString histSet)
     hWaveToFitNotNormed->SetMarkerSize(0.2);
     hWaveToFitNotNormed->GetListOfFunctions()->Clear();
 
-    printf(" NNNNNN normalize to qpe chan %i nbins %i file %i qpe %f !!!!!\n", ichan, waveToSum->GetNbinsX() , ih, qpeChan);
+    printf(" line 850 NNNNNN normalize to qpe chan %i nbins %i file %i qpe %f !!!!!\n", ichan, waveToSum->GetNbinsX(), ih, qpeChan);
     /* loop over histogram bins */
+    printf("line862 waveToSum %s  chan %i file %i entries %f  \n", waveToSum->GetName(), ichan, ih,waveToSum->GetEntries());
     for (int ibin = 0; ibin < waveToSum->GetNbinsX(); ++ibin)
     {
       // apply effOther correction
@@ -835,84 +887,104 @@ void sumHistosChannel(int ichan, TString histSet)
       // norm to number of triggers
       hWaveToFitNotNormed->SetBinContent(ibin, xbin);
       hWaveToFitNotNormed->SetBinError(ibin, ebin);
-      hWaveToFit->SetBinContent(ibin, xbin / double(totalPass));
-      hWaveToFit->SetBinError(ibin, ebin / double(totalPass));
+      // norm to total pass in file
+      hWaveToFit->SetBinContent(ibin, xbin / double(filePass[ih]));
+      hWaveToFit->SetBinError(ibin, ebin / double(filePass[ih]));
       if (ichan == 8)
         ntQhit8->Fill(float(ih), float(ibin), qpeChan, hWaveToFit->GetBinContent(ibin));
     }
-
+    cout << "at line894 "
+         << " filePass " << filePass[ih] << "  " << hWaveToFit->GetName() 
+         << " sum entries " << waveToSum->GetEntries() 
+         << " sum integral " << waveToSum->Integral() 
+         << " fit integral  " << hWaveToFit->Integral() << endl;
+    
     // check histo
     bool addIt = true;
+    /*
     for (int ibin = 1; ibin < hWaveToFit->GetNbinsX(); ++ibin)
       if (isnan(hWaveToFit->GetBinContent(ibin)) || isinf(hWaveToFit->GetBinContent(ibin)))
       {
         printf("XXXXXXXXXXXXX WARNING bin %i chan %i hist %s file %i %s XXXXXXX ", ibin, ichan, histName.Data(), ih, fileList[ih].Data());
         addIt = false;
       }
-    cout << endl;
+    if (!addIt)
+      cout << endl;
+      */
 
     if (addIt)
-      printf("addIt %s %s \n", hWaveToFit->GetName(), fileList[ih].Data());
+      printf("addIt line917 totalPass %i set %s hist %s hist %s file %i %s \n", 
+        totalPass, histSet.Data(), hWaveToFit->GetName(), waveToSum->GetName(), ih, fileList[ih].Data());
     else
       printf("NOT addIt %s %s \n", hWaveToFit->GetName(), fileList[ih].Data());
 
     // add and save in output file runSumDir;
     if (histSet == TString("HitWave"))
     {
-      if (hRunHitWave[ichan] == NULL && addIt)
+      runSumDir->cd();
+      if (hUnNormedHitWave[ichan] == NULL && addIt)
       {
-        TString histName;
-        histName.Form("Run%sChan%i", histSet.Data(), ichan);
-        cout << " NNNNNNNNNN new clone " << histName << endl;
-        runSumDir->cd();
-        hRunHitWave[ichan] = (TH1D *)hWaveToFit->Clone(histName);
+        // histName.Form("Run%sChan%i", histSet.Data(), ichan);
+        //  do norm to tatal pass after sum over files
+        // hRunHitWave[ichan] = (TH1D *)hWaveToFitNotNormed->Clone(histName);
         histName.Form("UnNormed%sChan%i", histSet.Data(), ichan);
+        cout << " line915 NNNNNNNNNN new clone " << histName << " of " << hWaveToFitNotNormed->GetName() << endl;
         hUnNormedHitWave[ichan] = (TH1D *)hWaveToFitNotNormed->Clone(histName);
-        runSumDir->Add(hRunHitWave[ichan]);
+        hUnNormedHitWave[ichan]->SetTitle(histName);
+        // runSumDir->Add(hRunHitWave[ichan]);
         runSumDir->Add(hUnNormedHitWave[ichan]);
       }
       else if (addIt)
       {
-        hRunHitWave[ichan]->Add(hWaveToFit);
+        histName.Form("UnNormed%sChan%i", histSet.Data(), ichan);
+        //hRunHitWave[ichan]->Add(hWaveToFitNotNormed);
+        runSumDir->GetObject(histName, hUnNormedHitWave[ichan]);
+        if (hUnNormedHitWave[ichan]==NULL) {
+          printf("line 951 NULL chan %i file %i %s \n", ichan, ih,histName.Data());
+          runSumDir->ls();
+        }
         hUnNormedHitWave[ichan]->Add(hWaveToFitNotNormed);
       }
+      cout << " at line943 " << fileList[ih].Data() << " totalPass " << totalPass << "  " << hUnNormedHitWave[ichan]->GetName() << " integral " << hUnNormedHitWave[ichan]->Integral() << endl;
+
       // end add RunHitWave
     }
     else if (histSet == TString("SumWave"))
     {
-      if (hRunSumWave[ichan] == NULL && addIt)
+      runSumDir->cd();
+      histName.Form("UnNormed%sChan%i", histSet.Data(), ichan);
+      //cout << " line896 sum to " << histName << " summing " << waveToSum->GetName() << endl;
+      if (hUnNormedSumWave[ichan] == NULL && addIt)
       {
-        TString histName;
-        histName.Form("Run%sChan%i", histSet.Data(), ichan);
-        cout << " NNNNNNNNNN new clone " << histName << endl;
-        runSumDir->cd();
-        hRunSumWave[ichan] = (TH1D *)hWaveToFit->Clone(histName);
-        runSumDir->Add(hRunSumWave[ichan]);
+        cout << " line939 NNNNNNNNNN new clone " << histName << " " <<  waveToSum->GetName() << endl;
+        hUnNormedSumWave[ichan] = (TH1D *)waveToSum->Clone(histName);
+        hUnNormedSumWave[ichan]->SetTitle(histName);
       }
       else if (addIt)
       {
-        hRunSumWave[ichan]->Add(hWaveToFit);
+        histName.Form("UnNormed%sChan%i", histSet.Data(), ichan);
+        runSumDir->GetObject(histName, hUnNormedSumWave[ichan]);
+        if (hUnNormedSumWave[ichan] == NULL)
+          printf("line950 no RunSumWave %s\n",histName.Data());
+        hUnNormedSumWave[ichan]->Add(hWaveToFit);
       }
     }
+  } // sum over files
     // end add RunHitWave
-  }
 }
 
 void sumHistos()
 {
-  printf("sumHistos: Number of files  %d \n", nFiles);
-  ntQhit8 = new TNtuple("ntQhit8", " chan 8  ", "run:bin:qpe:qhit");
-  //fout->Append(ntQhit8);
-  for (unsigned ichan = 0; ichan < vRunHitWave.size(); ++ichan)
-  {
-    TString histSet = TString("HitWave");
-    sumHistosChannel(ichan, histSet);
-  }
-  for (unsigned ichan = 0; ichan < vRunHitWave.size(); ++ichan)
-  {
-    TString histSet = TString("SumWave");
-    sumHistosChannel(ichan, histSet);
-  }
+  printf("line963 sumHistos: Number of files  %d vRunHitWave size %lu\n", nFiles,vRunHitWave.size());
+  // loop over channels
+  for (int ichan = 0; ichan < CHANNELS; ++ichan) 
+      sumHistosChannel(ichan, TString("HitWave"));
+  for (int ichan = 0; ichan < CHANNELS; ++ichan)
+      sumHistosChannel(ichan, TString("SumWave"));
+  // normalize each channel
+  //waveSumDir->ls();
+  normalizeTotalPass(TString("HitWave"));
+  normalizeTotalPass(TString("SumWave"));
 }
 
 void fitSlopes()
@@ -1100,9 +1172,9 @@ int main(int argc, char *argv[])
   sdate = currentDate();
   cout << " starting summary for   " << maxFiles << endl;
 
-  fout = new TFile(Form("summary-%s-nfiles-%lli-dir-%s-%s.root", tag.Data(),maxFiles, dirName.Data(), sdate.c_str()), "recreate");
+  fout = new TFile(Form("summary-%s-nfiles-%lli-dir-%s-%s.root", tag.Data(), maxFiles, dirName.Data(), sdate.c_str()), "recreate");
   fitSumDir = fout->mkdir("fitSumDir");
-  waveSumDir = fout->mkdir("WaveSumDir");
+  waveSumDir = fout->mkdir("waveSumDir");
   qpeSumDir = fout->mkdir("qpeSumDir");
   peakSumDir = fout->mkdir("peakSumDir");
   runSumDir = fout->mkdir("runSumDir");
@@ -1138,11 +1210,14 @@ int main(int argc, char *argv[])
   hRunPeakWave.resize(CHANNELS);
   hRunSumWave.resize(CHANNELS);
   hUnNormedHitWave.resize(CHANNELS);
+  hUnNormedSumWave.resize(CHANNELS);
   sumHits.resize(CHANNELS);
   hRunLatePeakSum.resize(CHANNELS);
 
   for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
   {
+    hUnNormedHitWave[ichan] = NULL;
+    hUnNormedSumWave[ichan] = NULL;
     hRunHitWave[ichan] = NULL;
     hRunPeakWave[ichan] = NULL;
     hRunSumWave[ichan] = NULL;
@@ -1202,8 +1277,12 @@ int main(int argc, char *argv[])
   */
   cout << "@ fileLoop" << endl;
   fileLoop();
+  waveSumDir->ls();
+  for(int ichan=0; ichan<CHANNELS; ++ichan)
+    printf("%i vRunHitWave size %lu\n", ichan, vRunHitWave[ichan].size());
 
-  printf("\t\t >>> after fileLoop processed << %li  total pass %i channels %lu <<<<< \n", filenum.size(), totalPass, vRunPeakWave.size());
+  printf("line1270 \t\t >>> after fileLoop processed << %li  total pass %i channels %lu <<<<< \n", filenum.size(), totalPass, vRunPeakWave.size());
+
 
   for (unsigned jfile = 0; jfile < filenum.size(); ++jfile)
   {
@@ -1214,14 +1293,15 @@ int main(int argc, char *argv[])
   fitQPE();
 
   // call function to fit slopes and fill vSlope, vESlope
+  ntQhit8 = new TNtuple("ntQhit8", " chan 8  ", "run:bin:qpe:qhit");
   if (filenum.size() > 0)
   {
-    cout << "@ sumHistos" << endl;
+    cout << "@ line1228 sumHistos files " << filenum.size() << endl;
     sumHistos();
-    cout << "@ fitSlopes" << endl;
-    fitSlopes();
-    cout << "@ makeGraphs" << endl;
-    //makeGraphs();
+    cout << "@  line1230 fitSlopes" << endl;
+    //fitSlopes();
+    cout << "@ line1232 makeGraphs" << endl;
+    // makeGraphs();
   }
 
   // report
@@ -1291,8 +1371,8 @@ int main(int argc, char *argv[])
     // from fit to hist
     // if (ichan == 12)
     //  back = 6.45;
-    printf("chan %i nbins %i entries %f sum %E  bins (%f,%f)  ave (%.4f,%.4f)  back (%E,%E)\n", ichan, nbins, hRunHitWave[ichan]->GetEntries(), sum, fitStart, fitEnd, ave, ave2, back, back2);
-    sumHits[ichan] = sum - back;
+    printf("RunHitWave chan %i nbins %i entries %f sum %E  bins (%f,%f)  ave (%.4f,%.4f)  back (%E,%E)\n", ichan, nbins, hRunHitWave[ichan]->GetEntries(), sum, fitStart, fitEnd, ave, ave2, back, back2);
+    //sumHits[ichan] = sum - back;
     if (sum - back < 0)
       back = back2;
     printf("totalHits[%i]=%E;\n", ichan, sum - back);
@@ -1324,10 +1404,11 @@ int main(int argc, char *argv[])
   }
 
   fout->Purge(1);
-  fout->ls();
+  // fout->ls();
   fout->Write();
   fout->Close();
-  cout << "summary finished " << " total pass " << totalPass << " maxFiles  "<< maxFiles << " files written to " << fout->GetName() << endl;
+  cout << "summary finished "
+       << " total pass " << totalPass << " maxFiles  " << maxFiles << " files written to " << fout->GetName() << endl;
   exit(0);
 }
 
