@@ -733,8 +733,9 @@ int anaCRun::anaEvent(Long64_t entry)
     TDet *tdet = tbrun->getDet(ib);
     tdet->hits.clear();
     derivativeThreshold = 20.;
-    if (ichan >8 ) //lower for trigger sipms
-      derivativeThreshold = 10.;
+    // tried to fix gap but didnt work
+    //if (ichan >8 ) //lower for trigger sipms
+    //  derivativeThreshold = 10.;
     finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold, 1); // DEG suggests 10
 
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
@@ -869,7 +870,7 @@ int anaCRun::anaEvent(Long64_t entry)
        */
     } // hit loop
     hTriggerHitTimeAll->Fill(firstHitTime);
-    // fill sums do not fill for zero sums
+    // fill sums do not fill for zero 
     if (tdet->totPeakSum > 0)
       hTotSum[idet]->Fill(tdet->totPeakSum);
     if (tdet->prePeakSum > 0)
