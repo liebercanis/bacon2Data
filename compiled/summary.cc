@@ -1090,12 +1090,13 @@ unsigned long countFiles()
       f->GetObject("RunTree", RunTree);
       if (RunTree == nullptr)
       {
-        cout << "line478 skipping BAD file " << name << endl;
+        cout << "line1093 skipping BAD file " << name << endl;
         continue;
       }
       f->Close();
       // good file add to list
       fileList.push_back(TString(name.c_str()));
+      cout << "line1099 add  file " << name << " nFiles= " << fileList.size() << endl;
     }
   }
   return fileList.size();
