@@ -1088,12 +1088,13 @@ unsigned long countFiles()
       TFile *f = new TFile(name.c_str(),"recreate");
       TTree *RunTree = NULL;
       f->GetObject("RunTree", RunTree);
-      f->Close();
       if (RunTree == nullptr)
       {
         cout << "line478 skipping BAD file " << name << endl;
         continue;
       }
+      f->Close();
+      // good file add to list
       fileList.push_back(TString(name.c_str()));
     }
   }
