@@ -467,17 +467,12 @@ void fileLoop()
   for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
   {
     TString fullName = dirNameSlash + fileList[ifile];
-    fin = new TFile(fullName);
+    fin = new TFile(fullName,"readonly");
 
     printf(" \n ***** starting file %i  %s  *******\n", ifile, fin->GetName());
 
     eventCount = NULL;
-    TTree *RunTree = NULL;
-    fin->GetObject("RunTree", RunTree);
-    if (RunTree == nullptr) {
-      cout << "line478 skipping BAD file " << fullName << endl;
-      continue;
-    }
+    
     cout << " get event Count " << ifile << endl;
     fin->GetObject("eventcount", eventCount);
     if (eventCount)
@@ -1083,13 +1078,24 @@ unsigned long countFiles()
     string name = string(file->GetName());
     TString tname = TString(name.c_str());
     if (!tname.Contains(tag))
-      continue;
+      continue;//
     // cout << name << endl;
     string exten = name.substr(name.find_last_of(".") + 1);
     if (exten != string("root"))
       continue;
-    if (name.find("root") != std::string::npos)
+    if (name.find("root") != std::string::npos) {
+      // see if file is good
+      TFile *f = new TFile(name.c_str(),"recreate");
+      TTree *RunTree = NULL;
+      f->GetObject("RunTree", RunTree);
+      f->Close();
+      if (RunTree == nullptr)
+      {
+        cout << "line478 skipping BAD file " << name << endl;
+        continue;
+      }
       fileList.push_back(TString(name.c_str()));
+    }
   }
   return fileList.size();
 }
@@ -1283,10 +1289,7 @@ int main(int argc, char *argv[])
   */
   cout << "@ fileLoop" << endl;
   fileLoop();
-  if(nFiles<1) {
-    cout << " no files found " << endl;
-    exit(0);
-  }
+  
   waveSumDir->ls();
   for(int ichan=0; ichan<CHANNELS; ++ichan)
     printf("%i vRunHitWave size %lu\n", ichan, vRunHitWave[ichan].size());
