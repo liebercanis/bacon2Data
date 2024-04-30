@@ -1187,7 +1187,7 @@ int main(int argc, char *argv[])
   sdate = currentDate();
   cout << " starting summary for   " << maxFiles << endl;
 
-  fout = new TFile(Form("summary-%s-nfiles-%lli-dir-%s-%s.root", tag.Data(), maxFiles, dirName.Data(), sdate.c_str()), "recreate");
+  fout = new TFile(Form("summary-%s-nfiles-%u-dir-%s-%s.root", tag.Data(), nfiles, dirName.Data(), sdate.c_str()), "recreate");
   fitSumDir = fout->mkdir("fitSumDir");
   waveSumDir = fout->mkdir("waveSumDir");
   qpeSumDir = fout->mkdir("qpeSumDir");
