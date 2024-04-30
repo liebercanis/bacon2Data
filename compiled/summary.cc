@@ -472,6 +472,12 @@ void fileLoop()
     printf(" \n ***** starting file %i  %s  *******\n", ifile, fin->GetName());
 
     eventCount = NULL;
+    TTree *RunTree = NULL;
+    fin->GetObject("RunTree", RunTree);
+    if (RunTree == nullptr) {
+      cout << "line478 skipping BAD file " << fullName << endl;
+      return;
+    }
     cout << " get event Count " << ifile << endl;
     fin->GetObject("eventcount", eventCount);
     if (eventCount)
