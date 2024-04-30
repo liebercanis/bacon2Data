@@ -1085,10 +1085,11 @@ unsigned long countFiles()
       continue;
     if (name.find("root") != std::string::npos) {
       // see if file is good
-      TFile *f = new TFile(name.c_str(),"recreate");
+      TString fullName = dirNameSlash + TString(name.c_str());
+      TFile *f = new TFile(fullName,"READONLY");
       TTree *RunTree = NULL;
       f->GetObject("RunTree", RunTree);
-      if (RunTree == nullptr)
+      if (RunTree == NULL)
       {
         cout << "line1093 skipping BAD file " << name << endl;
         continue;
@@ -1096,7 +1097,7 @@ unsigned long countFiles()
       f->Close();
       // good file add to list
       fileList.push_back(TString(name.c_str()));
-      cout << "line1099 add  file " << name << " nFiles= " << fileList.size() << endl;
+      cout << "line1099 add file " << name << " nFiles= " << fileList.size() << endl;
     }
   }
   return fileList.size();
