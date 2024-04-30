@@ -476,7 +476,7 @@ void fileLoop()
     fin->GetObject("RunTree", RunTree);
     if (RunTree == nullptr) {
       cout << "line478 skipping BAD file " << fullName << endl;
-      return;
+      continue;
     }
     cout << " get event Count " << ifile << endl;
     fin->GetObject("eventcount", eventCount);
@@ -1283,6 +1283,10 @@ int main(int argc, char *argv[])
   */
   cout << "@ fileLoop" << endl;
   fileLoop();
+  if(nFiles<1) {
+    cout << " no files found " << endl;
+    exit(0);
+  }
   waveSumDir->ls();
   for(int ichan=0; ichan<CHANNELS; ++ichan)
     printf("%i vRunHitWave size %lu\n", ichan, vRunHitWave[ichan].size());
