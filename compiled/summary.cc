@@ -1079,7 +1079,7 @@ unsigned long countFiles()
     TString tname = TString(name.c_str());
     if (!tname.Contains(tag))
       continue;//
-    // cout << name << endl;
+    cout << name << endl;
     string exten = name.substr(name.find_last_of(".") + 1);
     if (exten != string("root"))
       continue;
