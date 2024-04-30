@@ -478,8 +478,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
     if (splitCount[idet] > 0 && splitDir->GetList()->GetEntries() < 500)
     {
-      printf(" plotSplitEvent %llu %i \n", theEvent, idet);
-      plotEvent(splitDir, idet, theEvent);
+      printf(" found SplitEvent %llu %i \n", theEvent, idet);
+      //plotEvent(splitDir, idet, theEvent);
     }
 
   for (unsigned isample = 0; isample < hdigi.size(); isample++)
