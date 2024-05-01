@@ -1414,10 +1414,14 @@ int main(int argc, char *argv[])
     TString runHistName;
     runHistName.Form("RunLatePeakSumChan%i", ihist);
     fout->GetObject(runHistName, hRunLatePeakSum[ihist]);
-    hRunLatePeakSum[ihist]->SetBinContent(1, 0);
-    cout << " set to zero " << runHistName << " " << hRunLatePeakSum[ihist]->GetBinContent(1) << endl;
+    if (hRunLatePeakSum[ihist]) { 
+      hRunLatePeakSum[ihist]->SetBinContent(1, 0);
+      cout << "line 1419 set to zero " << runHistName << " " << hRunLatePeakSum[ihist]->GetBinContent(1) << endl;
+    }
     // dont need this fout->Add(hRunLatePeakSum[ihist]);
   }
+
+  cout << "line1424 size of hRunLatePeakSum " << hRunLatePeakSum.size() << endl;
 
   fout->Purge(1);
   // fout->ls();
