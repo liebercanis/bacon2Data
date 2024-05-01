@@ -835,6 +835,9 @@ int anaCRun::anaEvent(Long64_t entry)
       }
       else
         tdet->latePeakSum += thit.qpeak;
+      // fill here for gains
+      if (hitTime > trigEnd)
+        hLateSum[idet]->Fill(thit.qpeak);
 
       // do threshold for summed waveform
       // if (thit.qsum > hitThreshold)
@@ -879,8 +882,9 @@ int anaCRun::anaEvent(Long64_t entry)
       hPreSum[idet]->Fill(tdet->prePeakSum);
     if (tdet->trigPeakSum > 0)
       hTrigSum[idet]->Fill(tdet->trigPeakSum);
-    if (tdet->latePeakSum>0)  
-      hLateSum[idet]->Fill(tdet->latePeakSum);
+    // for each peak not summed
+    //if (tdet->latePeakSum>0)  
+    //  hLateSum[idet]->Fill(tdet->latePeakSum);
     //printf(" anaCRun::event %llu det %i nhits %lu , tot %f pre %f trig %f late %f\n", entry, tdet->channel, tdet->hits.size(),
     //       tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
 
