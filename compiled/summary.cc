@@ -593,9 +593,9 @@ void fileLoop()
         }
         else
         {
-          cout << "... looking for " << runHistName << endl;
           fout->GetObject(runHistName, hRunLatePeakSum[ichan]);
           hRunLatePeakSum[ichan]->Add(hRunLatePeakSum[ichan]);
+          cout << "line599 added to " << runHistName << "   " << hRunLatePeakSum[ichan]->GetEntries() <<  endl;
         }
       }
       else
