@@ -118,6 +118,7 @@ TDirectory *waveSumDir;
 TDirectory *qpeSumDir;
 TDirectory *peakSumDir;
 TDirectory *runSumDir;
+TDirectory *gainSumDir;
 TFile *fin;
 TFile *fout;
 bool first = true;
@@ -490,14 +491,48 @@ void fileLoop()
       printf("NO EVENT COUNT IN FILE %i  %s\n", ifile, fin->GetName());
       continue;
     }
+    /* add gains */
     TDirectory *anaDir = NULL;
     fin->GetObject("anadir", anaDir); // typeO in directory name
     if (!anaDir)
     {
-      printf(" anaDir not found in file %s \n", fin->GetName());
+      printf("line489 anaDir not found in file %s \n", fin->GetName());
       continue;
-    }
-    printf(" anaDir for file %s \n", fin->GetName());
+    } else {
+      printf("line502  anaDir is found in file %s \n", fin->GetName());
+      // loop over channels
+      TString gainInName;
+      TString gainOutName;
+      for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan){
+      gainOutName.Form("GainSumChan%i", ichan);
+      gainInName.Form("LatePeakSumChan%i", ichan);
+      TH1D *hIn = NULL;
+      TH1D *hOut = NULL;
+      anaDir->GetObject(gainInName, hIn);
+      if (hIn)
+      {
+        gainSumDir->GetObject(gainInName, hOut);
+        if (hOut == NULL)
+        {
+          hOut = (TH1D *)hIn->Clone(gainOutName);
+          hOut->SetTitle(gainOutName);
+          cout << "line516 ... addding  " << hIn->GetName() << endl;
+          gainSumDir->Add(hOut);
+        }
+        else
+        {
+          if(hOut) {
+          gainSumDir->GetObject(gainOutName, hOut);
+          cout << "line526 ... found for " << gainOutName << endl;
+          hOut->Add(hIn);
+          } else {
+            cout << "line529 ... did not find  " << gainOutName << endl;
+          }
+        }
+      } // if hIn
+      }// channel loop
+    }   // if anaDir
+
     // get hist of cleanup cut pass bit
     fin->GetObject("EventPass", hEventPass);
     if (!hEventPass)
@@ -573,37 +608,7 @@ void fileLoop()
       hRunCosmicCut2->Add(hCosmicCut2);
     }
 
-    // ****  pick up histos for gains LatePeakSum by channel//
-    for (int ichan = 0; ichan < CHANNELS; ++ichan)
-    {
-      TString histname;
-      histname.Form("LatePeakSumChan%i", ichan);
-      TH1D *hist = NULL;
-      anaDir->GetObject(histname, hist);
-      if (hist != NULL)
-      {
-        cout << " ichan " << ichan << "  " << hist->GetName() << endl;
-        TString runHistName;
-        runHistName.Form("RunLatePeakSumChan%i", ichan);
-        if (ifile == 0)
-        {
-          hRunLatePeakSum[ichan] = (TH1D *)hist->Clone(runHistName);
-          cout << "... addding  " << hRunLatePeakSum[ichan]->GetName() << endl;
-          fout->Add(hRunLatePeakSum[ichan]);
-        }
-        else
-        {
-          fout->GetObject(runHistName, hRunLatePeakSum[ichan]);
-          hRunLatePeakSum[ichan]->Add(hRunLatePeakSum[ichan]);
-          cout << "line599 added to " << runHistName << "   " << hRunLatePeakSum[ichan]->GetEntries() <<  endl;
-        }
-      }
-      else
-      {
-        printf("!! Warning this file does not contain %s hist !! \n", histname.Data());
-      }
-    }
-
+    
     //
 
     sumDir = NULL;
@@ -782,7 +787,6 @@ void fileLoop()
     //waveSumDir->ls();
     fout->Write();
     // if(ifile==0) fout->ls();
-    //qpeSumDir->Write();
     //waveSumDir->Write();
     fin->Close();
     totalPass += int(npass);
@@ -804,11 +808,11 @@ void sumHistosChannel(int ichan, TString histSet)
 
   // sum over files
   for (int ih = 0; ih < nFiles; ++ih)
-  {
-
+  { 
+    // waveToSum already in output file by run and channel
     TString histName;
     histName.Form("Run%sFile%uChan%i", histSet.Data(), ih, ichan);
-    TH1D *waveToSum;
+    TH1D *waveToSum=NULL;
     waveSumDir->GetObject(histName, waveToSum);
     if (waveToSum == NULL)
     {
@@ -1193,6 +1197,7 @@ int main(int argc, char *argv[])
   qpeSumDir = fout->mkdir("qpeSumDir");
   peakSumDir = fout->mkdir("peakSumDir");
   runSumDir = fout->mkdir("runSumDir");
+  gainSumDir = fout->mkdir("gainSumDir");
   fout->cd();
 
   hQPEChan = new TH1D("QPEChan", "QPE  by channel", 12, 0, 12);
@@ -1416,21 +1421,32 @@ int main(int argc, char *argv[])
     fout->GetObject(runHistName, hRunLatePeakSum[ihist]);
     if (hRunLatePeakSum[ihist]) { 
       hRunLatePeakSum[ihist]->SetBinContent(1, 0);
-      cout << "line 1419 set to zero " << runHistName << " " << hRunLatePeakSum[ihist]->GetBinContent(1) << endl;
+      cout << " set to zero " << runHistName << " " << hRunLatePeakSum[ihist]->GetBinContent(1) << endl;
     }
     // dont need this fout->Add(hRunLatePeakSum[ihist]);
   }
 
-  cout << "line1424 size of hRunLatePeakSum " << hRunLatePeakSum.size() << endl;
-
-  fout->Purge(1);
-  // fout->ls();
-  fout->Write();
-  fout->Close();
-  cout << "summary finished "
-       << " total pass " << totalPass << " maxFiles  " << maxFiles << " files written to " << fout->GetName() << endl;
-  exit(0);
-}
+    // get rid of first bin in gaina
+    gainSumDir->Purge(1);
+    TList *gainList = gainSumDir->GetListOfKeys();
+    TIter next(gainList);
+    TKey *key;
+    while (TKey *key = (TKey *)next())
+    {
+      TClass *cl = gROOT->GetClass(key->GetClassName());
+      if (!cl->InheritsFrom("TH1D"))
+      continue;
+      TH1D *h = (TH1D *)key->ReadObj();
+      for(int ibin =1;ibin<5;++ibin) h->SetBinContent(ibin, 0);
+    }
+    gainSumDir->Purge();
+    fout->Purge(1);
+    fout->Write();
+    fout->Close();
+    cout << "summary finished "
+         << " total pass " << totalPass << " maxFiles  " << maxFiles << " files written to " << fout->GetName() << endl;
+    exit(0);
+  }
 
 /*  put this all at bottom */
 void makeGraphs()
