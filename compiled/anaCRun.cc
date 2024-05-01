@@ -1,4 +1,4 @@
-//////////////////////////////////////////////////////g
+/////////////////////////////////////////////////////g
 //  M.Gold April 2023 read CAEN files
 /////////////////////////////////////////////////////////
 #include <sstream>
@@ -440,9 +440,9 @@ int anaCRun::anaEvent(Long64_t entry)
   std::fill(speCount.begin(), speCount.end(), 0);
   int passBit = 0;
   // previously 40 but channel 9 was missing peaks
-  double derivativeThreshold = 20; // changed April 1, 2024 30.;
+  double derivativeThreshold;
   double hitThreshold;
-  // copy event data
+  
   eventData->evtime = rawEventData->evtime;
   eventData->sec = rawEventData->sec;
   eventData->min = rawEventData->min;
@@ -644,10 +644,11 @@ int anaCRun::anaEvent(Long64_t entry)
   ****   */
   digi.clear();
   // hitThreshold = 0.74 * nominalGain;
-  hitThreshold = 0.25 * nominalGain;
   digi = sumDigi();
   TDet *tdet = tbrun->getDet(NONSUMCHANNELS);
   tdet->hits.clear();
+  derivativeThreshold = 30; // for summed waveform
+  hitThreshold = 0.25 * nominalGain; // for summed waveform
   finder->event(NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold, 1); // DEG suggests 10
   // which nominal gain, hit threshold id the same
 
@@ -710,7 +711,7 @@ int anaCRun::anaEvent(Long64_t entry)
     /* take care here for summed ib=CHANNELS-2 and set appropriate hitThreshold */
     digi.clear();
     digi = fixedDigi[ib];
-    hitThreshold = 0.25 * nominalGain;
+    
     // used time aligned and gain normaized waveforms
     // fill histograms
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
@@ -732,10 +733,11 @@ int anaCRun::anaEvent(Long64_t entry)
 
     TDet *tdet = tbrun->getDet(ib);
     tdet->hits.clear();
-    derivativeThreshold = 20.;
     // tried to fix gap but didnt work
     //if (ichan >8 ) //lower for trigger sipms
     //  derivativeThreshold = 10.;
+    derivativeThreshold = 20;              // for non summed
+    hitThreshold = 0.25 * nominalGain;     // for non summed
     finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold, 1); // DEG suggests 10
 
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
