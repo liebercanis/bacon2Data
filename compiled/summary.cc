@@ -504,34 +504,30 @@ void fileLoop()
       TString gainInName;
       TString gainOutName;
       for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan){
-      gainOutName.Form("GainSumChan%i", ichan);
-      gainInName.Form("LatePeakSumChan%i", ichan);
-      TH1D *hIn = NULL;
-      TH1D *hOut = NULL;
-      anaDir->GetObject(gainInName, hIn);
+        gainOutName.Form("GainSumChan%i", ichan);
+        gainInName.Form("LatePeakSumChan%i", ichan);
+        TH1D *hIn = NULL;
+        anaDir->GetObject(gainInName, hIn);
       if (hIn)
       {
-        gainSumDir->GetObject(gainInName, hOut);
+        TH1D* hOut = NULL;
+        gainSumDir->GetObject(gainOutName, hOut);
         if (hOut == NULL)
         {
           hOut = (TH1D *)hIn->Clone(gainOutName);
           hOut->SetTitle(gainOutName);
-          cout << "line516 ... addding  " << hIn->GetName() << endl;
+          cout << "line516 ... addding  " << hIn->GetName() << " file " 
+            << fin->GetName() << " summed entries " << hOut->GetEntries() << endl;
           gainSumDir->Add(hOut);
-        }
-        else
-        {
-          if(hOut) {
-          gainSumDir->GetObject(gainOutName, hOut);
-          cout << "line526 ... found for " << gainOutName << endl;
-          hOut->Add(hIn);
-          } else {
-            cout << "line529 ... did not find  " << gainOutName << endl;
-          }
+        } else {
+            gainSumDir->GetObject(gainOutName, hOut);
+            hOut->Add(hIn);
+            cout << "line526 ... found for " << gainOutName 
+              << " in entries "<< hIn->GetEntries() << " summed entries " << hOut->GetEntries() << endl;
         }
       } // if hIn
-      }// channel loop
-    }   // if anaDir
+      } // channel loop
+    } // if anaDir
 
     // get hist of cleanup cut pass bit
     fin->GetObject("EventPass", hEventPass);
