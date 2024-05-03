@@ -734,17 +734,32 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     if(maxVal<hitThreshold)
       continue;
 
+    // not to close to start of wave
+    if (imax<50)
+      continue;
+
     hCrossingMaxBin[idet]->Fill(imax);
 
     if (verbose)
       printf("line740 hitFinder::makePeaks cross det %i icross %i maxVal %f  \n", idet, icross, maxVal);
     // find limits of peak
+    /* 
+    just use a fixed window around the maximum so look for peak  in peak -40  to peak +50*/
+    
+    
+    unsigned ilow =  imax-20;
+    unsigned ihigh = imax+50;
+    if(ihigh>unsigned(v.size()-1))
+      ihigh = unsigned(v.size()-1) ;
+
+    /*
     unsigned ilow = 0; //crossingBin[icross];
     //unsigned ilow = v.size();
     unsigned ihigh = v.size();
     // LLLLLLL low will be 10% of peak value need to correct for rise time
     // double nominalLowCut = 0.1 * maxVal;
     double nominalLowCut = 0.5 * maxVal;
+    unsigned searchWindoe = 3.*8
     for (unsigned ibin = imax; ibin<v.size(); ++ibin)
     {
       if (v[ibin] < nominalLowCut) // fixed may 2 2024
@@ -753,16 +768,19 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     }
     hCrossingBinB[idet]->Fill(ihigh);
     // look high  
-    /* if ibin < trigEnd use fSinglet for baseline*/
+    // if ibin < trigEnd use fSinglet for baseline
     for (unsigned ibin = imax; ibin > 0; --ibin)
     {
       if (v[ibin] < nominalLowCut)  // fixed may 2 2024
         break;
       ilow = ibin;
     }
+    */
+    
+    
     hCrossingBinB[idet]->Fill(ilow);
-    
-    
+    double nominalLowCut = 0; // no longer used
+
     if (verbose)
       printf("line767  hitFinder::makePeaks cross det %i lowCut %f imax %i val %f icross %u from (%u,%u) \n", idet, nominalLowCut, imax, maxVal, crossingBin[icross], ilow, ihigh);
     if (idet == 13 && crossingBin[icross] > 1040 && crossingBin[icross] < 1070)
@@ -900,6 +918,7 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
 
     int nhit = 0;
     // this messes ip yaxis on chan13 EvWave??
+    /* do this differently with very short hits
     if(idet!=13) for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
     {
       TDetHit hitj = hitIter1->second;
@@ -930,6 +949,7 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
         }
       }
     }
+    */
   // first time, charge from map
   /*
   hitMapIter hitIter;
