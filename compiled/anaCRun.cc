@@ -188,6 +188,7 @@ public:
   ULong_t timeLateCut = 890;
   double prePeakCut = 0.5;
   double latePeakCut = 3.5; // march 18 2024 2.5;
+  double diffStep = 4.; // May 2 2024
 };
 
 /** get trigger time **/
@@ -649,7 +650,7 @@ int anaCRun::anaEvent(Long64_t entry)
   tdet->hits.clear();
   derivativeThreshold = 30; // for summed waveform
   hitThreshold = 0.25 * nominalGain; // for summed waveform
-  finder->event(NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold, 1); // DEG suggests 10
+  finder->event(NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold,diffStep); // DEG suggests 10
   // which nominal gain, hit threshold id the same
 
   // event cuts
@@ -738,7 +739,7 @@ int anaCRun::anaEvent(Long64_t entry)
     //  derivativeThreshold = 10.;
     derivativeThreshold = 20;              // for non summed
     hitThreshold = 0.25 * nominalGain;     // for non summed
-    finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold, 1); // DEG suggests 10
+    finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold,diffStep); // DEG suggests 10
 
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
     if (!fftDir)
@@ -818,12 +819,14 @@ int anaCRun::anaEvent(Long64_t entry)
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
     {
       TDetHit thit = tdet->hits[ihit];
+      if (thit.qpeak < 1)
+        printf("line822 chan %i ihit %i startTime %i  peak %f\n", tdet->channel, ihit, int(thit.startTime), thit.qpeak);
       hQSum[idet]->Fill(thit.qsum);
       hQPeak[idet]->Fill(thit.qpeak);
       unsigned hitTime = unsigned(thit.startTime);
       // do peak sums
       tdet->totPeakSum += thit.qpeak;
-      // printf(" \t ihit %u startTime %u peak %f sum %f\n",ihit,hitTime,thit.qpeak,tdet->totPeakSum);
+      
       if (hitTime > timeEarlyCut && hitTime < timeLateCut && hitTime < firstHitTime)
         firstHitTime = hitTime;
       //

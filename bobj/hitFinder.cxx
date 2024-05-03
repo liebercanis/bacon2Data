@@ -127,6 +127,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     hCrossingBinC.push_back(new TH1D(Form("CrossingBinC%i", id), Form("Crossing Bin chan  %i ", id), nsamples / 2, 0, nsamples / 2));
 
     hCrossingMaxBin.push_back(new TH1D(Form("CrossingMaxBin%i", id), Form("Crossing max bin chan  %i ", id), nsamples / 2, 0, nsamples / 2));
+    hMaxBinVal.push_back(new TH1D(Form("MaxBinVal%i", id), Form(" max bin val/gain chan  %i ", id),210, -1, 20));
   }
 
   fout->cd();
@@ -336,7 +337,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     splitCount.push_back(0);
 
   if (verbose)
-    printf(" \n HHHHHH hitFinder START ievent %llu ichan %i idet %i derivative threshold %.1f digi size %lu \n", ievent, ichan, idet, derivativeThreshold, digi.size());
+    printf("line340 HHHHHH hitFinder START ievent %llu ichan %i idet %i derivative threshold %.1f digi size %lu \n", ievent, ichan, idet, derivativeThreshold, digi.size());
 
   double triggerTime = 0;
   double firstCharge = 0;
@@ -355,7 +356,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
 
   unsigned maxFrequency = inputWaveTransform.size();
   if (verbose)
-    printf(" max frequency  %u  \n", maxFrequency);
+    printf("line359 max frequency  %u  \n", maxFrequency);
   // apply FFT convolution here
   if (gotTemplate)
   {
@@ -397,7 +398,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
 
   // use smooth wave if smoothing
   if (verbose)
-    printf("  smoothing ? %i  digi size %lu \n", smoothing, digi.size());
+    printf("line401  smoothing ? %i  digi size %lu \n", smoothing, digi.size());
   if (!smoothing)
     digi = sdigi;
 
@@ -417,13 +418,15 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   unsigned minWidth = 10;
   findDerivativeCrossings(idet);
   // findThresholdCrossings(idet, threshold);
+  fSinglet = NULL;
+  //fitSinglet(idet);
   makePeaks(idet, digi);
-  // splitPeaks(idet);
+  //splitPeaks(idet);
   detHits = makeHits(idet, triggerTime, firstCharge);
   hPeakCount->Fill(idet, peakList.size());
   // fill hits
   if (verbose)
-    cout << " finished makePeaks  event " << ievent << " chan " << ichan << " det " << idet
+    cout << "line429 finished makePeaks  event " << ievent << " chan " << ichan << " det " << idet
          << "  ddigi size " << ddigi.size()
          << "  crossings size " << crossings.size()
          << "  peakList size " << peakList.size()
@@ -442,6 +445,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     triggerChannel = true;
 
   hEvHitPeakWave[idet]->Reset("ICESM");
+  int hitNumber = 0;
   for (hitMapIter hitIter = detHits.begin(); hitIter != detHits.end(); ++hitIter)
   {
     TDetHit hiti = hitIter->second;
@@ -455,6 +459,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
 
     // fill hit peak wave
     hEvHitPeakWave[idet]->SetBinContent(hiti.peakBin, hiti.qpeak);
+    if(verbose) printf("line461 size %lu hit%i idet %i time %f peakBin %i qpeak  %f \n", detHits.size(),hitNumber++,idet, hitIter->first, hiti.peakBin, hiti.qpeak);
     // make sums with cut
     if (hiti.qsum > hitThreshold)
     {
@@ -478,8 +483,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
     if (splitCount[idet] > 0 && splitDir->GetList()->GetEntries() < 500)
     {
-      printf(" found SplitEvent %llu %i \n", theEvent, idet);
-      //plotEvent(splitDir, idet, theEvent);
+      printf("line486 plot SplitEvent %llu %i \n", theEvent, idet);
+      plotEvent(splitDir, idet, theEvent);
     }
 
   for (unsigned isample = 0; isample < hdigi.size(); isample++)
@@ -508,7 +513,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
 void hitFinder::differentiate()
 {
   if (verbose)
-    printf(" hitFinder::differentiate nsamples %lu step %u\n", digi.size(), diffStep);
+    printf("line516 hitFinder::differentiate nsamples %lu step %u\n", digi.size(), diffStep);
   ddigi.clear();
   ddigi.resize(digi.size());
   Double_t sump = 0;
@@ -543,7 +548,7 @@ void hitFinder::differentiate()
 vector<double> hitFinder::differentiate(int step, vector<double> pdigi)
 {
   if (verbose)
-    printf("hitFinder::differentiate step %i size %lu \n", step, pdigi.size());
+    printf("line551 hitFinder::differentiate step %i size %lu \n", step, pdigi.size());
   vector<double> pddigi;
   pddigi.clear();
   pddigi.resize(pdigi.size());
@@ -561,7 +566,7 @@ vector<double> hitFinder::differentiate(int step, vector<double> pdigi)
       maxSum = i;
     summ = 0;
     if (verbose)
-      printf("hitFinder::differentiate ind %i maxSum %i \n", i, maxSum);
+      printf("line569 hitFinder::differentiate ind %i maxSum %i \n", i, maxSum);
     for (unsigned j = 0; j < maxSum; ++j)
       summ += pdigi[i - 1 - j];
 
@@ -597,11 +602,11 @@ void hitFinder::findThresholdCrossings(Int_t idet, double thresh)
       crossingBin.push_back(ibin + 1);
       crossingTime.push_back(u);
       if (verbose)
-        printf(" PUP det %i  bin %i %f %f  \n", idet, ibin, digi[ibin], digi[ibin + 1]);
+        printf("line605 PUP det %i  bin %i %f %f  \n", idet, ibin, digi[ibin], digi[ibin + 1]);
     }
   }
   if (verbose)
-    printf(" findTresholdCrossings det %i  crossings %lu \n", idet, crossings.size());
+    printf("line609 findTresholdCrossings det %i  crossings %lu \n", idet, crossings.size());
 }
 //
 void hitFinder::findDerivativeCrossings(Int_t idet)
@@ -609,7 +614,7 @@ void hitFinder::findDerivativeCrossings(Int_t idet)
   unsigned step = 1;
   Double_t cut = derivativeThreshold;
   if (verbose)
-    printf("  findDerivativeCrossings  det = %i ddigi size %lu step %u cut %f \n", idet, ddigi.size(), step, cut);
+    printf(" line617 findDerivativeCrossings  det = %i ddigi size %lu step %u cut %f \n", idet, ddigi.size(), step, cut);
   crossings.clear();
   crossingBin.clear();
   crossingTime.clear();
@@ -625,7 +630,9 @@ void hitFinder::findDerivativeCrossings(Int_t idet)
     if (vi < cut && vj > cut)
     {
       if (verbose)
-        printf(" PUP det %i  bin %i vi %f vj %f  \n", idet, ibin, vi, vj);
+        printf("line633 PUP det %i  bin %i vi %f vj %f  \n", idet, ibin, vi, vj);
+      if(idet==13&& ibin>1040&&ibin<1070) 
+        printf("line635  PUP det %i  bin %i %f %f  \n", idet, ibin, digi[ibin], digi[ibin + 1]);
       crossings.push_back(PUP);
       ctype = PUP;
       crossingBin.push_back(ibin + 1);
@@ -634,7 +641,7 @@ void hitFinder::findDerivativeCrossings(Int_t idet)
     else if (vi > cut && vj < -cut)
     {
       if (verbose)
-        printf(" UPDOWN det %i  bin %i vi %f vj %f  \n", idet, ibin, vi, vj);
+        printf("line644 UPDOWN det %i  bin %i vi %f vj %f  \n", idet, ibin, vi, vj);
       crossings.push_back(UPDOWN);
       ctype = UPDOWN;
       crossingBin.push_back(ibin + 1);
@@ -643,7 +650,7 @@ void hitFinder::findDerivativeCrossings(Int_t idet)
     else if (vi > cut && vj < cut)
     {
       if (verbose)
-        printf(" NUP det %i  bin %i vi %f vj %f  \n", idet, ibin, vi, vj);
+        printf("line653  NUP det %i  bin %i vi %f vj %f  \n", idet, ibin, vi, vj);
       crossings.push_back(NUP);
       ctype = NUP;
       crossingBin.push_back(ibin + 1);
@@ -652,7 +659,7 @@ void hitFinder::findDerivativeCrossings(Int_t idet)
     else if (vi < -cut && vj > cut)
     {
       if (verbose)
-        printf(" DOWNUP det %i  bin %i vi %f vj %f  \n", idet, ibin, vi, vj);
+        printf("line662 DOWNUP det %i  bin %i vi %f vj %f  \n", idet, ibin, vi, vj);
       crossings.push_back(DOWNUP);
       ctype = DOWNUP;
       crossingBin.push_back(ibin + 1);
@@ -661,7 +668,7 @@ void hitFinder::findDerivativeCrossings(Int_t idet)
     else if (vi < -cut && vj > -cut)
     {
       if (verbose)
-        printf(" PDOWN det %i  bin %i %f %f  \n", idet, ibin, vi, vj);
+        printf("line671 PDOWN det %i  bin %i %f %f  \n", idet, ibin, vi, vj);
       crossings.push_back(PDOWN);
       ctype = PDOWN;
       crossingBin.push_back(ibin + 1);
@@ -679,7 +686,7 @@ void hitFinder::findDerivativeCrossings(Int_t idet)
   }
 
   if (verbose)
-    printf("  findDerivativeCrossings >> finished det = %i crossings found %lu  \n", idet, crossings.size());
+    printf("line689  findDerivativeCrossings >> finished det = %i crossings found %lu  \n", idet, crossings.size());
 
   return;
 }
@@ -687,12 +694,12 @@ void hitFinder::findDerivativeCrossings(Int_t idet)
 void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
 {
   if (verbose)
-    printf(" hitFinder::makePeaks det %i crossings %lu \n", idet, crossings.size());
+    printf("line697 hitFinder::makePeaks det %i crossings %lu \n", idet, crossings.size());
   double sigma = tbrun->detList[idet]->sigma;
   peakList.clear();
   peakKind.clear();
   hEvCross[idet]->Reset("ICESM");
-  // loop over crossings using only PUP
+  // loop over crossings using  PUP or NUP
   for (int icross = 0; icross < crossings.size(); ++icross)
   {
     if (!(crossings[icross] == PUP || crossings[icross] == NUP))
@@ -700,50 +707,66 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     // find local max
     hCrossingBinA[idet]->Fill(crossingBin[icross]);
     unsigned imax = 0;
+
+    //for (unsigned ibin = crossingBin[icross]; ibin < v.size(); ++ibin)
     double maxVal = -99999.;
-    for (unsigned ibin = crossingBin[icross]; ibin < v.size(); ++ibin)
+    if (crossings[icross] == PUP)  // case PUP
     {
-      if (v[ibin] < maxVal)
-        break;
-      imax = ibin;
-      maxVal = v[ibin];
+      for (unsigned ibin = crossingBin[icross]; ibin < v.size(); ++ibin)
+      {
+        if (v[ibin] < maxVal)
+          break;
+        imax = ibin;
+        maxVal = v[ibin];
+      }
+    } else {  // NUP is other side of derivative going through zero
+      maxVal = -99999.;
+      for (unsigned ibin = crossingBin[icross]; ibin > 0; --ibin)
+      {
+        if (v[ibin] < maxVal)
+          break;
+        imax = ibin;
+        maxVal = v[ibin];
+      }
     }
+    // too small is garbage
+    hMaxBinVal[idet]->Fill(maxVal/nominalGain);
+    if(maxVal<hitThreshold)
+      continue;
+
     hCrossingMaxBin[idet]->Fill(imax);
 
     if (verbose)
-      printf(" hitFinder::makePeaks cross det %i icross %i maxVal %f  \n", idet, icross, maxVal);
-
-    unsigned ilow = crossingBin[icross];
+      printf("line740 hitFinder::makePeaks cross det %i icross %i maxVal %f  \n", idet, icross, maxVal);
+    // find limits of peak
+    unsigned ilow = 0; //crossingBin[icross];
     //unsigned ilow = v.size();
-    unsigned ihigh = 0;
+    unsigned ihigh = v.size();
     // LLLLLLL low will be 10% of peak value need to correct for rise time
-    // double lowCut = 0.1 * maxVal;
-    double nominalGain = 270.5;
-    double lowCut = 0.1 * nominalGain;
-    //if(idet>8) lowCut = nominalGain;
-
-    for (unsigned ibin = imax; ibin < v.size(); --ibin)
+    // double nominalLowCut = 0.1 * maxVal;
+    double nominalLowCut = 0.5 * maxVal;
+    for (unsigned ibin = imax; ibin<v.size(); ++ibin)
     {
-      //if (( idet == 9 || idet==8 )&& crossingBin[icross]>740) printf("\t idet %i %u %u %f \n",idet, crossingBin[icross] , ibin, v[ibin]);
-      if (v[ibin] < lowCut) // define start of peak at 0.1 max
-        break;
-      ilow = ibin;
-    }
-    ///if(idet>8) ilow = crossingBin[icross];
-
-    //if ((idet == 9 || idet == 8) && crossingBin[icross] <800 )
-    //  printf(" hitFinder::makePeaks cross det %i  maxVal %f imax %i icross %i ilow %u \n", idet, maxVal, imax, crossingBin[icross], ilow);
-
-    hCrossingBinB[idet]->Fill(ilow);
-    // look high
-    for (unsigned ibin = imax; ibin < v.size(); ++ibin)
-    {
-      if (v[ibin] < 0)
+      if (v[ibin] < nominalLowCut) // fixed may 2 2024
         break;
       ihigh = ibin;
     }
+    hCrossingBinB[idet]->Fill(ihigh);
+    // look high  
+    /* if ibin < trigEnd use fSinglet for baseline*/
+    for (unsigned ibin = imax; ibin > 0; --ibin)
+    {
+      if (v[ibin] < nominalLowCut)  // fixed may 2 2024
+        break;
+      ilow = ibin;
+    }
+    hCrossingBinB[idet]->Fill(ilow);
+    
+    
     if (verbose)
-      printf(" hitFinder::makePeaks cross det %i lowCut %f imax %i val %f icross %u from (%u,%u) \n", idet, lowCut, imax, maxVal, crossingBin[icross], ilow, ihigh);
+      printf("line767  hitFinder::makePeaks cross det %i lowCut %f imax %i val %f icross %u from (%u,%u) \n", idet, nominalLowCut, imax, maxVal, crossingBin[icross], ilow, ihigh);
+    if (idet == 13 && crossingBin[icross] > 1040 && crossingBin[icross] < 1070)
+      printf("line 769 hitFinder::makePeaks cross det %i lowCut %f imax %i val %f icross %u from (%u,%u) \n", idet, nominalLowCut, imax, maxVal, crossingBin[icross], ilow, ihigh);
     // if (ihigh - ilow > maxPeakLength)
     //   ihigh = ilow + maxPeakLength;
 
@@ -760,7 +783,7 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     if (!found)
     {
       if (verbose)
-        printf(" hitFinder::makePeaks add det %i  imax %i val %f icross %u from (%u,%u) \n", idet, imax, maxVal, crossingBin[icross], ilow, ihigh);
+        printf("line786  hitFinder::makePeaks add det %i  imax %i val %f icross %u from (%u,%u) \n", idet, imax, maxVal, crossingBin[icross], ilow, ihigh);
       peakList.push_back(std::make_pair(ilow, ihigh));
       peakKind.push_back(0);
       hCrossingBinC[idet]->Fill(ilow);
@@ -773,7 +796,7 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
 {
   double sigma = tbrun->detList[idet]->sigma;
   if (verbose)
-    printf(" hitFinder::makeHits: AT event %lli det %i sigma %f peakList size %lu digi size %lu \n", theEvent, idet, sigma, peakList.size(), digi.size());
+    printf("line799 hitFinder::makeHits: AT event %lli det %i sigma %f peakList size %lu digi size %lu \n", theEvent, idet, sigma, peakList.size(), digi.size());
   triggerTime = 1E9;
   firstCharge = 0;
   hitMap detHits;
@@ -793,7 +816,7 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
     unsigned klow = std::get<0>(peakList[ip]);
     unsigned khigh = std::get<1>(peakList[ip]);
     if (verbose)
-      printf(" hitFinder::makeHits event %lli det %i hit  %u (%u,%u) kind %i length %u \n", theEvent, idet, ip, klow, khigh, peakKind[ip], khigh - klow);
+      printf("line819 hitFinder::makeHits event %lli det %i hit  %u (%u,%u) kind %i length %u \n", theEvent, idet, ip, klow, khigh, peakKind[ip], khigh - klow);
     hHitLength->Fill(khigh - klow + 1);
     if (khigh - klow + 1 < minLength)
     {
@@ -828,7 +851,7 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
         dhit.digi.push_back(digi[k]);
 
     if (verbose)
-      printf(" hitFinder::makeHits hit chan %i (%i,%i) size %lu \n ", vChannel[idet], klow, khigh, dhit.digi.size());
+      printf("line854 hitFinder::makeHits hit chan %i (%i,%i) size %lu \n ", vChannel[idet], klow, khigh, dhit.digi.size());
 
     dhit.peakBin = Int_t(peakt);
     dhit.qsum = qsum;
@@ -861,7 +884,7 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
       {
         used = true;
         if (verbose)
-          printf("hitFinder::makeHit found multiple hits det %i this (%i,%i.%i) last peak (%i,%i,%i) dethit size %lu \n", idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, dhit.firstBin, dhit.peakBin, dhit.lastBin, detHits.size());
+          printf("line887 hitFinder::makeHit found multiple hits det %i this (%i,%i.%i) last peak (%i,%i,%i) dethit size %lu \n", idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, dhit.firstBin, dhit.peakBin, dhit.lastBin, detHits.size());
       }
     }
     ntFinder->Fill(float(theEvent), float(idet), float(detHits.size()), float(dhit.firstBin), float(dhit.startTime), float(dhit.peakBin), float(dhit.lastBin), dhit.qpeak);
@@ -872,14 +895,12 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
     detHits.insert(std::pair<Double_t, TDetHit>(hitTime, dhit));
     hPeakNWidth->Fill(dhit.lastBin - dhit.firstBin + 1);
     if (verbose)
-      printf(" hitFinder::makeHits %llu insert hit idet %i  number %lu time %f (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, detHits.size(), hitTime, dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
+      printf("line898 hitFinder::makeHits %llu insert hit idet %i  number %lu time %f (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, detHits.size(), hitTime, dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
   }
 
-  // do not split summed wave last channel = 13
-  if (idet < 13)
-  {
     int nhit = 0;
-    for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
+    // this messes ip yaxis on chan13 EvWave??
+    if(idet!=13) for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
     {
       TDetHit hitj = hitIter1->second;
       for (hitMapIter hitIter2 = detHits.begin(); hitIter2 != detHits.end(); ++hitIter2)
@@ -890,13 +911,17 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
         if (hiti.peakBin > hitj.firstBin && hiti.peakBin < hitj.firstBin + 150 && hiti.peakBin != hitj.peakBin)
         {
           splitCount[idet] += 1;
-          hEvWave[idet]->Fit("expo", "", "", hitj.peakBin + 10, hitj.lastBin);
+          hEvWave[idet]->Fit("expo", "", "", hitj.peakBin, hitj.lastBin);
           TF1 *expFit = (TF1 *)hEvWave[idet]->GetListOfFunctions()->FindObject("expo");
+          if(!expFit->IsValid())
+            continue;
           double slope = expFit->GetParameter(1);
           double offSet = expFit->Eval(hiti.peakBin);
-          double qpeakBefore = hiti.qpeak;
+          if (offSet > 0. && offSet < nominalGain  ) { // this is hack for bad fit
+            double qpeakBefore = hiti.qpeak;
           hitIter2->second.qpeak -= offSet;
-          printf("hitFinder::makeHit event %llu det %i hit %i found overlap this hit (%i,%i,%i) last peak (%i,%i,%i) slope %f offset %f  peak was %f corrected %f \n", theEvent, idet, ++nhit, hiti.firstBin, hiti.peakBin, hiti.lastBin, hitj.firstBin, hitj.peakBin, hitj.lastBin, slope, offSet, qpeakBefore, hitIter2->second.qpeak);
+          printf("line919 hitFinder::makeHit event %llu det %i hit %i found overlap this hit (%i,%i,%i) last peak (%i,%i,%i) slope %f offset %f  peak was %f corrected %f \n", theEvent, idet, ++nhit, hiti.firstBin, hiti.peakBin, hiti.lastBin, hitj.firstBin, hitj.peakBin, hitj.lastBin, slope, offSet, qpeakBefore, hitIter2->second.qpeak);
+          }
           // correct
           // overlap fix hitj is the first
           // fill histogram from hit
@@ -905,7 +930,6 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
         }
       }
     }
-  }
   // first time, charge from map
   /*
   hitMapIter hitIter;
@@ -941,7 +965,7 @@ void hitFinder::findPeakCrossings(Int_t idet, unsigned peakStart, unsigned peakE
     if (vi < cut && vj > cut)
     {
       if (verbose)
-        printf(" PUP det %i  bin %i %f %f  \n", idet, ibin, vi, vj);
+        printf("line963 PUP det %i  bin %i %f %f  \n", idet, ibin, vi, vj);
       peakCrossings.push_back(PUP);
       ctype = PUP;
       peakCrossingBin.push_back(ibin + 1);
@@ -950,7 +974,7 @@ void hitFinder::findPeakCrossings(Int_t idet, unsigned peakStart, unsigned peakE
     else if (vi > cut && vj < -cut)
     {
       if (verbose)
-        printf(" UPDOWN det %i  bin %i %f %f  \n", idet, ibin, vi, vj);
+        printf("line972 UPDOWN det %i  bin %i %f %f  \n", idet, ibin, vi, vj);
       peakCrossings.push_back(UPDOWN);
       ctype = UPDOWN;
       peakCrossingBin.push_back(ibin + 1);
@@ -959,7 +983,7 @@ void hitFinder::findPeakCrossings(Int_t idet, unsigned peakStart, unsigned peakE
     else if (vi > cut && vj < cut)
     {
       if (verbose)
-        printf(" NUP det %i  bin %i %f %f  \n", idet, ibin, vi, vj);
+        printf("line981 NUP det %i  bin %i %f %f  \n", idet, ibin, vi, vj);
       peakCrossings.push_back(NUP);
       ctype = NUP;
       peakCrossingBin.push_back(ibin + 1);
@@ -968,7 +992,7 @@ void hitFinder::findPeakCrossings(Int_t idet, unsigned peakStart, unsigned peakE
     else if (vi < -cut && vj > cut)
     {
       if (verbose)
-        printf(" DOWNUP det %i  bin %i %f %f  \n", idet, ibin, vi, vj);
+        printf("line990  DOWNUP det %i  bin %i %f %f  \n", idet, ibin, vi, vj);
       peakCrossings.push_back(DOWNUP);
       ctype = DOWNUP;
       peakCrossingBin.push_back(ibin + 1);
@@ -977,7 +1001,7 @@ void hitFinder::findPeakCrossings(Int_t idet, unsigned peakStart, unsigned peakE
     else if (vi < -cut && vj > -cut)
     {
       if (verbose)
-        printf(" PDOWN det %i  bin %i %f %f  \n", idet, ibin, vi, vj);
+        printf("line999  PDOWN det %i  bin %i %f %f  \n", idet, ibin, vi, vj);
       peakCrossings.push_back(PDOWN);
       ctype = PDOWN;
       peakCrossingBin.push_back(ibin + 1);
@@ -996,6 +1020,13 @@ void hitFinder::findPeakCrossings(Int_t idet, unsigned peakStart, unsigned peakE
 
   return;
 }
+
+void hitFinder::fitSinglet(int idet)
+  {
+    fSinglet = NULL;
+    hEvWave[idet]->Fit("expo", "", "", nominalTrigger, trigEnd);
+    fSinglet = (TF1 *)hEvWave[idet]->GetListOfFunctions()->FindObject("expo");
+  }
 
 // split peak based on derivaive
 // requires digi, ddigi vectors
@@ -1053,8 +1084,8 @@ void hitFinder::splitPeaks(int idet)
         // study splitting
         if (splitVerbose && (ratio < 0.5 || (theEvent == 0 && vChannel[idet] == 6)))
         {
-          printf(" event %llu idet %i  peak %u npeaks = %lu peakThreshold %.2f ratio %f binAtr %f \n", theEvent, vChannel[idet], ip, peakList.size(), peakThreshold, ratio, binAtr);
-          printf(" \t\t crossing  %i type %i bin %i peakStart %i  peakEnd %i ddigi %f digi %f max %f ratio to max %f  subBin %.0f \n", ipc, peakCrossings[ipc], peakCrossingBin[ipc], peakStart, peakEnd, ddigi[peakCrossingBin[ipc]], digi[peakCrossingBin[ipc]], peakMax, ratio, subBin);
+          printf("line1082 event %llu idet %i  peak %u npeaks = %lu peakThreshold %.2f ratio %f binAtr %f \n", theEvent, vChannel[idet], ip, peakList.size(), peakThreshold, ratio, binAtr);
+          printf("line1083\t\t crossing  %i type %i bin %i peakStart %i  peakEnd %i ddigi %f digi %f max %f ratio to max %f  subBin %.0f \n", ipc, peakCrossings[ipc], peakCrossingBin[ipc], peakStart, peakEnd, ddigi[peakCrossingBin[ipc]], digi[peakCrossingBin[ipc]], peakMax, ratio, subBin);
         }
 
         // split peak at largest subBin
@@ -1063,7 +1094,7 @@ void hitFinder::splitPeaks(int idet)
           isplit.push_back(peakCrossingBin[ipc]);
           indexSplit.push_back(ip);
           if (splitVerbose)
-            printf("sssssssssss splitting peak number %u nsplits %lu \n", ip, isplit.size());
+            printf("line1092 sssssssssss splitting peak number %u nsplits %lu \n", ip, isplit.size());
         }
         hPeakCrossingBin->Fill(peakCrossingBin[ipc] - peakStart);
         hEvPeakCross[idet]->SetBinContent(peakCrossingBin[ipc], digi[peakCrossingBin[ipc]]);
@@ -1314,3 +1345,13 @@ void hitFinder::plotEvent(TDirectory *dir, unsigned ichan, Long64_t ievent)
 
   fout->cd();
 }
+/*
+if (ibin>nominalTrigger && ibin < trigEnd && fSinglet)
+      {
+        double xbin = hEvWave[idet]->GetBinLowEdge(ibin);
+        lowCut = fSinglet->Eval(xbin);
+        if (lowCut < nominalLowCut)
+          lowCut = nominalLowCut;
+        // printf("line751 hitFinder::makePeaks imax %i ibin %i xbin %f lowCut %f v %f \n",imax,ibin,xbin,lowCut,v[ibin]);
+      }
+*/

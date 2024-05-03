@@ -20,6 +20,7 @@
 #include <TChain.h>
 #include <TMath.h>
 #include <TNtuple.h>
+#include <TF1.h>
 #include <TFile.h>
 #include <Rtypes.h>
 #include <TH1D.h>
@@ -65,6 +66,7 @@ public:
   TFile *fout;
   TBRun *tbrun;
   TString tag;
+  TF1 *fSinglet;
   TDirectory *fftDir;
   TDirectory *finderDir;
   TDirectory *splitDir;
@@ -75,6 +77,7 @@ public:
   bool splitVerbose;
   bool smoothing;
   const Double_t qnorm = 1.0;
+  double nominalGain = 227.4; // average
   hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan, vector<double> sigmaValue);
   virtual ~hitFinder() { chanMap.clear(); }
   int nsamples;
@@ -112,6 +115,8 @@ public:
   vector<double> wfilter;
   double timeUnit;
   double microSec;
+  int trigEnd = 800;
+  int nominalTrigger = 729;
   void event(int idet, Long64_t ievent, vector<double> rdigi, double theDerivativeThreshold, double theHitThreshold, unsigned step = 3);
   void differentiate();
   vector<double> differentiate(int step, vector<double> pdigi);
@@ -124,6 +129,7 @@ public:
   void plotEvent(TDirectory* dir, unsigned ichan, Long64_t ievent);
   // careful with indicies ichan and idet!
   void printPeakList();
+  void fitSinglet(int idet);
   void trimPeaks(int idet, std::vector<Double_t> v);
   void splitPeaks(int idet);
   bool gotTemplate;
@@ -156,6 +162,7 @@ public:
     std::vector<TH1D *> hCrossingBinB;
     std::vector<TH1D *> hCrossingBinC;
     std::vector<TH1D *> hCrossingMaxBin;
+    std::vector<TH1D *> hMaxBinVal;
     std::vector<TH1D *> hFFT;
     std::vector<TH1D *> hInvFFT;
     std::vector<TH1D *> hFFTFilt;
