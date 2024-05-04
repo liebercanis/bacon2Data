@@ -422,7 +422,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   //fitSinglet(idet);
   makePeaks(idet, digi);
   //splitPeaks(idet);
-  detHits = makeHits(idet, triggerTime, firstCharge);
+  makeHits(idet, triggerTime, firstCharge);
   hPeakCount->Fill(idet, peakList.size());
   // fill hits
   if (verbose)
@@ -810,17 +810,16 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
   }
 }
 
-hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
+void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
 {
   double sigma = tbrun->detList[idet]->sigma;
   if (verbose)
     printf("line799 hitFinder::makeHits: AT event %lli det %i sigma %f peakList size %lu digi size %lu \n", theEvent, idet, sigma, peakList.size(), digi.size());
   triggerTime = 1E9;
   firstCharge = 0;
-  hitMap detHits;
   detHits.clear();
   if (peakList.size() < 1)
-    return detHits;
+    return;
   Double_t qmax = 0;
   if (isCAEN)
     qmax = 50; // about 5x CAEN noise
@@ -828,7 +827,7 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
 
   unsigned minLength = 3;
   if (peakList.size() < 1)
-    return detHits;
+    return;
   for (unsigned ip = 0; ip < peakList.size(); ++ip)
   {
     unsigned klow = std::get<0>(peakList[ip]);
@@ -960,7 +959,7 @@ hitMap hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharg
   */
   if (verbose)
     printf(" hitFinder::makeHits return with %lu made \n", detHits.size());
-  return detHits;
+  return;
 }
 
 void hitFinder::findPeakCrossings(Int_t idet, unsigned peakStart, unsigned peakEnd)

@@ -188,7 +188,7 @@ public:
   ULong_t timeLateCut = 890;
   double prePeakCut = 0.5;
   double latePeakCut = 3.5; // march 18 2024 2.5;
-  double diffStep = 4.; // May 2 2024
+  double diffStep = 1.; // back to one from 4 May 4 2024
 };
 
 /** get trigger time **/

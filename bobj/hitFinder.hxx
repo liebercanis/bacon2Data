@@ -124,7 +124,7 @@ public:
   void findDerivativeCrossings(Int_t idet);
   void findPeakCrossings(Int_t idet, unsigned peakStart, unsigned peakEnd);
   void makePeaks(int idet, std::vector<Double_t> v);
-  hitMap makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge);
+  void makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge);
   void plotWave(int idet, Long64_t jentry);
   void plotEvent(TDirectory* dir, unsigned ichan, Long64_t ievent);
   // careful with indicies ichan and idet!
