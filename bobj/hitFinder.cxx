@@ -783,8 +783,8 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
 
     if (verbose)
       printf("line767  hitFinder::makePeaks cross det %i lowCut %f imax %i val %f icross %u from (%u,%u) \n", idet, nominalLowCut, imax, maxVal, crossingBin[icross], ilow, ihigh);
-    if (idet == 13 && crossingBin[icross] > 1040 && crossingBin[icross] < 1070)
-      printf("line 769 hitFinder::makePeaks cross det %i lowCut %f imax %i val %f icross %u from (%u,%u) \n", idet, nominalLowCut, imax, maxVal, crossingBin[icross], ilow, ihigh);
+    //if (idet == 13 && crossingBin[icross] > 1040 && crossingBin[icross] < 1070)
+    //  printf("line 769 hitFinder::makePeaks cross det %i lowCut %f imax %i val %f icross %u from (%u,%u) \n", idet, nominalLowCut, imax, maxVal, crossingBin[icross], ilow, ihigh);
     // if (ihigh - ilow > maxPeakLength)
     //   ihigh = ilow + maxPeakLength;
 
