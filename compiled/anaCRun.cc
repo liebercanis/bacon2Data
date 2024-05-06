@@ -593,7 +593,7 @@ int anaCRun::anaEvent(Long64_t entry)
       time += timeOffset;
     if (time > 0 && time < unsigned(taveEarlyCut))
     {
-      printf(" failed timeEarlyCut event %llu chan %i cut %lu time %u \n", entry, ic, taveEarlyCut, time);
+      //printf(" failed timeEarlyCut event %llu chan %i cut %lu time %u \n", entry, ic, taveEarlyCut, time);
       passBit |= 0x1;
     }
     if (time > 0)
@@ -851,23 +851,27 @@ int anaCRun::anaEvent(Long64_t entry)
       // sum of photons in SPE for this channel
       speCount[idet] += thit.qpeak / nominalGain;
 
-      if (thit.startTime > trigEnd)
+      // singlet shapes
+      if (thit.qpeak < 0.5*nominalGain)
       {
-        for (unsigned jbin = thit.firstBin; jbin < thit.lastBin; ++jbin)
+        if (thit.startTime > trigEnd)
         {
-          int fillBin = hQPEShape[idet]->GetNbinsX() / 2 + jbin - thit.peakBin;
-          double val = double(rawBr[idet]->rdigi[jbin]) - tdet->base;
-          hQPEShape[idet]->SetBinContent(fillBin, hQPEShape[idet]->GetBinContent(fillBin) + val);
+          for (unsigned jbin = thit.firstBin; jbin < thit.lastBin; ++jbin)
+          {
+            int fillBin = hQPEShape[idet]->GetNbinsX() / 2 + jbin - thit.peakBin;
+            double val = double(rawBr[idet]->rdigi[jbin]) - tdet->base;
+            hQPEShape[idet]->SetBinContent(fillBin, hQPEShape[idet]->GetBinContent(fillBin) + val);
+          }
         }
-      }
 
-      if (thit.startTime > trigStart && thit.startTime < trigEnd)
-      {
-        for (unsigned jbin = thit.firstBin; jbin < thit.lastBin; ++jbin)
+        if (thit.startTime > trigStart && thit.startTime < trigEnd)
         {
-          int fillBin = hSingletShape[idet]->GetNbinsX() / 2 + jbin - thit.peakBin;
-          double val = double(rawBr[idet]->rdigi[jbin]) - tdet->base;
-          hSingletShape[idet]->SetBinContent(fillBin, hSingletShape[idet]->GetBinContent(fillBin) + val);
+          for (unsigned jbin = thit.firstBin; jbin < thit.lastBin + 100; ++jbin)
+          {
+            int fillBin = hSingletShape[idet]->GetNbinsX() / 2 + jbin - thit.peakBin;
+            double val = double(rawBr[idet]->rdigi[jbin]) - tdet->base;
+            hSingletShape[idet]->SetBinContent(fillBin, hSingletShape[idet]->GetBinContent(fillBin) + val);
+          }
         }
       }
 

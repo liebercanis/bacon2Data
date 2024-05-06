@@ -33,6 +33,7 @@
 #include <algorithm> // std::sort
 #include "TSpectrum.h"
 #include "TRandom3.h"
+#include "TFitResult.h"
 //
 #include "TBWave.hxx"
 #include "TDetHit.hxx"
@@ -92,6 +93,7 @@ public:
   vector<int> vChannel;
   TNtuple *ntFinder;
   TNtuple *ntSplit;
+  TNtuple *ntPeakFix;
   std::vector<double> QPEnominal; // nominal QPE
   std::vector<double> rdigi;      //
   std::vector<double> digi;       // baseline subtracted
@@ -113,6 +115,8 @@ public:
   std::vector<unsigned> splitCount;
   vector<double> channelSigmaValue;
   vector<double> wfilter;
+  unsigned singletPeakTime;
+  
   double timeUnit;
   double microSec;
   int trigEnd = 800;

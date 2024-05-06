@@ -1,4 +1,4 @@
-////////////////////////////////////////////////////////
+
 //  M.Gold June 2022
 // revised Jan 27 2023 -- simplified finding
 // derivative paak finding
@@ -177,6 +177,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   //ntFinder->Fill(float(theEvent), float(idet), float(detHits.size()), float(dhit.firstBin), float(dhit.startTime), float(dhit.peakBin), float(dhit.lastBin));
   ntFinder = new TNtuple("ntFinder", " hit finder ", "event:chan:nhit:first:start:peak:last:qpeak");
   ntSplit = new TNtuple("ntSplit", " split for finder ", "event:chan:cross:nsplit:bin:ratio:batr:width");
+  ntPeakFix = new TNtuple("ntPeakFix", "peak fix for singlet", "detHits:idet:singlett:peakt:qpeak:qpeakFix");
 
   int templateChan = 8;
   gotTemplate = getTemplate(templateChan);
@@ -418,8 +419,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   unsigned minWidth = 10;
   findDerivativeCrossings(idet);
   // findThresholdCrossings(idet, threshold);
-  fSinglet = NULL;
-  //fitSinglet(idet);
+  fitSinglet(idet);
   makePeaks(idet, digi);
   //splitPeaks(idet);
   makeHits(idet, triggerTime, firstCharge);
@@ -870,6 +870,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     if (verbose)
       printf("line854 hitFinder::makeHits hit chan %i (%i,%i) size %lu \n ", vChannel[idet], klow, khigh, dhit.digi.size());
 
+  
     dhit.peakBin = Int_t(peakt);
     dhit.qsum = qsum;
     dhit.qpeak = qpeak;
@@ -882,7 +883,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     // this is N= q/qnorm and delta q = root(n)*qnorm;
     dhit.qerr = sqrt(pow(sigma * Double_t(dhit.peakWidth), 2) + qnorm * qsum);
     dhit.kind = peakKind[ip];
-
+    
     // just use the biggest pulse
     if (qsum > qmax)
     {
@@ -907,6 +908,25 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     ntFinder->Fill(float(theEvent), float(idet), float(detHits.size()), float(dhit.firstBin), float(dhit.startTime), float(dhit.peakBin), float(dhit.lastBin), dhit.qpeak);
 
     if (used)
+      continue;
+
+    /*fix peak if after singlet */
+    if (fSinglet != NULL && peakt > singletPeakTime && peakt < trigEnd)
+    {
+      double xbin = hEvWave[idet]->GetBinLowEdge(peakt);
+      double offset = fSinglet->Eval(xbin);
+      ntPeakFix->Fill(float(detHits.size()), float(idet), float(singletPeakTime), float(peakt), qpeak, qpeak - offset);
+      if(verbose )printf("line919 list size %lu idet %i singlett %u peakt %u qpeak %f fixed %f\n", detHits.size(), idet, singletPeakTime, peakt, dhit.qpeak, dhit.qpeak - offset);
+      // fix here 
+      dhit.qpeak = dhit.qpeak - offset;
+    }
+    else if (verbose&&peakt > singletPeakTime && peakt < trigEnd)
+    {
+      printf("line925 detHits %lu  %i singlett %u peakt %u  \n", detHits.size(), idet, singletPeakTime, peakt);
+    }
+
+    // cheak after peak fix
+    if (dhit.qpeak < hitThreshold)
       continue;
 
     detHits.insert(std::pair<Double_t, TDetHit>(hitTime, dhit));
@@ -1043,8 +1063,28 @@ void hitFinder::findPeakCrossings(Int_t idet, unsigned peakStart, unsigned peakE
 void hitFinder::fitSinglet(int idet)
   {
     fSinglet = NULL;
-    hEvWave[idet]->Fit("expo", "", "", nominalTrigger, trigEnd);
-    fSinglet = (TF1 *)hEvWave[idet]->GetListOfFunctions()->FindObject("expo");
+    if(idet==12)
+      return;
+    // first find peak max for fit range
+    double ymax=0;
+    int maxBin = nominalTrigger;
+    for (int ibin = nominalTrigger; ibin < trigEnd; ++ibin) {
+      if(hEvWave[idet]->GetBinContent(ibin)>ymax)
+      {
+        ymax = hEvWave[idet]->GetBinContent(ibin);
+        maxBin = ibin;
+      }
+    }
+    // need to save this so we dont subtract from this peak
+    singletPeakTime = unsigned(maxBin);
+
+    TFitResultPtr fptr = hEvWave[idet]->Fit("landau", "RQ", "", maxBin, maxBin + 20);
+    //status = 0 : the fit has been performed successfully(i.e no error occurred).
+    int fitStatus = fptr;
+    if(fitStatus!=0)
+      return;
+    fSinglet = (TF1 *)hEvWave[idet]->GetListOfFunctions()->FindObject("landau");
+    //printf("line1065 fitSinglet ymax %f bin %i status %i \n", ymax, maxBin, int(fitStatus));
   }
 
 // split peak based on derivaive
