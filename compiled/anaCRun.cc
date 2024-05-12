@@ -160,12 +160,15 @@ public:
   void thresholdCrossingCount(double thresh);
   std::vector<double> sumDigi();
   unsigned triggerTime(int ichan, double &adc);
+  unsigned fixedTriggerTime(int ichan, double &adc);
   void doTimeShiftAndNorm();
   std::vector<std::vector<double>> fixedDigi; // all the fixed waveforms
   std::vector<unsigned> trigTimes;
+  std::vector<unsigned> sTrigTimes; // after correction
   std::vector<double> adcBin;
   std::vector<double> speCount;
 
+  TDirectory *earlyPeakDir;
   TDirectory *rawSumDir;
   TDirectory *badDir;
   TDirectory *badTrigDir;
@@ -209,6 +212,23 @@ unsigned anaCRun::triggerTime(int ic, double &adc)
   }
   return time;
 }
+/** get trigger time **/
+unsigned anaCRun::fixedTriggerTime(int ic, double &adc)
+{
+  unsigned time = 0;
+  for (unsigned j = 0; j < 801; ++j)
+  {
+    double val = fixedDigi[ic][j];
+    if (val > 0.5 * nominalGain)
+    {
+      adc = val;
+      time = j;
+      break;
+    }
+  }
+  return time;
+}
+
 // shift the times and apply gain norm void anaCRun::doTimeShiftAndNorm()
 // bug fixed
 void anaCRun::doTimeShiftAndNorm()
@@ -581,6 +601,7 @@ int anaCRun::anaEvent(Long64_t entry)
 
   /* find trigger time from trigger sipms */
   trigTimes.resize(12);
+  sTrigTimes.resize(12);
   adcBin.resize(12);
   for (unsigned ic = 0; ic < 12; ++ic)
   {
@@ -622,12 +643,7 @@ int anaCRun::anaEvent(Long64_t entry)
     passBit |= 0x2;
   }
 
-  ntTrigTime->Fill(entry, firstTime,
-                   adcBin[6], adcBin[7], adcBin[8],
-                   adcBin[9], adcBin[10], adcBin[11],
-                   trigTimes[6], trigTimes[7], trigTimes[8],
-                   trigTimes[9], trigTimes[10], trigTimes[11]);
-
+  
   hTriggerTime->Fill(double(firstTime));
   int timeShift = nominalTrigger - firstTime;
   hTriggerShift->Fill(timeShift);
@@ -639,6 +655,19 @@ int anaCRun::anaEvent(Long64_t entry)
         normalize to nominal gain
    ********/
   doTimeShiftAndNorm();
+  /* make ntuple of before and after shift */
+  for (unsigned ic = 6; ic < 12; ++ic)
+  {
+    double val;
+    sTrigTimes[ic]=fixedTriggerTime(ic, val);
+    
+  }
+  ntTrigTime->Fill(entry, firstTime,
+                   trigTimes[6], trigTimes[7], trigTimes[8],
+                   trigTimes[9], trigTimes[10], trigTimes[11],
+                   sTrigTimes[6],
+                   sTrigTimes[7], sTrigTimes[8],
+                   sTrigTimes[9], sTrigTimes[10], sTrigTimes[11]);
 
   /* *******
         do pulse finding on summed line for event cuts
@@ -774,14 +803,30 @@ int anaCRun::anaEvent(Long64_t entry)
     {
       // count late hits
       int lateHits = 0;
+      int earlyHits=0;
+      int thitStartTime = 0;
       TDetHit tlateHit;
       for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
       {
         TDetHit thit = tdet->hits[ihit];
-        if (thit.startTime > 4000)
+        if (thit.startTime > 4000) {
           ++lateHits;
-        tlateHit = thit;
+          tlateHit = thit;
+        }
+        if (thit.startTime >700 && thit.startTime < 720)
+          ++earlyHits;
+        thitStartTime = thit.startTime;
       }
+      if (earlyHits>0)
+      {
+        //printf(" found %i earlyHits det %i time %i event %lld \n", earlyHits, tdet->channel,thitStartTime, entry);
+        if(earlyPeakDir->GetList()->GetEntries() < 100){
+          finder->plot1Wave(earlyPeakDir, tdet->channel, entry);
+          finder->plot1Wave(earlyPeakDir,9, entry);
+        }
+      }
+
+      /*
       if (lateHits > 0 && tdet->channel < 9)
       {
         finder->plotEvent(finderDir, tdet->channel, entry);
@@ -791,6 +836,7 @@ int anaCRun::anaEvent(Long64_t entry)
       {
         finder->plotEvent(finderDir, tdet->channel, entry);
       }
+      */
     }
     // finder->plotEvent(fftDir, 8, entry);
 
@@ -1085,6 +1131,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   pmtDir = fout->mkdir("pmtDir");
   badDir = fout->mkdir("badDir");
   badTrigDir = fout->mkdir("badTrigDir");
+  earlyPeakDir = fout->mkdir("earlyPeakDir");
   fout->cd();
   cout << " opened output file " << fout->GetName() << endl;
   getSummedHists();
@@ -1107,7 +1154,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   ntSpeYield = new TNtuple("ntSpeYield", "spe per sipm",
                            "event:spe0:spe1:spe2:spe3:spe4:spe5:spe6:spe7:spe8:spe9:spe10:spe11");
   ntTrigTime = new TNtuple("ntTrigTime", "trigger time ntuple",
-                           "event:tave:adc6:adc7:adc8:adc9:adc10:adc11:trig6:trig7:trig8:trig9:trig10:trig11");
+                           "event:tave:trig6:trig7:trig8:trig9:trig10:trig11:strig6:strig7:strig8:strig9:strig10:strig11");
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
   hEventPass = new TH1D("EventPass", " event failures", 16, 0, 16);
   evCount = new TH1D("eventcount", "event count", CHANNELS, 0, CHANNELS);

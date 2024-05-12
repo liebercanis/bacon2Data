@@ -130,7 +130,8 @@ public:
   void makePeaks(int idet, std::vector<Double_t> v);
   void makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge);
   void plotWave(int idet, Long64_t jentry);
-  void plotEvent(TDirectory* dir, unsigned ichan, Long64_t ievent);
+  void plot1Wave(TDirectory *dir, int idet, Long64_t jentry);
+  void plotEvent(TDirectory *dir, unsigned ichan, Long64_t ievent);
   // careful with indicies ichan and idet!
   void printPeakList();
   void fitSinglet(int idet);
