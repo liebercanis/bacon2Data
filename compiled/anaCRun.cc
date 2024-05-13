@@ -159,7 +159,8 @@ public:
   void negativeCrossingCount(int ichan);
   void thresholdCrossingCount(double thresh);
   std::vector<double> sumDigi();
-  unsigned triggerTime(int ichan, double &adc);
+  unsigned getTriggerTime(int ichan, double &adc);
+  void getTriggerTimeStats(unsigned *timeArray, double &ave, double &sigma);
   unsigned fixedTriggerTime(int ichan, double &adc);
   void doTimeShiftAndNorm();
   std::vector<std::vector<double>> fixedDigi; // all the fixed waveforms
@@ -184,18 +185,18 @@ public:
   int nominalTrigger = 729;
   double nominalGain = 227.4; // average
   unsigned firstTime;         // corrected trigger time for event
-  unsigned timeOffset = 17;
+  unsigned timeOffset = 13; // changed from 17 may 13, 2024
   ULong_t taveEarlyCut = 710;
   ULong_t taveLateCut = 740;
   ULong_t timeEarlyCut = 690;
   ULong_t timeLateCut = 890;
   double prePeakCut = 0.5;
   double latePeakCut = 3.5; // march 18 2024 2.5;
-  double diffStep = 1.; // back to one from 4 May 4 2024
-};
+  double diffStep = 1.;     // back to one from 4 May 4 2024
+  };
 
 /** get trigger time **/
-unsigned anaCRun::triggerTime(int ic, double &adc)
+unsigned anaCRun::getTriggerTime(int ic, double &adc)
 {
   TDet *idet = tbrun->getDet(ic);
   unsigned time = 0;
@@ -212,6 +213,37 @@ unsigned anaCRun::triggerTime(int ic, double &adc)
   }
   return time;
 }
+
+void anaCRun::getTriggerTimeStats(unsigned *timeArray, double& ave, double& sigma){
+  unsigned nave = 0;
+  ave = 0;
+  sigma = 0;
+  // calculate ave
+  for (unsigned ic = 0; ic < 3; ++ic)
+  {
+    // 690 < time < 890
+    if (timeArray[ic] < timeLateCut && timeArray[ic]>timeEarlyCut)
+    {
+      ave += double(timeArray[ic]);
+      ++nave;
+    }
+  }
+  // will cast as unsigned 
+  if(nave>0&&ave>0) 
+    ave /= double(nave);
+  else 
+    ave = nominalTrigger;
+
+  if(nave==0)
+    return;
+  // calculate sigma
+  for (unsigned ic = 0; ic < 3; ++ic)
+  {
+      sigma  += pow(double(timeArray[ic]-ave),2.);
+  }
+  sigma = sqrt(sigma) / double(nave);
+}
+
 /** get trigger time **/
 unsigned anaCRun::fixedTriggerTime(int ic, double &adc)
 {
@@ -606,7 +638,7 @@ int anaCRun::anaEvent(Long64_t entry)
   for (unsigned ic = 0; ic < 12; ++ic)
   {
     double val = 0;
-    unsigned time = triggerTime(ic, val);
+    unsigned time = getTriggerTime(ic, val);
     trigTimes[ic] = time;
     adcBin[ic] = val;
     // if (time < nominalTrigger - 5 * triggerSigma)
@@ -619,23 +651,20 @@ int anaCRun::anaEvent(Long64_t entry)
     }
     if (time > 0)
       hTriggerTimeAll->Fill(double(time));
+    if (time > 0 && ic>8 )
+      hTriggerTime->Fill(double(time));
   }
 
-  /* ave trigger sipm times */
-  double timeAve = 0;
-  double nave = 0;
-  for (unsigned ic = 9; ic < 12; ++ic)
-  {
-    hTriggerTimeTrig->Fill(double(trigTimes[ic]));
-    if (trigTimes[ic] < taveLateCut)
-    {
-      timeAve += double(trigTimes[ic]);
-      ++nave;
-    }
-  }
-  firstTime = nominalTrigger;
-  if (nave > 0)
-    firstTime = unsigned(timeAve / nave);
+  /* ave trigger sipm times before shift */
+  double trigTimeAve = 0;
+  double trigTimeSigma = 0;
+  getTriggerTimeStats(&trigTimes[9], trigTimeAve, trigTimeSigma);
+  firstTime = unsigned(trigTimeAve);
+
+  /* ave non trig  sipm times before shift */
+  double nonTimeAve = 0;
+  double nonTimeSigma = 0;
+  getTriggerTimeStats(&trigTimes[6], nonTimeAve, nonTimeSigma);
 
   if (firstTime > taveLateCut)
   {
@@ -660,14 +689,20 @@ int anaCRun::anaEvent(Long64_t entry)
   {
     double val;
     sTrigTimes[ic]=fixedTriggerTime(ic, val);
-    
   }
-  ntTrigTime->Fill(entry, firstTime,
-                   trigTimes[6], trigTimes[7], trigTimes[8],
-                   trigTimes[9], trigTimes[10], trigTimes[11],
-                   sTrigTimes[6],
-                   sTrigTimes[7], sTrigTimes[8],
-                   sTrigTimes[9], sTrigTimes[10], sTrigTimes[11]);
+  /* ave trigger sipm times after shift */
+  double trigTimeAve2 = 0;
+  double trigTimeSigma2 = 0;
+  getTriggerTimeStats(&sTrigTimes[9], trigTimeAve2, trigTimeSigma2);
+
+  /* ave non trig  sipm times after shift*/
+  double nonTimeAve2 = 0;
+  double nonTimeSigma2 = 0;
+  getTriggerTimeStats(&sTrigTimes[6], nonTimeAve2, nonTimeSigma2);
+
+  ntTrigTime->Fill(entry, 
+                   double(firstTime), trigTimeSigma, nonTimeAve,nonTimeSigma,
+                   trigTimeAve2, trigTimeSigma2, nonTimeAve2, nonTimeSigma2 );
 
   /* *******
         do pulse finding on summed line for event cuts
@@ -1154,7 +1189,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   ntSpeYield = new TNtuple("ntSpeYield", "spe per sipm",
                            "event:spe0:spe1:spe2:spe3:spe4:spe5:spe6:spe7:spe8:spe9:spe10:spe11");
   ntTrigTime = new TNtuple("ntTrigTime", "trigger time ntuple",
-                           "event:tave:trig6:trig7:trig8:trig9:trig10:trig11:strig6:strig7:strig8:strig9:strig10:strig11");
+    "entry:trigTime:trigTimeSigma:nonTimeAve:nonTimeSigma:trigTimeAve2:trigTimeSigma2:nonTimeAve2:nonTimeSigma2");
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
   hEventPass = new TH1D("EventPass", " event failures", 16, 0, 16);
   evCount = new TH1D("eventcount", "event count", CHANNELS, 0, CHANNELS);
