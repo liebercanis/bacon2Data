@@ -908,7 +908,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
       {
         used = true;
         if (verbose)
-          printf("line887 hitFinder::makeHit found multiple hits det %i klow %i khigh %i  this (%i,%i,%i) last peak (%i,%i,%i) dethit size %lu \n", idet, klow, khigh, hiti.firstBin, hiti.peakBin, hiti.lastBin, dhit.firstBin, dhit.peakBin, dhit.lastBin, detHits.size());
+          printf("line887 hitFinder::makeHit found multiple hits det %i this (%i,%i,%i)  last peak (%i,%i,%i) dethit size %lu \n", idet, hiti.firstBin, hiti.peakBin, hiti.lastBin,dhit.firstBin, dhit.peakBin, dhit.lastBin, detHits.size());
       }
     }
     ntFinder->Fill(float(theEvent), float(idet), float(detHits.size()), float(dhit.firstBin), float(dhit.startTime), float(dhit.peakBin), float(dhit.lastBin), dhit.qpeak);
@@ -938,7 +938,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     detHits.insert(std::pair<Double_t, TDetHit>(hitTime, dhit));
     hPeakNWidth->Fill(dhit.lastBin - dhit.firstBin + 1);
     if (1)
-      printf("line898 hitFinder::makeHits %llu insert hit idet %i  number %lu time %f %i klow %i khigh %i , (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, detHits.size(), hitTime, klow, khigh, dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
+      printf("line898 hitFinder::makeHits %llu insert hit idet %i  number %lu time %f klow %u khigh %u (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, detHits.size(), hitTime, klow, khigh ,dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
   }
 
     int nhit = 0;
