@@ -1080,20 +1080,14 @@ void hitFinder::fitSinglet(int idet, Long64_t ievent)
   //printf("line1079 fitSinglet  idet %i event %lld %s \n", idet, ievent, hEvWave[idet]->GetName());
   // this prevents crash!!!
   hEvWave[idet]->GetListOfFunctions()->Clear();
-  TFitResultPtr ftpr = hEvWave[idet]->Fit("landau", "RQS", "", maxBin, maxBin + 20);
+  hEvWave[idet]->Fit("landau", "RQS", "", maxBin, maxBin + 20);
   //check its(int) value which is 0 if ok, -1 if not .
-  if (ftpr != 0)
-  {
-    printf("line1085  hitFinder::fitSinglet ftpr NULL so returning det %i event %lld \n", idet, ievent);
-    return;
-  }
-
   // status = 0 : the fit has been performed successfully(i.e no error occurred).
   //hEvWave[idet]->GetListOfFunctions()->ls();
   fSinglet = (TF1 *)hEvWave[idet]->GetListOfFunctions()->FindObject("landau");
   if (!fSinglet)
     printf("line1095  hitFinder::fitSinglet fSinglet NULL so returning det %i event %lld \n", idet, ievent);
-  }
+}
 
 // split peak based on derivaive
 // requires digi, ddigi vectors
