@@ -1084,7 +1084,9 @@ void hitFinder::fitSinglet(int idet, Long64_t ievent)
   {
     printf("line1085 ftpr NULL so returning \n");
     return;
-  }
+  } else
+    printf("line1088 ftpr not null \n");
+
   // status = 0 : the fit has been performed successfully(i.e no error occurred).
   hEvWave[idet]->GetListOfFunctions()->ls();
   fSinglet = (TF1 *)hEvWave[idet]->GetListOfFunctions()->FindObject("landau");
