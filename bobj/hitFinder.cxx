@@ -1080,8 +1080,7 @@ void hitFinder::fitSinglet(int idet, Long64_t ievent)
   //printf("line1079 fitSinglet  idet %i event %lld %s \n", idet, ievent, hEvWave[idet]->GetName());
   // this prevents crash!!!
   hEvWave[idet]->GetListOfFunctions()->Clear();
-  TFitResultPtr ftpr(0);
-  ftpr = hEvWave[idet]->Fit("landau", "RQS", "", maxBin, maxBin + 20);
+  TFitResultPtr ftpr = hEvWave[idet]->Fit("landau", "RQS", "", maxBin, maxBin + 20);
   //check its(int) value which is 0 if ok, -1 if not .
   if (ftpr != 0)
   {
