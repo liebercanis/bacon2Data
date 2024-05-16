@@ -445,6 +445,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
 
   hEvHitPeakWave[idet]->Reset("ICESM");
   int hitNumber = 0;
+  TString hitTitle;
   for (hitMapIter hitIter = detHits.begin(); hitIter != detHits.end(); ++hitIter)
   {
     TDetHit hiti = hitIter->second;
@@ -473,7 +474,10 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     if(verbose) printf("line473 hitFinder event %lld chan %i thres %f qpeak sum %f\n", ievent, ichan, hitThreshold, tbrun->detList[idet]->qpeak);
     if (!triggerChannel)
       hPeakValue->Fill(hiti.qpeak);
-    hiti.SetTitle(Form("TDetHit %i event %llu chan %i index %i ", icount++, ievent, ichan, idet));
+    hitTitle.Form("TDetHit %i event %llu chan %i index %i ", icount++, ievent, ichan, idet);
+    if(verbose)
+      cout << hitTitle << endl;
+    hiti.SetTitle(hitTitle);
   }
   // save the hits
   // tbrun->fill();
