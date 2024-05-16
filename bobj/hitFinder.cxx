@@ -470,7 +470,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
         tbrun->detList[idet]->hitPrompt += hiti.qpeak;
       }
     }
-    if(verbose) printf(" hitFinder event %lld chan %i thres %f qpeak sum %f\n", ievent, ichan, hitThreshold, tbrun->detList[idet]->qpeak);
+    if(verbose) printf("line473 hitFinder event %lld chan %i thres %f qpeak sum %f\n", ievent, ichan, hitThreshold, tbrun->detList[idet]->qpeak);
     if (!triggerChannel)
       hPeakValue->Fill(hiti.qpeak);
     hiti.SetTitle(Form("TDetHit %i event %llu chan %i index %i ", icount++, ievent, ichan, idet));
@@ -503,9 +503,10 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
       {
         cout << " \t finder hit number  " << ihit << " peak bin " << tdet->hits[ihit].peakBin << endl;
       }
-      cout << "HHHH  END hitFinder::event" << endl;
     }
   }
+  if(verbose) cout << "HHHH  END hitFinder::event ichan " << ichan << " event " << ievent << endl;
+  
 }
 
 // revised derivative Jan 27 2023 MG
