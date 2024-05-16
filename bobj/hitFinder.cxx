@@ -1076,13 +1076,13 @@ void hitFinder::fitSinglet(int idet)
     }
     // need to save this so we dont subtract from this peak
     singletPeakTime = unsigned(maxBin);
-    printf("line1079 fitSinglet  \n");
+    printf("line1079 fitSinglet  idet %i\n",idet);
 
-    TFitResultPtr fptr = hEvWave[idet]->Fit("landau", "RQ", "", maxBin, maxBin + 20);
+    hEvWave[idet]->Fit("landau", "RQ", "", maxBin, maxBin + 20);
     // status = 0 : the fit has been performed successfully(i.e no error occurred).
     fSinglet = (TF1 *)hEvWave[idet]->GetListOfFunctions()->FindObject("landau");
     if(fSinglet) printf("line1065 fitSinglet ymax %f bin %i \n", ymax, maxBin);
-    else printf("line1065 fitSinglet NULL  \n");
+    else printf("line1085 fitSinglet NULL  \n");
   }
 
 // split peak based on derivaive
