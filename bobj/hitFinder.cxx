@@ -42,7 +42,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   if (nSamples == CAENLENGTH)
     isCAEN = true;
   channelSigmaValue = sigmaValue;
-  verbose = false;
+  verbose = true;
   if (isCAEN)
     QPEPeak = 200;
   else
@@ -470,7 +470,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
         tbrun->detList[idet]->hitPrompt += hiti.qpeak;
       }
     }
-    //printf(" hitFinder event %lld chan %i thres %f qpeak sum %f\n", ievent, ichan, hitThreshold, tbrun->detList[idet]->qpeak);
+    if(verbose) printf(" hitFinder event %lld chan %i thres %f qpeak sum %f\n", ievent, ichan, hitThreshold, tbrun->detList[idet]->qpeak);
     if (!triggerChannel)
       hPeakValue->Fill(hiti.qpeak);
     hiti.SetTitle(Form("TDetHit %i event %llu chan %i index %i ", icount++, ievent, ichan, idet));
