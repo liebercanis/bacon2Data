@@ -754,7 +754,9 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     unsigned ilow =  imax-20;
     unsigned ihigh = imax+50;
     if(ihigh>unsigned(v.size()-1))
-      ihigh = unsigned(v.size()-1) ;
+      ihigh = unsigned(v.size()-1);
+    if(ilow<0)
+      ilow = 0;
 
     /*
     unsigned ilow = 0; //crossingBin[icross];
