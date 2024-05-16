@@ -418,7 +418,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   unsigned minWidth = 10;
   findDerivativeCrossings(idet);
   // findThresholdCrossings(idet, threshold);
-  fitSinglet(idet);
+  fitSinglet(idet,ievent);
   makePeaks(idet, digi);
   //splitPeaks(idet);
   makeHits(idet, triggerTime, firstCharge);
@@ -1059,35 +1059,39 @@ void hitFinder::findPeakCrossings(Int_t idet, unsigned peakStart, unsigned peakE
   return;
 }
 
-void hitFinder::fitSinglet(int idet)
+void hitFinder::fitSinglet(int idet, Long64_t ievent)
+{
+  fSinglet = NULL;
+  if (idet == 12)
+    return;
+  // first find peak max for fit range
+  double ymax = 0;
+  int maxBin = nominalTrigger - 30;
+  for (int ibin = nominalTrigger - 30; ibin < trigEnd; ++ibin)
   {
-    fSinglet = NULL;
-    if(idet==12)
-      return;
-    // first find peak max for fit range
-    double ymax=0;
-    int maxBin = nominalTrigger-30;
-    for (int ibin = nominalTrigger-30; ibin < trigEnd; ++ibin) {
-      if(hEvWave[idet]->GetBinContent(ibin)>ymax)
-      {
-        ymax = hEvWave[idet]->GetBinContent(ibin);
-        maxBin = ibin;
-      }
+    if (hEvWave[idet]->GetBinContent(ibin) > ymax)
+    {
+      ymax = hEvWave[idet]->GetBinContent(ibin);
+      maxBin = ibin;
     }
-    // need to save this so we dont subtract from this peak
-    singletPeakTime = unsigned(maxBin);
-    printf("line1079 fitSinglet  idet %i\n",idet);
+  }
+  // need to save this so we dont subtract from this peak
+  singletPeakTime = unsigned(maxBin);
+  printf("line1079 fitSinglet  idet %i event %lld \n", idet,ievent);
 
-    TFitResultPtr ftpr = hEvWave[idet]->Fit("landau", "RS", "", maxBin, maxBin + 20);
-    if(!ftpr) {
-      printf("line1085 ftpr NULL  \n");
-      return;
-    }
-    // status = 0 : the fit has been performed successfully(i.e no error occurred).
-    hEvWave[idet]->GetListOfFunctions()->ls();
-    fSinglet = (TF1 *)hEvWave[idet]->GetListOfFunctions()->FindObject("landau");
-    if(fSinglet) printf("line1065 fitSinglet ymax %f bin %i \n", ymax, maxBin);
-    else printf("line1085 fitSinglet NULL  \n");
+  TFitResultPtr ftpr = hEvWave[idet]->Fit("landau", "RS", "", maxBin, maxBin + 20);
+  if (!ftpr)
+  {
+    printf("line1085 ftpr NULL so returning \n");
+    return;
+  }
+  // status = 0 : the fit has been performed successfully(i.e no error occurred).
+  hEvWave[idet]->GetListOfFunctions()->ls();
+  fSinglet = (TF1 *)hEvWave[idet]->GetListOfFunctions()->FindObject("landau");
+  if (fSinglet)
+    printf("line1065 fitSinglet ymax %f bin %i \n", ymax, maxBin);
+  else
+    printf("line1085 fitSinglet NULL  \n");
   }
 
 // split peak based on derivaive
