@@ -134,7 +134,7 @@ public:
   void plotEvent(TDirectory *dir, unsigned ichan, Long64_t ievent);
   // careful with indicies ichan and idet!
   void printPeakList();
-  void fitSinglet(int idet);
+  void fitSinglet(int idet, Long64_t ievent);
   void trimPeaks(int idet, std::vector<Double_t> v);
   void splitPeaks(int idet);
   bool gotTemplate;
