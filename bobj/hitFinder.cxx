@@ -1078,6 +1078,7 @@ void hitFinder::fitSinglet(int idet, Long64_t ievent)
   // need to save this so we dont subtract from this peak
   singletPeakTime = unsigned(maxBin);
   printf("line1079 fitSinglet  idet %i event %lld %s \n", idet, ievent, hEvWave[idet]->GetName());
+  hEvWave[idet]->GetListOfFunctions()->ls();
   TFitResultPtr ftpr(0);
   ftpr = hEvWave[idet]->Fit("landau", "RQS", "", maxBin, maxBin + 20);
   if (ftpr==0)
