@@ -1084,7 +1084,8 @@ void hitFinder::fitSinglet(int idet)
     if(fitStatus!=0)
       return;
     fSinglet = (TF1 *)hEvWave[idet]->GetListOfFunctions()->FindObject("landau");
-    printf("line1065 fitSinglet ymax %f bin %i status %i \n", ymax, maxBin, int(fitStatus));
+    if(fSinglet) printf("line1065 fitSinglet ymax %f bin %i status %i \n", ymax, maxBin, int(fitStatus));
+    else printf("line1065 fitSinglet NULL  \n);
   }
 
 // split peak based on derivaive
