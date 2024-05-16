@@ -1082,7 +1082,7 @@ void hitFinder::fitSinglet(int idet, Long64_t ievent)
   hEvWave[idet]->GetListOfFunctions()->Clear();
   TFitResultPtr ftpr(0);
   ftpr = hEvWave[idet]->Fit("landau", "RQS", "", maxBin, maxBin + 20);
-  if (ftpr==0)
+  if (ftpr!=0)
   {
     printf("line1085  hitFinder::fitSinglet ftpr NULL so returning det %i event %lld \n", idet, ievent);
     return;
