@@ -1078,7 +1078,7 @@ void hitFinder::fitSinglet(int idet)
     singletPeakTime = unsigned(maxBin);
     printf("line1079 fitSinglet  idet %i\n",idet);
 
-    hEvWave[idet]->Fit("landau", "RQ", "", maxBin, maxBin + 20);
+    hEvWave[idet]->Fit("landau", "R", "", maxBin, maxBin + 20);
     // status = 0 : the fit has been performed successfully(i.e no error occurred).
     hEvWave[idet]->GetListOfFunctions()->ls();
     fSinglet = (TF1 *)hEvWave[idet]->GetListOfFunctions()->FindObject("landau");
