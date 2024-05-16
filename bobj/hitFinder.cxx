@@ -937,7 +937,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
 
     detHits.insert(std::pair<Double_t, TDetHit>(hitTime, dhit));
     hPeakNWidth->Fill(dhit.lastBin - dhit.firstBin + 1);
-    if (verbose)
+    if (1)
       printf("line898 hitFinder::makeHits %llu insert hit idet %i  number %lu time %f (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, detHits.size(), hitTime, dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
   }
 
