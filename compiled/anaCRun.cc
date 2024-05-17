@@ -763,7 +763,7 @@ int anaCRun::anaEvent(Long64_t entry)
   evCount->Fill(-1); // underflow bin
   if (passBit != 0)
   {
-    printf("det %i nhits %u \n", NONSUMCHANNELS, tbrun->detList[NONSUMCHANNELS]->nhits());
+    printf("event %lld det %i nhits %u \n", entry,NONSUMCHANNELS, tbrun->detList[NONSUMCHANNELS]->nhits());
     //return passBit;
   }
 
@@ -827,7 +827,6 @@ int anaCRun::anaEvent(Long64_t entry)
     }
   } // second channel loop after pulse finding
   if (passBit != 0) {
-    printf("event %lld det %i nhits %u \n", entry,NONSUMCHANNELS, tbrun->detList[NONSUMCHANNELS]->nhits());
     return passBit;
   }
   // fill total light
@@ -1355,7 +1354,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     // hEventPass->Fill(-1);
     //  use total entries for all and bin 0 for passing
     hEventPass->SetBinContent(passBit, hEventPass->GetBinContent(passBit) + 1);
-    printf(" line1353 event %lld passbit %x bin 0 %f \n",entry, passBit,hEventPass->GetBinContent(2));
+    printf("line1353 event %lld passbit %x num  %i \n",entry, passBit,int(hEventPass->GetBinContent(passBit)));
     //  if(eventPass!=0)
     //    printf("event fails with eventPass = %x npass %i nfail %i \n", eventPass,npass,nfail);
     //tbrun->print();
