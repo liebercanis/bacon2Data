@@ -510,7 +510,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     }
   }
   if(1) cout << "HHHH  END hitFinder::event ichan " << ichan << " event " << ievent << "  " << detHits.size() << endl;
-  
+  detHits.clear();
 }
 
 // revised derivative Jan 27 2023 MG
@@ -984,7 +984,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
   triggerTime = dhit0.startTime*microSec;
   firstCharge = dhit0.qsum;
   */
-  if (1)
+  if (verbose)
       printf(" hitFinder::makeHits return event %lld det %i with %lu made \n", theEvent, idet, detHits.size());
     return;
 }
