@@ -939,6 +939,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     hPeakNWidth->Fill(dhit.lastBin - dhit.firstBin + 1);
     if (1)
       printf("line898 hitFinder::makeHits %llu insert hit idet %i  time %f (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, hitTime, dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
+    delete &dhit;
   }
 
     int nhit = 0;
@@ -984,8 +985,8 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
   firstCharge = dhit0.qsum;
   */
   if (verbose)
-    printf(" hitFinder::makeHits return with %lu made \n", detHits.size());
-  return;
+      printf(" hitFinder::makeHits return with %lu made \n", detHits.size());
+    return;
 }
 
 void hitFinder::findPeakCrossings(Int_t idet, unsigned peakStart, unsigned peakEnd)
