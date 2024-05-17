@@ -764,7 +764,7 @@ int anaCRun::anaEvent(Long64_t entry)
   if (passBit != 0)
   {
     printf("det %i nhits %u \n", NONSUMCHANNELS, tbrun->detList[NONSUMCHANNELS]->nhits());
-    return passBit;
+    //return passBit;
   }
 
   // continue if event passes
@@ -826,8 +826,10 @@ int anaCRun::anaEvent(Long64_t entry)
       return false;
     }
   } // second channel loop after pulse finding
-  if (passBit != 0)
+  if (passBit != 0) {
+    printf("event %lld det %i nhits %u \n", entry,NONSUMCHANNELS, tbrun->detList[NONSUMCHANNELS]->nhits());
     return passBit;
+  }
   // fill total light
   vector<float> fsum;
   fsum.resize(tbrun->detList.size());
