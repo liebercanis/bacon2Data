@@ -1351,7 +1351,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     //  if(eventPass!=0)
     //    printf("event fails with eventPass = %x npass %i nfail %i \n", eventPass,npass,nfail);
     //tbrun->print();
-    printf(" %s %lu \n", tbrun->detList[12]->GetName(), tbrun->detList[12]->hits.size());
+    printf(" %s %lu \n", tbrun->detList[13]->GetName(), tbrun->detList[13]->hits.size());
     tbrun->fill();
   }
   printf(" \n \n At END OF FILE total pass  = %i fail %i  \n", npass, nfail);
