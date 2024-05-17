@@ -1360,6 +1360,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
     tbrun->detList[13]->clear();
   */
+    tbrun->clear();
     tbrun->fill();
   }
   printf(" \n \n At END OF FILE total pass  = %i fail %i  \n", npass, nfail);
