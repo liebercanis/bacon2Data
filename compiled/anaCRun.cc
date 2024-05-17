@@ -719,7 +719,7 @@ int anaCRun::anaEvent(Long64_t entry)
   derivativeThreshold = 30; // for summed waveform
   //printf("call to finder for chan 13 %lld \n",entry);
   hitThreshold = 0.25 * nominalGain; // for summed waveform
-  finder->event(NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
+  //finder->event(NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
   // which nominal gain, hit threshold id the same
 
   // event cuts
@@ -764,7 +764,7 @@ int anaCRun::anaEvent(Long64_t entry)
   if (passBit != 0)
   {
     printf("event %lld det %i nhits %u \n", entry,NONSUMCHANNELS, tbrun->detList[NONSUMCHANNELS]->nhits());
-    //return passBit;
+    return passBit;
   }
 
   // continue if event passes
@@ -826,7 +826,7 @@ int anaCRun::anaEvent(Long64_t entry)
         return false;
       }
     } // second channel loop after pulse finding
-    if (passBit != 0) return passBit;
+    //if (passBit != 0) return passBit;
   
   // fill total light
   vector<float> fsum;
