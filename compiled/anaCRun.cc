@@ -761,11 +761,13 @@ int anaCRun::anaEvent(Long64_t entry)
   }
 
   evCount->Fill(-1); // underflow bin
+  /*
   if (passBit != 0)
   {
     return passBit;
   }
   // continue if event passes
+  */
 
   /*******
         start of second channel loop doing pulse finding
@@ -1345,7 +1347,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     {
       ++nfail;
       printf(" event %llu fails with pass bit  %x pass %i fail %i \n", entry, passBit, npass, nfail);
-      tbrun->print();
+      //tbrun->print();
       tbrun->fill();
     }
     // hEventPass->Fill(-1);
