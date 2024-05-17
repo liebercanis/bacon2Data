@@ -810,7 +810,7 @@ int anaCRun::anaEvent(Long64_t entry)
     //  derivativeThreshold = 10.;
     derivativeThreshold = 20;              // for non summed
     hitThreshold = 0.25 * nominalGain;     // for non summed
-    if(passBit) finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold,diffStep); // DEG suggests 10
+    if(passBit==0) finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold,diffStep); // DEG suggests 10
 
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
     if (!fftDir)
