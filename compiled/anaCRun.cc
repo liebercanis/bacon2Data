@@ -71,7 +71,6 @@ public:
   vector<TBRawEvent *> rawBr;
   TBEventData *eventData;
   TBEventData *rawEventData;
-  static TBRun *theTBRun;
   TBRun *tbrun;
   TNtuple *ntChan;
   TNtuple *ntChanSum;
@@ -1186,7 +1185,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   // fout->ls();
 
   // make output tree
-  tbrun = new TBRun(tag);
+  static TBRun *theTBRun = new TBRun(tag);
+  tbrun = theTBRun;
   // and event time
   eventData = new TBEventData();
   tbrun->btree->Branch("eventData", &eventData);
