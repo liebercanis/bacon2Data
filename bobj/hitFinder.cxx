@@ -509,7 +509,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
       }
     }
   }
-  if(1) cout << "HHHH  END hitFinder::event ichan " << ichan << " event " << ievent << "  " << detHits.size() << endl;
+  if(verbose) cout << "HHHH  END hitFinder::event ichan " << ichan << " event " << ievent << "  " << detHits.size() << endl;
   detHits.clear();
 }
 
