@@ -804,13 +804,12 @@ int anaCRun::anaEvent(Long64_t entry)
 
     evCount->Fill(ib); // chan 0 from GetBinContent(0)
 
-    if (passBit != 0)
-      continue;
     // tried to fix gap but didnt work
     // if (ichan >8 ) //lower for trigger sipms
     //  derivativeThreshold = 10.;
     derivativeThreshold = 20;                                                       // for non summed
     hitThreshold = 0.25 * nominalGain;                                              // for non summed
+    if (passBit==0)
     finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
 
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
