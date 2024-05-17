@@ -683,6 +683,7 @@ int anaCRun::anaEvent(Long64_t entry)
         defined as timeShift>0 shift right
         normalize to nominal gain
    ********/
+  printf("doTimeSiftAndNorm %lld \n",entry);
   doTimeShiftAndNorm();
   /* make ntuple of before and after shift */
   for (unsigned ic = 6; ic < 12; ++ic)
@@ -713,8 +714,8 @@ int anaCRun::anaEvent(Long64_t entry)
   TDet *tdet = tbrun->getDet(NONSUMCHANNELS);
   tdet->hits.clear();
   derivativeThreshold = 30; // for summed waveform
-  hitThreshold = 0.25 * nominalGain; // for summed waveform
   printf("call to finder for chan 13 %lld \n",entry);
+  hitThreshold = 0.25 * nominalGain; // for summed waveform
   finder->event(NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
   // which nominal gain, hit threshold id the same
 
