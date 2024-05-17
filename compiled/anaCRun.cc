@@ -810,7 +810,7 @@ int anaCRun::anaEvent(Long64_t entry)
     //  derivativeThreshold = 10.;
     derivativeThreshold = 20;              // for non summed
     hitThreshold = 0.25 * nominalGain;     // for non summed
-    if(passBit==0) finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold,diffStep); // DEG suggests 10
+    finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold,diffStep); // DEG suggests 10
 
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
     if (!fftDir)
@@ -826,6 +826,9 @@ int anaCRun::anaEvent(Long64_t entry)
       return false;
     }
   } // second channel loop after pulse finding
+
+  if(passBit)
+    return passBit;
 
   // fill total light
   vector<float> fsum;
