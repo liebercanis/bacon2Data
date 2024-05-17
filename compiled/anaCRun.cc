@@ -761,11 +761,11 @@ int anaCRun::anaEvent(Long64_t entry)
   }
 
   evCount->Fill(-1); // underflow bin
-  /*if (passBit != 0)
+  if (passBit != 0)
   {
+    digi.clear();
     return passBit;
   }
-  */
 
   // continue if event passes
 
