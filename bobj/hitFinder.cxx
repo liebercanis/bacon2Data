@@ -331,7 +331,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   hitThreshold = theHitThreshold;
   derivativeThreshold = theDerivativeThreshold;
   diffStep = step;
-  int idet = chanMap.at(ichan);
+  //int idet = chanMap.at(ichan);
+  int idet = ichan;
   splitCount.clear();
   for (int i = 0; i < vChannel.size(); ++i)
     splitCount.push_back(0);
@@ -480,7 +481,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     hiti.SetTitle(hitTitle);
   }
   // save the hits
-  // tbrun->fill();
+  //tbrun->fill();
 
   // save some split histograms
   for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
@@ -510,7 +511,6 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     }
   }
   if(verbose) cout << "HHHH  END hitFinder::event ichan " << ichan << " event " << ievent << "  " << detHits.size() << endl;
-  detHits.clear();
 }
 
 // revised derivative Jan 27 2023 MG
