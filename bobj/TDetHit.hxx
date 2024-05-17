@@ -31,7 +31,7 @@ class TDetHit: public TNamed {
     TH1D *plot();
     void print()
     {
-      printf(" hit name %s title  %s  (%i,%i) qsum %f kind %i \n",this->GetName(), this->GetTitle() , firstBin, lastBin, qsum, kind);
+      printf(" hit name %s title  %s  (%i,%i) peakBim %i startTime %f, digi size %lu \n", this->GetName(), this->GetTitle(), firstBin, lastBin, peakBin, startTime, digi.size());
     }
     // data elements
     Int_t firstBin;
