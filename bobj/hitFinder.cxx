@@ -480,8 +480,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     hiti.SetTitle(hitTitle);
   }
   // save the hits
-  cout << "btree entries " << tbrun->btree->GetEntries() << endl;
-  tbrun->fill();
+  //cout << "btree entries " << tbrun->btree->GetEntries() << endl;
+  // tbrun->fill();
 
   // save some split histograms
   for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
