@@ -935,7 +935,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     if (dhit.qpeak < hitThreshold)
       continue;
 
-    detHits.insert(std::pair<Double_t, TDetHit>(hitTime, dhit));
+    //detHits.insert(std::pair<Double_t, TDetHit>(hitTime, dhit));
     hPeakNWidth->Fill(dhit.lastBin - dhit.firstBin + 1);
     if (1) {
       printf("line941 hitFinder::makeHits %llu insert hit idet %i  time %f (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, hitTime, dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
@@ -985,7 +985,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
   firstCharge = dhit0.qsum;
   */
   if (1)
-      printf(" hitFinder::makeHits return with %lu made \n", detHits.size());
+      printf(" hitFinder::makeHits return event %lld with %lu made \n", theEvent, detHits.size());
     return;
 }
 
