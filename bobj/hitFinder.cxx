@@ -481,7 +481,7 @@ void hitFinder::event(TBRun *brun, int ichan, Long64_t ievent, vector<double> in
     hiti.SetTitle(hitTitle);
   }
   // save the hits
-  //tbrun->fill();
+  tbrun->fill();
 
   // save some split histograms
   for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
