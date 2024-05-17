@@ -1345,7 +1345,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     {
       tbrun->print();
       ++nfail;
-      // printf(" event %llu fails with pass bit  %x pass %i fail %i \n", entry, passBit, npass, nfail);
+      printf(" event %llu fails with pass bit  %x pass %i fail %i \n", entry, passBit, npass, nfail);
     }
     // hEventPass->Fill(-1);
     //  use total entries for all and bin 0 for passing
