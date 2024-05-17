@@ -804,13 +804,14 @@ int anaCRun::anaEvent(Long64_t entry)
 
     evCount->Fill(ib); // chan 0 from GetBinContent(0)
 
-    
+    if (passBit != 0)
+      continue;
     // tried to fix gap but didnt work
-    //if (ichan >8 ) //lower for trigger sipms
+    // if (ichan >8 ) //lower for trigger sipms
     //  derivativeThreshold = 10.;
-    derivativeThreshold = 20;              // for non summed
-    hitThreshold = 0.25 * nominalGain;     // for non summed
-    finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold,diffStep); // DEG suggests 10
+    derivativeThreshold = 20;                                                       // for non summed
+    hitThreshold = 0.25 * nominalGain;                                              // for non summed
+    finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
 
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
     if (!fftDir)
@@ -818,14 +819,14 @@ int anaCRun::anaEvent(Long64_t entry)
       cout << " Error no fftDir" << endl;
       fout->ls();
       return false;
-    }
-    TDirectory *sumWaveDir = (TDirectory *)fout->FindObject("sumWaveDir");
-    if (!sumWaveDir)
-    {
-      cout << " Error no sumWaveDir" << endl;
-      return false;
-    }
-  } // second channel loop after pulse finding
+      }
+      TDirectory *sumWaveDir = (TDirectory *)fout->FindObject("sumWaveDir");
+      if (!sumWaveDir)
+      {
+        cout << " Error no sumWaveDir" << endl;
+        return false;
+      }
+    } // second channel loop after pulse finding
   if (passBit != 0) {
     return passBit;
   }
