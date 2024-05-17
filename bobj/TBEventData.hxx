@@ -25,7 +25,11 @@ public:
   int year;
   int isdst;
 
-
+  void print()
+  {
+    printf("TBEventData: sec %i min %i hour %i day %i mon %i year %i isdst %i\n", sec, min, hour, day, mon, year, isdst);
+  }
   ClassDef(TBEventData, 4)
 };
+
 #endif
