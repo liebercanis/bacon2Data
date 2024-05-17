@@ -489,7 +489,7 @@ void anaCRun::getSummedHists()
 /* analyze rawBr */
 int anaCRun::anaEvent(Long64_t entry)
 {
-  printf("start  %lld \n",entry);
+  //printf("start  %lld \n",entry);
   speCount.clear();
   speCount.resize(NONSUMCHANNELS);
   std::fill(speCount.begin(), speCount.end(), 0);
@@ -685,7 +685,7 @@ int anaCRun::anaEvent(Long64_t entry)
         defined as timeShift>0 shift right
         normalize to nominal gain
    ********/
-  printf("doTimeSiftAndNorm %lld \n",entry);
+  //printf("doTimeSiftAndNorm %lld \n",entry);
   doTimeShiftAndNorm();
   /* make ntuple of before and after shift */
   for (unsigned ic = 6; ic < 12; ++ic)
@@ -716,7 +716,7 @@ int anaCRun::anaEvent(Long64_t entry)
   TDet *tdet = tbrun->getDet(NONSUMCHANNELS);
   tdet->hits.clear();
   derivativeThreshold = 30; // for summed waveform
-  printf("call to finder for chan 13 %lld \n",entry);
+  //printf("call to finder for chan 13 %lld \n",entry);
   hitThreshold = 0.25 * nominalGain; // for summed waveform
   finder->event(NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
   // which nominal gain, hit threshold id the same
@@ -1001,7 +1001,7 @@ int anaCRun::anaEvent(Long64_t entry)
       tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
   }
  */
-  printf("finished  %lld pass %i \n",entry, passBit);
+  //printf("finished  %lld pass %i \n",entry, passBit);
   return passBit;
 } // anaEvent
 // revised derivative Dec 8 2022 MG
@@ -1350,7 +1350,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     // printf(" event %lld passbit %x bin 0 %f \n",entry, passBit,hEventPass->GetBinContent(0));
     //  if(eventPass!=0)
     //    printf("event fails with eventPass = %x npass %i nfail %i \n", eventPass,npass,nfail);
-    //tbrun->print();
+    tbrun->print();
     tbrun->fill();
   }
   printf(" \n \n At END OF FILE total pass  = %i fail %i  \n", npass, nfail);
