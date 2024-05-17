@@ -331,8 +331,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   hitThreshold = theHitThreshold;
   derivativeThreshold = theDerivativeThreshold;
   diffStep = step;
-  //int idet = chanMap.at(ichan);
-  int idet = ichan;
+  int idet = chanMap.at(ichan);
   splitCount.clear();
   for (int i = 0; i < vChannel.size(); ++i)
     splitCount.push_back(0);
@@ -501,7 +500,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   if (1)
   {
     TDet *tdet = tbrun->detList[idet];
-    if (tdet->hits.size() > 1 && verbose)
+    //if (tdet->hits.size() > 1 && verbose)
+    if (1)
     {
       cout << "HHHH  END hitFinder::event " << theEvent << " idet= " << idet << " " << tdet->channel << " hits.size " << tdet->hits.size() << endl;
       for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
