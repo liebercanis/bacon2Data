@@ -509,7 +509,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
       }
     }
   }
-  if(verbose) cout << "HHHH  END hitFinder::event ichan " << ichan << " event " << ievent << endl;
+  if(1) cout << "HHHH  END hitFinder::event ichan " << ichan << " event " << ievent << endl;
   
 }
 
@@ -985,7 +985,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
   firstCharge = dhit0.qsum;
   */
   if (1)
-      printf(" hitFinder::makeHits return event %lld with %lu made \n", theEvent, detHits.size());
+      printf(" hitFinder::makeHits return event %lld det %i with %lu made \n", theEvent, idet, detHits.size());
     return;
 }
 
