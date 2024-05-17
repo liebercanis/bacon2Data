@@ -38,6 +38,7 @@
 
 hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan, vector<double> sigmaValue)
 {
+  tbrun = brun;
   isCAEN = false;
   if (nSamples == CAENLENGTH)
     isCAEN = true;
@@ -73,7 +74,6 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   splitDir = fout->mkdir("splitDir");
   sumWaveDir = fout->mkdir("sumWaveDir");
   tag = theTag;
-  tbrun = brun;
   nsamples = nSamples;
   int nSize = nsamples + 100;
   // initialize fft
@@ -313,9 +313,9 @@ void hitFinder::printPeakList()
   }
 }
 
-void hitFinder::event(TBRun *brun, int ichan, Long64_t ievent, vector<double> inputDigi, double theDerivativeThreshold, double theHitThreshold, unsigned step)
+void hitFinder::event(TBRun* brun, int ichan, Long64_t ievent, vector<double> inputDigi, double theDerivativeThreshold, double theHitThreshold, unsigned step)
 {
-  tbrun = brun;
+  tbrun=brun;
   // PMT bad
   if (ichan == 12)
     return;
