@@ -1343,7 +1343,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     }
     else
     {
-      tbrun->print();
+      tbrun->clear();
+      tbrun->fill();
       ++nfail;
       printf(" event %llu fails with pass bit  %x pass %i fail %i \n", entry, passBit, npass, nfail);
     }
