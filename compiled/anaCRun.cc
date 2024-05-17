@@ -761,11 +761,12 @@ int anaCRun::anaEvent(Long64_t entry)
   }
 
   evCount->Fill(-1); // underflow bin
-  /*if (passBit != 0)
+  if (passBit != 0)
   {
+    for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
+      tbrun->getDet(ib)->hits.clear();
     return passBit;
   }
-  */
 
   // continue if event passes
 
@@ -776,7 +777,8 @@ int anaCRun::anaEvent(Long64_t entry)
   for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
   {
     unsigned ichan = ib;
-    TDet *idet = tbrun->getDet(ib);
+    TDet *tdet = tbrun->getDet(ib);
+    tdet->hits.clear();
     bool trig = ichan == 9 || ichan == 10 || ichan == 11;
     int nbins = rawBr[ib]->rdigi.size();
 
@@ -788,7 +790,7 @@ int anaCRun::anaEvent(Long64_t entry)
     // fill histograms
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
-      if (idet->pass)
+      if (tdet->pass)
       {
         sumWave[ib]->SetBinContent(j + 1, sumWave[ib]->GetBinContent(j + 1) + digi[j]);
         valHist[ib]->Fill(digi[j]);
@@ -803,8 +805,7 @@ int anaCRun::anaEvent(Long64_t entry)
 
     evCount->Fill(ib); // chan 0 from GetBinContent(0)
 
-    TDet *tdet = tbrun->getDet(ib);
-    tdet->hits.clear();
+    
     // tried to fix gap but didnt work
     //if (ichan >8 ) //lower for trigger sipms
     //  derivativeThreshold = 10.;
@@ -826,9 +827,6 @@ int anaCRun::anaEvent(Long64_t entry)
       return false;
     }
   } // second channel loop after pulse finding
-
-  if(passBit)
-    return passBit;
 
   // fill total light
   vector<float> fsum;
