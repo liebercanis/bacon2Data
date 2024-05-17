@@ -491,7 +491,6 @@ int anaCRun::anaEvent(Long64_t entry)
 {
   //printf("start  %lld \n",entry);
   // clear
-  tbrun->clear();
   speCount.clear();
   speCount.resize(NONSUMCHANNELS);
   std::fill(speCount.begin(), speCount.end(), 0);
@@ -1340,6 +1339,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     if (passBit == 0)
     {
       ++npass;
+      tbrun->fill();
     }
     else
     {
@@ -1360,8 +1360,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
     tbrun->detList[13]->clear();
   */
-    tbrun->print();
-    tbrun->fill();
+    //tbrun->fill();
   }
   printf(" \n \n At END OF FILE total pass  = %i fail %i  \n", npass, nfail);
 
