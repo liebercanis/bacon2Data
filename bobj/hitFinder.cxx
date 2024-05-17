@@ -480,7 +480,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     hiti.SetTitle(hitTitle);
   }
   // save the hits
-  //tbrun->fill();
+  tbrun->fill();
 
   // save some split histograms
   for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
@@ -509,7 +509,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
       }
     }
   }
-  if(1)
+  if(verbose)
     cout << "HHHH  END hitFinder::event ichan " << ichan << " event " << ievent << "   " << tbrun->detList[idet]->hits.size() << "  " << detHits.size() << endl;
 }
 
