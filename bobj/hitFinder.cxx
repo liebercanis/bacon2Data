@@ -806,7 +806,7 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     }
     if (!found)
     {
-      if (verbose)
+      if (1)
         printf("line786  hitFinder::makePeaks add det %i  imax %i val %f icross %u from (%u,%u) \n", idet, imax, maxVal, crossingBin[icross], ilow, ihigh);
       peakList.push_back(std::make_pair(ilow, ihigh));
       peakKind.push_back(0);
