@@ -763,8 +763,7 @@ int anaCRun::anaEvent(Long64_t entry)
   evCount->Fill(-1); // underflow bin
   if (passBit != 0)
   {
-    for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
-      printf("det %i nhits %u \n",idet,tbrun->detList[idet]->nhits());
+    printf("det %i nhits %u \n", NONSUMCHANNELS, tbrun->detList[NONSUMCHANNELS]->nhits());
     return passBit;
   }
 
