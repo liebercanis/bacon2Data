@@ -719,7 +719,7 @@ int anaCRun::anaEvent(Long64_t entry)
   derivativeThreshold = 30; // for summed waveform
   //printf("call to finder for chan 13 %lld \n",entry);
   hitThreshold = 0.25 * nominalGain; // for summed waveform
-  //finder->event(NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
+  finder->event(NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
   // which nominal gain, hit threshold id the same
 
   // event cuts
