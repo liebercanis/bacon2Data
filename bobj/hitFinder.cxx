@@ -313,8 +313,9 @@ void hitFinder::printPeakList()
   }
 }
 
-void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, double theDerivativeThreshold, double theHitThreshold, unsigned step)
+void hitFinder::event(TBRun *brun, int ichan, Long64_t ievent, vector<double> inputDigi, double theDerivativeThreshold, double theHitThreshold, unsigned step)
 {
+  tbrun = brun;
   // PMT bad
   if (ichan == 12)
     return;
@@ -480,7 +481,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     hiti.SetTitle(hitTitle);
   }
   // save the hits
-  tbrun->fill();
+  //tbrun->fill();
 
   // save some split histograms
   for (unsigned idet = 0; idet < tbrun->detList.size(); ++idet)
