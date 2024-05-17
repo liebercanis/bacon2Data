@@ -761,11 +761,11 @@ int anaCRun::anaEvent(Long64_t entry)
   }
 
   evCount->Fill(-1); // underflow bin
-  if (passBit != 0)
+  /*if (passBit != 0)
   {
-    eventData->print();
     return passBit;
   }
+  */
 
   // continue if event passes
 
@@ -810,7 +810,7 @@ int anaCRun::anaEvent(Long64_t entry)
     //  derivativeThreshold = 10.;
     derivativeThreshold = 20;              // for non summed
     hitThreshold = 0.25 * nominalGain;     // for non summed
-    finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold,diffStep); // DEG suggests 10
+    if(passBit) finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold,diffStep); // DEG suggests 10
 
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
     if (!fftDir)
@@ -1350,7 +1350,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     // hEventPass->Fill(-1);
     //  use total entries for all and bin 0 for passing
     hEventPass->SetBinContent(passBit, hEventPass->GetBinContent(passBit) + 1);
-    printf(" event %lld passbit %x bin 0 %f \n",entry, passBit,hEventPass->GetBinContent(0));
+    printf(" line1353 event %lld passbit %x bin 0 %f \n",entry, passBit,hEventPass->GetBinContent(2));
     //  if(eventPass!=0)
     //    printf("event fails with eventPass = %x npass %i nfail %i \n", eventPass,npass,nfail);
     //tbrun->print();
