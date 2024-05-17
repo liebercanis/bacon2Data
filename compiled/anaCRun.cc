@@ -1,4 +1,4 @@
-/////////////////////////////////////////////////////g
+////////////////////////////////////////////////////g
 //  M.Gold April 2023 read CAEN files
 /////////////////////////////////////////////////////////
 #include <sstream>
@@ -714,7 +714,8 @@ int anaCRun::anaEvent(Long64_t entry)
   tdet->hits.clear();
   derivativeThreshold = 30; // for summed waveform
   hitThreshold = 0.25 * nominalGain; // for summed waveform
-  finder->event(NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold,diffStep); // DEG suggests 10
+  printf("call to finder for chan 13 %lld \n",entry);
+  finder->event(NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
   // which nominal gain, hit threshold id the same
 
   // event cuts
