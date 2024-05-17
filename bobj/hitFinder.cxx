@@ -849,7 +849,6 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     UInt_t peakt = 0;
     Double_t qpeak = 0;
     Double_t qsum = 0;
-    TDetHit dhit;
     for (unsigned k = klow; k < khigh; ++k)
     {
       double qdigik = digi[k];
@@ -869,6 +868,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     unsigned kstart = TMath::Max(unsigned(0), klow - 20);
     unsigned kend = TMath::Min(unsigned(digi.size()), khigh + 20);
 
+    TDetHit dhit;
     if (vChannel[idet] < 9)
       for (unsigned k = kstart; k < kend; ++k)
         dhit.digi.push_back(digi[k]);
@@ -938,7 +938,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     detHits.insert(std::pair<Double_t, TDetHit>(hitTime, dhit));
     hPeakNWidth->Fill(dhit.lastBin - dhit.firstBin + 1);
     if (1)
-      printf("line898 hitFinder::makeHits %llu insert hit idet %i  time %f (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, hitTime, dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
+      printf("line941 hitFinder::makeHits %llu insert hit idet %i  time %f (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, hitTime, dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
   }
 
     int nhit = 0;
