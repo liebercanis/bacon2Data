@@ -1347,10 +1347,10 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     // hEventPass->Fill(-1);
     //  use total entries for all and bin 0 for passing
     hEventPass->SetBinContent(passBit, hEventPass->GetBinContent(passBit) + 1);
-    // printf(" event %lld passbit %x bin 0 %f \n",entry, passBit,hEventPass->GetBinContent(0));
+    printf(" event %lld passbit %x bin 0 %f \n",entry, passBit,hEventPass->GetBinContent(0));
     //  if(eventPass!=0)
     //    printf("event fails with eventPass = %x npass %i nfail %i \n", eventPass,npass,nfail);
-    tbrun->print();
+    //tbrun->print();
     tbrun->fill();
   }
   printf(" \n \n At END OF FILE total pass  = %i fail %i  \n", npass, nfail);
