@@ -490,6 +490,8 @@ void anaCRun::getSummedHists()
 int anaCRun::anaEvent(Long64_t entry)
 {
   //printf("start  %lld \n",entry);
+  // clear
+  tbrun->clear();
   speCount.clear();
   speCount.resize(NONSUMCHANNELS);
   std::fill(speCount.begin(), speCount.end(), 0);
