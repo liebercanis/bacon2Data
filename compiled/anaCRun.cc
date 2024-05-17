@@ -1001,7 +1001,7 @@ int anaCRun::anaEvent(Long64_t entry)
       tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
   }
  */
-  printf("finished  %lld \n",entry);
+  printf("finished  %lld pass %i \n",entry, passBit);
   return passBit;
 } // anaEvent
 // revised derivative Dec 8 2022 MG
