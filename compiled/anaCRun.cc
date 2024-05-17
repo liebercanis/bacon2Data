@@ -71,6 +71,7 @@ public:
   vector<TBRawEvent *> rawBr;
   TBEventData *eventData;
   TBEventData *rawEventData;
+  static TBRun *theTBRun;
   TBRun *tbrun;
   TNtuple *ntChan;
   TNtuple *ntChanSum;
@@ -489,8 +490,9 @@ void anaCRun::getSummedHists()
 /* analyze rawBr */
 int anaCRun::anaEvent(Long64_t entry)
 {
-  //printf("start  %lld \n",entry);
-  // clear
+  finder->setTBRun(tbrun);
+  // printf("start  %lld \n",entry);
+  //  clear
   speCount.clear();
   speCount.resize(NONSUMCHANNELS);
   std::fill(speCount.begin(), speCount.end(), 0);
@@ -719,7 +721,7 @@ int anaCRun::anaEvent(Long64_t entry)
   derivativeThreshold = 30; // for summed waveform
   //printf("call to finder for chan 13 %lld \n",entry);
   hitThreshold = 0.25 * nominalGain; // for summed waveform
-  finder->event(tbrun,NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
+  finder->event(NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
   // which nominal gain, hit threshold id the same
 
   // event cuts
@@ -810,7 +812,7 @@ int anaCRun::anaEvent(Long64_t entry)
     derivativeThreshold = 20;                                                       // for non summed
     hitThreshold = 0.25 * nominalGain;                                              // for non summed
     //if (passBit==0)
-    finder->event(tbrun, ichan, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
+    finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
 
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
     if (!fftDir)
