@@ -528,7 +528,8 @@ int anaCRun::anaEvent(Long64_t entry)
   //  clear
   TTree *tree = NULL;
   fout->GetObject("RunTree", tree);
-  if(tree) tree->Print();
+  if(tree) 
+    printf("fout has tree event %lld",entry);
   else
     printf("no tree event %lld",entry);
   tbrun->clear();        // clear detList
