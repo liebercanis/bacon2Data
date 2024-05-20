@@ -1237,6 +1237,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   // make output tree
   tbrun = new TBRun(tag);
+  fout->Append(tbrun->btree);
   // and event time
   eventData = new TBEventData();
   tbrun->btree->Branch("eventData", &eventData);
@@ -1246,7 +1247,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     tbrun->addDet(it);
   }
 
-  fout->ls();
 
   // fout->append(tbrun->btree);e("ntHit", " hits
   ntHit = new TNtuple("ntHit", "hit ntuple", "event:flag:chan:time:peakTime:qpeak");
@@ -1364,7 +1364,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
   fout->cd();
 
-  // fout->ls();
   cout << " make hitFinder dets = " << CHANNELS << "  size " << rawBr[0]->rdigi.size() << endl;
   vector<int> chanList;
   for (int ichan = 0; ichan < CHANNELS; ++ichan)
@@ -1521,7 +1520,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   hEventPass->Print("all");
 
-  fout->ls();
   fout->Write();
   fout->Close();
   return nentries;
