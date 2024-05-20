@@ -524,11 +524,11 @@ void anaCRun::getSummedHists()
 /* analyze rawBr */
 int anaCRun::anaEvent(Long64_t entry)
 {
-  // printf("start  %lld \n",entry);
+  printf("\n\n\n\n start  %lld \n",entry);
   //  clear
   TTree *tree = NULL;
   fout->GetObject("RunTree", tree);
-  tree->Print();
+  if(tree) tree->Print();
   tbrun->clear();        // clear detList
   tbrun->btree->Clear(); // clear tree
   speCount.clear();
