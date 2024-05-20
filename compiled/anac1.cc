@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
   // make output tree
   printf(" starting anaRun %s maxEntries %lld firstEntry %lld \n", tag.Data(), maxEntries, firstEntry);
   anaCRun *r = new anaCRun(tag);
-  r->setTBRun(theTBRun);
+  //r->setTBRun(theTBRun);
   r->anaCRunFile(tag, maxEntries, firstEntry);
   exit(0);
 }

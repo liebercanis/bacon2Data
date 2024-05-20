@@ -6,8 +6,11 @@ using namespace TMath;
 TFile *fin;
 TDirectory *runSumDir;
 
-int nTriggers = 1635000;
- //3603795;
+int nominalTrigger = 729;
+double startTime = 700.; // hWave->GetBinLowEdge(maxBin) + hWave->GetBinWidth(maxBin) / 2.;
+double singletStart = 700;
+double singletEnd = 750;
+// 3603795;
 
 double
 fitBack(TH1D *hist)
@@ -18,7 +21,7 @@ fitBack(TH1D *hist)
   double ave = 0;
   int lowBins = hist->FindBin(lowCut);
   int highBins = hist->FindBin(highCut);
-  auto fitBack = new TF1("fitBack", "pol0",lowCut,highCut);
+  auto fitBack = new TF1("fitBack", "pol0", lowCut, highCut);
   fitBack->SetParameter(0,1E-1);
   fitBack->SetParLimits(0,1.E-9,1E2);
   
@@ -47,7 +50,7 @@ static double singletPeak(double *xx, double *par)
   return g;
 }
 
-bool openFile(TString fileName = "summary-type-1-dir-caenData-2023-07-13-13-37.root")
+bool openFile(TString fileName = "summary-01_25_2024-nfiles-10-dir-caenDataGoldSave-2024-05-20-14-17.root")
 {
   // open input file and make some histograms
   printf(" looking for file %s\n", fileName.Data());
@@ -86,13 +89,13 @@ void tbFit(int ichan = 8)
     return;
   TFile *fout = new TFile("tbFit", "recreate");
   TString hname;
-  hname.Form("RunSumHitWaveChan%i", ichan);
+  hname.Form("RunHitWaveChan%i", ichan);
   TH1D *hWave = NULL;
   runSumDir->GetObject(hname, hWave);
   if (!hWave)
     return;
 
-  delete hWave->GetListOfFunctions()->FindObject("pol1");
+  hWave->GetListOfFunctions()->Clear();
 
   cout << " got " << hWave->GetName() << endl;
   double ppm = 0.05;
@@ -101,37 +104,37 @@ void tbFit(int ichan = 8)
   TH1D *hSinglet = (TH1D *)hWave->Clone("SingletWave");
   gStyle->SetOptStat();
   gStyle->SetOptFit(1111);
-  auto fsinglet = new TF1("singlet", singletPeak, 1360, 1460, 3);
-  fsinglet->SetParameters(nTriggers, 1411., 10.);
+  auto fsinglet = new TF1("singlet", singletPeak, singletStart,singletEnd, 3);
+  fsinglet->SetParameters(1,double(nominalTrigger), 10.);
   fsinglet->SetParNames("norm", "mean", "sigma");
 
   TCanvas *canSinglet = new TCanvas(Form("SingletFit-%.3f-PPM", ppm), Form("SingletFit-%.3f-PPM", ppm));
   hSinglet->Fit("singlet");
-  hSinglet->GetXaxis()->SetRangeUser(1300, 1500);
+  hSinglet->GetXaxis()->SetRangeUser(700,800);
   hSinglet->Draw();
-  double sumSinglet = hWave->Integral(hWave->FindBin(1360), hWave->FindBin(1460));
+  double sumSinglet = hWave->Integral(hWave->FindBin(700), hWave->FindBin(800));
 
   TCanvas *canSingletFunc = new TCanvas(Form("SingletFitFunc-%.3f-PPM", ppm), Form("SingletFitFunc-%.3f-PPM", ppm));
   fsinglet->Draw();
 
-  printf(" singlet  integral 1360 to 1460 = %.3E\n", sumSinglet);
+  printf(" singlet  integral 700 to 800 = %.3E\n", sumSinglet);
 
   // fit background
-  TH1D *hBack = (TH1D *)hWave->Clone("BackWave");
-  double back = fitBack(hBack);
-  cout << " fitted back  " << back << endl;
+  //TH1D *hBack = (TH1D *)hWave->Clone("BackWave");
+  //double back = fitBack(hBack);
+  //cout << " fitted back  " << back << endl;
 
-  hWave->GetXaxis()->SetRangeUser(0, 15000);
+  //hWave->GetXaxis()->SetRangeUser(0, 15000);
+  double back = 0;
   double markerSize = 0.5;
 
   /***** fitting *****/
   hWave->GetListOfFunctions()->Clear();
   Double_t binwidth = hWave->GetBinWidth(1);
   int maxBin = hWave->GetMaximumBin();
-  double startTime = hWave->GetBinLowEdge(maxBin) + hWave->GetBinWidth(maxBin) / 2.;
-  double hnorm = hWave->Integral(1, maxBin);
+  double hnorm = hWave->Integral(1, 7500);
 
-  printf("startTime %f hnorm%f \n",startTime,hnorm);
+  printf("startTime %f hnorm %f \n",startTime,hnorm);
 
   int theFit = 4;
   modelFit *model = new modelFit(theFit, ichan, ppm);
@@ -207,7 +210,7 @@ void tbFit(int ichan = 8)
   fout->Append(hWave);
   fout->Append(fp);
   hWave->Draw("p");
-  fp->SetLineColor(kTeal - 6);
+  fp->SetLineColor(kRed);
   fp->SetLineStyle(5);
   fp->SetLineWidth(4);
   fp->Draw("same");
@@ -218,7 +221,7 @@ void tbFit(int ichan = 8)
   hWave->GetListOfFunctions()->ls();
   double xlow, xhigh;
   fp->GetRange(xlow, xhigh);
-  cout << " trigger Time " << startTime << " hist integral  " << hnorm << " fit from " << xlow << " to " << xhigh << endl;
+  cout << " trigger Time " <<  nominalTrigger << " hist integral  " << hnorm << " fit from " << xlow << " to " << xhigh << endl;
   printf(" singlet  integral 1360 to 1460 = %.3E\n", sumSinglet);
   model->show();
   //model->showEff();

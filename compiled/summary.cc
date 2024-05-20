@@ -171,7 +171,7 @@ void normalizeTotalPass(TString histSet)
       TH1D *hSave = (TH1D *)hist->Clone(saveName);
       hSave->SetTitle(saveName);
       sumHits[ichan] = hist->Integral();
-      printf("at line174 %s normalize to %f \n", hSave->GetName(), totalPass);
+      printf("at line174 %s normalize to %d\n", hSave->GetName(), totalPass);
       for (int ibin = 0; ibin < hist->GetNbinsX(); ++ibin)
       {
         double xbin = hist->GetBinContent(ibin);

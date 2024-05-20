@@ -59,6 +59,7 @@ public:
     WAVELENGTH = 7500
   };
 
+  bool doNotOverWrite = true;
   TBRun *tbrun;
   TFile *fout;
   TFile *fin;
@@ -149,6 +150,7 @@ public:
   Long64_t anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t firstEntry = 0);
   void clear();
   bool openFile(TString fileName);
+  bool outFileCheck(TString outFileName);
   unsigned getListOfFiles(TString dir);
   bool readGains(TString fileName);
   void getSummedHists();
@@ -401,6 +403,33 @@ void anaCRun::clear()
   channelSigmaValue.resize(CHANNELS);
   for (unsigned long j = 0; j < channelSigmaValue.size(); ++j)
     channelSigmaValue[j] = 10;
+}
+
+bool anaCRun::outFileCheck(TString outFileName)
+{
+  // does file exist?
+  printf(" check for existing output file %s\n",outFileName.Data());
+  bool exists = false;
+  FILE *aFile;
+  aFile = fopen(outFileName.Data(), "r");
+  if (aFile)
+  {
+    fclose(aFile);
+    exists = true;
+  }
+  if (!exists)
+    return false;
+  // check that file was closed properly
+  TFile *fcheck = new TFile(outFileName, "readonly");
+  TTree *tree = nullptr;
+  fcheck->GetObject("RunTree", tree);
+  if (tree == nullptr)
+  {
+    printf(" file not closed properly %s so run again \n", outFileName.Data());
+    return false;
+  }
+  printf(" outFileCheck of %s returns true  \n", outFileName.Data());
+  return true;
 }
 
 bool anaCRun::openFile(TString theFile)
@@ -1138,6 +1167,22 @@ void anaCRun::derivativeCount(TDet *idet, Double_t rms)
 Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t firstEntry)
 {
   clear();
+  //
+  string sfilename(theFile.Data());
+  string shortName = sfilename.substr(0, sfilename.find_last_of("."));
+  cout << " anaCRunFile  with shortName= " << shortName << endl;
+  // open outout file 
+  TString outFileName;
+  outFileName.Form("caenData/anaCRun-%s-%llu.root", shortName.c_str(), maxEntries);
+  if (doNotOverWrite)
+    if(outFileCheck(outFileName)) {
+      printf(" do not recreate %s file \n",outFileName.Data());
+      return 0;
+    }
+
+  fout = new TFile(outFileName, "recreate");
+  cout << " opened output file " << fout->GetName() << endl;
+
   currentBuffer = -1;
   currentBufferCount = 0;
   printf(" anaCRun::anaCRunFile starting anaCRun file %s maxEntries %llu firstEntry %llu \n",
@@ -1148,9 +1193,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     return 0;
   }
 
-  string sfilename(theFile.Data());
-  string shortName = sfilename.substr(0, sfilename.find_last_of("."));
-  cout << " anaCRunFile  with shortName= " << shortName << endl;
+ 
   // new gain file
   TString gainFileName = TString("gains-2024-02-15-17-26-save.root");
   cout << "read gains from file " << gainFileName << endl;
@@ -1178,21 +1221,18 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     nentries = TMath::Min(maxEntries, nentries);
   printf("... total entries  %llu looping over %llu starting from %llu \n ", rawTree->GetEntries(), nentries, firstEntry);
 
-  // open outout file and make histograms
-
-  fout = new TFile(Form("caenData/anaCRun-%s-%llu.root", shortName.c_str(), maxEntries), "recreate");
+  
   evDir = fout->mkdir("evDir");
   pmtDir = fout->mkdir("pmtDir");
   badDir = fout->mkdir("badDir");
   badTrigDir = fout->mkdir("badTrigDir");
   earlyPeakDir = fout->mkdir("earlyPeakDir");
   fout->cd();
-  cout << " opened output file " << fout->GetName() << endl;
   getSummedHists();
   // fout->ls();
 
   // make output tree
-  // tbrun = new tbrun(tag);
+  tbrun = new tbrun(tag);
   // and event time
   eventData = new TBEventData();
   tbrun->btree->Branch("eventData", &eventData);

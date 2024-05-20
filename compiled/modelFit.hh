@@ -10,9 +10,9 @@ static double tMix = 4700.;
 static double tXe = 20.0;
 static double kxe = 8.8E-5;             // diffusion time
 static double kqZero = 1.3E-4;          // kq in the paper quenching rate
-static double xTrigger = 1411.;         // 1200.;
-static double xMin = 1300.;             // 15000.;
-static double xMax = 9000.;             // 15000.;
+static double xTrigger = 729.;           // nominalTriggerTime
+static double xMin = 700.;             // 
+static double xMax = 7500.;             // 
 static double nPhotons = 50.E3 * 5.486; // 274300.00
 static double distanceLevel[4];
 static double effGeo[13];
