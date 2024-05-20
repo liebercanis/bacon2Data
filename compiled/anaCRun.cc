@@ -529,6 +529,8 @@ int anaCRun::anaEvent(Long64_t entry)
   TTree *tree = NULL;
   fout->GetObject("RunTree", tree);
   if(tree) tree->Print();
+  else
+    printf("no tree event %lld",entry);
   tbrun->clear();        // clear detList
   tbrun->btree->Clear(); // clear tree
   speCount.clear();
