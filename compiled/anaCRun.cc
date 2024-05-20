@@ -1232,6 +1232,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   // make output tree
   tbrun = new TBRun(tag);
+  fout->Append(tbrun);
   // and event time
   eventData = new TBEventData();
   tbrun->btree->Branch("eventData", &eventData);
