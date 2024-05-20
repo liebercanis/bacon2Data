@@ -1516,6 +1516,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   hEventPass->Print("all");
 
+  fout->ls();
   fout->Write();
   fout->Close();
   return nentries;
