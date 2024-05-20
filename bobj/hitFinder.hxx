@@ -1,4 +1,4 @@
-/*  
+/*
   M.Gold June 2022
   class to make hits from vector data
   P. Zugec et al. Pulse processing routines for neutron time-of-flight data. Nucl. Instrum. Meth., A812:134–144, 2016.
@@ -46,7 +46,7 @@ typedef std::vector<std::pair<unsigned, unsigned>>::iterator peakTypeIter;
 typedef std::map<Double_t, TDetHit, std::less<Double_t>> hitMap;
 typedef std::map<Double_t, TDetHit, std::less<Double_t>>::iterator hitMapIter;
 
-//const Double_t qnorm = 1.0;
+// const Double_t qnorm = 1.0;
 
 class hitFinder
 {
@@ -100,7 +100,7 @@ public:
   std::vector<double> ddigi;      // derivative
   std::vector<double> sdigi;      // smoothed
   std::vector<double> hdigi;      // hits
-  std::vector<double> pdigi;      // pulse derivative 
+  std::vector<double> pdigi;      // pulse derivative
   std::vector<Double_t> fdigi;    // filtered
   std::vector<Double_t> SPEdigi;  // filtered
   std::vector<unsigned> crossings;
@@ -116,7 +116,7 @@ public:
   vector<double> channelSigmaValue;
   vector<double> wfilter;
   unsigned singletPeakTime;
-  
+
   double timeUnit;
   double microSec;
   int trigEnd = 800;
@@ -139,56 +139,57 @@ public:
   void splitPeaks(int idet);
   bool gotTemplate;
   bool getTemplate(int ichan);
-  //void templateFFT(std::vector<double> rdigi);
+  // void templateFFT(std::vector<double> rdigi);
   TString templateFileName;
   void fillWFilter(int ichan);
-  void setTBRun(TBRun * brun){
+  void setTBRun(TBRun *brun)
+  {
     tbrun = brun;
   }
   // hist
-    TH1D *htemplate;
-    TH1D *htemplateFFT;
-    TH1D *hPeakCount;
-    TH1D *hPeakValue;
-    TH1I *hHitLength;
-    TH1I *hPeakNWidth;
-    TH1D *hPeakCrossingBin;
-    TH1D *hPeakCrossingRatio;
+  TH1D *htemplate;
+  TH1D *htemplateFFT;
+  TH1D *hPeakCount;
+  TH1D *hPeakValue;
+  TH1I *hHitLength;
+  TH1I *hPeakNWidth;
+  TH1D *hPeakCrossingBin;
+  TH1D *hPeakCrossingRatio;
 
-    /// The fft class to take the fourier transform.
-    TVirtualFFT *fFFT;
-    /// The fft class to take the inverse fourier transform.
-    TVirtualFFT *fInverseFFT;
+  /// The fft class to take the fourier transform.
+  TVirtualFFT *fFFT;
+  /// The fft class to take the inverse fourier transform.
+  TVirtualFFT *fInverseFFT;
 
-    std::vector<std::complex<double>> forwardFFT(std::vector<double> rdigi);
-    std::vector<Double_t> backwardFFT(std::vector<std::complex<double>> VectorComplex);
-    std::vector<std::complex<double>> templateTransform;
+  std::vector<std::complex<double>> forwardFFT(std::vector<double> rdigi);
+  std::vector<Double_t> backwardFFT(std::vector<std::complex<double>> VectorComplex);
+  std::vector<std::complex<double>> templateTransform;
 
-    TH1D *hWFilter;
-    TH1D *hDeriv8;
-    std::vector<TH1D *> hCrossingBinA;
-    std::vector<TH1D *> hCrossingBinB;
-    std::vector<TH1D *> hCrossingBinC;
-    std::vector<TH1D *> hCrossingMaxBin;
-    std::vector<TH1D *> hMaxBinVal;
-    std::vector<TH1D *> hFFT;
-    std::vector<TH1D *> hInvFFT;
-    std::vector<TH1D *> hFFTFilt;
-    std::vector<TH1D *> hEvWave;
-    std::vector<TH1D *> hPeakCut;
-    std::vector<TH2D *> hPeakCutAndTime;
-    std::vector<TH1D *> hEvHitPeakWave;
-    std::vector<TH1D *> hEvSmooth;
-    std::vector<TH1D *> hEvCross;
-    std::vector<TH1D *> hEvPeakCross;
-    std::vector<TH1D *> hEvHitWave;
-    std::vector<TH1D *> hEvDerWave;
-    std::vector<TH1D *> hEvFiltWave;
-    std::vector<TH1D *> hDigiVal;
-    std::vector<TH1D *> hDerivativeVal;
-    std::vector<TH2D *> hDerivativeValTime;
-    std::vector<TH1D *> hHitSum;
-    std::vector<TH1D *> hUnFilteredSummedWave;
-    std::vector<TH1D *> hFilteredSummedWave;
-    TH1D* hEvAllSumWave;
-  };
+  TH1D *hWFilter;
+  TH1D *hDeriv8;
+  std::vector<TH1D *> hCrossingBinA;
+  std::vector<TH1D *> hCrossingBinB;
+  std::vector<TH1D *> hCrossingBinC;
+  std::vector<TH1D *> hCrossingMaxBin;
+  std::vector<TH1D *> hMaxBinVal;
+  std::vector<TH1D *> hFFT;
+  std::vector<TH1D *> hInvFFT;
+  std::vector<TH1D *> hFFTFilt;
+  std::vector<TH1D *> hEvWave;
+  std::vector<TH1D *> hPeakCut;
+  std::vector<TH2D *> hPeakCutAndTime;
+  std::vector<TH1D *> hEvHitPeakWave;
+  std::vector<TH1D *> hEvSmooth;
+  std::vector<TH1D *> hEvCross;
+  std::vector<TH1D *> hEvPeakCross;
+  std::vector<TH1D *> hEvHitWave;
+  std::vector<TH1D *> hEvDerWave;
+  std::vector<TH1D *> hEvFiltWave;
+  std::vector<TH1D *> hDigiVal;
+  std::vector<TH1D *> hDerivativeVal;
+  std::vector<TH2D *> hDerivativeValTime;
+  std::vector<TH1D *> hHitSum;
+  std::vector<TH1D *> hUnFilteredSummedWave;
+  std::vector<TH1D *> hFilteredSummedWave;
+  TH1D *hEvAllSumWave;
+};
