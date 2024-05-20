@@ -408,7 +408,7 @@ void anaCRun::clear()
 bool anaCRun::outFileCheck(TString outFileName)
 {
   // does file exist?
-  printf(" check for existing output file %s\n",outFileName.Data());
+  printf(" check for existing output file %s\n", outFileName.Data());
   bool exists = false;
   FILE *aFile;
   aFile = fopen(outFileName.Data(), "r");
@@ -1171,12 +1171,13 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   string sfilename(theFile.Data());
   string shortName = sfilename.substr(0, sfilename.find_last_of("."));
   cout << " anaCRunFile  with shortName= " << shortName << endl;
-  // open outout file 
+  // open outout file
   TString outFileName;
   outFileName.Form("caenData/anaCRun-%s-%llu.root", shortName.c_str(), maxEntries);
   if (doNotOverWrite)
-    if(outFileCheck(outFileName)) {
-      printf(" do not recreate %s file \n",outFileName.Data());
+    if (outFileCheck(outFileName))
+    {
+      printf(" do not recreate %s file \n", outFileName.Data());
       return 0;
     }
 
@@ -1193,7 +1194,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     return 0;
   }
 
- 
   // new gain file
   TString gainFileName = TString("gains-2024-02-15-17-26-save.root");
   cout << "read gains from file " << gainFileName << endl;
@@ -1221,7 +1221,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     nentries = TMath::Min(maxEntries, nentries);
   printf("... total entries  %llu looping over %llu starting from %llu \n ", rawTree->GetEntries(), nentries, firstEntry);
 
-  
   evDir = fout->mkdir("evDir");
   pmtDir = fout->mkdir("pmtDir");
   badDir = fout->mkdir("badDir");
@@ -1241,6 +1240,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   {
     tbrun->addDet(it);
   }
+
+  fout->ls();
 
   // fout->append(tbrun->btree);e("ntHit", " hits
   ntHit = new TNtuple("ntHit", "hit ntuple", "event:flag:chan:time:peakTime:qpeak");
@@ -1525,7 +1526,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 anaCRun::anaCRun(TString theTag)
 {
   tag = theTag;
-  //tbrun = new TBRun(tag);
+  // tbrun = new TBRun(tag);
   cout << " anaCRun::anaCRun instance of anaCRun with tag= " << tag << " CHANNELS = " << CHANNELS - 1 << endl;
 
   rawBr.clear();
