@@ -45,7 +45,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   channelSigmaValue = sigmaValue;
   verbose = false;
   if (isCAEN)
-    QPEPeak = 200;
+    QPEPeak = nominalGain;
   else
     QPEPeak = 50;
   for (unsigned i = 0; i < vchan.size(); ++i)
@@ -55,12 +55,8 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   if (nSamples == CAENLENGTH)
   {
     templateFileName = TString("$HOME/bacon2Data/bobj/templatesCaen-2023-05-17-12-00.root");
-    for (unsigned i = 0; i < 9; ++i)
-      QPEnominal[i] = 10.0;
-    QPEnominal[9] = 50.0;
-    QPEnominal[10] = 50.0;
-    QPEnominal[11] = 50.0;
-    QPEnominal[12] = 3.5;
+    for (unsigned i = 0; i < 13; ++i)
+      QPEnominal[i] = nominalGain;
   }
   // save vchan
   vChannel = vchan;
@@ -73,6 +69,13 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   finderDir = fout->mkdir("finderDir");
   splitDir = fout->mkdir("splitDir");
   sumWaveDir = fout->mkdir("sumWaveDir");
+
+  // get directory pointers
+  fftDir = (TDirectory *)fout->FindObject("fftDir");
+  finderDir = (TDirectory *)fout->FindObject("finderDir");
+  splitDir = (TDirectory *)fout->FindObject("splitDir");
+  sumWaveDir = (TDirectory *)fout->FindObject("sumWaverDir");
+
   tag = theTag;
   nsamples = nSamples;
   int nSize = nsamples + 100;
