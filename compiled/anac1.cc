@@ -25,6 +25,7 @@ int main(int argc, char *argv[])
     firstEntry = atoi(argv[3]);
   }
   theTBRun = new TBRun(tag);
+
   // make output tree
   printf(" starting anaRun %s maxEntries %lld firstEntry %lld \n", tag.Data(), maxEntries, firstEntry);
   anaCRun *r = new anaCRun(tag);

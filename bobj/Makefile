@@ -13,18 +13,26 @@ ROOTINCS     := $(shell root-config --incdir)
 
 CXXFLAGS     :=  $(ROOTCFLAGS) -fPIC -I$(LOCAL) 
 LIBS         :=  $(ROOTLIBS) $(CINTFLAGS)
+SOFLAGS      := -dynamiclib -install_name /Users/mgold/bacon2Data/bobj/lib$(LIBNAME).so
 
 
 CINTFLAGS := -I$(ROOTINCS) 
-ifeq ($(ARCH),macosx64)
-				CXX := clang++ -arch x86_64 $(CXXFLAGS)
-				LD :=  clang++ -arch x86_64
-				SOFLAGS := -dynamiclib -single_module
 
+ifeq ($(ARCH),macosx64)
+				CXX := clang++ -arch x86_64 -ggdb 
+				CXXFLAGS += -fPIC
+				CPP= $(CXX) $(CXXFLAGS)
+else ifeq ($(ARCH),macosxarm64)
+				CXX := clang++  -ggdb 
+  			CXXFLAGS += -fPIC
+				CPP= $(CXX) $(CXXFLAGS)
 else
-				LIBLINK :=
-				CXXFLAGS += -fPIC 
+				CXX := g++ -ggdb 
+				CXXFLAGS += -O -Wall -fPIC 
+				CPP= $(CXX) $(CXXFLAGS) 
+				
 endif 
+
 
 LIBRARY := lib$(LIBNAME).so
 #-I/usr/local/Cellar/llvm/16.0.1/include/c++/v1 -I/usr/local/Cellar/llvm/16.0.1/./lib/clang/16/include -I/usr/local/Cellar/llvm/16.0.1/./Toolchains/LLVM16.0.1.xctoolchain/usr/include -I/usr/local/Cellar/gcc/12.2.0 

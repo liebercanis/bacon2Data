@@ -524,16 +524,14 @@ void anaCRun::getSummedHists()
 /* analyze rawBr */
 int anaCRun::anaEvent(Long64_t entry)
 {
-  printf("\n\n\n\n start  %lld \n",entry);
   //  clear
   TTree *tree = NULL;
   fout->GetObject("RunTree", tree);
-  if(tree) 
-    printf("fout has tree event %lld\n ",entry);
-  else
-    printf("no tree event %lld",entry);
+  if(!tree){ 
+    printf("line 531 ERROR!! anaEvent no tree event %lld \n",entry);
+    fout->ls();
+  }
   tbrun->clear();        // clear detList
-  tbrun->btree->Clear(); // clear tree
   speCount.clear();
   speCount.resize(NONSUMCHANNELS);
   std::fill(speCount.begin(), speCount.end(), 0);
@@ -1402,7 +1400,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     else
     {
       ++nfail;
-      printf(" event %llu fails with pass bit  %x pass %i fail %i \n", entry, passBit, npass, nfail);
+      //printf(" event %llu fails with pass bit  %x pass %i fail %i \n", entry, passBit, npass, nfail);
       // tbrun->print();
     }
     // hEventPass->Fill(-1);

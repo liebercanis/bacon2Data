@@ -17,15 +17,21 @@ ROOTCFLAGS   := $(shell root-config --cflags)
 ROOTLIBS     := $(shell root-config --libs)
 ROOTGLIBS    := $(shell root-config --glibs)
 BOBJ=../bobj
+#BOBJ=$(HOME)/bacon2Data/bobj
 
 
 CXXFLAGS     :=  $(ROOTCFLAGS) -fPIC -I$(LOCAL) 
 CXXFLAGS     += -I$(LOCAL) -I/$/usr/include -I/usr/local/include -I$(BOBJ)
-LIBS         := $(ROOTLIBS) -L$(BOBJ) -lBaconAna  $(ROOTLIBS) -L$(FFTW)/lib -lfftw3 $(CINTFLAGS)
+LIBS         := $(ROOTLIBS) -L$(FFTW)/lib -lfftw3 -L$(BOBJ) -lBaconAna 
+##$(CINTFLAGS)
 
 ifeq ($(ARCH),macosx64)
 				CXX := clang++ -arch x86_64 -ggdb 
 				CXXFLAGS += -fPIC
+				CPP= $(CXX) $(CXXFLAGS)
+else ifeq ($(ARCH),macosxarm64)
+				CXX := clang++ -ggdb 
+  			CXXFLAGS += -fPIC
 				CPP= $(CXX) $(CXXFLAGS)
 else
 				CXX := g++ -ggdb 
@@ -90,5 +96,6 @@ show:
 	@echo BOBJ = $(BOBJ)
 	@echo include path = $(INC_PATH)
 	@echo CXXFLAGS = $(CXXFLAGS)
+	@echo CINTFLAGS =$(CINTFLAGS)
 	@echo LIBS = $(LIBS)
 	@echo cpp = $(CPP)

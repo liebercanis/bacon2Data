@@ -40,6 +40,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
 {
   tbrun = brun;
   isCAEN = false;
+  doFFT = false;
   if (nSamples == CAENLENGTH)
     isCAEN = true;
   channelSigmaValue = sigmaValue;
@@ -176,7 +177,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     hFilteredSummedWave.push_back(new TH1D(Form("FilteredSummedWave%s", deti->GetName()), Form("filtered summed wave%s", deti->GetName()), nsamples, 0, nsamples));
   }
   fout->cd();
-  // ntFinder->Fill(float(theEvent), float(idet), float(detHits.size()), float(dhit.firstBin), float(dhit.startTime), float(dhit.peakBin), float(dhit.lastBin));
+  // ntFinder->Fill(float(thefalseEvent), float(idet), float(detHits.size()), float(dhit.firstBin), float(dhit.startTime), float(dhit.peakBin), float(dhit.lastBin));
   ntFinder = new TNtuple("ntFinder", " hit finder ", "event:chan:nhit:first:start:peak:last:qpeak");
   ntSplit = new TNtuple("ntSplit", " split for finder ", "event:chan:cross:nsplit:bin:ratio:batr:width");
   ntPeakFix = new TNtuple("ntPeakFix", "peak fix for singlet", "detHits:idet:singlett:peakt:qpeak:qpeakFix");
@@ -348,9 +349,13 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
 
   for (int i = 0; i < nsamples; ++i)
   {
+
     hDigiVal[idet]->Fill(digi[i]);
   }
   // FFT and convolution
+  if(doFFT) {
+  if (verbose)
+    printf("line357 HHHHHH hitFinder do FFT \n");
   std::vector<std::complex<double>> inputWaveTransform = forwardFFT(digi);
   for (int i = 0; i < nsamples / 2; ++i)
   {
@@ -378,6 +383,9 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     hUnFilteredSummedWave[idet]->SetBinContent(isample + 1, digi[isample] + hUnFilteredSummedWave[idet]->GetBinContent(isample + 1));
     hFilteredSummedWave[idet]->SetBinContent(isample + 1, fdigi[isample] + hFilteredSummedWave[idet]->GetBinContent(isample + 1));
   }
+  } //if doFFT
+  else
+    fdigi = digi;
   // use filtered waveforms
   // for (unsigned isample = 0; isample < 20; isample++)
   // printf(" wfilter ??? %i %f %f ?? %f \n", isample, wfilter[isample], digi[isample], fdigi[isample]);

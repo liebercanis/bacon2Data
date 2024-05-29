@@ -73,6 +73,7 @@ public:
   TDirectory *splitDir;
   TDirectory *sumWaveDir;
   Long64_t theEvent;
+  bool doFFT;
   bool isCAEN;
   bool verbose;
   bool splitVerbose;
