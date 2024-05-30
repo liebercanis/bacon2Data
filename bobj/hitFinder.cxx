@@ -773,7 +773,7 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
       ihigh = unsigned(v.size() - 1);
     if (ilow < 0)
       ilow = 0;
-
+    //printf(" line776 \t\t ilow Diff! in makePeaks %lli add det %i icross %u  imax %u ilow %u \n",theEvent, idet, icross, imax, ilow );
     /*
     unsigned ilow = 0; //crossingBin[icross];
     //unsigned ilow = v.size();
@@ -826,7 +826,8 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
       peakList.push_back(std::make_pair(ilow, ihigh));
       peakKind.push_back(0);
       hCrossingBinC[idet]->Fill(ilow);
-      // if(vChannel[idet]==6) printf(" %lli add det %i  imax %i val %f icross %u from (%u,%u) %i\n",theEvent, idet, imax, maxVal, crossingBin[icross], ilow, ihigh,icross);
+      if(imax-ilow > 30) 
+        printf("line830 ilow Diff! in makePeaks %lli add det %i  imax %i val %f icross %u from (%u,%u) %i\n",theEvent, idet, imax, maxVal, crossingBin[icross], ilow, ihigh,icross);
     }
   }
 }
@@ -874,15 +875,17 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
         qpeak = qdigik;
       }
     }
+
+    // redefine low, ihgh relative to this peak
+    unsigned kstart = TMath::Max(unsigned(0), peakt- 20);
+    unsigned kend = TMath::Min(unsigned(digi.size()), peakt+ 50);
     // cut small peaks below hitThreshold
     hPeakCut[idet]->Fill(qpeak);
     hPeakCutAndTime[idet]->Fill(peakt, qpeak);
     if (qpeak < hitThreshold)
       continue;
 
-    unsigned kstart = TMath::Max(unsigned(0), klow - 20);
-    unsigned kend = TMath::Min(unsigned(digi.size()), khigh + 20);
-
+    
     TDetHit dhit;
     if (vChannel[idet] < 9)
       for (unsigned k = kstart; k < kend; ++k)
@@ -894,15 +897,16 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     dhit.peakBin = Int_t(peakt);
     dhit.qsum = qsum;
     dhit.qpeak = qpeak;
-    dhit.firstBin = klow;
-    dhit.lastBin = khigh;
+    dhit.firstBin = kstart;
+    dhit.lastBin = kend;
     dhit.peakMaxTime = peakt;
     dhit.peakt = peakt;
-    dhit.startTime = klow;
-    dhit.peakWidth = khigh - klow + 1;
+    dhit.startTime = kstart;
+    dhit.peakWidth = kstart - kend + 1;
     // this is N= q/qnorm and delta q = root(n)*qnorm;
     dhit.qerr = sqrt(pow(sigma * Double_t(dhit.peakWidth), 2) + qnorm * qsum);
     dhit.kind = peakKind[ip];
+    //printf("line909 in makeHits event %lli  det %i ip %u  peak %u start %i \n",theEvent, idet, ip, dhit.peakt, dhit.firstBin);
 
     // just use the biggest pulse
     if (qsum > qmax)
@@ -925,8 +929,6 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
           printf("line887 hitFinder::makeHit found multiple hits det %i this (%i,%i,%i)  last peak (%i,%i,%i) dethit size %lu \n", idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, dhit.firstBin, dhit.peakBin, dhit.lastBin, detHits.size());
       }
     }
-    ntFinder->Fill(float(theEvent), float(idet), float(detHits.size()), float(dhit.firstBin), float(dhit.startTime), float(dhit.peakBin), float(dhit.lastBin), dhit.qpeak);
-
     if (used)
       continue;
 

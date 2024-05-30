@@ -976,6 +976,9 @@ int anaCRun::anaEvent(Long64_t entry)
 
       // do threshold for summed waveform
       // if (thit.qsum > hitThreshold)
+      if(int(thit.peakt)-thit.firstBin > 30) 
+        printf("line 980 in anaCRun event %lli  det %i  peak %u start %i \n",entry, idet, thit.peakt, thit.firstBin);
+
       sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
       sumPeakWave[idet]->SetBinContent(thit.firstBin + 1, sumPeakWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
       histHitCount->SetBinContent(tdet->channel + 1, histHitCount->GetBinContent(tdet->channel + 1) + 1);
@@ -998,7 +1001,7 @@ int anaCRun::anaEvent(Long64_t entry)
 
         if (thit.startTime > trigStart && thit.startTime < trigEnd)
         {
-          for (unsigned jbin = thit.firstBin; jbin < thit.lastBin + 100; ++jbin)
+          for (unsigned jbin = thit.firstBin-100; jbin < thit.lastBin + 200; ++jbin)
           {
             int fillBin = hSingletShape[idet]->GetNbinsX() / 2 + jbin - thit.peakBin;
             double val = double(rawBr[idet]->rdigi[jbin]) - tdet->base;
