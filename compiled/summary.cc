@@ -771,7 +771,27 @@ void fileLoop()
         vRunQSum[ichan].push_back(hqAdd);
         qpeSumDir->Add(hqAdd);
       }
-    }
+      /****** get SingletShape by channel ****/
+      if (name.find("SingletShape") != std::string::npos)
+      {
+        // does sum exist on output file? in directory runSumDir
+        string chan = name.substr(name.find_last_of("e") + 1);
+        int ichan = stoi(chan);
+        TString cloneName;
+        cloneName.Form("singletShapeRunSumCh%i", ichan);
+        // does sum exist on output file? in directory runSumDir
+        TH1D* hpAdd=NULL;
+        runSumDir->GetObject(cloneName,hpAdd);
+        if(!hpAdd) {
+          TH1D *hpAdd = (TH1D *)h->Clone(cloneName);
+          hpAdd->SetMarkerStyle(20);
+          hpAdd->SetMarkerSize(0.5);
+          qpeSumDir->Add(hpAdd);
+        } else { // already exits so sum this histo
+          hpAdd->Add(h);
+        }
+      }
+    } // sum over keys
     cout << " end loop over sumDir keys " << endl; // loop over sumDir keys
     // waveSumDir->ls();
     fout->Write();

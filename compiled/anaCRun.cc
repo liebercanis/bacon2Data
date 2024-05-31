@@ -1001,7 +1001,7 @@ int anaCRun::anaEvent(Long64_t entry)
 
         if (thit.startTime > trigStart && thit.startTime < trigEnd)
         {
-          for (unsigned jbin = thit.firstBin-100; jbin < thit.lastBin + 200; ++jbin)
+          for (unsigned jbin = thit.firstBin-100; jbin < thit.lastBin + 300; ++jbin)
           {
             int fillBin = hSingletShape[idet]->GetNbinsX() / 2 + jbin - thit.peakBin;
             double val = double(rawBr[idet]->rdigi[jbin]) - tdet->base;
@@ -1354,7 +1354,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     hQPEShape.push_back(new TH1D(Form("QPEShapeChan%i", ichan), Form("QPEShapeChan%i", ichan), 400, -100, 300));
     hQPEShape[hQPEShape.size() - 1]->SetMarkerStyle(20);
 
-    hSingletShape.push_back(new TH1D(Form("SingletShapeChan%i", ichan), Form("SingletShapeChan%i", ichan), 400, -100, 300));
+    hSingletShape.push_back(new TH1D(Form("SingletShapeChan%i", ichan), Form("SingletShapeChan%i", ichan), 400,0, 400));
     hSingletShape[hSingletShape.size() - 1]->SetMarkerStyle(20);
 
     hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 1000, 0, limit));
