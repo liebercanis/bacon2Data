@@ -746,7 +746,7 @@ int anaCRun::anaEvent(Long64_t entry)
   getTriggerTimeStats(&sTrigTimes[6], nonTimeAve2, nonTimeSigma2);
 
   ntTrigTime->Fill(entry,
-                   double(firstTime), trigTimeSigma, nonTimeAve, nonTimeSigma,i
+                   double(firstTime), trigTimeSigma, nonTimeAve, nonTimeSigma,
                    trigTimeAve2, trigTimeSigma2, nonTimeAve2, nonTimeSigma2);
 
   /* *******
