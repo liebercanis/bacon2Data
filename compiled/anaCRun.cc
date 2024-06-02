@@ -999,7 +999,7 @@ int anaCRun::anaEvent(Long64_t entry)
       int sumEndBin   = min(thit.peakBin-thePeakBin+hSPEShape[0][0]->GetNbinsX(),int(rawBr[NONSUMCHANNELS]->rdigi.size()));
       for (unsigned jbin = sumStartBin; jbin < sumEndBin; ++jbin) {
         int fillBin = thePeakBin - thit.peakBin + jbin;
-         double val = double(rawBr[idet]->rdigi[jbin]) - tdet->base;
+        double val = fixedDigi[idet][jbin];
          // fill 1 SPE from late
          if (thit.startTime > trigEnd&&nSPE==1) hSPEShapeLate[idet]->SetBinContent(fillBin, hSPEShapeLate[idet]->GetBinContent(fillBin) + val);
          // fill the right histogram for 1 SPE take from after trigger
