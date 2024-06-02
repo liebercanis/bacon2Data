@@ -93,6 +93,7 @@ public:
   vector<TH1D *> hEvGaus;
   vector<TH1D *> hChannelGaus;
   std::vector<std::vector<TH1D *>> hSPEShape; // 4 shapes per channel
+   std::vector<TH1D *> hSPEShapeLate;
   // for sums needed for gains
   std::vector<TH1D *> hTotSum;
   std::vector<TH1D *> hPreSum;
@@ -370,6 +371,7 @@ void anaCRun::clear()
 {
   hQSum.clear();
   hSPEShape.clear();
+  hSPEShapeLate.clear();
   hQPeak.clear();
   chanMap.clear();
   baseHist.clear();
@@ -536,6 +538,7 @@ int anaCRun::anaEvent(Long64_t entry)
   // previously 40 but channel 9 was missing peaks
   double derivativeThreshold;
   double hitThreshold;
+  hitThreshold = 0.50 * nominalGain;   // increased from 0.25 June 2 2024
 
   eventData->evtime = rawEventData->evtime;
   eventData->sec = rawEventData->sec;
@@ -743,20 +746,18 @@ int anaCRun::anaEvent(Long64_t entry)
   getTriggerTimeStats(&sTrigTimes[6], nonTimeAve2, nonTimeSigma2);
 
   ntTrigTime->Fill(entry,
-                   double(firstTime), trigTimeSigma, nonTimeAve, nonTimeSigma,
+                   double(firstTime), trigTimeSigma, nonTimeAve, nonTimeSigma,i
                    trigTimeAve2, trigTimeSigma2, nonTimeAve2, nonTimeSigma2);
 
   /* *******
         do pulse finding on summed line for event cuts
   ****   */
   digi.clear();
-  // hitThreshold = 0.74 * nominalGain;
   digi = sumDigi();
   TDet *tdet = tbrun->getDet(NONSUMCHANNELS);
   tdet->hits.clear();
   derivativeThreshold = 30; // for summed waveform
   // printf("call to finder for chan 13 %lld \n",entry);
-  hitThreshold = 0.25 * nominalGain;                                                       // for summed waveform
   finder->event(NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
   // which nominal gain, hit threshold id the same
 
@@ -846,8 +847,8 @@ int anaCRun::anaEvent(Long64_t entry)
     // if (ichan >8 ) //lower for trigger sipms
     //  derivativeThreshold = 10.;
     derivativeThreshold = 20;          // for non summed
-    hitThreshold = 0.25 * nominalGain; // for non summed
     // if (passBit==0)
+    /*  call finder->event nosumwave channels */
     finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
 
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
@@ -924,7 +925,7 @@ int anaCRun::anaEvent(Long64_t entry)
     // finder->plotEvent(fftDir, 8, entry);
 
     TDirectory *sumWaveDir = (TDirectory *)fout->FindObject("sumWaveDir");
-    if (idet == 13 && tdet->hits.size() > 1 && sumWaveDir->GetList()->GetEntries() < 5000)
+    if (tdet->hits.size() > 1 && tdet->channel<13 && sumWaveDir->GetList()->GetEntries() < 5000)
     {
       // printf("xxxxxxx anaCRun::event event %llu chan %i hits %lu der thresh %f hit thresh %f \n", entry, tdet->channel, tdet->hits.size(), derivativeThreshold, hitThreshold);
       finder->plotEvent(sumWaveDir, tdet->channel, entry);
@@ -999,9 +1000,10 @@ int anaCRun::anaEvent(Long64_t entry)
       for (unsigned jbin = sumStartBin; jbin < sumEndBin; ++jbin) {
         int fillBin = thePeakBin - thit.peakBin + jbin;
          double val = double(rawBr[idet]->rdigi[jbin]) - tdet->base;
+         // fill 1 SPE from late
+         if (thit.startTime > trigEnd&&nSPE==1) hSPEShapeLate[idet]->SetBinContent(fillBin, hSPEShapeLate[idet]->GetBinContent(fillBin) + val);
          // fill the right histogram for 1 SPE take from after trigger
-         if (thit.startTime > trigEnd&&nSPE==1) hSPEShape[0][idet]->SetBinContent(fillBin, hSPEShape[0][idet]->GetBinContent(fillBin) + val);
-         else if(nSPE>1) hSPEShape[nSPE-1][idet]->SetBinContent(fillBin, hSPEShape[nSPE-1][idet]->GetBinContent(fillBin) + val);
+         if(nSPE>0) hSPEShape[nSPE-1][idet]->SetBinContent(fillBin, hSPEShape[nSPE-1][idet]->GetBinContent(fillBin) + val);
       }
     } // hit loop
     hTriggerHitTimeAll->Fill(firstHitTime);
@@ -1346,6 +1348,10 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     sumPeakWave.push_back(new TH1D(Form("sumPeakWave%i", ichan), Form("sumPeakWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
   }
   //SPE Shapes
+  for (unsigned ichan = 0; ichan < rawBr.size(); ++ichan){
+      hSPEShapeLate.push_back(new TH1D(Form("SPEhapeLateChan%i",ichan), Form("SPEShapeLateChan%i",ichan), 1000,0, 1000));
+      hSPEShapeLate[hSPEShapeLate.size() - 1]->SetMarkerStyle(20);
+  }
   int MaxSPEShape=4;
   hSPEShape.resize(MaxSPEShape);
   for(int jspe=0;jspe<MaxSPEShape;++jspe) {
