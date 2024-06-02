@@ -986,6 +986,7 @@ int anaCRun::anaEvent(Long64_t entry)
 
       /* fill the SPE histograms */
       // count SPE for this hit
+      if(idet<NONSUMCHANNELS ) { // exclude summed channel 
       int nSPE= 0;
       if(     thit.qpeak > 0.5 * nominalGain && thit.qpeak <1.5* nominalGain) nSPE=1.;
       else if(thit.qpeak > 1.5 * nominalGain && thit.qpeak <2.5* nominalGain) nSPE=2.;
@@ -1004,6 +1005,7 @@ int anaCRun::anaEvent(Long64_t entry)
          if (thit.startTime > trigEnd&&nSPE==1) hSPEShapeLate[idet]->SetBinContent(fillBin, hSPEShapeLate[idet]->GetBinContent(fillBin) + val);
          // fill the right histogram for 1 SPE take from after trigger
          if(nSPE>0) hSPEShape[nSPE-1][idet]->SetBinContent(fillBin, hSPEShape[nSPE-1][idet]->GetBinContent(fillBin) + val);
+      }
       }
     } // hit loop
     hTriggerHitTimeAll->Fill(firstHitTime);
