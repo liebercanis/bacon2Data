@@ -89,12 +89,10 @@ public:
 
   vector<TH1D *> hQSum;
   vector<TH1D *> hQPeak;
-  vector<TH1D *> hQPEShape;
-  vector<TH1D *> hSingletShape;
   TH1D *hEvBaseWave;
   vector<TH1D *> hEvGaus;
   vector<TH1D *> hChannelGaus;
-
+  std::vector<std::vector<TH1D *>> hSPEShape; // 4 shapes per channel
   // for sums needed for gains
   std::vector<TH1D *> hTotSum;
   std::vector<TH1D *> hPreSum;
@@ -371,8 +369,7 @@ bool anaCRun::readGains(TString fileName)
 void anaCRun::clear()
 {
   hQSum.clear();
-  hQPEShape.clear();
-  hSingletShape.clear();
+  hSPEShape.clear();
   hQPeak.clear();
   chanMap.clear();
   baseHist.clear();
@@ -986,35 +983,26 @@ int anaCRun::anaEvent(Long64_t entry)
       // sum of photons in SPE for this channel
       speCount[idet] += thit.qpeak / nominalGain;
 
-      // singlet shapes
-      if (thit.qpeak < 0.5 * nominalGain)
-      {
-        if (thit.startTime > trigEnd)
-        {
-          for (unsigned jbin = thit.firstBin; jbin < thit.lastBin; ++jbin)
-          {
-            int fillBin = hQPEShape[idet]->GetNbinsX() / 2 + jbin - thit.peakBin;
-            double val = double(rawBr[idet]->rdigi[jbin]) - tdet->base;
-            hQPEShape[idet]->SetBinContent(fillBin, hQPEShape[idet]->GetBinContent(fillBin) + val);
-          }
-        }
+      /* fill the SPE histograms */
+      // count SPE for this hit
+      int nSPE= 0;
+      if(     thit.qpeak > 0.5 * nominalGain && thit.qpeak <1.5* nominalGain) nSPE=1.;
+      else if(thit.qpeak > 1.5 * nominalGain && thit.qpeak <2.5* nominalGain) nSPE=2.;
+      else if(thit.qpeak > 2.5 * nominalGain && thit.qpeak <3.5* nominalGain) nSPE=3.;
+      else if(thit.qpeak > 3.5 * nominalGain && thit.qpeak <4.5* nominalGain) nSPE=4.;
+      //printf("line 995 SPE check %f %i \n",thit.qpeak,nSPE);
 
-        if (thit.startTime > trigStart && thit.startTime < trigEnd)
-        {
-          for (unsigned jbin = thit.firstBin-100; jbin < thit.lastBin + 300; ++jbin)
-          {
-            int fillBin = hSingletShape[idet]->GetNbinsX() / 2 + jbin - thit.peakBin;
-            double val = double(rawBr[idet]->rdigi[jbin]) - tdet->base;
-            hSingletShape[idet]->SetBinContent(fillBin, hSingletShape[idet]->GetBinContent(fillBin) + val);
-          }
-        }
+      int thePeakBin = 100.; // set to bin 100 in the histogram
+      // hSPE shape 1000 bins 
+      int sumStartBin = max(thit.peakBin-thePeakBin,1);
+      int sumEndBin   = min(thit.peakBin-thePeakBin+hSPEShape[0][0]->GetNbinsX(),int(rawBr[NONSUMCHANNELS]->rdigi.size()));
+      for (unsigned jbin = sumStartBin; jbin < sumEndBin; ++jbin) {
+        int fillBin = thePeakBin - thit.peakBin + jbin;
+         double val = double(rawBr[idet]->rdigi[jbin]) - tdet->base;
+         // fill the right histogram for 1 SPE take from after trigger
+         if (thit.startTime > trigEnd&&nSPE==1) hSPEShape[0][idet]->SetBinContent(fillBin, hSPEShape[0][idet]->GetBinContent(fillBin) + val);
+         else if(nSPE>1) hSPEShape[nSPE-1][idet]->SetBinContent(fillBin, hSPEShape[nSPE-1][idet]->GetBinContent(fillBin) + val);
       }
-
-      /*
-      if (trig)
-        printf(" anaCRun::event %llu det %i nhits %lu , tot %f pre %f trig %f late %f\n", entry, tdet->channel, tdet->hits.size(),
-               tdet->totPeakSum, tdet->prePeakSum, tdet->trigPeakSum, tdet->latePeakSum);
-       */
     } // hit loop
     hTriggerHitTimeAll->Fill(firstHitTime);
     // fill sums do not fill for zero
@@ -1350,13 +1338,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
       plimit = 1.E3;
     }
 
-    // else if(ichan==12) limit = 10000;
-    hQPEShape.push_back(new TH1D(Form("QPEShapeChan%i", ichan), Form("QPEShapeChan%i", ichan), 400, -100, 300));
-    hQPEShape[hQPEShape.size() - 1]->SetMarkerStyle(20);
-
-    hSingletShape.push_back(new TH1D(Form("SingletShapeChan%i", ichan), Form("SingletShapeChan%i", ichan), 400,0, 400));
-    hSingletShape[hSingletShape.size() - 1]->SetMarkerStyle(20);
-
     hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 1000, 0, limit));
     hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 1000, 0, plimit));
     sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
@@ -1364,6 +1345,16 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     sumHitWave.push_back(new TH1D(Form("sumHitWave%i", ichan), Form("sumHitWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
     sumPeakWave.push_back(new TH1D(Form("sumPeakWave%i", ichan), Form("sumPeakWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
   }
+  //SPE Shapes
+  int MaxSPEShape=4;
+  hSPEShape.resize(MaxSPEShape);
+  for(int jspe=0;jspe<MaxSPEShape;++jspe) {
+    for (unsigned ichan = 0; ichan < rawBr.size(); ++ichan){
+      hSPEShape[jspe].push_back(new TH1D(Form("SPE%iShapeChan%i", jspe+1,ichan), Form("SPE%iShapeChan%i", jspe+1,ichan), 1000,0, 1000));
+      hSPEShape[jspe][hSPEShape[jspe].size() - 1]->SetMarkerStyle(20);
+    }
+  }
+
   fout->cd();
 
   cout << " make hitFinder dets = " << CHANNELS << "  size " << rawBr[0]->rdigi.size() << endl;
