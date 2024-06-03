@@ -537,9 +537,7 @@ int anaCRun::anaEvent(Long64_t entry)
   int passBit = 0;
   // previously 40 but channel 9 was missing peaks
   double derivativeThreshold;
-  double hitThreshold;
-  hitThreshold = 0.50 * nominalGain;   // increased from 0.25 June 2 2024
-
+  double hitThreshold= nominalGain-3.*16.; // this is 3 sigma of SPE peak June 3 2014
   eventData->evtime = rawEventData->evtime;
   eventData->sec = rawEventData->sec;
   eventData->min = rawEventData->min;
@@ -1351,7 +1349,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
   //SPE Shapes
   for (unsigned ichan = 0; ichan < rawBr.size(); ++ichan){
-      hSPEShapeLate.push_back(new TH1D(Form("SPEhapeLateChan%i",ichan), Form("SPEShapeLateChan%i",ichan), 1000,0, 1000));
+      hSPEShapeLate.push_back(new TH1D(Form("SPEShapeLateChan%i",ichan), Form("SPEShapeLateChan%i",ichan), 1000,0, 1000));
       hSPEShapeLate[hSPEShapeLate.size() - 1]->SetMarkerStyle(20);
   }
   int MaxSPEShape=4;
