@@ -1458,7 +1458,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   for (unsigned i = 0; i < sumHitWave.size(); ++i)
   {
-    sumHitWave[i]->Fit("expo", "Q", "", 100, 300); // DEG suggests
+    sumHitWave[i]->Fit("expo", "QO", "", 100, 300); // DEG suggests
     TF1 *g = (TF1 *)sumHitWave[i]->GetListOfFunctions()->FindObject("expo");
     chan.push_back(i);
     echan.push_back(0);
