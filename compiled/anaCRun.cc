@@ -612,7 +612,8 @@ int anaCRun::anaEvent(Long64_t entry)
     // get the distribution mode
     double mode = hEvGaus[ib]->GetBinLowEdge(hEvGaus[ib]->GetMaximumBin()) + 0.5 * hEvGaus[ib]->GetBinWidth(hEvGaus[ib]->GetMaximumBin());
 
-    hEvGaus[ib]->Fit("gaus", "QO", "", hEvGaus[ib]->GetMean() - 100, hEvGaus[ib]->GetMean() + 100);
+    printf("line615  event %lld channel %u \n",entry,ib);
+    hEvGaus[ib]->Fit("gaus", "Q0", "", hEvGaus[ib]->GetMean() - 100, hEvGaus[ib]->GetMean() + 100);
     TF1 *gfit = (TF1 *)hEvGaus[ib]->GetListOfFunctions()->FindObject("gaus");
     double ave = hEvGaus[ib]->GetMean();
     double sigma = hEvGaus[ib]->GetRMS();
@@ -1458,12 +1459,12 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   for (unsigned i = 0; i < sumHitWave.size(); ++i)
   {
-    sumHitWave[i]->Fit("expo", "QO", "", 100, 300); // DEG suggests
+    sumHitWave[i]->Fit("expo", "Q0", "", 100, 300); // DEG suggests
     TF1 *g = (TF1 *)sumHitWave[i]->GetListOfFunctions()->FindObject("expo");
     chan.push_back(i);
     echan.push_back(0);
     if (g)
-    {
+   {
       printf("%s %E %E \n", sumHitWave[i]->GetName(), g->GetParameter(1), g->GetParError(1));
       slope.push_back(g->GetParameter(1));
       eslope.push_back(g->GetParError(1));
@@ -1486,7 +1487,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   for (int index = 0; index < hChannelGaus.size(); ++index)
   {
     printf(" fit to %s  %i ", hChannelGaus[index]->GetName(), int(hChannelGaus[index]->GetEntries()));
-    hChannelGaus[index]->Fit("gaus", "QO", "", hChannelGaus[index]->GetMean() - 100, hChannelGaus[index]->GetMean() + 100);
+    hChannelGaus[index]->Fit("gaus", "Q0", "", hChannelGaus[index]->GetMean() - 100, hChannelGaus[index]->GetMean() + 100);
     TF1 *gfit = (TF1 *)hChannelGaus[index]->GetListOfFunctions()->FindObject("gaus");
     double sigma = hChannelGaus[index]->GetRMS();
     double sigmaErr = 0;
