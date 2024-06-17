@@ -13,18 +13,19 @@ ROOTINCS     := $(shell root-config --incdir)
 
 CXXFLAGS     :=  $(ROOTCFLAGS) -fPIC -I$(LOCAL) 
 LIBS         :=  $(ROOTLIBS) $(CINTFLAGS)
-SOFLAGS      := -dynamiclib -install_name /Users/mgold/bacon2Data/bobj/lib$(LIBNAME).so
 
 
 CINTFLAGS := -I$(ROOTINCS) 
 
 ifeq ($(ARCH),macosx64)
+ .              SOFLAGS:= -dynamiclib -install_name /Users/mgold/bacon2Data/bobj/lib$(LIBNAME).so
 				CXX := clang++ -arch x86_64 -ggdb 
 				CXXFLAGS += -fPIC
 				CPP= $(CXX) $(CXXFLAGS)
 else ifeq ($(ARCH),macosxarm64)
+ .              SOFLAGS:= -static -install_name /Users/mgold/bacon2Data/bobj/lib$(LIBNAME).so
 				CXX := clang++  -ggdb 
-  			CXXFLAGS += -fPIC
+  			    CXXFLAGS += -fPIC
 				CPP= $(CXX) $(CXXFLAGS)
 else
 				CXX := g++ -ggdb 

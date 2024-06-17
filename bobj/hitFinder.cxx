@@ -36,6 +36,7 @@
 #include "TBRun.hxx"
 #include "hitFinder.hxx"
 
+
 hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan, vector<double> sigmaValue)
 {
   tbrun = brun;
@@ -250,7 +251,7 @@ bool hitFinder::getTemplate(int ichan)
   }
   if (!exists)
   {
-    printf(" couldnt open template file %s\n", templateFileName.Data());
+    printf(" template file %s does not exist \n", templateFileName.Data());
     return false;
   }
   TH1D *hist = NULL;
