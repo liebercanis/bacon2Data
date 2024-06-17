@@ -42,6 +42,8 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   tbrun = brun;
   isCAEN = false;
   doFFT = false;
+  fFFT = NULL;
+  fInverseFFT = NULL;
   if (nSamples == CAENLENGTH)
     isCAEN = true;
   channelSigmaValue = sigmaValue;
