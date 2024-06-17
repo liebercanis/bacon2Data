@@ -22,7 +22,7 @@ BOBJ=../bobj
 
 CXXFLAGS     :=  $(ROOTCFLAGS) -fPIC -I$(LOCAL) 
 CXXFLAGS     += -I$(LOCAL) -I/$/usr/include -I/usr/local/include -I$(BOBJ)
-LIBS         := $(ROOTLIBS) -L$(FFTW)/lib -lfftw3 -L$(BOBJ) -lBaconAna 
+LIBS         := $(ROOTLIBS) -L$(BOBJ) -lBaconAna 
 ##$(CINTFLAGS)
 
 ifeq ($(ARCH),macosx64)
