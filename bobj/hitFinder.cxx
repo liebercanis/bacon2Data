@@ -67,13 +67,12 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
          << " vchan.size " << vchan.size() << endl;
   smoothing = false;
   fout = theFile;
-  fftDir = fout->mkdir("fftDir");
+  
   finderDir = fout->mkdir("finderDir");
   splitDir = fout->mkdir("splitDir");
   sumWaveDir = fout->mkdir("sumWaveDir");
 
-  // get directory pointers
-  fftDir = (TDirectory *)fout->FindObject("fftDir");
+  
   finderDir = (TDirectory *)fout->FindObject("finderDir");
   splitDir = (TDirectory *)fout->FindObject("splitDir");
   sumWaveDir = (TDirectory *)fout->FindObject("sumWaverDir");
@@ -82,10 +81,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   nsamples = nSamples;
   int nSize = nsamples + 100;
   // initialize fft
-  if (verbose)
-    cout << " initialize  FFT  " << endl;
-  fFFT = TVirtualFFT::FFT(1, &nSize, "R2C M K");
-  fInverseFFT = TVirtualFFT::FFT(1, &nSize, "C2R M K");
+  
 
   microSec = 1.0E-3;
   timeUnit = 4.0; // ns per count
@@ -101,24 +97,30 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   hPeakCrossingBin = new TH1D("PeakCrossingBin", "peak Crossing Bin", 100, 0, 100);
   hPeakCrossingRatio = new TH1D("PeakCrossingRatio", "peak Crossing Ratio", 100, 0., 1.);
 
-  fftDir->cd();
-  if(doFFT) for (unsigned index = 0; index < vchan.size(); ++index)
-  {
-    int id = vchan[index];
-    TDet *deti = tbrun->getDet(id);
-    chanMap.insert(std::pair<int, int>(id, index));
-    hFFT.push_back(new TH1D(Form("FFTDET%i", id), Form("FFT Channel %i ", id), nsamples / 2, 0, nsamples / 2));
-    hInvFFT.push_back(new TH1D(Form("InvFFTDET%i", id), Form("Inverse FFT Channel %i ", id), nsamples, 0, nsamples));
-    hFFT[index]->SetDirectory(nullptr);
-    hInvFFT[index]->SetDirectory(nullptr);
-    hFFTFilt.push_back(new TH1D(Form("FFTFiltDET%i", id), Form("filtered FFT Channel %i ", id), nsamples / 2, 0, nsamples / 2));
-    // hFFTFilt[index]->SetDirectory(nullptr);
-    printf(" create  index %i vchan %i %s %s \n", index, id, hFFT[index]->GetName(), hFFT[index]->GetTitle());
-  }
+  if(doFFT) {
+    if (verbose) cout << "line101 initialize  FFT  " << endl;
+    fFFT = TVirtualFFT::FFT(1, &nSize, "R2C M K");
+    fInverseFFT = TVirtualFFT::FFT(1, &nSize, "C2R M K");
+    fftDir = fout->mkdir("fftDir"); 
+    fftDir->cd();
+    for (unsigned index = 0; index < vchan.size(); ++index)
+    {
+      int id = vchan[index];
+      TDet *deti = tbrun->getDet(id);
+      chanMap.insert(std::pair<int, int>(id, index));
+      hFFT.push_back(new TH1D(Form("FFTDET%i", id), Form("FFT Channel %i ", id), nsamples / 2, 0, nsamples / 2));
+      hInvFFT.push_back(new TH1D(Form("InvFFTDET%i", id), Form("Inverse FFT Channel %i ", id), nsamples, 0, nsamples));
+      hFFT[index]->SetDirectory(nullptr);
+      hInvFFT[index]->SetDirectory(nullptr);
+      hFFTFilt.push_back(new TH1D(Form("FFTFiltDET%i", id), Form("filtered FFT Channel %i ", id), nsamples / 2, 0, nsamples / 2));
+      // hFFTFilt[index]->SetDirectory(nullptr);
+      printf(" create  index %i vchan %i %s %s \n", index, id, hFFT[index]->GetName(), hFFT[index]->GetTitle());
+    }
 
-  htemplate = new TH1D("template", "template", nsamples, 0, nsamples);
-  htemplateFFT = new TH1D("templateFFT", "templateFFT", nsamples / 2, 0, nsamples / 2);
-  hWFilter = new TH1D("WFilter", "WFilter", nsamples / 2, 0, nsamples / 2);
+    htemplate = new TH1D("template", "template", nsamples, 0, nsamples);
+    htemplateFFT = new TH1D("templateFFT", "templateFFT", nsamples / 2, 0, nsamples / 2);
+    hWFilter = new TH1D("WFilter", "WFilter", nsamples / 2, 0, nsamples / 2);
+  }
 
   splitDir->cd();
   for (unsigned index = 0; index < vchan.size(); ++index)
@@ -197,7 +199,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   for (int i = 0; i < nsamples; ++i)
     wfilter[i] = 1.;
   //
-  if (gotTemplate)
+  if (gotTemplate&&doFFT)
   {
     // make transorm
     templateTransform = forwardFFT(SPEdigi);
