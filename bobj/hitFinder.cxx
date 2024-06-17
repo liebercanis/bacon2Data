@@ -102,7 +102,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   hPeakCrossingRatio = new TH1D("PeakCrossingRatio", "peak Crossing Ratio", 100, 0., 1.);
 
   fftDir->cd();
-  for (unsigned index = 0; index < vchan.size(); ++index)
+  if(doFFT) for (unsigned index = 0; index < vchan.size(); ++index)
   {
     int id = vchan[index];
     TDet *deti = tbrun->getDet(id);
