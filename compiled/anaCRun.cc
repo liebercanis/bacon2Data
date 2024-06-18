@@ -865,12 +865,13 @@ int anaCRun::anaEvent(Long64_t entry)
     finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
 
     TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
+    /*
     if (!fftDir)
     {
       cout << " Error no fftDir" << endl;
       fout->ls();
       return false;
-    }
+    }*/
     TDirectory *sumWaveDir = (TDirectory *)fout->FindObject("sumWaveDir");
     if (!sumWaveDir)
     {
