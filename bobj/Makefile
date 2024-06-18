@@ -1,6 +1,7 @@
 # not yet ported to OSX!
 ########################################################
 LIBNAME :=BaconAna
+LIBRARY := lib$(LIBNAME).so
 ARCH  = $(shell root-config --arch)
 include $(ROOTSYS)/etc/Makefile.arch
 
@@ -13,29 +14,27 @@ ROOTINCS     := $(shell root-config --incdir)
 
 CXXFLAGS     :=  $(ROOTCFLAGS) -fPIC -I$(LOCAL) 
 LIBS         :=  $(ROOTLIBS) $(CINTFLAGS)
+INSTALLNAME  :=  $(HOME)/bacon2Data/bobj/$(LIBRARY) 
+CINTFLAGS    := -I$(ROOTINCS) 
 
-
-CINTFLAGS := -I$(ROOTINCS) 
 
 ifeq ($(ARCH),macosx64)
- .              SOFLAGS:= -dynamiclib -install_name /Users/mgold/bacon2Data/bobj/lib$(LIBNAME).so
-				CXX := clang++ -arch x86_64 -ggdb 
+                SOFLAGS = -dynamiclib -install_name $(INSTALLNAME)
+				CXX = clang++ -arch x86_64 -ggdb 
 				CXXFLAGS += -fPIC
 				CPP= $(CXX) $(CXXFLAGS)
 else ifeq ($(ARCH),macosxarm64)
- .              SOFLAGS:= -static -install_name /Users/mgold/bacon2Data/bobj/lib$(LIBNAME).so
-				CXX := clang++  -ggdb 
+                SOFLAGS = -dynamiclib -install_name $(INSTALLNAME)
+				CXX = clang++  -ggdb 
   			    CXXFLAGS += -fPIC
 				CPP= $(CXX) $(CXXFLAGS)
 else
 				CXX := g++ -ggdb 
 				CXXFLAGS += -O -Wall -fPIC 
 				CPP= $(CXX) $(CXXFLAGS) 
-				
 endif 
 
 
-LIBRARY := lib$(LIBNAME).so
 #-I/usr/local/Cellar/llvm/16.0.1/include/c++/v1 -I/usr/local/Cellar/llvm/16.0.1/./lib/clang/16/include -I/usr/local/Cellar/llvm/16.0.1/./Toolchains/LLVM16.0.1.xctoolchain/usr/include -I/usr/local/Cellar/gcc/12.2.0 
 #-I$(XCODEDIR) -I$(XCODEDIR2) -I/. 
 
@@ -51,6 +50,7 @@ DICTS := $(filter-out $(SKIP_DICT), $(patsubst %.hxx,%_Dict.cxx,$(wildcard *.hxx
 all: lib 
 
 lib: $(DICTS) $(OBJS)
+	@echo "Lib step  ARCH = $(ARCH) SOFLAGS= $(SOFLAGS) "
 	@echo "lib step $(LD) $(SOFLAGS) $(CXXFLAGS)  $(LIBS) $(OBJS) $(DICTS)  -o $(LIBRARY) ....  "
 	$(LD) $(SOFLAGS) $(CXXFLAGS) $(LIBS) $(OBJS) $(DICTS) -o $(LIBRARY) 
 	@echo "$@ done"
@@ -88,7 +88,8 @@ show:
 	@echo ROOTCFLAGS= $(ROOTCFLAGS)
 	@echo ROOTINCS= $(ROOTINCS)
 	@echo LIBRARY= $(LIBRARY)
-	@echo LIBNAME=$(LIBNAME)	
+	@echo LIBNAME=$(LIBNAME)
+	@echo INSTALLNAME=$(INSTALLNAME)	
 
 clean:
 	@echo "removing $(OBJS) *_Dict.* $(LIBRARY) *.pcm"
