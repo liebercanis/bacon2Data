@@ -402,8 +402,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   {
     hEvWave[idet]->SetBinContent(isample + 1, digi[isample]);
     hEvSmooth[idet]->SetBinContent(isample + 1, digi[isample]);
-    hEvFiltWave[idet]->SetBinContent(isample + 1, fdigi[isample]);
-    hInvFFT[idet]->SetBinContent(isample + 1, fdigi[isample]);
+     if(doFFT) hEvFiltWave[idet]->SetBinContent(isample + 1, fdigi[isample]);
+     if(doFFT) hInvFFT[idet]->SetBinContent(isample + 1, fdigi[isample]);
     // sum all waves for this event
     hEvAllSumWave->SetBinContent(isample + 1, hEvAllSumWave->GetBinContent(isample + 1) + digi[isample]);
   }
