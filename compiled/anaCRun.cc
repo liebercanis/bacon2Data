@@ -944,10 +944,12 @@ int anaCRun::anaEvent(Long64_t entry)
       finder->plotEvent(sumWaveDir, tdet->channel, entry);
     }
 
-    if (trig && tdet->hits.size() == 0 && fftDir->GetList()->GetEntries() < 2000)
-    {
+    if(fftDir) {
+      if (trig && tdet->hits.size() == 0 && fftDir->GetList()->GetEntries() < 2000)
+      {
       // printf("!!!!!! anaCRuna::event plot event %llu idet %i chan %i hits %lu \n", entry, idet, tdet->channel, tdet->hits.size());
       finder->plotEvent(fftDir, tdet->channel, entry);
+      }
     }
 
     // loop over hits
