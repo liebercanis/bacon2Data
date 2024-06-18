@@ -1,4 +1,3 @@
-////////////////////////////////////////////////////
 //  M.Gold April 2023 read CAEN files
 /////////////////////////////////////////////////////////
 #include <sstream>
@@ -122,7 +121,6 @@ public:
   TH1D *hTriggerTimeAll;
   TH1D *hTriggerHitTimeAll;
   TH1D *hTriggerTime;
-  TH1D *hTriggerTimeTrig;
   TH1D *hTriggerShift;
   vector<double> channelSigmaValue;
   vector<double> channelSigma;
@@ -204,8 +202,7 @@ public:
 unsigned anaCRun::getTriggerTime(int ic, double &adc)
 {
   TDet *idet = tbrun->getDet(ic);
-  for (unsigned i = 0; i < rawBr.size(); ++i)
-  unsigned time = 0;
+  unsigned utime = 0;
   for (unsigned j = 0; j < 801; ++j)
   {
     double val = double(rawBr[ic]->rdigi[j]) - idet->base;
@@ -213,11 +210,11 @@ unsigned anaCRun::getTriggerTime(int ic, double &adc)
     if (val > 0.5 * nominalGain)
     {
       adc = val;
-      time = j;
+      utime = j;
       break;
     }
   }
-  return time;
+  return utime;
 }
 
 void anaCRun::getTriggerTimeStats(unsigned *timeArray, double &ave, double &sigma)
@@ -690,7 +687,6 @@ int anaCRun::anaEvent(Long64_t entry)
     ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peakMax), float(idet->trigSum), float(idet->totSum), float(crossings.size()), float(thresholds.size()), float(idet->pass));
 
   } // channel loop
-  return 0;
   /* find trigger time from trigger sipms */
   trigTimes.resize(12);
   sTrigTimes.resize(12);
@@ -1280,7 +1276,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   //
   anaDir = fout->mkdir("anadir");
   anaDir->cd();
-  hTriggerTimeTrig = new TH1D("TriggerTimeTrig", " first hit time in trigger Sipm", 800, 0, 800);
   hTriggerTime = new TH1D("TriggerTime", " ave of trigger Sipm times ", 800, 0, 800);
   hTriggerShift = new TH1D("TriggerShift", " ave trigger time shift ", 40, -20, 20);
   hTriggerTimeAll = new TH1D("TriggerTimeAll", " first time all channels ", 800, 00, 800);
