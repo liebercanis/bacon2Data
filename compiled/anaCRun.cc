@@ -204,16 +204,12 @@ public:
 unsigned anaCRun::getTriggerTime(int ic, double &adc)
 {
   TDet *idet = tbrun->getDet(ic);
-  printf("line207 ic %i \n",ic);
   for (unsigned i = 0; i < rawBr.size(); ++i)
-    printf("line209  branch %s chan %i \n", rawBr[i]->GetName(), i);
   unsigned time = 0;
   for (unsigned j = 0; j < 801; ++j)
   {
-    cout<< "line213 "  << rawBr[ic]->GetName() << "   " << idet->base <<  endl;
     double val = double(rawBr[ic]->rdigi[j]) - idet->base;
     val *= nominalGain / sipmGain[ic];
-    printf("line213 time %f \n",val);
     if (val > 0.5 * nominalGain)
     {
       adc = val;
@@ -221,7 +217,6 @@ unsigned anaCRun::getTriggerTime(int ic, double &adc)
       break;
     }
   }
-  printf("line202 time %u \n",time);
   return time;
 }
 
@@ -612,7 +607,6 @@ int anaCRun::anaEvent(Long64_t entry)
     // get the distribution mode
     double mode = hEvGaus[ib]->GetBinLowEdge(hEvGaus[ib]->GetMaximumBin()) + 0.5 * hEvGaus[ib]->GetBinWidth(hEvGaus[ib]->GetMaximumBin());
 
-    printf("line615  event %lld channel %u \n",entry,ib);
     hEvGaus[ib]->Fit("gaus", "Q0", "", hEvGaus[ib]->GetMean() - 100, hEvGaus[ib]->GetMean() + 100);
     TF1 *gfit = (TF1 *)hEvGaus[ib]->GetListOfFunctions()->FindObject("gaus");
     double ave = hEvGaus[ib]->GetMean();
@@ -629,7 +623,6 @@ int anaCRun::anaEvent(Long64_t entry)
     }
 
     evDir->cd();
-    printf("line625  event %lld channel %u \n",entry,ib);
     if (evDir->GetList()->GetEntries() < 100)
     {
       TH1D *EvGaussEvent = (TH1D *)hEvGaus[ib]->Clone(Form("EvGaussEvent%lld-Ch%i", entry, ib));
@@ -697,7 +690,6 @@ int anaCRun::anaEvent(Long64_t entry)
     ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peakMax), float(idet->trigSum), float(idet->totSum), float(crossings.size()), float(thresholds.size()), float(idet->pass));
 
   } // channel loop
-  printf("line693 event %lld passbit %i \n",entry,passBit);
   return 0;
   /* find trigger time from trigger sipms */
   trigTimes.resize(12);
@@ -705,10 +697,8 @@ int anaCRun::anaEvent(Long64_t entry)
   adcBin.resize(12);
   for (unsigned ic = 0; ic < 12; ++ic)
   {
-    printf("line700 event %lld ic %u \n",entry,ic);
     double val = 0;
     unsigned time = getTriggerTime(ic, val);
-    printf("line703 event %lld ic %u \n",entry,ic);
     trigTimes[ic] = time;
     adcBin[ic] = val;
     // if (time < nominalTrigger - 5 * triggerSigma)
@@ -725,7 +715,6 @@ int anaCRun::anaEvent(Long64_t entry)
       hTriggerTime->Fill(double(time));
   }
 
-  printf("line718 event %lld passbit %i \n",entry,passBit);
   /* ave trigger sipm times before shift */
   double trigTimeAve = 0;
   double trigTimeSigma = 0;
@@ -746,7 +735,6 @@ int anaCRun::anaEvent(Long64_t entry)
   hTriggerTime->Fill(double(firstTime));
   int timeShift = nominalTrigger - firstTime;
   hTriggerShift->Fill(timeShift);
-  printf("line738 event %lld passbit %i \n",entry,passBit);
 
   /*******
    * now that we have the firstTime
@@ -756,7 +744,6 @@ int anaCRun::anaEvent(Long64_t entry)
    ********/
   // printf("doTimeSiftAndNorm %lld \n",entry);
   doTimeShiftAndNorm();
-  printf("line748  event %lld passbit %i \n",entry,passBit);
   /* make ntuple of before and after shift */
   for (unsigned ic = 6; ic < 12; ++ic)
   {
