@@ -54,11 +54,12 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     QPEPeak = 50;
   for (unsigned i = 0; i < vchan.size(); ++i)
     QPEnominal.push_back(QPEPeak);
-  templateFileName = TString("$HOME/bacon2Data/bobj/templates-2023-05-01-15-06.root");
+  TString templateDir = TString(getenv("BOBJ"));
+  templateFileName = templateDir+TString("/templates-2023-05-01-15-06.root");
   // CAEN casN
   if (nSamples == CAENLENGTH)
   {
-    templateFileName = TString("$HOME/bacon2Data/bobj/templatesCaen-2023-05-17-12-00.root");
+    templateFileName = templateDir+TString("/templatesCaen-2023-05-17-12-00.root");
     for (unsigned i = 0; i < 13; ++i)
       QPEnominal[i] = nominalGain;
   }
@@ -73,7 +74,6 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   finderDir = fout->mkdir("finderDir");
   splitDir = fout->mkdir("splitDir");
   sumWaveDir = fout->mkdir("sumWaveDir");
-  fftDir = fout->mkdir("fftDir"); 
 
   
   finderDir = (TDirectory *)fout->FindObject("finderDir");
@@ -104,6 +104,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     if (verbose) cout << "line101 initialize  FFT  " << endl;
     fFFT = TVirtualFFT::FFT(1, &nSize, "R2C M K");
     fInverseFFT = TVirtualFFT::FFT(1, &nSize, "C2R M K");
+    fftDir = fout->mkdir("fftDir"); 
     fftDir->cd();
     for (unsigned index = 0; index < vchan.size(); ++index)
     {

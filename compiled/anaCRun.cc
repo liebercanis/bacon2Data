@@ -326,6 +326,17 @@ std::vector<double> anaCRun::sumDigi()
 
 bool anaCRun::readGains(TString fileName)
 {
+  /* define nominal */
+  sipmGain.clear();
+  sipmGainError.clear();
+  sipmGain.resize(NONSUMCHANNELS);
+  sipmGainError.resize(NONSUMCHANNELS);
+  for (unsigned long j = 0; j < sipmGain.size(); ++j)
+  {
+    sipmGain[j] = nominalGain;
+    sipmGainError[j] = sqrt(nominalGain);
+  }
+  /* look for gain file */
   bool exists = false;
   FILE *aFile;
   aFile = fopen(fileName.Data(), "r");
@@ -355,15 +366,7 @@ bool anaCRun::readGains(TString fileName)
     return false;
   }
   cout << "found graph named " << gGain->GetName() << " in file " << fileName << endl;
-  sipmGain.clear();
-  sipmGainError.clear();
-  sipmGain.resize(NONSUMCHANNELS);
-  sipmGainError.resize(NONSUMCHANNELS);
-  for (unsigned long j = 0; j < sipmGain.size(); ++j)
-  {
-    sipmGain[j] = nominalGain;
-    sipmGainError[j] = sqrt(nominalGain);
-  }
+  
   for (int i = 0; i < gGain->GetN(); ++i)
   {
     int index = int(gGain->GetPointX(i));
@@ -1210,7 +1213,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
 
   // new gain file
-  TString gainFileName = TString("gains-2024-02-15-17-26-save.root");
+  TString gainFileName = TString(getenv("BOBJ"))+TString("/gains-2024-02-15-17-26-save.root");
   cout << "read gains from file " << gainFileName << endl;
   readGains(gainFileName);
 
