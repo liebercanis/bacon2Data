@@ -1112,7 +1112,7 @@ void hitFinder::fitSinglet(int idet, Long64_t ievent)
   // printf("line1079 fitSinglet  idet %i event %lld %s \n", idet, ievent, hEvWave[idet]->GetName());
   //  this prevents crash!!!
   hEvWave[idet]->GetListOfFunctions()->Clear();
-  hEvWave[idet]->Fit("landau", "RQS", "", maxBin, maxBin + 20);
+  hEvWave[idet]->Fit("landau", "RQS0", "", maxBin, maxBin + 20);
   // check its(int) value which is 0 if ok, -1 if not .
   //  status = 0 : the fit has been performed successfully(i.e no error occurred).
   // hEvWave[idet]->GetListOfFunctions()->ls();
