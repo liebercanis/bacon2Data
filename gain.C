@@ -1,4 +1,8 @@
+/* read and fit gains from summary June 24 2024 */
 #include <ctime>
+#include "TDirectory.h"
+double nominalGain = 227.4; // average
+std::vector< std::vector<TF1*> > vfit;
 std::vector<double> fPositionX;
 std::vector<double> fPositionY;
 std::vector<double> fFitADCY;
@@ -12,11 +16,9 @@ std::vector<double> sipmGainError;
 std::vector<double> sipmNumber;
 std::vector<double> sipmNumberError;
 
+enum {NPEAKS=4};
+
 std::vector<TH1D *> hlist;
-enum
-{
-  nbins = 4000
-};
 
 std::string currentDate()
 {
@@ -37,264 +39,81 @@ double fline(double *x, double *par)
 void gain()
 {
   //TH1D *hFit = new TH1D("GausFit", "GausFit", 4000, -20.E3, 200.E3);
-  TFile *fin = new TFile("post-12_28_2023-23376.root", "readonly");
+  TFile *fin = new TFile("summary-12_28_2023-nfiles-2-dir-caenData-2024-06-24-13-18.root", "readonly");
   std::string sdate = currentDate();
   TFile *fout = new TFile(Form("gains-%s.root", sdate.c_str()), "recreate");
   TF1 *line = new TF1("myLine", fline, 0, 2.E5, 2);
-  TString histname;
-  for (int ichan = 0; ichan < 12; ++ichan)
+  // get histos from file
+  TDirectory *gainSumDir=nullptr;
+  fin->GetObject("gainSumDir",gainSumDir);
+
+ //
+  TIter next(gainSumDir->GetListOfKeys());
+  TKey *key;
+  while (TKey *key = (TKey *)next())
   {
-    histname.Form("LatePeakSumChan%i", ichan);
-    TH1D *hist;
-    fin->GetObject(histname, hist);
-    cout << ichan << "  " << hist->GetName() << endl;
-    hlist.push_back(hist);
+    TClass *cl = gROOT->GetClass(key->GetClassName());
+
+    if (!cl->InheritsFrom("TH1D"))
+      continue;
+    TH1D *h = (TH1D *)key->ReadObj();
+    TString hname(h->GetName());
+    int ichan = TString(hname(hname.Last('n') + 1, hname.Length())).Atoi();
+    // struggle to get only last hist cycle
+    TString lastName;
+    if(hlist.size()>0) lastName=hlist[hlist.size()-1]->GetName();
+    //cout << " xxx " << h->GetName() << " " << lastName << endl;
+    if(TString(h->GetName())==lastName) continue;
+    if(ichan>11) continue;
+    cout << "hist name " << h->GetName() << " chan " << ichan << " cycle " << key->GetCycle() << endl;
+    hlist.push_back(h);
   }
-  cout << " got " << hlist.size() << endl;
+   printf(" have %lu gain hists \n",hlist.size());
 
-  /*
-  TCanvas *allCan = new TCanvas("allCan","allCan");
-  hlist[11]->Draw();
-  for (int i=0; i < hlist.size() - 1; ++i)
-    hlist[i]->Draw("sames");
-    */
-
-
-  TSpectrum *s = new TSpectrum();
-
-  /*
-  for(unsigned i=0; i<hlist.size();++i) {
-    TH1D* hpeak = (TH1D*) hlist[i]->Clone(Form("PeaksChan%i",i));
-    for(int j=0; j<nbins; ++j) {
-      if( hpeak->GetBinLowEdge(j+1) < 5000. )
-        hpeak->SetBinContent(j+1,0);
-      else
-        hpeak->SetBinContent(j+1,hlist[i]->GetBinContent(j+1));
-    }
-    */
-
-  double source[nbins];
-  double dest[nbins];
-  for (unsigned i = 0; i < hlist.size(); ++i)
-  //for (unsigned i = 0; i < 1; ++i)
-  {
-    if (i == 5)
-      continue;
-    // int nfound = s->Search(hlist[i],4,"",5);
-    for (int j = 0; j < nbins; ++j)
+   // fit peaks 
+   vfit.resize(hlist.size());
+   double width = 100.;
+   unsigned ihist=4;
+   for(unsigned ihist=0; ihist<hlist.size(); ++ihist) {
+   for (unsigned j = 0; j < NPEAKS; ++j)
     {
-      source[j] = hlist[i]->GetBinContent(j + 1);
-    }
-    /*
-  source: pointer to the vector of source spectrum.
-  destVector: pointer to the vector of resulting deconvolved spectrum.
-  ssize: length of source spectrum.
-  sigma: sigma of searched peaks, for details we refer to manual.
-  threshold: threshold value in % for selected peaks, peaks with amplitude less than threshold*highest_peak/100 are ignored, see manual.
-  backgroundRemove: logical variable, set if the removal of background before deconvolution is desired.
-  deconIterations-number of iterations in deconvolution operation.
-  markov: logical variable, if it is true, first the source spectrum is replaced by new spectrum calculated using Markov chains method.
-  averWindow: averaging window of searched peaks, for details we refer to manual (applies only for Markov method).
-  */
-    fFitBin.clear();
-    fPositionX.clear();
-    fPositionY.clear();
-    fFitADC.clear();
-    fFitADCY.clear();
-    fFitADCError.clear();
-    fSpeNumber.clear();
-    fSpeNumberError.clear();
-    double ymax = 0;
-    /*
-    Parameters:
-  source: pointer to the vector of source spectrum.
-  destVector: pointer to the vector of resulting deconvolved spectrum.
-  ssize: length of source spectrum.
-  sigma: sigma of searched peaks, for details we refer to manual.
-  threshold: threshold value in % for selected peaks, peaks with amplitude less than threshold*highest_peak/100 are ignored, see manual.
-  backgroundRemove: logical variable, set if the removal of background before deconvolution is desired.
-  deconIterations-number of iterations in deconvolution operation.
-  markov: logical variable, if it is true, first the source spectrum is replaced by new spectrum calculated using Markov chains method.
-  averWindow: averaging window of searched peaks, for details we refer to manual (applies only for Markov method).
-    */
-    int nfound = s->SearchHighRes(source, dest, nbins, 8, .1, kTRUE, 2, kTRUE, 2);
-    printf("\n\npeaks for hist %s found %i \n", hlist[i]->GetName(), nfound);
-    if(nfound==0)
-      continue;
-    Double_t *xpeaks = s->GetPositionX();
-    for (int k = 0; k < nfound; k++)
-    {
-      int bin = hlist[i]->FindBin(xpeaks[k]);
-      double x = hlist[i]->GetBinCenter(bin);
-      double y = hlist[i]->GetBinContent(bin);
-      
-      if (y > ymax)
-        ymax = y;
-
-      printf("\t peakSearch det %i bin %i peak %i  height %f x %f \n", i, bin, k, y, x);
-
-      if(x<150)
-        continue;
-      if(y<3)
-        continue;
-      if(bin> hlist[i]->GetNbinsX()-10)
-        continue;
-
-      // skip nearby peaks 
-      if (fPositionX.size()>0){
-        if (x - fPositionX[fPositionX.size()-1] < 100)
-          continue;
-      }
-
-      fPositionX.push_back(x);
-      fPositionY.push_back(y);
-      double previous = 0;
-      if (fPositionX.size() > 1)
-        previous = fPositionX[fPositionX.size() - 2];
-
-      printf(" add peak #  %lu at x = %f previous x %f y= %f \n", fPositionX.size(), x, previous,y);
-
-      if (fPositionX.size() > 4)
-        break;
-    }
-
-
-    // fit
-    fFitBin.resize(fPositionX.size());
-    fFitADC.resize(fPositionX.size());
-    fFitADCY.resize(fPositionX.size());
-    fFitADCError.resize(fPositionX.size());
-    fSpeNumber.resize(fPositionX.size());
-    fSpeNumberError.resize(fPositionX.size());
-    printf(" peaks channel %i n= %lu \n", i, fPositionX.size());
-    for (unsigned long j = 0; j < fPositionX.size(); ++j)
-    {
-      fSpeNumberError[j] = double(0);
-      fSpeNumber[j] = double(j);
-
-      // skip fit each peak to gaussian
-      TH1D *hFit = (TH1D *)hlist[i]->Clone(Form("gausFitPeak%luHist%i", j, i));
-      if(0){
-      hFit->Reset("ICES");
-      printf("fit to hist %i point %lu  x %f y %f \n", i, j, fPositionX[j],fPositionY[j]);
-      for (int ibin = 0; ibin < hlist[i]->GetNbinsX(); ++ibin)
-        hFit->SetBinContent(ibin, hlist[i]->GetBinContent(ibin));
-      // TH1D *hFit = (TH1D *)hlist[i]->Clone(Form("gausFitPeak%luHist%i", j, i));
-      hFit->Fit("gaus","","", fPositionX[j]-100, fPositionX[j] + 100);
-      TF1 *gFit = (TF1 *)hFit->GetListOfFunctions()->FindObject("gaus");
-      double mean = 0;
-      double meanError = 0;
-      double val = 0;
+      TH1D* h=hlist[ihist];
+      double nominalPeak =nominalGain*double(j+1);
+      double fitStart = nominalGain*double(j+1) -width;
+      double fitEnd   = nominalGain*double(j+1) + width;
+      int bin =h->FindBin(nominalPeak);
+      double xbin = h->GetBinLowEdge(bin);
+      double peakVal=h->GetBinContent(bin);
+      if(peakVal<3) continue;
+      // fit here
+      h->GetListOfFunctions()->Clear();
+      //printf("fit to hist %s peak # %u bin %i xbin %f val %f from %f to %f \n",
+      //    h->GetName(), j+1, bin,xbin,peakVal,fitStart,fitEnd);
+      h->Fit("gaus","QQSS","", fitStart,fitEnd);
+      TF1 *gFit = (TF1 *)h->GetListOfFunctions()->FindObject("gaus");
       if (gFit != nullptr)
       {
-        mean = gFit->GetParameter(1);
-        meanError = gFit->GetParError(1);
-        int bin = hFit->FindBin(mean);
-        fFitBin[j] = bin;
-        val = hFit->GetBinContent(bin);
-        fFitADC[j] = mean;
-        fFitADCY[j] = val;
-        fFitADCError[j] = meanError;
-        printf("\t fit to hist %i point %lu  (%f,%f) bin %i x %f xadc %f  \n", i, j,fPositionX[j],fPositionY[j],bin,
-        fFitADC[j],fFitADCY[j]);
+        vfit[ihist].push_back(gFit);
+        double mean = gFit->GetParameter(1);
+        double meanError = gFit->GetParError(1);
+        int jbin = h->FindBin(mean);
+        double val = h->GetBinContent(jbin);
+        printf("fit to hist %s point %u  nominal bin %i nominal x %.2f from %.0f to %.0f  mean %.2f error %.2f peak bin %i val %.2f  \n", 
+          h->GetName(),j+1,bin, xbin, fitStart,fitEnd, mean,meanError, jbin, val);
       }
-      else
-      {
-        printf("\n\n!!!!!fit fails hist %i point %lu \n\n\n", i, j);
-      }
-    } else {
-      fFitADC[j] = fPositionX[j];
-      fFitADCY[j] = fPositionY[j];
-      fFitADCError[j] =0;
     }
-    } // loop over points
+   }
 
-    printf(" fit for channel %i n= %lu \n", i, fFitADC.size());
-    for (unsigned long j = 0; j < fFitADC.size(); ++j)
-      printf("  point %lu bin %i Position %.2f ADC %.2f +/- %.2f  y %.2f\n", 
-        j, fFitBin[j], fPositionX[j], fFitADC[j], fFitADCError[j],fFitADCY[j]);
-
-    if (fFitADC.size()<2)
-      continue;
-    TGraphErrors *g = new TGraphErrors(fFitADC.size(), &fSpeNumber[0], &fFitADC[0], &fSpeNumberError[0], &fFitADCError[0]);
-    //g->Print();
-    g->SetMarkerStyle(23);
-    g->SetMarkerColor(kRed);
-    g->SetMarkerSize(1.3);
-
-    // add marker
-    TPolyMarker *pmold = (TPolyMarker *)hlist[i]->GetListOfFunctions()->FindObject("TPolyMarker");
-    if (pmold)
-    {
-      hlist[i]->GetListOfFunctions()->Remove(pmold);
-      delete pmold;
-    }
-    TPolyMarker *pm = new TPolyMarker(fFitADC.size(), &fFitADC[0], &fFitADCY[0]);
-    hlist[i]->GetListOfFunctions()->Add(pm);
-    double *xp = pm->GetX();
-    double *yp = pm->GetY();
-    for (int ip = 0; ip < pm->GetN(); ++ip)
-      printf("det %i poly %i %f %f \n", i, ip, xp[ip], yp[ip]);
-    pm->SetMarkerStyle(23);
-    pm->SetMarkerColor(kRed);
-    pm->SetMarkerSize(1.5);
-
-    // make graph
-
-    TString gname;
-    gname.Form("gainChan%i", i);
-    TString gtitle;
-    gtitle.Form(" gain channel  %i ;  number SPE ; ADC/SPE", i);
-    g->SetName(gname);
-    g->SetTitle(gtitle.Data());
-    line->SetParameters(0.5, 0);
-    g->Fit("myLine");
-    // g->GetHistogram()->GetListOfFunctions()->ls();
-    TF1 *gFit = g->GetFunction("myLine");
-    if (gFit == nullptr)
-      continue;
-    TCanvas *gcan = new TCanvas(Form("GainChan%i", i), Form("chan%i", i));
-    gPad->SetLogy(0);
-    gStyle->SetOptFit();
-    g->GetHistogram()->GetXaxis()->SetRangeUser(0, 4);
-    g->GetHistogram()->GetYaxis()->SetRangeUser(0, 1.5E5);
-    gFit->SetLineStyle(5);
-    gFit->SetLineWidth(5);
-    g->Draw("APE1");
-    gFit->Draw("same");
-    gPad->SetGrid();
-    gcan->Print(".png");
-    fout->Add(g);
-    if (gFit->GetParameter(1)<0)
-      continue;
-    sipmGain.push_back(gFit->GetParameter(1));
-    sipmGainError.push_back(gFit->GetParError(1));
-    sipmNumber.push_back(i);
-    sipmNumberError.push_back(0);
-
-    
+   for(unsigned ihist=0; ihist< hlist.size(); ++ihist) printf(" good fits to %s = %lu \n",
+    hlist[ihist]->GetName(),vfit[ihist].size());
 
     // plot
-    TCanvas *can = new TCanvas(Form("PeaksChan%i", i), Form("chan%i", i));
-    gPad->SetLogy(1);
-    hlist[i]->Draw();
-    fout->Add(hlist[i]);
-    can->Print(".png");
-    //fout->Add(can);
-  } // channel number loop
-  // plot
-  TGraphErrors *gGain = new TGraphErrors(sipmGain.size(), &sipmNumber[0], &sipmGain[0], &sipmNumberError[0], &sipmGainError[0]);
-  gGain->SetName("gGain");
-  gGain->SetTitle("sipm gain");
-  gGain->SetMarkerStyle(23);
-  gGain->SetMarkerColor(kRed);
-  gGain->SetMarkerSize(1.3);
-
-  TCanvas *canGain = new TCanvas("sipmGain", "sipm gain");
-  gPad->SetGrid();
-  gGain->Draw("AP");
-  canGain->Print(".png");
-  fout->Add(gGain);
-  gGain->Print();
-  fout->Write();
+    for(unsigned ihist=0; ihist< hlist.size(); ++ihist) {
+      hlist[ihist]->GetListOfFunctions()->Clear();
+      TString cname;
+      cname.Form("Gain%s",hlist[ihist]->GetName());
+      TCanvas *c = new TCanvas(cname,cname);
+      hlist[ihist]->Draw();
+      for(unsigned ifit=0; ifit< vfit[ihist].size(); ++ifit) vfit[ihist][ifit]->Draw("same"); 
+    }
 }
