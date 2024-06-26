@@ -53,6 +53,8 @@ enum
 };
 int nFiles;
 TString tag;
+TString theStartTag;
+TString theEndTag;
 std::string sdate;
 vector<double> normQsum;
 vector<double> normQPE;
@@ -1122,72 +1124,48 @@ unsigned long countFiles()
 int main(int argc, char *argv[])
 {
   cout << "executing " << argv[0] << " make summary plots  " << endl;
-  printf(" usage: summary  date string <tag> <dir=caenData> <type=caen/sis default caen>  \n ");
-  if (argc < 2)
+  printf(" usage: summary start date string <stag> end date string <etag> max files <default all> \n ");
+  if (argc < 1)
   {
-    printf("reguire file date string <tag> args\n");
+    printf("reguire file date start string <stag> args\n");
     exit(0);
   }
+
+  theStartTag=TString(argv[1]); 
 
   printf(" input args %i \n ", argc);
   for (int jarg = 1; jarg < argc; ++jarg)
     printf(" %i= %s ", jarg, argv[jarg]);
   printf("\n");
 
-  if (argc < 4)
+  theEndTag=TString(argv[1]);
+  if (argc ==3)
   {
-    theDataType = CAEN;
+    theEndTag=TString(argv[2]); 
   }
-  else
-  {
-    if (TString(argv[1]).Contains("caen") || TString(argv[1]).Contains("CAEN"))
-      theDataType = CAEN;
-    else
-      theDataType = SIS;
-  }
-
-  if (argc < 3)
-  {
-    dirName = TString("caenData");
-    dirNameSlash = TString("caenData/");
-  }
-  else
-  {
-    dirName = TString(argv[2]);
-    dirNameSlash = TString(argv[2]) + TString("/");
-  }
-
-  tag = TString(argv[1]);
 
   dopeTime = TDatime(2023, 3, 9, 22, 0, 0);
 
+  printf("count files from %s to %s \n",theStartTag.Data(),theEndTag.Data());
   unsigned nfiles = countFiles();
   if (nfiles == 0)
   {
-    printf(" >>>> datatype %i (0=sis,1=caen) dir %s nfiles =0 <<<<\n", theDataType, dirName.Data());
+    printf(" >>>> datatype no files found <<<<\n");
     exit(0);
   }
 
-  printf(" >>>> tag %s datatype %i (0=sis,1=caen) dir %s nfiles %i <<<<\n", tag.Data(), theDataType, dirName.Data(), nfiles);
+  printf(" >>>>> files from %s to %s tag %s <<<<<\n",theStartTag.Data(),theEndTag.Data(),tag.Data());
+
 
   for (int i = 0; i < fileList.size(); ++i)
     cout << i << "  " << fileList[i] << endl;
 
-  printf(" for %s found %lu files \n", tag.Data(), fileList.size());
   maxFiles = fileList.size();
-  /*
-  startDate = TString("none");
-  endDate = TString("none");
-  if (argc > 4)
-  {
-    startDate = TString(argv[3]);
-    endDate = TString(argv[4]);
-  }
-  */
   if (argc > 3)
   {
     maxFiles = atoi(argv[3]);
   }
+  printf(" for %s found %lu files maxFiles %lli \n", tag.Data(), fileList.size(),maxFiles);
   // cleanup cuts;
   hEventPass = NULL;
   hThreshHist = NULL;
