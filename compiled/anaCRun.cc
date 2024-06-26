@@ -867,9 +867,7 @@ int anaCRun::anaEvent(Long64_t entry)
     /*  call finder->event nosumwave channels */
     finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
     // make directories here
-    TDirectory *finderDir = fout->mkdir("finderDir");
-    TDirectory *splitDir = fout->mkdir("splitDir");
-    TDirectory *sumWaveDir = fout->mkdir("sumWaveDir");
+    
     /*
     if (!fftDir)
     {
@@ -1240,6 +1238,9 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   badDir = fout->mkdir("badDir");
   badTrigDir = fout->mkdir("badTrigDir");
   earlyPeakDir = fout->mkdir("earlyPeakDir");
+  TDirectory *finderDir = fout->mkdir("finderDir");
+  TDirectory *splitDir = fout->mkdir("splitDir");
+  TDirectory *sumWaveDir = fout->mkdir("sumWaveDir");
   fout->cd();
   getSummedHists();
   // fout->ls();
@@ -1378,6 +1379,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
 
   fout->cd();
+  fout->ls();
 
   cout << " make hitFinder dets = " << CHANNELS << "  size " << rawBr[0]->rdigi.size() << endl;
   vector<int> chanList;
