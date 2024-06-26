@@ -1388,6 +1388,11 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   finder = NULL;
   finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList, channelSigmaValue);
+  if(!finder) {
+    printf(" failed to make finder ");
+    fout->Close();
+    return 0;
+  }
 
   int npass = 0;
   int nfail = 0;
