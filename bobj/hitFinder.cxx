@@ -72,8 +72,20 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   fout = theFile;
   
   finderDir = (TDirectory *)fout->FindObject("finderDir");
+ if(!finderDir) {
+    printf("no finder dir");
+    return;
+  } 
   splitDir = (TDirectory *)fout->FindObject("splitDir");
+  if(!splitDir) {
+    printf("no finder dir");
+    return;
+  }
   sumWaveDir = (TDirectory *)fout->FindObject("sumWaverDir");
+  if(!sumWaveDir) {
+    printf("no finder dir");
+    return;
+  }
 
   tag = theTag;
   nsamples = nSamples;
