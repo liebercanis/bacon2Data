@@ -99,6 +99,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     if (verbose) cout << "line101 initialize  FFT  " << endl;
     fFFT = TVirtualFFT::FFT(1, &nSize, "R2C M K");
     fInverseFFT = TVirtualFFT::FFT(1, &nSize, "C2R M K");
+    // make this one directory here
     fftDir = fout->mkdir("fftDir"); 
     fftDir->cd();
     for (unsigned index = 0; index < vchan.size(); ++index)

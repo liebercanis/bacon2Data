@@ -866,7 +866,7 @@ int anaCRun::anaEvent(Long64_t entry)
     // if (passBit==0)
     /*  call finder->event nosumwave channels */
     finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
-
+    // make directories here
     TDirectory *finderDir = fout->mkdir("finderDir");
     TDirectory *splitDir = fout->mkdir("splitDir");
     TDirectory *sumWaveDir = fout->mkdir("sumWaveDir");
