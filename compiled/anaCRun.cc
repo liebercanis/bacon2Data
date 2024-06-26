@@ -867,7 +867,9 @@ int anaCRun::anaEvent(Long64_t entry)
     /*  call finder->event nosumwave channels */
     finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
 
-    TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
+    TDirectory *finderDir = fout->mkdir("finderDir");
+    TDirectory *splitDir = fout->mkdir("splitDir");
+    TDirectory *sumWaveDir = fout->mkdir("sumWaveDir");
     /*
     if (!fftDir)
     {
@@ -875,12 +877,6 @@ int anaCRun::anaEvent(Long64_t entry)
       fout->ls();
       return false;
     }*/
-    TDirectory *sumWaveDir = (TDirectory *)fout->FindObject("sumWaveDir");
-    if (!sumWaveDir)
-    {
-      cout << " Error no sumWaveDir" << endl;
-      return false;
-    }
   } // second channel loop after pulse finding
   // if (passBit != 0) return passBit;
 
@@ -1402,7 +1398,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
       printf("... entry %llu pass %u fail %u \n", entry, npass, nfail);
       // hEventPass->Print("all"); bacondaq seg violated here
       
-      /* this is bombing 
       if (npass > 0)
       {
         printf(" \t hits by channel  \n");
@@ -1411,7 +1406,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
                  int(histHitCount->GetBinContent(ibin + 1)), double(histHitCount->GetBinContent(ibin + 1)) / double(npass), int(hNoPeak->GetBinContent(ibin + 1)));
         printf("  \n");
       }
-      */
     }
     rawTree->GetEntry(entry);
 

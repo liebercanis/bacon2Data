@@ -71,11 +71,6 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   smoothing = false;
   fout = theFile;
   
-  finderDir = fout->mkdir("finderDir");
-  splitDir = fout->mkdir("splitDir");
-  sumWaveDir = fout->mkdir("sumWaveDir");
-
-  
   finderDir = (TDirectory *)fout->FindObject("finderDir");
   splitDir = (TDirectory *)fout->FindObject("splitDir");
   sumWaveDir = (TDirectory *)fout->FindObject("sumWaverDir");
