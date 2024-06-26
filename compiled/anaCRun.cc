@@ -515,7 +515,6 @@ unsigned anaCRun::getBranches()
 // get summed histos
 void anaCRun::getSummedHists()
 {
-  rawSumDir = fout->mkdir("rawSumDir");
   rawSumDir->cd();
   TIter next(fin->GetListOfKeys());
   printf(" getSummedHists ........ list of fin \n");
@@ -1233,15 +1232,18 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     nentries = TMath::Min(maxEntries, nentries);
   printf("... total entries  %llu looping over %llu starting from %llu \n ", rawTree->GetEntries(), nentries, firstEntry);
 
+  rawSumDir = fout->mkdir("rawSumDir");
   evDir = fout->mkdir("evDir");
   pmtDir = fout->mkdir("pmtDir");
   badDir = fout->mkdir("badDir");
   badTrigDir = fout->mkdir("badTrigDir");
   earlyPeakDir = fout->mkdir("earlyPeakDir");
+  anaDir = fout->mkdir("anadir");
+  sumDir = fout->mkdir("sumDir");
   TDirectory *finderDir = fout->mkdir("finderDir");
   TDirectory *splitDir = fout->mkdir("splitDir");
   TDirectory *sumWaveDir = fout->mkdir("sumWaveDir");
-  fout->cd();
+  fout->ls();
   getSummedHists();
   // fout->ls();
 
@@ -1277,7 +1279,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   histQPrompt->Sumw2();
 
   //
-  anaDir = fout->mkdir("anadir");
   anaDir->cd();
   hTriggerTime = new TH1D("TriggerTime", " ave of trigger Sipm times ", 800, 0, 800);
   hTriggerShift = new TH1D("TriggerShift", " ave trigger time shift ", 40, -20, 20);
@@ -1335,7 +1336,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   threshValueHist = new TH2D("threshValueHist", " threshold crossings value channels by time  ", 7500, 0, 7500, 1000, 0, 100000);
   threshHist = new TH1D("threshHist", " threshold crossings trig channels ", 20, 0, 20);
   crossHist = new TH1D("crossHist", "  negative crossings non trigger channels", 100, 0, 100);
-  sumDir = fout->mkdir("sumDir");
   sumDir->cd();
   double limit;
   double plimit;
