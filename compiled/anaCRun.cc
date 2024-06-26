@@ -1401,6 +1401,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     {
       printf("... entry %llu pass %u fail %u \n", entry, npass, nfail);
       // hEventPass->Print("all"); bacondaq seg violated here
+      
+      /* this is bombing 
       if (npass > 0)
       {
         printf(" \t hits by channel  \n");
@@ -1409,6 +1411,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
                  int(histHitCount->GetBinContent(ibin + 1)), double(histHitCount->GetBinContent(ibin + 1)) / double(npass), int(hNoPeak->GetBinContent(ibin + 1)));
         printf("  \n");
       }
+      */
     }
     rawTree->GetEntry(entry);
 
