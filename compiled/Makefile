@@ -20,22 +20,22 @@ BOBJ=../bobj
 #BOBJ=$(HOME)/bacon2Data/bobj
 
 
-CXXFLAGS     :=  $(ROOTCFLAGS) -fPIC -I$(LOCAL) 
+CXXFLAGS     :=  $(ROOTCFLAGS) -fPIC  -I$(LOCAL) 
 CXXFLAGS     += -I$(LOCAL) -I/$/usr/include -I/usr/local/include -I$(BOBJ)
 LIBS         := -L$(BOBJ) -lBaconAna $(ROOTLIBS)  
 ##$(CINTFLAGS)
 
 ifeq ($(ARCH),macosx64)
 				CXX := clang++ -arch x86_64 -ggdb 
-				CXXFLAGS += -fPIC
+				CXXFLAGS += -fPIC  -fsanitize=address 
 				CPP= $(CXX) $(CXXFLAGS)
 else ifeq ($(ARCH),macosxarm64)
 				CXX := clang++ -ggdb 
-  			CXXFLAGS += -fPIC
+  			    CXXFLAGS += -fPIC  -fsanitize=address 
 				CPP= $(CXX) $(CXXFLAGS)
 else
 				CXX := g++ -ggdb 
-				CXXFLAGS += -O -Wall -fPIC 
+				CXXFLAGS += -O -Wall -fPIC  -fsanitize=address 
 				CPP= $(CXX) $(CXXFLAGS) 
 				
 endif 
