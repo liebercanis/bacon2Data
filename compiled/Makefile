@@ -24,18 +24,18 @@ CXXFLAGS     :=  $(ROOTCFLAGS) -fPIC  -I$(LOCAL)
 CXXFLAGS     += -I$(LOCAL) -I/$/usr/include -I/usr/local/include -I$(BOBJ)
 LIBS         := -L$(BOBJ) -lBaconAna $(ROOTLIBS)  
 ##$(CINTFLAGS)
+## remove CXXFLAGS += -fPIC  -fsanitize=address 
 
 ifeq ($(ARCH),macosx64)
 				CXX := clang++ -arch x86_64 -ggdb 
-				CXXFLAGS += -fPIC  -fsanitize=address 
+				CXXFLAGS += -fPIC  
 				CPP= $(CXX) $(CXXFLAGS)
 else ifeq ($(ARCH),macosxarm64)
 				CXX := clang++ -ggdb 
-  			    CXXFLAGS += -fPIC  -fsanitize=address 
 				CPP= $(CXX) $(CXXFLAGS)
 else
 				CXX := g++ -ggdb 
-				CXXFLAGS += -O -Wall -fPIC  -fsanitize=address 
+				CXXFLAGS += -O -Wall -fPIC 
 				CPP= $(CXX) $(CXXFLAGS) 
 				
 endif 
