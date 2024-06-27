@@ -61,7 +61,7 @@ vector<double> normQPE;
 TDatime dopeTime;
 time_t time0;
 time_t time1;
-struct tm tm;
+struct tm tmStruct;
 Long64_t maxFiles;
 double ntotal;
 double npass;
@@ -170,15 +170,15 @@ void setTime(TString startTag, TString endTag)
     //printf(" start %i %i %i ene %i %i %i  \n",month0,day0,year0,month1,day1,year1);
 
     /* fill in values for 2019-08-22 23:22:26 */
-    tm.tm_year = year0;
-    tm.tm_mon = month0;
-    tm.tm_mday = day0;
-    time0  = mktime(&tm);
+    tmStruct.tm_year = year0;
+    tmStruct.tm_mon = month0;
+    tmStruct.tm_mday = day0;
+    time0  = mktime(&tmStruct);
     printf("set start %s\n", asctime(gmtime(&time0)));
-    tm.tm_year = year1;
-    tm.tm_mon = month1;
-    tm.tm_mday = day1;
-    time1  = mktime(&tm);
+    tmStruct.tm_year = year1;
+    tmStruct.tm_mon = month1;
+    tmStruct.tm_mday = day1;
+    time1  = mktime(&tmStruct);
     printf("set end %s\n", asctime(gmtime(&time1))); 
 }
 
@@ -1130,10 +1130,10 @@ unsigned long countFiles()
       int month = TString(tname(tname.Last('n')+2,2)).Atoi();
       int day = TString(tname(tname.Last('n')+5,2)).Atoi();
       int year = TString(tname(tname.Last('n')+8,4)).Atoi();
-      tm.tm_year = year;
-      tm.tm_mon = month;
-      tm.tm_mday = day;
-      time_t fileTime  = mktime(&tm);
+      tmStruct.tm_year = year;
+      tmStruct.tm_mon = month;
+      tmStruct.tm_mday = day;
+      time_t fileTime  = mktime(&tmStruct);
        const auto diff0 = std::difftime( fileTime, time0 );
        const auto diff1 = std::difftime( fileTime, time1 );
       printf("line1139 info : file %s time %s",tname.Data(),asctime(gmtime(&fileTime))); 
