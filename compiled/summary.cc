@@ -59,6 +59,9 @@ std::string sdate;
 vector<double> normQsum;
 vector<double> normQPE;
 TDatime dopeTime;
+time_t time0;
+time_t time1;
+struct tm tm;
 Long64_t maxFiles;
 double ntotal;
 double npass;
@@ -153,6 +156,32 @@ double xWaveHigh = 7500; // max sample
 
 /* start of code */
 
+void setTime(TString startTag, TString endTag)
+{
+    theStartTag = startTag;
+    theEndTag=endTag;
+    tag = theStartTag+TString("-")+theEndTag;
+    int month0=TString(theStartTag(0,2)).Atoi(); 
+    int day0  =TString(theStartTag(3,2)).Atoi(); 
+    int year0 =TString(theStartTag(6,4)).Atoi(); 
+    int month1=TString(theEndTag(0,2)).Atoi(); 
+    int day1  =TString(theEndTag(3,2)).Atoi(); 
+    int year1 =TString(theEndTag(6,4)).Atoi(); 
+    //printf(" start %i %i %i ene %i %i %i  \n",month0,day0,year0,month1,day1,year1);
+
+    /* fill in values for 2019-08-22 23:22:26 */
+    tm.tm_year = year0;
+    tm.tm_mon = month0;
+    tm.tm_mday = day0;
+    time0  = mktime(&tm);
+    printf("set start %s\n", asctime(gmtime(&time0)));
+    tm.tm_year = year1;
+    tm.tm_mon = month1;
+    tm.tm_mday = day1;
+    time1  = mktime(&tm);
+    printf("set end %s\n", asctime(gmtime(&time1))); 
+}
+
 // normalize to total pass
 void normalizeTotalPass(TString histSet)
 {
@@ -180,7 +209,7 @@ void normalizeTotalPass(TString histSet)
         // double ebin = abs(hist->GetBinError(ibin));
         double ebin = sqrt(abs(hist->GetBinContent(ibin)));
         // if (xbin < 0)
-        cout << " at line179 " << hist->GetName() << " ibin " << ibin << " xbin " << xbin << " ebin " << ebin << " tot " << totalPass << endl;
+        //cout << " at line212 " << hist->GetName() << " ibin " << ibin << " xbin " << xbin << " ebin " << ebin << " tot " << totalPass << endl;
         hSave->SetBinContent(ibin, xbin / double(totalPass));
         hSave->SetBinError(ibin, ebin / double(totalPass));
       }
@@ -1094,14 +1123,27 @@ unsigned long countFiles()
   {
     string name = string(file->GetName());
     TString tname = TString(name.c_str());
-    if (!tname.Contains(tag))
-      continue; //
-    cout << name << endl;
     string exten = name.substr(name.find_last_of(".") + 1);
     if (exten != string("root"))
       continue;
-    if (name.find("root") != std::string::npos)
-    {
+      // see if file is correct time
+      int month = TString(tname(tname.Last('n')+2,2)).Atoi();
+      int day = TString(tname(tname.Last('n')+5,2)).Atoi();
+      int year = TString(tname(tname.Last('n')+8,4)).Atoi();
+      tm.tm_year = year;
+      tm.tm_mon = month;
+      tm.tm_mday = day;
+      time_t fileTime  = mktime(&tm);
+       const auto diff0 = std::difftime( fileTime, time0 );
+       const auto diff1 = std::difftime( fileTime, time1 );
+      printf("line1139 info : file %s time %s",tname.Data(),asctime(gmtime(&fileTime))); 
+      cout << " \t ..... " << diff0 << " "<< diff1 <<endl;
+      bool timetest = diff0>=0 && diff1<=0;
+      if(!timetest) {
+        cout <<"line1148 skip out of time file " << name << endl;
+        continue;
+      }
+
       // see if file is good
       TString fullName = dirNameSlash + TString(name.c_str());
       TFile *f = new TFile(fullName, "READONLY");
@@ -1116,7 +1158,6 @@ unsigned long countFiles()
       // good file add to list
       fileList.push_back(TString(name.c_str()));
       cout << "line1099 add file " << name << " nFiles= " << fileList.size() << endl;
-    }
   }
   return fileList.size();
 }
@@ -1130,7 +1171,8 @@ int main(int argc, char *argv[])
     printf("reguire file date start string <stag> args\n");
     exit(0);
   }
-
+  dirName = TString("caenData");
+  dirNameSlash = TString("caenData/");
   theStartTag=TString(argv[1]); 
 
   printf(" input args %i \n ", argc);
@@ -1144,6 +1186,8 @@ int main(int argc, char *argv[])
     theEndTag=TString(argv[2]); 
   }
 
+  setTime(theStartTag,theEndTag);
+
   dopeTime = TDatime(2023, 3, 9, 22, 0, 0);
 
   printf("count files from %s to %s \n",theStartTag.Data(),theEndTag.Data());
@@ -1155,7 +1199,6 @@ int main(int argc, char *argv[])
   }
 
   printf(" >>>>> files from %s to %s tag %s <<<<<\n",theStartTag.Data(),theEndTag.Data(),tag.Data());
-
 
   for (int i = 0; i < fileList.size(); ++i)
     cout << i << "  " << fileList[i] << endl;
@@ -1181,7 +1224,7 @@ int main(int argc, char *argv[])
   sdate = currentDate();
   cout << " starting summary for   " << maxFiles << endl;
 
-  fout = new TFile(Form("summary-%s-nfiles-%lld-dir-%s-%s.root", tag.Data(), maxFiles, dirName.Data(), sdate.c_str()), "recreate");
+  fout = new TFile(Form("summary-%s-nfiles-%lld-created-%s.root", tag.Data(), maxFiles, sdate.c_str()), "recreate");
   fitSumDir = fout->mkdir("fitSumDir");
   waveSumDir = fout->mkdir("waveSumDir");
   qpeSumDir = fout->mkdir("qpeSumDir");
