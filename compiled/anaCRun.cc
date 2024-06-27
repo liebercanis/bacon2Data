@@ -1510,13 +1510,13 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     fout->Append(grChannelSigma);
   }
 
-  printf(" ******* FINISHED***** \n \t hits by channels %i   \n", histHitCount->GetNbinsX());
+  printf(" ******* hit count summary ***** \n \t hits by channels %i   \n",histHitCount->GetNbinsX());
   for (int ibin = 0; ibin < histHitCount->GetNbinsX() - 1; ++ibin)
     printf(" chan %i count %i frac %f ; zero %i \n", ibin,
            int(histHitCount->GetBinContent(ibin + 1)), double(histHitCount->GetBinContent(ibin + 1)) / double(npass), int(hNoPeak->GetBinContent(ibin + 1)));
   printf("  \n");
 
-  printf(" \n \t ***** sums by channel with entries %.0f \n", hTotSum[0]->GetEntries());
+  printf(" \n \t sums by channel with entries %.0f \n", hTotSum[0]->GetEntries());
   for (int idet = 0; idet < hTotSum.size(); ++idet)
   {
     printf(" \t chan %i means: tot %.2f pre %.2f trig %.2f late %.2f\n", idet,
@@ -1527,7 +1527,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
 
   // printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
-  printf(" FINISHED %i ( %i ) pass %i (%i) fail %i ( frac %0.3f ) output file %s  \n",
+  printf(" finished %i ( %i ) pass %i (%i) fail %i ( frac %0.3f ) output file %s  \n",
          npass + nfail,
          int(hEventPass->GetEntries()),
          npass, int(hEventPass->GetBinContent(0)),
@@ -1545,6 +1545,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   fout->Write();
   fout->Close();
+  printf(" ***** FINISHED ****** %s emtries %lld \n",fout->GetName(), nentries);
   return nentries;
 }
 
