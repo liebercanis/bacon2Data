@@ -1129,7 +1129,7 @@ void hitFinder::fitSinglet(int idet, Long64_t ievent)
   if (!fSinglet)
     printf("line1095  hitFinder::fitSinglet fSinglet NULL so returning det %i event %lld \n", idet, ievent);
 
-    delete hEvClone;
+    //delete hEvClone;
 }
 
 // split peak based on derivaive
