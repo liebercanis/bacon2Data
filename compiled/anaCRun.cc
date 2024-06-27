@@ -548,7 +548,7 @@ int anaCRun::anaEvent(Long64_t entry)
   }
   tbrun->clear();        // clear detList
   speCount.clear();
-  speCount.resize(NONSUMCHANNELS);
+  speCount.resize(CHANNELS);
   std::fill(speCount.begin(), speCount.end(), 0);
   int passBit = 0;
   // previously 40 but channel 9 was missing peaks

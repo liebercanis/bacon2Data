@@ -12,7 +12,7 @@ ROOTLIBS     := $(shell root-config --libs)
 ROOTGLIBS    := $(shell root-config --glibs)
 ROOTINCS     := $(shell root-config --incdir)
 
-CXXFLAGS     :=  $(ROOTCFLAGS) -fPIC -I$(LOCAL) 
+CXXFLAGS     :=  $(ROOTCFLAGS) -fPIC -I$(LOCAL) -fsanitize=address 
 LIBS         :=  $(ROOTLIBS) $(CINTFLAGS)
 INSTALLNAME  :=  $(HOME)/bacon2Data/bobj/$(LIBRARY) 
 CINTFLAGS    := -I$(ROOTINCS) 
