@@ -1116,15 +1116,20 @@ void hitFinder::fitSinglet(int idet, Long64_t ievent)
   singletPeakTime = unsigned(maxBin);
   // printf("line1079 fitSinglet  idet %i event %lld %s \n", idet, ievent, hEvWave[idet]->GetName());
   //  this prevents crash!!!
-  hEvWave[idet]->GetListOfFunctions()->Clear();
+
+  /* memory leak first clone*/
+  TH1D* hEvClone = (TH1D*) hEvWave[idet]->Clone("EvClone");
+  //hEvWave[idet]->GetListOfFunctions()->Clear();
   // do not make TCanvas
-  hEvWave[idet]->Fit("landau", "RQS0", "", maxBin, maxBin + 20);
+  hEvClone->Fit("landau", "RQS0", "", maxBin, maxBin + 20);
   // check its(int) value which is 0 if ok, -1 if not .
   //  status = 0 : the fit has been performed successfully(i.e no error occurred).
   // hEvWave[idet]->GetListOfFunctions()->ls();
-  fSinglet = (TF1 *)hEvWave[idet]->GetListOfFunctions()->FindObject("landau");
+  fSinglet = (TF1 *)hEvClone->GetListOfFunctions()->FindObject("landau");
   if (!fSinglet)
     printf("line1095  hitFinder::fitSinglet fSinglet NULL so returning det %i event %lld \n", idet, ievent);
+
+    delete hEvClone;
 }
 
 // split peak based on derivaive
