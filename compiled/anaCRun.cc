@@ -1445,6 +1445,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
   printf(" \n \n At END OF FILE total pass  = %i fail %i  \n", npass, nfail);
 
+  /*
   TString graphName = TString("slopeGraph");
   TString graphTitle = TString(Form("slope-graph-%s", shortName.c_str()));
   printf(" making slope graph %s \n", graphName.Data());
@@ -1508,7 +1509,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     grChannelSigma->SetMarkerStyle(21);
     grChannelSigma->SetLineStyle(0);
     fout->Append(grChannelSigma);
-  }
+  }*/
 
   printf(" ******* hit count summary ***** \n \t hits by channels %i   \n",histHitCount->GetNbinsX());
   for (int ibin = 0; ibin < histHitCount->GetNbinsX() - 1; ++ibin)
