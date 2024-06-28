@@ -606,24 +606,25 @@ int anaCRun::anaEvent(Long64_t entry)
     // get the distribution mode
     double mode = hEvGaus[ib]->GetBinLowEdge(hEvGaus[ib]->GetMaximumBin()) + 0.5 * hEvGaus[ib]->GetBinWidth(hEvGaus[ib]->GetMaximumBin());
 
-    /* memory leak first clone*/
-    TH1D* hEvClone = (TH1D*) hEvGaus[ib]->Clone("EvClone");
-    hEvClone->Fit("gaus", "Q0", "", hEvGaus[ib]->GetMean() - 100, hEvGaus[ib]->GetMean() + 100);
-    TF1 *gfit = (TF1 *)hEvClone->GetListOfFunctions()->FindObject("gaus");
+    /* dont do this memory leak first clone*/
+    hEvGaus[ib]->GetListOfFunctions()->Clear();
+    //TH1D* hEvClone = (TH1D*) hEvGaus[ib]->Clone("EvClone");
+    TFitResultPtr fitptr = hEvGaus[ib]->Fit("gaus", "LQ0", "", -100,100);
+    int fitStatus = fitptr;
+    TF1 *gfit = (TF1 *)hEvGaus[ib]->GetListOfFunctions()->FindObject("gaus");
     double ave = hEvGaus[ib]->GetMean();
     double sigma = hEvGaus[ib]->GetRMS();
     double skew = 0;
     double fitMean = 0;
     if (!isnan(hEvGaus[ib]->GetSkewness()))
       skew = hEvGaus[ib]->GetSkewness();
-    if (gfit != nullptr)
+    if (gfit != nullptr&&fitStatus==0)
     {
       ave = gfit->GetParameter(1);
       fitMean = ave; // fit mean
       sigma = gfit->GetParameter(2);
-    }
-
-    delete hEvClone;
+    } else 
+      printf("line627!!!! gaus fit fails event %lld chan %u fitStaus %i \n",entry,ib,fitStatus);
 
 
     evDir->cd();
@@ -1200,6 +1201,20 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   fout = new TFile(outFileName, "recreate");
   cout << " opened output file " << fout->GetName() << endl;
 
+  rawSumDir = fout->mkdir("rawSumDir");
+  evDir = fout->mkdir("evDir");
+  pmtDir = fout->mkdir("pmtDir");
+  badDir = fout->mkdir("badDir");
+  badTrigDir = fout->mkdir("badTrigDir");
+  earlyPeakDir = fout->mkdir("earlyPeakDir");
+  anaDir = fout->mkdir("anadir");
+  sumDir = fout->mkdir("sumDir");
+  TDirectory *finderDir = fout->mkdir("finderDir");
+  TDirectory *splitDir = fout->mkdir("splitDir");
+  TDirectory *sumWaveDir = fout->mkdir("sumWaveDir");
+  TDirectory *fitSingletDir = fout->mkdir("fitSingletDir");
+  fout->ls();
+
   currentBuffer = -1;
   currentBufferCount = 0;
   printf(" anaCRun::anaCRunFile starting anaCRun file %s maxEntries %llu firstEntry %llu \n",
@@ -1237,18 +1252,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     nentries = TMath::Min(maxEntries, nentries);
   printf("... total entries  %llu looping over %llu starting from %llu \n ", rawTree->GetEntries(), nentries, firstEntry);
 
-  rawSumDir = fout->mkdir("rawSumDir");
-  evDir = fout->mkdir("evDir");
-  pmtDir = fout->mkdir("pmtDir");
-  badDir = fout->mkdir("badDir");
-  badTrigDir = fout->mkdir("badTrigDir");
-  earlyPeakDir = fout->mkdir("earlyPeakDir");
-  anaDir = fout->mkdir("anadir");
-  sumDir = fout->mkdir("sumDir");
-  TDirectory *finderDir = fout->mkdir("finderDir");
-  TDirectory *splitDir = fout->mkdir("splitDir");
-  TDirectory *sumWaveDir = fout->mkdir("sumWaveDir");
-  fout->ls();
   getSummedHists();
   // fout->ls();
 
@@ -1317,7 +1320,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     {
       valHist.push_back(new TH1D(Form("valChan%i", ichan), Form("valChan%i", ichan), 1500, -500, 1000));
       valHistB.push_back(new TH1D(Form("valBadChan%i", ichan), Form("valBadChan%i", ichan), 1500, -500, 1000));
-      hEvGaus.push_back(new TH1D(Form("evGaus%i", ichan), Form("evGaus%i", ichan), 200, -500, 500));
+      hEvGaus.push_back(new TH1D(Form("evGaus%i", ichan), Form("evGaus%i", ichan), 200, -100, 100));
       baseHist.push_back(new TH1D(Form("baseChan%i", ichan), Form("baseChan%i", ichan), 200, -10000, 1000));
     }
     else

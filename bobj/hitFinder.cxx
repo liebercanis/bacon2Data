@@ -72,16 +72,20 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   fout = theFile;
   
   finderDir = (TDirectory *)fout->FindObject("finderDir");
- if(!finderDir) {
-    printf("no finder dir\n");
+  if(!finderDir) {
+    printf("no finderDir\n");
   } 
   splitDir = (TDirectory *)fout->FindObject("splitDir");
   if(!splitDir) {
-    printf("no finder dir\n");
+    printf("no split dir\n");
   }
   sumWaveDir = (TDirectory *)fout->FindObject("sumWaverDir");
   if(!sumWaveDir) {
-    printf("no finder dir\n");
+    printf("no sum wave  dir\n");
+  }
+  fitSingletDir = (TDirectory *)fout->FindObject("fitSingletDir");
+  if(!fitSingletDir) {
+    printf("no fit singlet dir\n");
   }
 
   tag = theTag;
@@ -441,8 +445,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   unsigned minWidth = 10;
   findDerivativeCrossings(idet);
   // findThresholdCrossings(idet, threshold);
-  fitSinglet(idet, ievent);
   makePeaks(idet, digi);
+  if(peakList.size()>0) fitSinglet(idet, ievent);
   // splitPeaks(idet);
   makeHits(idet, triggerTime, firstCharge);
   hPeakCount->Fill(idet, peakList.size());
@@ -1117,19 +1121,23 @@ void hitFinder::fitSinglet(int idet, Long64_t ievent)
   // printf("line1079 fitSinglet  idet %i event %lld %s \n", idet, ievent, hEvWave[idet]->GetName());
   //  this prevents crash!!!
 
-  /* memory leak first clone*/
-  TH1D* hEvClone = (TH1D*) hEvWave[idet]->Clone("EvClone");
-  //hEvWave[idet]->GetListOfFunctions()->Clear();
-  // do not make TCanvas
-  hEvClone->Fit("landau", "RQS0", "", maxBin, maxBin + 20);
+  /* do not do this: memory leak first clone*/
+  //TH1D* hEvClone = (TH1D*) hEvWave[idet]->Clone("EvClone");
+  hEvWave[idet]->GetListOfFunctions()->Clear();
+  // do not make TCanvas // MINUIT error matrix not postive def. switch to Likleihood
+  double fitStart =hEvWave[idet]->GetBinLowEdge(maxBin-10);
+  double fitEnd =hEvWave[idet]->GetBinLowEdge(maxBin+20);
+  TFitResultPtr fitptr = hEvWave[idet]->Fit("landau", "QS0", "",fitStart,fitEnd);  // was 20
+  int fitStatus = fitptr;
   // check its(int) value which is 0 if ok, -1 if not .
   //  status = 0 : the fit has been performed successfully(i.e no error occurred).
   // hEvWave[idet]->GetListOfFunctions()->ls();
-  fSinglet = (TF1 *)hEvClone->GetListOfFunctions()->FindObject("landau");
-  if (!fSinglet)
-    printf("line1095  hitFinder::fitSinglet fSinglet NULL so returning det %i event %lld \n", idet, ievent);
-
-    //delete hEvClone;
+  if(fitStatus==0) fSinglet = (TF1 *)hEvWave[idet]->GetListOfFunctions()->FindObject("landau");
+  //status = migradStatus + 10*minosStatus + 100*hesseStatus + 1000*improveStatus. 
+  if (!fSinglet){
+    printf("line1095  hitFinder::fitSinglet fSinglet NULL for det %i event %lld  range (%0.f,%0.f) fitStatus %i \n", idet, ievent,fitStart,fitEnd,fitStatus);
+    if(fitSingletDir->GetList()->GetEntries() < 100) plotEvent(fitSingletDir,idet,ievent);
+  }
 }
 
 // split peak based on derivaive

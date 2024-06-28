@@ -72,6 +72,7 @@ public:
   TDirectory *finderDir;
   TDirectory *splitDir;
   TDirectory *sumWaveDir;
+  TDirectory *fitSingletDir;
   Long64_t theEvent;
   bool doFFT;
   bool isCAEN;
