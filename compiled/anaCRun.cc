@@ -992,8 +992,8 @@ int anaCRun::anaEvent(Long64_t entry)
 
       // do threshold for summed waveform
       // if (thit.qsum > hitThreshold)
-      if(int(thit.peakt)-thit.firstBin > 30) 
-        printf("line 980 in anaCRun event %lli  det %i  peak %u start %i \n",entry, idet, thit.peakt, thit.firstBin);
+      //if(int(thit.peakt)-thit.firstBin > 30) 
+      //  printf("line980 in anaCRun event %lli  det %i  peak %u start %i \n",entry, idet, thit.peakt, thit.firstBin);
 
       sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
       sumPeakWave[idet]->SetBinContent(thit.firstBin + 1, sumPeakWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
@@ -1387,7 +1387,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
 
   fout->cd();
-  fout->ls();
+  ///fout->ls();
 
   cout << " make hitFinder dets = " << CHANNELS << "  size " << rawBr[0]->rdigi.size() << endl;
   vector<int> chanList;
