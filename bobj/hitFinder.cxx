@@ -892,8 +892,8 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     }
 
     // redefine low, ihgh relative to this peak
-    unsigned kstart = TMath::Max(unsigned(0), peakt- 30);
-    unsigned kend = TMath::Min(unsigned(digi.size()), peakt+ 50);
+    unsigned kstart = TMath::Max(unsigned(0), peakt- peakWidth);
+    unsigned kend = TMath::Min(unsigned(digi.size()), peakt+ peakWidth);
     // cut small peaks below hitThreshold
     hPeakCut[idet]->Fill(qpeak);
     hPeakCutAndTime[idet]->Fill(peakt, qpeak);
