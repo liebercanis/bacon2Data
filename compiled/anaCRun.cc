@@ -191,7 +191,7 @@ public:
   unsigned timeOffset = 13;   // changed from 17 may 13, 2024
   ULong_t taveEarlyCut = 710;
   ULong_t taveLateCut = 740;
-  ULong_t timeEarlyCut = 690;
+  ULong_t timeEarlyCut = 660;
   ULong_t timeLateCut = 890;
   double prePeakCut = 0.5;
   double latePeakCut = 3.5; // march 18 2024 2.5;
