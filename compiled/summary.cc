@@ -69,6 +69,9 @@ vector<double> filePass;
 int totalPass;
 vector<double> effOther;
 vector<double> sumHits;
+static double startTime = 660.; // hWave->GetBinLowEdge(maxBin) + hWave->GetBinWidth(maxBin) / 2.;
+static double endTime=75000.0;
+static double nominalGain = 227.4;
 
 std::vector<TString> fileList;
 std::vector<double> filenum;
@@ -142,7 +145,7 @@ TString dirName;
 TString dirNameSlash;
 
 double effQuantum128 = 0.17;
-double nPhotons = 50.E3 * 5.486;
+double nPhotons = 50.E3 * 5.486; //norm photon yield 2.743E+05 
 
 TString startDate;
 TString endDate;
@@ -150,7 +153,6 @@ TString endDate;
 // vectors for gains
 std::vector<double> sipmGain;
 std::vector<double> sipmGainError;
-double nominalGain = 227.4;
 double xWaveLow = 0;
 double xWaveHigh = 7500; // max sample
 
@@ -185,7 +187,7 @@ void setTime(TString startTag, TString endTag)
 // normalize to total pass
 void normalizeTotalPass(TString histSet)
 {
-  for (int ichan = 0; ichan < CHANNELS; ++ichan)
+  for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
   {
     if (ichan == 12) // skip broken PMT
       continue;
@@ -201,8 +203,8 @@ void normalizeTotalPass(TString histSet)
     {
       TH1D *hSave = (TH1D *)hist->Clone(saveName);
       hSave->SetTitle(saveName);
-      sumHits[ichan] = hist->Integral();
-      printf("at line174 %s normalize to %d\n", hSave->GetName(), totalPass);
+      sumHits[ichan] = hist->Integral(startTime,endTime)/sipmGain[ichan];
+      //printf("at line174 %s normalize to %d\n", hSave->GetName(), totalPass);
       for (int ibin = 0; ibin < hist->GetNbinsX(); ++ibin)
       {
         double xbin = hist->GetBinContent(ibin);
@@ -210,12 +212,13 @@ void normalizeTotalPass(TString histSet)
         double ebin = sqrt(abs(hist->GetBinContent(ibin)));
         // if (xbin < 0)
         //cout << " at line212 " << hist->GetName() << " ibin " << ibin << " xbin " << xbin << " ebin " << ebin << " tot " << totalPass << endl;
-        hSave->SetBinContent(ibin, xbin / double(totalPass));
-        hSave->SetBinError(ibin, ebin / double(totalPass));
+        // divide by nominal gain july 22 2024
+        hSave->SetBinContent(ibin, xbin / double(totalPass)/nominalGain);
+        hSave->SetBinError(ibin, ebin / double(totalPass)/nominalGain);
       }
       cout << "at line171"
-           << " totalPass " << totalPass << "  " << hist->GetName() << " integral " << hist->Integral()
-           << " normed  " << hSave->GetName() << " integral " << hSave->Integral() << endl;
+           << " totalPass " << totalPass << "  " << hist->GetName() << " integral " << hist->Integral(startTime,endTime)
+           << " normed  " << hSave->GetName() << " integral " << hSave->Integral(startTime,endTime) << endl;
     }
   }
 }
@@ -253,7 +256,7 @@ bool readGains(TString fileName)
     sipmGainError[index] = gGain->GetErrorY(i);
   }
 
-  printf("stored gains %lu \n", sipmGain.size());
+  printf("\t\t\t stored gains %lu \n", sipmGain.size());
   for (unsigned long j = 0; j < sipmGain.size(); ++j)
   {
     printf(" %lu  gain %.4f error %.4f   \n", j, sipmGain[j], sipmGainError[j]);
@@ -748,7 +751,7 @@ void fileLoop()
         // histName.Form("RunHitWaveChan%i", ichan);
         // hRunClone = (TH1D *)h->Clone(histName);
         waveSumDir->Add(hClone);
-        vRunHitWave[ichan].push_back(hClone);
+
         cout << "line718  sumHitWave clone " << hClone->GetName()
              << " file " << ifile << " vRunHitWave " << vRunHitWave[ichan].size() << endl;
         /*  do not sum here */
@@ -1069,7 +1072,7 @@ void fitSlopes()
         To be used when the histogram represents counts.
       */
 
-      hWaveToFit->Fit("expo", "LQ", " ", flow, fhigh);
+      hWaveToFit->Fit("expo", "QLQ", " ", flow, fhigh);
       gslopefit = (TF1 *)hWaveToFit->GetListOfFunctions()->FindObject("expo");
       double mfit = 0;
       double emfit = 0;
@@ -1317,9 +1320,13 @@ int main(int argc, char *argv[])
   */
 
   // read old gain file
-  TString gainFileName = TString("gains-2024-02-15-17-26-save.root");
+  TString gainFileName = TString(getenv("BOBJ"))+TString("/gains-2024-02-15-17-26-save.root");
   cout << "read gains from file " << gainFileName << endl;
-  readGains(gainFileName);
+  if(!readGains(gainFileName)) {
+    printf("no gain file %s so exit \n",gainFileName.Data());
+    exit(0);
+  }
+
 
   // use a relative normalization
   /*
@@ -1403,7 +1410,7 @@ int main(int argc, char *argv[])
 
     TF1 *gfit = NULL;
     double ave2 = 0;
-    hRunHitWave[ichan]->Fit("pol0", "QLF", " ", fitStart, fitEnd);
+    hRunHitWave[ichan]->Fit("pol0", "LF", " ", fitStart, fitEnd);
     gfit = (TF1 *)hRunHitWave[ichan]->GetListOfFunctions()->FindObject("pol0");
     if (gfit)
     {
@@ -1428,8 +1435,9 @@ int main(int argc, char *argv[])
     // sumHits[ichan] = sum - back;
     if (sum - back < 0)
       back = back2;
-    printf("totalHits[%i]=%E;\n", ichan, sum - back);
-    printf("totalHits[%i]=%E;\n", ichan, sum - back2);
+      sum /= sipmGain[ichan];
+    //printf("totalHits[%i]=%E;\n", ichan, sum - back);
+    printf("totalHits[%i]=%E SPE;\n", ichan, sum);
   }
   printf("\n totalHits in %i passed triggers \n", totalPass);
   for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
