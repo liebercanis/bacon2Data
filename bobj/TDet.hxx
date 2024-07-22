@@ -47,7 +47,7 @@ public:
   Double_t hitPrompt;
   Double_t qarea;
   Double_t qpeak;
-  bool pass;
+  int pass;
   std::vector<TDetHit> hits;
 
   unsigned nhits() { return hits.size(); }
@@ -76,7 +76,7 @@ public:
     hitPrompt = 0;
     qarea = 0;
     qpeak = 0;
-    pass = true;
+    pass = 0;
     hits.clear();
   }
 
