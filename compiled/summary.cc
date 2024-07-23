@@ -1233,22 +1233,6 @@ int main(int argc, char *argv[])
   gainSumDir = fout->mkdir("gainSumDir");
   fout->cd();
 
-
-  // histograms time in ns
-  runSumDir->cd();
-  TString histName;
-  for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
-  {
-    histName.Form("Run%sChan%i","HitWave", ichan);
-    hRunHitWave[ichan] = new TH1D(histName,histName,waveBins,0,2.*waveBins);
-    hRunHitWave[ichan]->GetXaxis()->SetTitle("time [ns]");
-    hRunHitWave[ichan]->GetYaxis()->SetTitle("yield [SPE] ");
-    histName.Form("Run%sChan%i","SumWave", ichan);
-    hRunSumWave[ichan] = new TH1D(histName,histName,waveBins,0,2.*waveBins);
-    hRunSumWave[ichan]->GetXaxis()->SetTitle("time [ns]");
-    hRunSumWave[ichan]->GetYaxis()->SetTitle("yield [SPE] ");
-  }
-
   hQPEChan = new TH1D("QPEChan", "QPE  by channel", 12, 0, 12);
   hQPESigmaChan = new TH1D("QPESigmaChan", "QPE  by channel", 12, 0, 12);
   hQPEChan->Sumw2();
@@ -1289,6 +1273,24 @@ int main(int argc, char *argv[])
     effOther[ichan] = 1.;
     sumHits[ichan] = 0.;
   }
+
+
+  // histograms time in ns
+  runSumDir->cd();
+  TString histName;
+  for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
+  {
+    histName.Form("Run%sChan%i","HitWave", ichan);
+    hRunHitWave[ichan] = new TH1D(histName,histName,waveBins,0,2.*waveBins);
+    hRunHitWave[ichan]->GetXaxis()->SetTitle("time [ns]");
+    hRunHitWave[ichan]->GetYaxis()->SetTitle("yield [SPE] ");
+    histName.Form("Run%sChan%i","SumWave", ichan);
+    hRunSumWave[ichan] = new TH1D(histName,histName,waveBins,0,2.*waveBins);
+    hRunSumWave[ichan]->GetXaxis()->SetTitle("time [ns]");
+    hRunSumWave[ichan]->GetYaxis()->SetTitle("yield [SPE] ");
+  }
+
+  fout->cd();
 
 
   // nominal values
