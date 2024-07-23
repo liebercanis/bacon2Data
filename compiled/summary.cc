@@ -1022,6 +1022,23 @@ void sumHistosChannel(int ichan, TString histSet)
 
 void sumHistos()
 {
+  // histograms time in ns
+  runSumDir->cd();
+  TString histName;
+  for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
+  {
+    histName.Form("Run%sChan%i","HitWave", ichan);
+    hRunHitWave[ichan] = new TH1D(histName,histName,waveBins,0,2.*waveBins);
+    hRunHitWave[ichan]->GetXaxis()->SetTitle("time [ns]");
+    hRunHitWave[ichan]->GetYaxis()->SetTitle("yield [SPE] ");
+    histName.Form("Run%sChan%i","SumWave", ichan);
+    hRunSumWave[ichan] = new TH1D(histName,histName,waveBins,0,2.*waveBins);
+    hRunSumWave[ichan]->GetXaxis()->SetTitle("time [ns]");
+    hRunSumWave[ichan]->GetYaxis()->SetTitle("yield [SPE] ");
+  }
+
+  runSumDir->ls();
+
   printf("line963 sumHistos: Number of files  %d vRunHitWave size %lu\n", nFiles, vRunHitWave.size());
   // loop over channels
   for (int ichan = 0; ichan < CHANNELS; ++ichan)
@@ -1275,23 +1292,7 @@ int main(int argc, char *argv[])
   }
 
 
-  // histograms time in ns
-  runSumDir->cd();
-  TString histName;
-  for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
-  {
-    histName.Form("Run%sChan%i","HitWave", ichan);
-    hRunHitWave[ichan] = new TH1D(histName,histName,waveBins,0,2.*waveBins);
-    hRunHitWave[ichan]->GetXaxis()->SetTitle("time [ns]");
-    hRunHitWave[ichan]->GetYaxis()->SetTitle("yield [SPE] ");
-    histName.Form("Run%sChan%i","SumWave", ichan);
-    hRunSumWave[ichan] = new TH1D(histName,histName,waveBins,0,2.*waveBins);
-    hRunSumWave[ichan]->GetXaxis()->SetTitle("time [ns]");
-    hRunSumWave[ichan]->GetYaxis()->SetTitle("yield [SPE] ");
-  }
-
-  runSumDir->ls();
-
+  
   fout->cd();
 
 
