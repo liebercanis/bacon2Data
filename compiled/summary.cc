@@ -51,6 +51,8 @@ enum
   CHANNELS = 14,
   NONSUMCHANNELS = CHANNELS - 1
 };
+
+static int waveBins =7500.;
 int nFiles;
 TString tag;
 TString theStartTag;
@@ -115,7 +117,6 @@ std::vector<vector<TH1D *>> vRunHitWave;
 std::vector<vector<TH1D *>> vRunPeakWave;
 std::vector<TH1D *> hSumWave;
 std::vector<TH1D *> hRunHitWave;
-std::vector<TH1D *> hRunPeakWave;
 std::vector<TH1D *> hRunSumWave;
 std::vector<TH1D *> hUnNormedHitWave;
 std::vector<TH1D *> hUnNormedSumWave;
@@ -187,23 +188,24 @@ void setTime(TString startTag, TString endTag)
 // normalize to total pass
 void normalizeTotalPass(TString histSet)
 {
+  TString histName;
   for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
   {
     if (ichan == 12) // skip broken PMT
       continue;
-    TString histName;
+
     histName.Form("UnNormed%sChan%i", histSet.Data(), ichan);
-    TString saveName;
-    saveName.Form("Run%sChan%i", histSet.Data(), ichan);
     TH1D *hist;
     runSumDir->GetObject(histName, hist);
     if (!hist)
       printf("at line165 %s not found \n", histName.Data());
+    TH1D* hSave;
     if (hist)
     {
-      TH1D *hSave = (TH1D *)hist->Clone(saveName);
-      hSave->SetTitle(saveName);
-      sumHits[ichan] = hist->Integral(startTime,endTime)/sipmGain[ichan];
+      if(histSet.Contains("Hit")) hSave =  hRunHitWave[ichan];
+      else hSave =  hRunSumWave[ichan];
+
+      sumHits[ichan] = hist->Integral(startTime,endTime)/nominalGain;
       //printf("at line174 %s normalize to %d\n", hSave->GetName(), totalPass);
       for (int ibin = 0; ibin < hist->GetNbinsX(); ++ibin)
       {
@@ -747,7 +749,7 @@ void fileLoop()
         cloneName.Form("RunHitWaveFile%uChan%i", ifile, ichan);
         hClone = (TH1D *)h->Clone(cloneName);
         hClone->SetTitle(cloneName);
-        TString histName;
+        //TString histName;
         // histName.Form("RunHitWaveChan%i", ichan);
         // hRunClone = (TH1D *)h->Clone(histName);
         waveSumDir->Add(hClone);
@@ -766,7 +768,7 @@ void fileLoop()
         cloneName.Form("RunPeakWaveFile%uChan%i", ifile, ichan);
         hClone = (TH1D *)h->Clone(cloneName);
         hClone->SetTitle(cloneName);
-        TString histName;
+        //TString histName;
         // histName.Form("RunPeakWaveChan%i", ichan);
         // hRunClone = (TH1D *)h->Clone(histName);
         waveSumDir->Add(hClone);
@@ -865,11 +867,6 @@ void sumHistosChannel(int ichan, TString histSet)
 
     // cout << "at line 765 waveToSum " << waveToSum->GetName() << endl;
 
-    waveToSum->SetXTitle(" time [ns] ");
-    if (histSet == TString("HitWave"))
-      waveToSum->SetYTitle("summed yield in QPE");
-    else if (histSet == TString("SumWave"))
-      waveToSum->SetYTitle("summed yield [ADC]");
     // new histogram
     int nbinsx = waveToSum->GetNbinsX();
     double xlow = waveToSum->GetXaxis()->GetBinLowEdge(0);
@@ -1263,7 +1260,6 @@ int main(int argc, char *argv[])
   vRunPeakWave.resize(CHANNELS);
 
   hRunHitWave.resize(CHANNELS);
-  hRunPeakWave.resize(CHANNELS);
   hRunSumWave.resize(CHANNELS);
   hUnNormedHitWave.resize(CHANNELS);
   hUnNormedSumWave.resize(CHANNELS);
@@ -1273,12 +1269,24 @@ int main(int argc, char *argv[])
   for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
   {
     hUnNormedHitWave[ichan] = NULL;
-    hUnNormedSumWave[ichan] = NULL;
-    hRunHitWave[ichan] = NULL;
-    hRunPeakWave[ichan] = NULL;
-    hRunSumWave[ichan] = NULL;
+    hUnNormedSumWave[ichan] =  NULL;
     effOther[ichan] = 1.;
     sumHits[ichan] = 0.;
+  }
+
+  // histograms time in ns
+  runSumDir->cd();
+  TString histName;
+  for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
+  {
+    histName.Form("Run%sChan%i","HitWave", ichan);
+    hRunHitWave[ichan] = new TH1D(histName,histName,waveBins,0,2.*waveBins);
+    hRunHitWave[ichan]->GetXaxis()->SetTitle("time [ns]");
+    hRunHitWave[ichan]->GetYaxis()->SetTitle("yield [SPE] ");
+    histName.Form("Run%sChan%i","SumWave", ichan);
+    hRunSumWave[ichan] = new TH1D(histName,histName,waveBins,0,2.*waveBins);
+    hRunSumWave[ichan]->GetXaxis()->SetTitle("time [ns]");
+    hRunSumWave[ichan]->GetYaxis()->SetTitle("yield [SPE] ");
   }
 
   // nominal values
