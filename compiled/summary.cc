@@ -1290,6 +1290,8 @@ int main(int argc, char *argv[])
     hRunSumWave[ichan]->GetYaxis()->SetTitle("yield [SPE] ");
   }
 
+  runSumDir->ls();
+
   fout->cd();
 
 
@@ -1495,6 +1497,7 @@ int main(int argc, char *argv[])
   }
   gainSumDir->Purge();
   fout->Purge(1);
+  runSumDir->ls();
   fout->Write();
   fout->Close();
   cout << "summary finished "
