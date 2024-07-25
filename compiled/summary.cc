@@ -205,7 +205,7 @@ void normalizeTotalPass(TString histSet)
       if(histSet.Contains("Hit")) hSave =  hRunHitWave[ichan];
       else hSave =  hRunSumWave[ichan];
 
-      sumHits[ichan] = hist->Integral(startTime,endTime)/nominalGain;
+      sumHits[ichan] = hist->Integral(startTime,endTime);
       //printf("at line174 %s normalize to %d\n", hSave->GetName(), totalPass);
       for (int ibin = 0; ibin < hist->GetNbinsX(); ++ibin)
       {
