@@ -202,7 +202,7 @@ void normalizeTotalPass(TString histSet)
     TH1D* hSave;
     if (hist)
     {
-      if(histSet.Contains("Hit")) hSave =  hRunHitWave[ichan];
+      if(histSet.Contains("Peak")) hSave =  hRunHitWave[ichan];
       else hSave =  hRunSumWave[ichan];
 
       sumHits[ichan] = hist->Integral(startTime,endTime);
@@ -1046,12 +1046,12 @@ void sumHistos()
   printf("line963 sumHistos: Number of files  %d vRunHitWave size %lu\n", nFiles, vRunHitWave.size());
   // loop over channels
   for (int ichan = 0; ichan < CHANNELS; ++ichan)
-    sumHistosChannel(ichan, TString("HitWave"));
+    sumHistosChannel(ichan, TString("PeakWave"));
   for (int ichan = 0; ichan < CHANNELS; ++ichan)
     sumHistosChannel(ichan, TString("SumWave"));
   // normalize each channel
   // waveSumDir->ls();
-  normalizeTotalPass(TString("HitWave"));
+  normalizeTotalPass(TString("PeakWave"));
   normalizeTotalPass(TString("SumWave"));
 }
 
