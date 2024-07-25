@@ -1457,15 +1457,36 @@ int main(int argc, char *argv[])
    * work around do to no keys! *****/
 
     fitSumDir->Purge(1);
-
+    std::vector<vector<double>> runSums;
+    runSums.resize(NONSUMCHANNELS); 
     printf(" size of vNormByFile %lu \n",vNormByFile.size()); 
     for(int ihist = 0; ihist< vNormByFile.size(); ++ihist) {
       TString sname = TString(vNormByFile[ihist]->GetName());
       int chanNumber = TString(sname(sname.Last('n') + 1, sname.Length())).Atoi();
+      if(chanNumber>11) continue;
       int fileNumber = TString(sname(sname.Last('e') + 1, sname.Length())).Atoi();
-      printf("chan %i file %i pass %i integral %.3E \n",fileNumber,chanNumber,filePass[fileNumber],vNormByFile[ihist]->Integral() );
-      if(chanNumber>11) break;
+      double inte = vNormByFile[ihist]->Integral();
+      printf("file %i chan %i %s pass %i integral %.3E \n",fileNumber,chanNumber,vNormByFile[ihist]->GetName(),filePass[fileNumber],inte);
+      runSums[chanNumber].push_back(inte);
     }
+
+    printf(" filenum %lu runSums 0 %lu \n",filenum.size(), runSums[0].size());
+    std::vector< TGraph* > gInte;
+    gInte.resize(runSums.size()); 
+    for(int ichan=0; ichan <runSums.size(); ++ ichan) {
+      gInte[ichan] = new TGraph(runSums[ichan].size(),&filenum[0],&runSums[ichan][0]);
+      for(int ic=0; ic <runSums[ichan].size(); ++ ic) cout<< ichan << " " << runSums[ichan][ic] << endl;
+      TString graphName;
+      graphName.Form("gInteChan%i",ichan);
+      gInte[ichan]->SetName(graphName);
+      gInte[ichan]->SetTitle(graphName);
+      gInte[ichan]->SetMarkerSize(1);
+      gInte[ichan]->SetMarkerColor(kBlue);
+      gInte[ichan]->SetMarkerStyle(21);
+      fout->Add(gInte[ichan]);
+    }
+
+
 
   cout << "summary finished "
        << " total pass " << totalPass << " maxFiles  " << maxFiles << " files written to " << fout->GetName() << endl;
