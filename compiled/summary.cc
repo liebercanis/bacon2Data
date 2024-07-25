@@ -833,10 +833,10 @@ void fileLoop()
     fout->Write();
     // if(ifile==0) fout->ls();
     // waveSumDir->Write();
-    fin->Close();
     totalPass += int(npass);
     ++nFiles;
-    cout << "fileLoop finished file " << ifile << "  " << nFiles << endl;
+    printf("line839 finised file %i of %i named %s file pass %i totalPass %i \n",ifile, nFiles, fin->GetName(),npass,totalPass );
+    fin->Close();
   } // end loop over files
   printf("fileLoop finished over %lld good files %d  totalPass %i \n", maxFiles, nFiles, totalPass); // DEF would be nice to put in a way to look at the last maxFiles files
 }
