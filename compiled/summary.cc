@@ -835,7 +835,7 @@ void fileLoop()
     // waveSumDir->Write();
     totalPass += int(npass);
     ++nFiles;
-    printf("line839 finised file %i of %i named %s file pass %i totalPass %i \n",ifile, nFiles, fin->GetName(),npass,totalPass );
+    printf("line839 finised file %i of %i named %s file pass %i totalPass %i \n",ifile, nFiles, fin->GetName(),int(npass),totalPass );
     fin->Close();
   } // end loop over files
   printf("fileLoop finished over %lld good files %d  totalPass %i \n", maxFiles, nFiles, totalPass); // DEF would be nice to put in a way to look at the last maxFiles files
