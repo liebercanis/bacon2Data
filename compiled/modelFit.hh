@@ -1,30 +1,7 @@
+#include "TString.h"
 // MG added additions from Doug and geometry Jun 27, 2023
 // time is in microseconds
 // model with absorption
-// static double tres = 7.86;
-// static double tres = 5.4;
-static double tres = 10;
-static double tTriplet = 1600.0; // 2100.0;
-static double tSinglet = 5.0;
-static double tMix = 4700.;
-static double tXe = 20.0;
-static double kxe = 8.8E-5;             // diffusion time
-static double kqZero = 1.3E-4;          // kq in the paper quenching rate
-static double xTrigger = 729.;           // nominalTriggerTime
-static double xMin = 700.;             // 
-static double xMax = 7500.;             // 
-static double nPhotons = 50.E3 * 5.486; // 274300.00
-static double distanceLevel[4];
-static double effGeo[13];
-static double trec = 37.1; // ns Eur. Phys. J. C (2013) 73:2618
-
-enum
-{
-  NTYPES = 5,
-  NCHAN = 13,
-  NPARS = 13
-};
-
 /*
  Calculate absorption as a function of distance and xenon concentration.
 // Taken from fits to Neumeier data.
@@ -53,15 +30,88 @@ enum
         XSol = Solve.X;
         ISol = Solve.I;
 // Hamamatsu PMT or SiPM QE corrections
-        SiPMQE150 = 0.238;
+        SiPMQE150 = 0.238;:%:
         SiPMQE175 = 0.238;
         PMTQE175 = 0.38;
 */
 
+static int theBinWidth = 2;
+static double nPhotons = 4.1E4; // 7.6*5.4E3
+static double fillFactor = 0.7;
+static double nominalGain = 227.4;
+static double nonZeroFraction = 1. - 0.61;
+static double tTriplet0 = 1600.0; // 2100.0;
+static double tSinglet0 = 7.0;
+static double tauM0 = 4700.;
+static double tXe0 = 20.0;
+static double kUnit0 = 1.0E-4; // kq in the paper quenching rate  multiplied by binwidth
+static double kq0 = 1.3;
+static double kxe0 = 0.88;
+static double distanceLevel[4];
+static double effGeo[13];
+// static double trec = 37.1; // ns Eur. Phys. J. C (2013) 73:2618
+static double kdiffusion0 = 0.88;
+; // this is starting value Eur. Phys. J. C (2013) 73:2618
+// static double effGeo4=5.322512E-05;
+static double landauSigma0 = 6.0;
+static double gausSigma0 = 5.0;
+static double landauFrac0 = 0.12;
+static double resolution0 = 5.0; // hit time resolution
+static int nominalTriggerBin = 688;
+static double nominalTriggerTime = 2. * double(nominalTriggerBin);
+static double MPV0 = 2. * 698.0;
+static double sfrac0 = 0.8; // nominal singlet frac
+// times in ns
+static int startBin = 660;
+static int singletEndBin = 725;
+static int endBin = 7500;
+static double singletEndTime = 2. * double(singletEndBin);
+static double endTime = 2. * double(endBin);
+static double startTime = 2. * double(startBin); // hWave->GetBinLowEdge(maxBin) + hWave->GetBinWidth(maxBin) / 2.;
+static double fitStart = 1500.;                  // singletEndTime
+static double fitEnd = endTime;                  // fit range end
+double massRatio = 131. / 40.;                   // ratio of Xe/Ar molecular weight
+static double SiPMQE128Ham = 0.15;
+static double SiPMQE150 = 0.238;
+static double SiPMQE175 = 0.238;
+// static double PMTQE175 = 0.38;
+static double PMTQE150 = 0.01;
+static double PMTQE175 = 0.38;
+static double PMTQE400 = 0.35;
+double SiPMQ128 = SiPMQE128Ham;
+
+enum
+{
+  NTYPES = 5,
+  NCHAN = 13
+};
+
+// fit parameters
+enum
+{
+  NORM = 0,
+  SFRAC,
+  PPM,
+  MPV,
+  GAUSSIGMA,
+  LANDAUSIGMA,
+  LANDAUFRAC,
+  TAU3,
+  KQ,
+  AB,
+  KDIFFUSION,
+  TAUM,
+  BKGCONST,
+  BKGTAU,
+  CHAN,
+  TYPE,
+  NPARS
+};
+
 double effGeoFunc(int ichan)
 {
   int ilevel = -1;
-  if (ichan == 6 || ichan == 7 || ichan == 8)
+  if (ichan == 6 || ichan == 7 || ichan == 8 || ichan == 9 || ichan == 10 || ichan == 11)
     ilevel = 0;
   else if (ichan == 3 || ichan == 4 || ichan == 5)
     ilevel = 1;
@@ -80,7 +130,7 @@ double effGeoFunc(int ichan)
       from the source Channels 3, 4, and 5 are at 23.2 cm
       from the source Channels 0, 1, and 2 are at 34.8 cm from the source Channel 12 is at 36 cm from the source.
       */
-  double aPmt = TMath::Pi() / 4.0 * pow(6.4,2); // R11410-20  Effective area : 64 mm dia
+  double aPmt = TMath::Pi() / 4.0 * pow(6.4, 2); // R11410-20  Effective area : 64 mm dia
   double a = pow(0.6, 2.);
   if (ichan == 12)
     a = aPmt;
@@ -96,10 +146,26 @@ double effGeoFunc(int ichan)
   return e;
 }
 
+static double singletPeak(double *xx, double *par)
+{
+  int ichan = int(par[0]);
+  double norm = par[1];
+  double mpv = par[2];
+  double lsigma = par[3];
+  double gsigma = par[4];
+  double lfrac = par[5];
+  double t = xx[0];
+  double g = TMath::Landau(t, mpv, lsigma);
+  if (ichan == 4)
+    return norm * lfrac * g;
+  double f = TMath::Gaus(t, mpv, gsigma, 1); // normalized gaus
+  return norm * (1. - lfrac) * f + norm * lfrac * g;
+}
+
 static int level(int ichan)
 {
   int ilevel = -1;
-  if (ichan == 6 || ichan == 7 || ichan == 8)
+  if (ichan > 5)
     ilevel = 0;
   else if (ichan == 3 || ichan == 4 || ichan == 5)
     ilevel = 1;
@@ -127,69 +193,108 @@ static double Absorption(double ppm, double dist)
 
 static double expGaus(double x, double tau)
 {
-  double arg1 = (tres * tres / tau - 2. * x) / 2. / tau;
-  double arg2 = (tres * tres / tau - x) / sqrt(2) / tres;
+  double arg1 = (resolution0 * resolution0 / tau - 2. * x) / 2. / tau;
+  double arg2 = (resolution0 * resolution0 / tau - x) / sqrt(2) / resolution0;
   double f = 0.5 * TMath::Exp(arg1) * TMath::Erfc(arg2);
   return f;
 }
 
 static double lightModel(Double_t *xx, Double_t *par)
 {
-  int ichan = int(par[10]);
-  double bw = par[11];
-  int ifit = int(par[12]);
-  double x = xx[0] - xTrigger;
-  double norm = par[0];
-  double ppm = par[1];
-  double tTrip = par[2];
-  double kp = par[3] * kqZero;
-  double tmixPar = par[8];
-  double lmix = 1. / tmixPar;
-  double bkg = par[9];
-  // double alpha1 = bw*norm;
-  // double alpha3 = (1.-par[5])/par[5]*alpha1;
-  double sfrac = par[4];
-  double rfrac = par[5];
-  double alpha1 = sfrac * bw * norm * effGeo[ichan];
+  double f = 0; // function return value
+  int ichan = int(par[CHAN]);
+  int ifit = int(par[TYPE]);
+  double binwidth = theBinWidth;         // 2 ns
+  double x = xx[0] - nominalTriggerTime; // xx[0]  is bin center
+  // if (xx[0] < 1376)
+  //   return 0;
+  //      printf("xx[0] %f .............. ",xx[0]);
+  double mpv = par[MPV] - nominalTriggerTime;
+  double norm = par[NORM];
+  double sfrac = par[SFRAC];
+  double ppm = par[PPM];
+  // *** *************** do not scale all lifetimes by binwidth of 2 ns
+  double tTriplet = par[TAU3];
+  double tSinglet = tSinglet0;
+  double tauM = par[TAUM]; // fp->SetParName(8, "tauM");
+  double tXe = tXe0;
+  double lsigma = par[LANDAUSIGMA];
+  double gsigma = par[GAUSSIGMA];
+  // **** scale kUnit multiply by binwidth
+  double kUnit = kUnit0;
+  // *******************************************
+  double kq = par[KQ] * kUnit; // fp->SetParName(3, "kq");
+  double lmix = 1. / tauM;
+  double bkg = par[BKGCONST] * TMath::Exp(-x / par[BKGTAU]);
+  double lfrac = par[LANDAUFRAC];
+  double transmission = 1. - par[AB];
+  double alpha1 = binwidth * norm * sfrac * effGeo[ichan] * fillFactor * transmission * SiPMQ128;
   // printf(" %f %f %f %f %f .....", sfrac, bw, norm, effGeo[ichan],alpha1);
-  double alpha3 = (1. - sfrac - rfrac) * bw * norm * effGeo[ichan];
-  double ab = par[6];
-  double k1Zero = kxe * 131. / 40.;
+  double alpha3 = binwidth * norm * (1. - sfrac) * effGeo[ichan] * fillFactor * transmission * SiPMQ128;
+  double k1Zero = kUnit * massRatio * par[KDIFFUSION]; // p->SetParName(7, "kdiffusion";
   double kx = k1Zero * ppm;
-  double kxPrime = lmix + kx + kqZero * par[7];
+  // double kxPrime = lmix + kx + kUnit * par[7]; //fp->SetParName(7, "kx");
+  double kxPrime = lmix + kx + kq; // fp->SetParName(7, "kx");
 
   double lS = 1. / tSinglet;
-  double lT = 1 / tTrip;
-  double l1 = 1. / tSinglet + kp + kx;
-  double l3 = 1. / tTrip + kp + kx;
+  double lT = 1 / tTriplet;
+  double l1 = 1. / tSinglet + kq + kx;
+  double l3 = 1. / tTriplet + kq + kx;
   double lX = 1. / tXe;
-  double c1 = kx + ab * lS;
-  double c3 = kx + ab * lT;
+  double c1 = kx + par[AB] * lS;
+  double c3 = kx + par[AB] * lT;
   double t1 = 1. / l1;
   double t3 = 1. / l3;
   double tkxPrime = 1. / kxPrime;
 
-  // model
-  double fs = (1. - ab) * alpha1 / tSinglet * expGaus(x, t1);
-  double ft = 0;
-  double frec = 0;
-  double fm = 0;
-  double fx = 0;
-  if (x > 0)
+  // singlet parameters defined from start of waveform
+  // double fs = (1. - ab) * alpha1 / tSinglet * expGaus(x, t1);
+  double fs = 0;
+
+  double gsinglet = TMath::Landau(x, mpv, lsigma, 1); // normalized
+  double fsinglet = TMath::Gaus(x, mpv, gsigma, 1);   // normalized gaus
+  if (ichan == 4 || ichan == 1)
+    fs = alpha1 * lfrac * gsinglet;
+  else
+    fs = alpha1 * ((1 - lfrac) * gsinglet + lfrac * gsinglet);
+  // add in sipm efficiency
+  // printf("%f alpha1 %E alpha3 %E \n", x, alpha1, alpha3);
+  // fs = max(fs, 1.E-20);
+  if (isnan(fs))
   {
-    ft = (1. - ab) * alpha3 / tTrip * expGaus(x, t3);
-    frec = rfrac * bw * norm * effGeo[ichan] * pow(1 + x / trec, -2.);
-    fm = alpha1 * c1 / (l1 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t1)) + alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
-    fm /= tmixPar;
-
-    // printf("  %E %E  %E  \n",fs,x,expGaus(x,t1));
-
-    double x1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe)) / (lX - l1));
-    double x3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe)) / (lX - l3));
-    fx = x1 + x3;
+    printf("NAN at x=%f \n", x);
+    fs = 0;
   }
 
-  // printf(" %E %E %E %E %E  \n"  ,fs,ft,fm,x1,x3);
+  // return if just fitting singlet
+  // if (ifit == 0)
+  //  return fs;
+  // end of singlet
+
+  double ft = 0;
+  double fm = 0;
+  double fx = 0;
+
+  /* divide by lifetimes to convert into light yield */
+  if (x > 0)
+  {
+    ft = alpha3 / tTriplet * expGaus(x, t3);
+    fm = alpha1 * c1 / (l1 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t1)) + alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
+    fm /= tauM;
+
+    // printf("  %E %E  %E  \n",fs,x,expGaus(x,t1));
+    double x1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe)) / (lX - l1));
+    double x3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe * ((expGaus(x, tkxPrime) - expGaus(x, tXe)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe)) / (lX - l3));
+
+    /*
+       x1 = c1 * kx * alpha1 / (l1 - kxPrime) / tXe * ((TMath::Exp(-x/tkxPrime) - TMath::Exp(-x/tXe)) / (lX - kxPrime) - (TMath::Exp(-x/t1) - TMath::Exp(-x/tXe)) / (lX - l1));
+      x3 = c3 * kx * alpha3 / (l3 - kxPrime) / tXe * ((TMath::Exp(-x/tkxPrime) - TMath::Exp(-x/tXe)) / (lX - kxPrime) - (TMath::Exp(-x/t3) - TMath::Exp(-x/tXe)) / (lX - l3));
+      */
+
+    fx = x1 + x3;
+    // printf(" f1 %E f2 %E x1 %E x3 %E fx = %E expa %E expb %E t1 %E t2 %E \n", (TMath::Exp(-x/tkxPrime) - TMath::Exp(-x/tXe)) / (lX - kxPrime) ,  (TMath::Exp(-x/t3) - TMath::Exp(-x/tXe)) / (lX - l1)  , x1, x3 , fx,TMath::Exp(-x/t3), TMath::Exp(-x/tXe),x/t3,x/tXe);
+  }
+
   // QE eff factors
   // Tot = (SiPMQE128*SLight + SiPMQE128*TLight + SiPMQE128*ILight + SiPMQE175*XLight + SiPMQE150*MLight);
   int ilevel = level(ichan);
@@ -199,32 +304,28 @@ static double lightModel(Double_t *xx, Double_t *par)
   double SiPMQE175 = 0.238;
   double PMTQE175 = 0.38;
 
-  fs = fs * SiPMQ128;
-  ft = ft * SiPMQ128;
-  fm = fm * SiPMQE150;
+  // ft = ft;
+  fm = fm * SiPMQE150 / SiPMQ128;
 
   // PMT sees only  175
   if (ichan == 5)
   {
-    fx = fx * SiPMQE175;
+    fx = fx * SiPMQE175 / SiPMQ128;
     fs = 0;
     ft = 0;
     fm = 0;
-    frec = 0;
   }
   else if (ichan == 12)
   {
-    fx = fx * PMTQE175;
+    fx = fx * PMTQE175 / SiPMQ128;
     fs = 0;
     ft = 0;
     fm = 0;
-    frec = 0;
   }
   else
   { // sipms do not see 175
-    fx = fx * SiPMQE175;
+    fx = fx * SiPMQE175 / SiPMQ128;
   }
-  double f = 0;
   if (ifit == 0)
     f = fs;
   else if (ifit == 1)
@@ -234,27 +335,9 @@ static double lightModel(Double_t *xx, Double_t *par)
   else if (ifit == 3)
     f = fx;
   else if (ifit == 4)
-    f = fs + ft + fx + fm;
-  // f = fs + ft + fx + fm +frec;
-
-  // double f = fs + frec + ft + fx + fm + bkg;
-  //  leave these diognostics in
-  /*
-  if (isnan(fs))
-    printf("xxx fs is NAN x = %f\n", x);
-  if (isnan(ft))
-    printf("xxx ft is NAN x = %f\n", x);
-  if (isnan(fm))
-    printf("xxx fm is NAN x = %f\n", x);
-  if (isnan(fx))
-    printf("xxx fx is NAN x = %f\n", x);
-  if (isnan(bkg))
-    printf("xxx bkg is NAN x = %f\n", x);
-  if (isnan(f))
-    printf("xxx f is NAN x = %f\n", x);
-  */
-
-  f = f + bkg;
+    f = fs + ft + fx + fm + bkg; // return all
+  // f = f + bkg;
+  // printf(" time = %f (%f) bkg %E %E %E %E tot %E \n"  ,xx[0],x,bkg,fs,ft,fm,f);
 
   return f;
 }
@@ -263,7 +346,7 @@ class modelFit
 {
 public:
   // double taut = 2100.;
-  modelFit(int thefit, int ichan, double ppm);
+  modelFit(int theFit, int ichan, double ppm);
   virtual ~modelFit() { ; }
   TF1 *fp;
   double binwidth = 2.0; // ns;
@@ -272,9 +355,19 @@ public:
   int theChan;
   double thePPM;
   void show();
+  void showEff(int ichan);
   void showEff();
 };
 
+void modelFit::showEff(int ichan)
+{
+  cout << " modelFit::showEff " << endl;
+  int ilevel = level(ichan);
+  double d = distanceLevel[ilevel];
+  double e = effGeo[ilevel];
+  printf("chan %i level %i dist %.3f e %.3E \n", ichan, ilevel, d, e);
+  // printf("effGeo[%i]=%f ; \n", ichan, e);
+}
 void modelFit::showEff()
 {
   cout << " modelFit::showEff " << endl;
@@ -290,43 +383,36 @@ void modelFit::showEff()
 
 void modelFit::show()
 {
-  printf(" \n\n >>> modelFit fitted parameters fit chan %i ppm %f \n", (int)fp->GetParameter(10), fp->GetParameter(1));
+  int ichan = fp->GetParameter(CHAN);
+  double k1Zero = kUnit0 * fp->GetParameter(KDIFFUSION) * massRatio;
+  int ilevel = level(ichan);
+  printf(">>> modelFit static starting parameters chan %i \n", ichan);
+  printf("\t level %i distance %.2f geometric efficiency %.2E \n", ilevel, distanceLevel[ilevel], effGeoFunc(ichan));
+  printf("\t norm photon yield %.3E \n", nPhotons);                 // nominalTriggerTime
+  printf("\t nominal trigger time %.2f ns \n", nominalTriggerTime); // nominalTriggerTime
+  printf("\t Singlet Landau sigma  %.2f ns \n", landauSigma0);      // from fit
+  printf("\t Singlet Landau fraction  %.2f ns \n", landauFrac0);    // from fit
+  printf("\t Singlet Gausian  %.2f ns \n", gausSigma0);             // from fit
+  printf("\t triplet lifetime %.2f ns\n", tTriplet0);
+  printf("\t singlet lifetime %.2f ns\n", tSinglet0);
+  printf("\t xenon lifetime %.2f ns\n", tXe0);
+  printf("\t mixed state  lifetime %f ns\n", tauM0);
+  printf("\t kUnit %.2E ns-1\n", kUnit0);
+  printf("\t kq %.2f ns-1 \n", kq0);
+  printf("\t kx  %.2f ns-1 \n", kxe0);
+  printf("\t k1Zero %.2E ns-1 \n", k1Zero); // ref[12]
+  printf("\t hit time resolution %.2f ns\n", resolution0);
+  printf("\t fit range  %.0f  %.0f \n", fitStart, fitEnd); // nominalTriggerTime
+  // J. Calvo, et al., Measurement of the attenuation length of argon scin- tillation light in the ArDM LAr TPC,
+
+  printf(" \n >>> initial modelFit fitted parameters  \n");
   for (int ii = 0; ii < NPARS; ++ii)
   {
-    printf("\t  param %i %s %.4E +/- %.4E \n", ii, fp->GetParName(ii), fp->GetParameter(ii), fp->GetParError(ii));
+    printf("\t  %i & %s & %.2E  \\\\\n", ii, fp->GetParName(ii), fp->GetParameter(ii));
   }
-  double tTrip = fp->GetParameter(3);
-  double kp = fp->GetParameter(4) * kqZero;
-  double ppm = fp->GetParameter(2);
-  double ab = fp->GetParameter(6);
-  double tmixPar = fp->GetParameter(9);
-
-  double k1Zero = kxe * 131. / 40.;
-  double kx = k1Zero * ppm;
-  double kxPrime = 1. / tMix + kx + kqZero * fp->GetParameter(7);
-  double lS = 1. / tSinglet;
-  double lT = 1 / tTrip;
-  double l1 = 1. / tSinglet + kp + kx;
-  double l3 = 1. / tTrip + kp + kx;
-  double lX = 1. / tXe;
-  double c1 = kx + ab * lS;
-  double c3 = kx + ab * lT;
-  double t1 = 1. / l1;
-  double t3 = 1. / l3;
-  double tkxPrime = 1. / kxPrime;
-  double sfrac = fp->GetParameter(4);
-  double rfrac = fp->GetParameter(5);
-  double bw = fp->GetParameter(11);
-  double norm = fp->GetParameter(0);
-  double alpha1 = sfrac * bw * norm;
-  double alpha3 = (1. - sfrac - rfrac) * bw * norm;
-  double snorm = alpha1 * c1 * kx / (l1 - kxPrime) / tXe;
-  double tnorm = alpha3 * c3 * kx / (l3 - kxPrime) / tXe;
-  printf("\t ls %.3E c1 %.3E  lt %.3E  c3 %.3E  tMix %.3E  kxPrime %.3E  l1-kxPrime %.3E  l3-kxPrime %.3E  ab %.3E\n", lS, c1, lT, c3, tmixPar, kxPrime, l1 - kxPrime, l3 - kxPrime, ab);
-  printf("\t sfrac %.3f  tfrac %.4E alpha1 %.3E alpha3 %.3E snorm %.3E tnorm %.3E \n", sfrac, 1. - sfrac - rfrac, alpha1, alpha3, snorm, tnorm);
 }
 
-modelFit::modelFit(int thefit, int ichan, double ppm)
+modelFit::modelFit(int theFit, int ichan, double ppm)
 {
   TString names[NTYPES];
   names[0] = TString("singlet");
@@ -335,11 +421,29 @@ modelFit::modelFit(int thefit, int ichan, double ppm)
   names[3] = TString("xenon");
   names[4] = TString("total");
 
+  std::vector<TString> vparNames;
+  vparNames.resize(int(NPARS));
+  vparNames[NORM] = TString("NORM");
+  vparNames[TAU3] = TString("TAU3 ns");
+  vparNames[PPM] = TString("PPM");
+  vparNames[MPV] = TString("MPV");
+  vparNames[LANDAUSIGMA] = TString("LandauSigma");
+  vparNames[GAUSSIGMA] = TString("GausSigma");
+  vparNames[LANDAUFRAC] = TString("LandauFrac");
+  vparNames[KQ] = TString("KQ ns-1");
+  vparNames[SFRAC] = TString("SFRAC");
+  vparNames[AB] = TString("AB");
+  vparNames[KDIFFUSION] = TString("kdiffusion");
+  vparNames[TAUM] = TString("taum ns");
+  vparNames[BKGCONST] = TString("bkgconst");
+  vparNames[BKGTAU] = TString("bkgtau");
+  vparNames[CHAN] = TString("chan");
+  vparNames[TYPE] = TString("type");
+
   int ilevel = level(ichan);
   double dist = distanceLevel[ilevel];
   double ab = Absorption(ppm, dist);
-  double kplus = 1;
-  double kxPrime = 1;
+
   theChan = ichan;
   thePPM = ppm;
 
@@ -353,48 +457,48 @@ modelFit::modelFit(int thefit, int ichan, double ppm)
     effGeo[ichan] = effGeoFunc(ichan);
   }
 
-  double xlow = 0.;
-  double xhigh = 15000; // 15000 full waveform
-  fp = new TF1(Form("ModelFit-%.2f-type-%s-chan-%i", ab, names[thefit].Data(), ichan), lightModel, xlow, xhigh, NPARS);
-  printf(" modelFit: set %i fit range %f to %f  \n", thefit, 0., xMax);
+  fp = new TF1(Form("ModelFit-%.2f-type-%s-chan-%i", ab, names[theFit].Data(), ichan), lightModel, fitStart, fitEnd, NPARS);
+  printf(" modelFit: set %i fit range %f to %f  \n", theFit, fitStart, fitEnd);
 
-  fp->SetParName(0, "norm");
-  fp->SetParName(1, "PPM");
-  fp->SetParName(2, "tau3");
-  fp->SetParName(3, "kp");
-  fp->SetParName(4, "sfrac");
-  fp->SetParName(5, "rfrac"); // recombination this is starting value Eur. Phys. J. C (2013) 73:2618
-  fp->SetParName(6, "ab");
-  fp->SetParName(7, "kxprime");
-  fp->SetParName(8, "tmix");
-  fp->SetParName(9, "bgk");
-  fp->SetParName(10, "chan");
-  fp->SetParName(11, "binw");
-  fp->SetParName(12, "type");
+  for (int ipar = 0; ipar < NPARS; ++ipar)
+    fp->SetParName(ipar, vparNames[ipar].Data());
 
-  fp->SetParameter(0, nPhotons);
-  fp->SetParLimits(0, .01 * nPhotons, 10 * nPhotons);
-  fp->SetParameter(1, ppm);
-  fp->SetParameter(2, tTriplet);
-  fp->SetParameter(3, kplus);
-  fp->SetParameter(4, 0.2);
-  fp->SetParLimits(4, .01, 1.);
-  fp->SetParameter(5, 1. / 1000.); // this is starting value Eur. Phys. J. C (2013) 73:2618
-  fp->SetParLimits(5, 0, 0.1);
-  fp->SetParameter(6, ab);
-  fp->SetParLimits(6, 1.E-9, 1.);
-  fp->SetParameter(7, 2 * kxPrime);
-  fp->SetParameter(8, tMix);
-  fp->SetParameter(9, 50);
+  // default initial values and limits
+  fp->SetParameter(NORM, nPhotons);
+  fp->SetParameter(SFRAC, sfrac0);
+  fp->SetParameter(PPM, ppm);
+  fp->SetParameter(MPV, MPV0);
+  fp->SetParameter(GAUSSIGMA, gausSigma0);
+  fp->SetParameter(LANDAUSIGMA, landauSigma0);
+  fp->SetParameter(LANDAUFRAC, landauFrac0);
+  fp->SetParameter(TAU3, tTriplet0);
+  fp->SetParameter(KQ, kq0);
+  fp->SetParameter(AB, ab);
+  fp->SetParameter(KDIFFUSION, kdiffusion0); // this is starting value Eur. Phys. J. C (2013) 73:2618
+  fp->SetParameter(TAUM, tauM0);
+  fp->SetParameter(CHAN, ichan);
+  fp->SetParameter(TYPE, theFit);
+
+  // par limits
+  // fp->SetParLimits(NORM1, 1.E-4 * nPhotons, 10 * nPhotons);
+  fp->SetParLimits(KDIFFUSION, 0, 0.1);
+  fp->SetParLimits(LANDAUSIGMA, 1.0E-5 * landauSigma0, 10. * landauSigma0);
+  fp->SetParLimits(GAUSSIGMA, 1.0E-5 * gausSigma0, 10. * gausSigma0);
+  fp->SetParLimits(LANDAUFRAC, 0., 1.);
+  if (ichan == 1 || ichan == 4)
+  {
+    fp->FixParameter(GAUSSIGMA, gausSigma0); // not fitting
+    fp->FixParameter(LANDAUFRAC, 1.0);       // all Landau
+  }
 
   // these are always fixed
   // fp->FixParameter(5, sFrac);
-  fp->FixParameter(10, ichan);
-  fp->FixParameter(11, binwidth);
-  fp->FixParameter(12, thefit);
+  fp->FixParameter(CHAN, ichan);
+  fp->FixParameter(TYPE, theFit);
 
   // fp->SetParLimits(9,1.E3,20.E3);
-  fp->SetTitle(Form("ModelFit-type-%s-chan-%i-%0.1f-PPM-ab-%.2f", names[thefit].Data(), ichan, ppm, ab));
+  fp->SetTitle(Form("ModelFit-type-%s-chan-%i-%0.1f-PPM-ab-%.2f", names[theFit].Data(), ichan, ppm, ab));
+
   fp->SetNpx(1000); // numb points for function
   fp->Print();
 
