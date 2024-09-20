@@ -764,9 +764,9 @@ int anaCRun::anaEvent(Long64_t entry)
     digi.clear();
     digi = fixedDigi[ib];
     differentiate();
-    unsigned long sampleLow;
+    unsigned long sampleLow = 0;
     double valLow = 1.E-9;
-    unsigned long sampleHigh;
+    unsigned long sampleHigh = 0;
     double valHigh = -1.E-9;
     // find high and low
     for (unsigned long idd = 0; idd < ddigi.size(); ++idd)
@@ -788,7 +788,7 @@ int anaCRun::anaEvent(Long64_t entry)
     unsigned long maxBin = 0;
     double adcMax = -1.E-9;
     // max
-    for (unsigned long jdigi = sampleLow; jdigi < sampleHigh; ++jdigi)
+    for (unsigned long jdigi = sampleHigh; jdigi < sampleLow; ++jdigi)
     {
       if (digi[jdigi] > adcMax)
       {
@@ -796,7 +796,7 @@ int anaCRun::anaEvent(Long64_t entry)
         adcMax = digi[jdigi];
       }
     }
-    // printf("@line808 %lld ichan %lu low %lu high %lu adcLow %f adcHigh %f  \n", entry, ib, sampleLow, sampleHigh, adcLow, adcHigh);
+    // printf("@line808 %lld ichan %lu low %lu high %lu maxBin %lu adcMax %f  \n", entry, ib, sampleLow, sampleHigh, maxBin, adcMax);
     ntThreshold->Fill(entry, ib, sampleLow, ddigi[sampleLow], sampleHigh, ddigi[sampleHigh], maxBin, adcMax);
   }
 
