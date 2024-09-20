@@ -782,34 +782,22 @@ int anaCRun::anaEvent(Long64_t entry)
         sampleHigh = idd;
       }
     }
+    if (!((sampleLow - sampleHigh) > 0 && (sampleLow - sampleHigh) < 50))
+      continue;
     // find max
-    unsigned long maxBinLow = 0;
-    unsigned long maxBinHigh = 0;
-    double adcLow = -1.E-9;
-    double adcHigh = -1.E-9;
-    // low threhold max
-    unsigned long sampleLowStop = TMath::Min(sampleLow + 100, digi.size());
-    for (unsigned long jdigi = sampleLow; jdigi < sampleLowStop; ++jdigi)
+    unsigned long maxBin = 0;
+    double adcMax = -1.E-9;
+    // max
+    for (unsigned long jdigi = sampleLow; jdigi < sampleHigh; ++jdigi)
     {
-      if (digi[jdigi] > adcLow)
+      if (digi[jdigi] > adcMax)
       {
-        maxBinLow = jdigi;
-        adcLow = digi[jdigi];
+        maxBin = jdigi;
+        adcMax = digi[jdigi];
       }
     }
-    // high threhold max
-    unsigned long sampleHighStop = TMath::Max(sampleHigh - 100, static_cast<unsigned long>(0));
-    for (unsigned long jdigi = sampleHigh; jdigi > sampleHighStop; --jdigi)
-    {
-      if (digi[jdigi] > adcHigh)
-      {
-        maxBinHigh = jdigi;
-        adcHigh = digi[jdigi];
-      }
-    }
-    if (adcHigh > 1.E9)
-      printf("@line808 %lld ichan %lu low %lu high %lu adcLow %f adcHigh %f  \n", entry, ib, sampleLow, sampleHigh, adcLow, adcHigh);
-    ntThreshold->Fill(entry, ib, sampleLow, ddigi[sampleLow], sampleHigh, ddigi[sampleHigh], maxBinLow, adcLow, maxBinHigh, adcHigh);
+    // printf("@line808 %lld ichan %lu low %lu high %lu adcLow %f adcHigh %f  \n", entry, ib, sampleLow, sampleHigh, adcLow, adcHigh);
+    ntThreshold->Fill(entry, ib, sampleLow, ddigi[sampleLow], sampleHigh, ddigi[sampleHigh], maxBin, adcMax);
   }
 
   /* **** */
@@ -1384,7 +1372,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
 
   // fout->append(tbrun->btree);e("ntHit", " hits
-  ntThreshold = new TNtuple("ntThreshold", "ntThreshold", "event:chan:sampleLow:ddigiLow:sampleHigh:ddigiHigh:maxBinLow:adcLow:maxBinHigh:adcHigh");
+  ntThreshold = new TNtuple("ntThreshold", "ntThreshold", "event:chan:sampleLow:ddigiLow:sampleHigh:ddigiHigh:maxBin:adcMax");
   ntHit = new TNtuple("ntHit", "hit ntuple", "event:flag:chan:time:peakTime:qpeak");
   ntChan = new TNtuple("ntchan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peakmax:sum2:sum:negcrossings:thresholds:pass");
   ntSpeYield = new TNtuple("ntSpeYield", "spe per sipm",
