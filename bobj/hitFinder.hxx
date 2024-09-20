@@ -3,6 +3,7 @@
   class to make hits from vector data
   P. Zugec et al. Pulse processing routines for neutron time-of-flight data. Nucl. Instrum. Meth., A812:134–144, 2016.
 */
+
 #include <sstream>
 #include <unistd.h>
 #include <iostream>
@@ -47,7 +48,8 @@ typedef std::map<Double_t, TDetHit, std::less<Double_t>> hitMap;
 typedef std::map<Double_t, TDetHit, std::less<Double_t>>::iterator hitMapIter;
 
 // const Double_t qnorm = 1.0;
-
+#ifndef HITFINDER_FILE_H
+#define HITFINDER_FILE_H
 class hitFinder
 {
 public:
@@ -196,3 +198,4 @@ public:
   std::vector<TH1D *> hFilteredSummedWave;
   TH1D *hEvAllSumWave;
 };
+#endif
