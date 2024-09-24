@@ -73,6 +73,7 @@ public:
   vector<TBRawEvent *> rawBr;
   TBEventData *eventData;
   TBEventData *rawEventData;
+  TNtuple *ntThresholdAll;
   TNtuple *ntThreshold;
   TNtuple *ntChan;
   TNtuple *ntChanSum;
@@ -101,6 +102,7 @@ public:
   std::vector<TH1D *> hPreSum;
   std::vector<TH1D *> hTrigSum;
   std::vector<TH1D *> hLateSum;
+  std::vector<TH1D *> hWave;
 
   TH1D *hPreQpeak;
   TH1D *hLateQpeak;
@@ -175,6 +177,7 @@ public:
   std::vector<double> adcBin;
   std::vector<double> speCount;
 
+  TDirectory *threshDir;
   TDirectory *earlyPeakDir;
   TDirectory *rawSumDir;
   TDirectory *badDir;
@@ -771,6 +774,7 @@ int anaCRun::anaEvent(Long64_t entry)
     // find high and low
     for (unsigned long idd = 0; idd < ddigi.size(); ++idd)
     {
+      ntThresholdAll->Fill(double(entry), double(ib), double(idd), ddigi[idd]);
       if (ddigi[idd] < valLow)
       {
         valLow = ddigi[idd];
@@ -782,6 +786,7 @@ int anaCRun::anaEvent(Long64_t entry)
         sampleHigh = idd;
       }
     }
+
     if (!((sampleLow - sampleHigh) > 0 && (sampleLow - sampleHigh) < 50))
       continue;
     // find max
@@ -796,6 +801,20 @@ int anaCRun::anaEvent(Long64_t entry)
         adcMax = digi[jdigi];
       }
     }
+
+    // plot to see
+    if (adcMax < 75 && valHigh > 200)
+    {
+      threshDir->cd();
+      for (int ibin = 0; ibin < hWave[ib]->GetNbinsX(); ++ibin)
+        hWave[ib]->SetBinContent(ibin, digi[ibin]);
+      TString histName;
+      TString detName = tbrun->detList[ib]->GetName();
+      histName.Form("Wave%lli%sMax%.0fDDigi%.0f", entry, detName.Data(), adcMax, valHigh);
+      TH1D *hEventWave = (TH1D *)hWave[ib]->Clone(histName);
+      hEventWave->SetTitle(histName);
+    }
+
     // printf("@line808 %lld ichan %lu low %lu high %lu maxBin %lu adcMax %f  \n", entry, ib, sampleLow, sampleHigh, maxBin, adcMax);
     ntThreshold->Fill(entry, ib, sampleLow, ddigi[sampleLow], sampleHigh, ddigi[sampleHigh], maxBin, adcMax);
   }
@@ -1309,6 +1328,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   pmtDir = fout->mkdir("pmtDir");
   badDir = fout->mkdir("badDir");
   badTrigDir = fout->mkdir("badTrigDir");
+  threshDir = fout->mkdir("threshDir");
   earlyPeakDir = fout->mkdir("earlyPeakDir");
   anaDir = fout->mkdir("anadir");
   sumDir = fout->mkdir("sumDir");
@@ -1372,6 +1392,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
 
   // fout->append(tbrun->btree);e("ntHit", " hits
+  ntThresholdAll = new TNtuple("ntThresholdAll", "ntThreshold", "event:chan:sample:ddigi");
   ntThreshold = new TNtuple("ntThreshold", "ntThreshold", "event:chan:sampleLow:ddigiLow:sampleHigh:ddigiHigh:maxBin:adcMax");
   ntHit = new TNtuple("ntHit", "hit ntuple", "event:flag:chan:time:peakTime:qpeak");
   ntChan = new TNtuple("ntchan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peakmax:sum2:sum:negcrossings:thresholds:pass");
@@ -1417,6 +1438,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
     unsigned ichan = i;
+    hWave.push_back(new TH1D(Form("waveChan%i", ichan), Form("WaveChan%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+    hWave[hWave.size() - 1]->SetDirectory(nullptr);
     hChannelGaus.push_back(new TH1D(Form("channelGaus%i", ichan), Form("channelGaus%i", ichan), 600, -100, 500));
     noiseHist.push_back(new TH1D(Form("noiseChan%i", ichan), Form("noiseChan%i", ichan), 1000, 0, 1000));
     skewHist.push_back(new TH1D(Form("skewChan%i", ichan), Form("skewChan%i", ichan), 200, -3, 7));
