@@ -82,8 +82,8 @@ public:
   bool splitVerbose;
   bool smoothing;
   const Double_t qnorm = 1.0;
-  double nominalGain = 227.4; // average
-  hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan, vector<double> sigmaValue);
+  double nominalGain; // average
+  hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan, vector<double> sigmaValue, double theNominalGain);
   virtual ~hitFinder() { chanMap.clear(); }
   int nsamples;
   unsigned diffStep;

@@ -40,7 +40,7 @@ def main(args):
     for i in range(0, n):
         print(" run job %i ", i, " file %d", files[i])
         os.environ['LD_LIBRARY_PATH'] = os.getcwd()  # 
-        process = Popen(['compiled/anac1', files[i]],
+        process = Popen(['compiled/anacg', files[i]],
                         stdout=PIPE, stderr=PIPE, env=myEnv)
         stdout, stderr = process.communicate()
         process.wait()

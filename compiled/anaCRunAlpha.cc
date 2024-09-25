@@ -92,7 +92,7 @@ public:
   vector<TH1D *> hEvGaus;
   vector<TH1D *> hChannelGaus;
   std::vector<std::vector<TH1D *>> hSPEShape; // 4 shapes per channel
-   std::vector<TH1D *> hSPEShapeLate;
+  std::vector<TH1D *> hSPEShapeLate;
   // for sums needed for gains
   std::vector<TH1D *> hTotSum;
   std::vector<TH1D *> hPreSum;
@@ -366,7 +366,7 @@ bool anaCRun::readGains(TString fileName)
     return false;
   }
   cout << "found graph named " << gGain->GetName() << " in file " << fileName << endl;
-  
+
   for (int i = 0; i < gGain->GetN(); ++i)
   {
     int index = int(gGain->GetPointX(i));
@@ -542,18 +542,19 @@ int anaCRun::anaEvent(Long64_t entry)
   //  clear
   TTree *tree = NULL;
   fout->GetObject("RunTree", tree);
-  if(!tree){ 
-    printf("line 531 ERROR!! anaEvent no tree event %lld \n",entry);
+  if (!tree)
+  {
+    printf("line 531 ERROR!! anaEvent no tree event %lld \n", entry);
     fout->ls();
   }
-  tbrun->clear();        // clear detList
+  tbrun->clear(); // clear detList
   speCount.clear();
   speCount.resize(CHANNELS);
   std::fill(speCount.begin(), speCount.end(), 0);
   int passBit = 0;
   // previously 40 but channel 9 was missing peaks
   double derivativeThreshold;
-  double hitThreshold= nominalGain-3.*16.; // this is 3 sigma of SPE peak June 3 2014
+  double hitThreshold = nominalGain - 3. * 16.; // this is 3 sigma of SPE peak June 3 2014
   eventData->evtime = rawEventData->evtime;
   eventData->sec = rawEventData->sec;
   eventData->min = rawEventData->min;
@@ -608,8 +609,8 @@ int anaCRun::anaEvent(Long64_t entry)
 
     /* dont do this memory leak first clone*/
     hEvGaus[ib]->GetListOfFunctions()->Clear();
-    //TH1D* hEvClone = (TH1D*) hEvGaus[ib]->Clone("EvClone");
-    TFitResultPtr fitptr = hEvGaus[ib]->Fit("gaus", "LQ0", "", -100,100);
+    // TH1D* hEvClone = (TH1D*) hEvGaus[ib]->Clone("EvClone");
+    TFitResultPtr fitptr = hEvGaus[ib]->Fit("gaus", "LQ0", "", -100, 100);
     int fitStatus = fitptr;
     TF1 *gfit = (TF1 *)hEvGaus[ib]->GetListOfFunctions()->FindObject("gaus");
     double ave = hEvGaus[ib]->GetMean();
@@ -618,14 +619,14 @@ int anaCRun::anaEvent(Long64_t entry)
     double fitMean = 0;
     if (!isnan(hEvGaus[ib]->GetSkewness()))
       skew = hEvGaus[ib]->GetSkewness();
-    if (gfit != nullptr&&fitStatus==0)
+    if (gfit != nullptr && fitStatus == 0)
     {
       ave = gfit->GetParameter(1);
       fitMean = ave; // fit mean
       sigma = gfit->GetParameter(2);
-    } else 
-      printf("line627!!!! gaus fit fails event %lld chan %u fitStaus %i \n",entry,ib,fitStatus);
-
+    }
+    else
+      printf("line627!!!! gaus fit fails event %lld chan %u fitStaus %i \n", entry, ib, fitStatus);
 
     evDir->cd();
     if (evDir->GetList()->GetEntries() < 100)
@@ -819,7 +820,7 @@ int anaCRun::anaEvent(Long64_t entry)
   }
 
   evCount->Fill(-1); // underflow bin
-  //printf("line818  event %lld passbit %i \n",entry,passBit);
+  // printf("line818  event %lld passbit %i \n",entry,passBit);
 
   if (passBit != 0)
   {
@@ -867,12 +868,12 @@ int anaCRun::anaEvent(Long64_t entry)
     // tried to fix gap but didnt work
     // if (ichan >8 ) //lower for trigger sipms
     //  derivativeThreshold = 10.;
-    derivativeThreshold = 20;          // for non summed
+    derivativeThreshold = 20; // for non summed
     // if (passBit==0)
     /*  call finder->event nosumwave channels */
     finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
     // make directories here
-    
+
     /*
     if (!fftDir)
     {
@@ -941,17 +942,18 @@ int anaCRun::anaEvent(Long64_t entry)
     // finder->plotEvent(fftDir, 8, entry);
 
     TDirectory *sumWaveDir = (TDirectory *)fout->FindObject("sumWaveDir");
-    if (tdet->hits.size() > 1 && tdet->channel<13 && sumWaveDir->GetList()->GetEntries() < 5000)
+    if (tdet->hits.size() > 1 && tdet->channel < 13 && sumWaveDir->GetList()->GetEntries() < 5000)
     {
       // printf("xxxxxxx anaCRun::event event %llu chan %i hits %lu der thresh %f hit thresh %f \n", entry, tdet->channel, tdet->hits.size(), derivativeThreshold, hitThreshold);
       finder->plotEvent(sumWaveDir, tdet->channel, entry);
     }
 
-    if(fftDir) {
+    if (fftDir)
+    {
       if (trig && tdet->hits.size() == 0 && fftDir->GetList()->GetEntries() < 2000)
       {
-      // printf("!!!!!! anaCRuna::event plot event %llu idet %i chan %i hits %lu \n", entry, idet, tdet->channel, tdet->hits.size());
-      finder->plotEvent(fftDir, tdet->channel, entry);
+        // printf("!!!!!! anaCRuna::event plot event %llu idet %i chan %i hits %lu \n", entry, idet, tdet->channel, tdet->hits.size());
+        finder->plotEvent(fftDir, tdet->channel, entry);
       }
     }
 
@@ -992,7 +994,7 @@ int anaCRun::anaEvent(Long64_t entry)
 
       // do threshold for summed waveform
       // if (thit.qsum > hitThreshold)
-      //if(int(thit.peakt)-thit.firstBin > 30) 
+      // if(int(thit.peakt)-thit.firstBin > 30)
       //  printf("line980 in anaCRun event %lli  det %i  peak %u start %i \n",entry, idet, thit.peakt, thit.firstBin);
 
       sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
@@ -1004,26 +1006,34 @@ int anaCRun::anaEvent(Long64_t entry)
 
       /* fill the SPE histograms */
       // count SPE for this hit
-      if(idet<NONSUMCHANNELS ) { // exclude summed channel 
-      int nSPE= 0;
-      if(     thit.qpeak > 0.5 * nominalGain && thit.qpeak <1.5* nominalGain) nSPE=1.;
-      else if(thit.qpeak > 1.5 * nominalGain && thit.qpeak <2.5* nominalGain) nSPE=2.;
-      else if(thit.qpeak > 2.5 * nominalGain && thit.qpeak <3.5* nominalGain) nSPE=3.;
-      else if(thit.qpeak > 3.5 * nominalGain && thit.qpeak <4.5* nominalGain) nSPE=4.;
-      //printf("line 995 SPE check %f %i \n",thit.qpeak,nSPE);
+      if (idet < NONSUMCHANNELS)
+      { // exclude summed channel
+        int nSPE = 0;
+        if (thit.qpeak > 0.5 * nominalGain && thit.qpeak < 1.5 * nominalGain)
+          nSPE = 1.;
+        else if (thit.qpeak > 1.5 * nominalGain && thit.qpeak < 2.5 * nominalGain)
+          nSPE = 2.;
+        else if (thit.qpeak > 2.5 * nominalGain && thit.qpeak < 3.5 * nominalGain)
+          nSPE = 3.;
+        else if (thit.qpeak > 3.5 * nominalGain && thit.qpeak < 4.5 * nominalGain)
+          nSPE = 4.;
+        // printf("line 995 SPE check %f %i \n",thit.qpeak,nSPE);
 
-      int thePeakBin = 100.; // set to bin 100 in the histogram
-      // hSPE shape 1000 bins 
-      int sumStartBin = max(thit.peakBin-thePeakBin,1);
-      int sumEndBin   = min(thit.peakBin-thePeakBin+hSPEShape[0][0]->GetNbinsX(),int(rawBr[NONSUMCHANNELS]->rdigi.size()));
-      for (unsigned jbin = sumStartBin; jbin < sumEndBin; ++jbin) {
-        int fillBin = thePeakBin - thit.peakBin + jbin;
-        double val = fixedDigi[idet][jbin];
-         // fill 1 SPE from late
-         if (thit.startTime > trigEnd&&nSPE==1) hSPEShapeLate[idet]->SetBinContent(fillBin, hSPEShapeLate[idet]->GetBinContent(fillBin) + val);
-         // fill the right histogram for 1 SPE take from after trigger
-         if(nSPE>0) hSPEShape[nSPE-1][idet]->SetBinContent(fillBin, hSPEShape[nSPE-1][idet]->GetBinContent(fillBin) + val);
-      }
+        int thePeakBin = 100.; // set to bin 100 in the histogram
+        // hSPE shape 1000 bins
+        int sumStartBin = max(thit.peakBin - thePeakBin, 1);
+        int sumEndBin = min(thit.peakBin - thePeakBin + hSPEShape[0][0]->GetNbinsX(), int(rawBr[NONSUMCHANNELS]->rdigi.size()));
+        for (unsigned jbin = sumStartBin; jbin < sumEndBin; ++jbin)
+        {
+          int fillBin = thePeakBin - thit.peakBin + jbin;
+          double val = fixedDigi[idet][jbin];
+          // fill 1 SPE from late
+          if (thit.startTime > trigEnd && nSPE == 1)
+            hSPEShapeLate[idet]->SetBinContent(fillBin, hSPEShapeLate[idet]->GetBinContent(fillBin) + val);
+          // fill the right histogram for 1 SPE take from after trigger
+          if (nSPE > 0)
+            hSPEShape[nSPE - 1][idet]->SetBinContent(fillBin, hSPEShape[nSPE - 1][idet]->GetBinContent(fillBin) + val);
+        }
       }
     } // hit loop
     hTriggerHitTimeAll->Fill(firstHitTime);
@@ -1226,7 +1236,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
 
   // new gain file
-  TString gainFileName = TString(getenv("BOBJ"))+TString("/gains-2024-02-15-17-26-save.root");
+  TString gainFileName = TString(getenv("BOBJ")) + TString("/gains-2024-02-15-17-26-save.root");
   cout << "read gains from file " << gainFileName << endl;
   readGains(gainFileName);
 
@@ -1266,7 +1276,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   {
     tbrun->addDet(it);
   }
-
 
   // fout->append(tbrun->btree);e("ntHit", " hits
   ntHit = new TNtuple("ntHit", "hit ntuple", "event:flag:chan:time:peakTime:qpeak");
@@ -1372,22 +1381,25 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     sumHitWave.push_back(new TH1D(Form("sumHitWave%i", ichan), Form("sumHitWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
     sumPeakWave.push_back(new TH1D(Form("sumPeakWave%i", ichan), Form("sumPeakWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
   }
-  //SPE Shapes
-  for (unsigned ichan = 0; ichan < rawBr.size(); ++ichan){
-      hSPEShapeLate.push_back(new TH1D(Form("SPEShapeLateChan%i",ichan), Form("SPEShapeLateChan%i",ichan), 1000,0, 1000));
-      hSPEShapeLate[hSPEShapeLate.size() - 1]->SetMarkerStyle(20);
+  // SPE Shapes
+  for (unsigned ichan = 0; ichan < rawBr.size(); ++ichan)
+  {
+    hSPEShapeLate.push_back(new TH1D(Form("SPEShapeLateChan%i", ichan), Form("SPEShapeLateChan%i", ichan), 1000, 0, 1000));
+    hSPEShapeLate[hSPEShapeLate.size() - 1]->SetMarkerStyle(20);
   }
-  int MaxSPEShape=4;
+  int MaxSPEShape = 4;
   hSPEShape.resize(MaxSPEShape);
-  for(int jspe=0;jspe<MaxSPEShape;++jspe) {
-    for (unsigned ichan = 0; ichan < rawBr.size(); ++ichan){
-      hSPEShape[jspe].push_back(new TH1D(Form("SPE%iShapeChan%i", jspe+1,ichan), Form("SPE%iShapeChan%i", jspe+1,ichan), 1000,0, 1000));
+  for (int jspe = 0; jspe < MaxSPEShape; ++jspe)
+  {
+    for (unsigned ichan = 0; ichan < rawBr.size(); ++ichan)
+    {
+      hSPEShape[jspe].push_back(new TH1D(Form("SPE%iShapeChan%i", jspe + 1, ichan), Form("SPE%iShapeChan%i", jspe + 1, ichan), 1000, 0, 1000));
       hSPEShape[jspe][hSPEShape[jspe].size() - 1]->SetMarkerStyle(20);
     }
   }
 
   fout->cd();
-  ///fout->ls();
+  /// fout->ls();
 
   cout << " make hitFinder dets = " << CHANNELS << "  size " << rawBr[0]->rdigi.size() << endl;
   vector<int> chanList;
@@ -1395,8 +1407,9 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     chanList.push_back(ichan);
 
   finder = NULL;
-  finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList, channelSigmaValue);
-  if(!finder) {
+  finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList, channelSigmaValue, nominalGain);
+  if (!finder)
+  {
     printf(" failed to make finder ");
     fout->Close();
     return 0;
@@ -1412,7 +1425,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     {
       printf("... entry %llu pass %u fail %u \n", entry, npass, nfail);
       // hEventPass->Print("all"); bacondaq seg violated here
-      
+
       if (npass > 0)
       {
         printf(" \t hits by channel  \n");
@@ -1432,13 +1445,13 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     else
     {
       ++nfail;
-      //printf(" event %llu fails with pass bit  %x pass %i fail %i \n", entry, passBit, npass, nfail);
-      // tbrun->print();
+      // printf(" event %llu fails with pass bit  %x pass %i fail %i \n", entry, passBit, npass, nfail);
+      //  tbrun->print();
     }
     // hEventPass->Fill(-1);
     //  use total entries for all and bin 0 for passing
     hEventPass->SetBinContent(passBit, hEventPass->GetBinContent(passBit) + 1);
-    printf("line1441 event %lld passbit %x num  %i \n",entry, passBit,int(hEventPass->GetBinContent(passBit)));
+    printf("line1441 event %lld passbit %x num  %i \n", entry, passBit, int(hEventPass->GetBinContent(passBit)));
     //   if(eventPass!=0)
     //     printf("event fails with eventPass = %x npass %i nfail %i \n", eventPass,npass,nfail);
     // tbrun->print();
@@ -1450,9 +1463,11 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     tbrun->detList[13]->clear();
   */
     // set pass bit and fill tbrun
-    for(int idet=0; idet< tbrun->detList.size(); ++idet) {
-     tbrun->detList[idet]->pass =passBit;
-     if(passBit!=0) printf("xxx %lld %i pass %i \n",entry, idet, tbrun->detList[idet]->pass  );
+    for (int idet = 0; idet < tbrun->detList.size(); ++idet)
+    {
+      tbrun->detList[idet]->pass = passBit;
+      if (passBit != 0)
+        printf("xxx %lld %i passBit %i # pass %i \n", entry, idet, passBit, tbrun->detList[idet]->pass);
     }
     tbrun->fill();
   }
@@ -1524,7 +1539,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     fout->Append(grChannelSigma);
   }*/
 
-  printf(" ******* hit count summary ***** \n \t hits by channels %i   \n",histHitCount->GetNbinsX());
+  printf(" ******* hit count summary ***** \n \t hits by channels %i   \n", histHitCount->GetNbinsX());
   for (int ibin = 0; ibin < histHitCount->GetNbinsX() - 1; ++ibin)
     printf(" chan %i count %i frac %f ; zero %i \n", ibin,
            int(histHitCount->GetBinContent(ibin + 1)), double(histHitCount->GetBinContent(ibin + 1)) / double(npass), int(hNoPeak->GetBinContent(ibin + 1)));
@@ -1559,7 +1574,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   fout->Write();
   fout->Close();
-  printf(" ***** FINISHED ****** %s emtries %lld \n",fout->GetName(), nentries);
+  printf(" ***** FINISHED ****** %s emtries %lld \n", fout->GetName(), nentries);
   return nentries;
 }
 
@@ -1567,7 +1582,7 @@ anaCRun::anaCRun(TString theTag)
 {
   tag = theTag;
   // tbrun = new TBRun(tag);
-  cout << " anaCRun::anaCRun instance of anaCRun with tag= " << tag << " CHANNELS = " << CHANNELS - 1 << endl;
+  cout << " anaCRun::anaCRun instance of anaCRun alpha version with tag= " << tag << " CHANNELS = " << CHANNELS - 1 << endl;
 
   rawBr.clear();
 

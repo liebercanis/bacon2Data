@@ -1,4 +1,5 @@
 // M.Gold April 2023 read CAEN files
+// *** This is GAMMA version Sept 25 2024 ***
 /////////////////////////////////////////////////////////
 #include <sstream>
 #include <unistd.h>
@@ -64,6 +65,7 @@ public:
   TFile *fin;
   TTree *rawTree;
   TNtuple *ntHit;
+  unsigned orderFraction = 10;
   // vectors for gains
   std::vector<double> sipmGain;
   std::vector<double> sipmGainError;
@@ -78,6 +80,7 @@ public:
   TNtuple *ntChan;
   TNtuple *ntChanSum;
   TNtuple *ntTrigTime;
+  TNtuple *ntSetTrigTime;
   TNtuple *ntSpeYield;
   vector<TH1D *> baseHist;
   vector<TH1D *> noiseHist;
@@ -124,6 +127,7 @@ public:
   // TH1D *histQPE;
   TH1D *histQPrompt;
   TH1D *hTriggerTimeAll;
+  TH1D *hTriggerTimeAllVal;
   TH1D *hTriggerHitTimeAll;
   TH1D *hTriggerTime;
   TH1D *hTriggerShift;
@@ -193,13 +197,13 @@ public:
   int MaxSPEShape = 4;
   unsigned trigStart = 600;
   unsigned trigEnd = 800;
-  int nominalTrigger = 729;
-  // double nominalGain = 227.4; // average
-  double nominalGain = 160.0; // average
-  unsigned firstTime;         // corrected trigger time for event
-  unsigned timeOffset = 13;   // changed from 17 may 13, 2024
+  int nominalTrigger = 726;   // was 729;
+  double nominalGain = 227.4; // average
+  // double nominalGain = 160.0; // average
+  unsigned firstTime;       // corrected trigger time for event
+  unsigned timeOffset = 13; // changed from 17 may 13, 2024
   ULong_t taveEarlyCut = 710;
-  ULong_t taveLateCut = 740;
+  ULong_t taveLateCut = 800; // 740;
   ULong_t timeEarlyCut = 660;
   ULong_t timeLateCut = 890;
   ULong_t timeVeryLateCut = 3500;
@@ -208,20 +212,25 @@ public:
   double diffStep = 5.;     // back to one from 4 May 4 2024
 };
 
-/** get trigger time **/
+/** get trigger time
+ * do not make the cut here but after this call
+ * **/
 unsigned anaCRun::getTriggerTime(int ic, double &adc)
 {
   TDet *idet = tbrun->getDet(ic);
   unsigned utime = 0;
-  for (unsigned j = 0; j < 801; ++j)
+  unsigned off = 0;
+  if (ic < 9)
+    off = timeOffset;
+  adc = 0;
+  for (unsigned j = 0; j < timeLateCut; ++j)
   {
     double val = double(rawBr[ic]->rdigi[j]) - idet->base;
     val *= nominalGain / sipmGain[ic];
-    if (val > 0.5 * nominalGain)
+    if (val > adc)
     {
       adc = val;
-      utime = j;
-      break;
+      utime = j + off;
     }
   }
   return utime;
@@ -430,16 +439,14 @@ void anaCRun::clear()
   channelSigmaValue.resize(CHANNELS);
   for (unsigned long j = 0; j < channelSigmaValue.size(); ++j)
   {
-    channelSigmaValue[j] = 10;
-    chanThreshold[j] = 10.;
-    // chanThreshold[j] = 3. * 55.;
+    chanThreshold[j] = 3. * 55.;
   }
   // special threshold values
-  // chanThreshold[9] = 3. * 93.;
-  // chanThreshold[10] = 3. * 200.;
-  // chanThreshold[11] = 3. * 200.;
-  // chanThreshold[12] = 3. * 24.;
-  // chanThreshold[13] = 3. * 200.;
+  chanThreshold[9] = 3. * 93.;
+  chanThreshold[10] = 3. * 200.;
+  chanThreshold[11] = 3. * 200.;
+  chanThreshold[12] = 3. * 24.;
+  chanThreshold[13] = 3. * 200.;
   nSpeSum.resize(CHANNELS);
 }
 
@@ -604,21 +611,30 @@ int anaCRun::anaEvent(Long64_t entry)
     }
 
     int nbins = rawBr[ib]->rdigi.size();
-    // cout << ib << " nbins " << nbins << " max hist " << hEvGaus.size() << " rawBr.size() " << rawBr.size() << endl;
+    // cout << "@line611 " << ib << " nbins " << nbins << " max hist " << hEvGaus.size() << " rawBr.size() " << rawBr.size() << endl;
 
     // sanity check
     if (rawBr[ib]->rdigi.size() != WAVELENGTH)
       continue;
     // simple baseline
+    /* this base is a smaller value and in the case of almost all noise, is biased
     std::vector<unsigned short> orderDigi = rawBr[ib]->rdigi;
-    std::sort(orderDigi.begin(), orderDigi.end());
-    unsigned baseLength = orderDigi.size() / 2;
+    std::sort(orderDigi.begin(), orderDigi.end(), std::less<int>());
+    unsigned baseLength = orderDigi.size() / orderFraction;
     double base = 0;
     for (unsigned j = 0; j < baseLength; ++j)
     {
       base += orderDigi[j];
     }
     base /= double(baseLength);
+    */
+
+    double base = 0;
+    for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+    {
+      base += rawBr[ib]->rdigi[j];
+    }
+    base /= double(rawBr[ib]->rdigi.size());
 
     // baseline correction from fitted Gaussian
     hEvGaus[ib]->Reset("ICES");
@@ -650,6 +666,8 @@ int anaCRun::anaEvent(Long64_t entry)
     }
     else
       printf("line627!!!! gaus fit fails event %lld chan %u fitStaus %i \n", entry, ib, fitStatus);
+
+    // printf("@line652 baseline %lld chan %u base %f ave %f  \n", entry, ib, base, ave);
 
     evDir->cd();
     if (evDir->GetList()->GetEntries() < 100)
@@ -720,25 +738,30 @@ int anaCRun::anaEvent(Long64_t entry)
 
   } // channel loop
   /* find trigger time from trigger sipms */
-  trigTimes.resize(12);
-  sTrigTimes.resize(12);
-  adcBin.resize(12);
-  for (unsigned ic = 0; ic < 12; ++ic)
+  trigTimes.resize(NONSUMCHANNELS);
+  sTrigTimes.resize(NONSUMCHANNELS);
+  adcBin.resize(NONSUMCHANNELS);
+  for (unsigned ic = 0; ic < NONSUMCHANNELS; ++ic)
   {
     double val = 0;
-    unsigned time = getTriggerTime(ic, val);
+    // get time for maximim val before timeLateCut
+    unsigned time = getTriggerTime(ic, val); // include timeOffset in routine
+    ntSetTrigTime->Fill(double(entry), double(ic), double(time), double(val));
     trigTimes[ic] = time;
     adcBin[ic] = val;
     // if (time < nominalTrigger - 5 * triggerSigma)
-    if (ic < 9 && time > 0) // add in amplifier delay zero not found
-      time += timeOffset;
-    if (time > 0 && time < unsigned(taveEarlyCut))
+
+    // printf("@line749 timeEarlyCut event %llu chan %i cut %lu time %u val %f \n", entry, ic, taveEarlyCut, time, val);
+    if (time < unsigned(taveEarlyCut) && val > 0.5 * nominalGain)
     {
-      printf("@line737 failed timeEarlyCut event %llu chan %i cut %lu time %u \n", entry, ic, taveEarlyCut, time);
+      printf("@line757 failed timeEarlyCut event %llu chan %i cut %lu time %u val %f \n", entry, ic, taveEarlyCut, time, val);
       passBit |= 0x1;
     }
     if (time > 0)
+    {
       hTriggerTimeAll->Fill(double(time));
+      hTriggerTimeAllVal->Fill(double(val));
+    }
     if (time > 0 && ic > 8)
       hTriggerTime->Fill(double(time));
   }
@@ -756,7 +779,7 @@ int anaCRun::anaEvent(Long64_t entry)
 
   if (firstTime > taveLateCut)
   {
-    printf("@line759 failed timeLateCut event %llu cut %lu time %u \n", entry, timeLateCut, firstTime);
+    printf("@line782 failed timeLateCut event %llu cut %lu time %u \n", entry, timeLateCut, firstTime);
     passBit |= 0x2;
   }
 
@@ -836,7 +859,7 @@ int anaCRun::anaEvent(Long64_t entry)
 
   /* **** */
   /* make ntuple of before and after shift */
-  for (unsigned ic = 6; ic < 12; ++ic)
+  for (unsigned ic = 6; ic < NONSUMCHANNELS; ++ic)
   {
     double val;
     sTrigTimes[ic] = fixedTriggerTime(ic, val);
@@ -863,7 +886,7 @@ int anaCRun::anaEvent(Long64_t entry)
   TDet *tdet = tbrun->getDet(NONSUMCHANNELS);
   tdet->hits.clear();
   // printf("call to finder for chan 13 %lld \n",entry);
-  double hitThreshold = 0;                                                               // 500.0;
+  double hitThreshold = 0.9 * nominalGain;                                               // 500.0;
   finder->event(NONSUMCHANNELS, entry, digi, chanThreshold[13], hitThreshold, diffStep); // DEG suggests 10
   // which nominal gain, hit threshold id the same
 
@@ -899,7 +922,7 @@ int anaCRun::anaEvent(Long64_t entry)
 
   if (nPreHits > 0)
   {
-    printf("@line901 failed nPreHits event %llu nLate %i \n", entry, nLateHits);
+    printf("@line901 failed nPreHits event %llu nPre %i \n", entry, nPreHits);
     passBit |= 0x4;
   }
   if (nLateHits > 0)
@@ -913,12 +936,12 @@ int anaCRun::anaEvent(Long64_t entry)
 
   if (passBit != 0)
   {
-    printf("line913 event %lld det %i nhits %u \n", entry, NONSUMCHANNELS, tbrun->detList[NONSUMCHANNELS]->nhits());
+    printf("@line913 event %lld passBit %i det %i nhits %u \n",
+           entry, int(passBit), NONSUMCHANNELS, tbrun->detList[NONSUMCHANNELS]->nhits());
     return passBit;
   }
 
   // continue if event passes
-
   /*******
         start of second channel loop doing pulse finding
    ********/
@@ -952,8 +975,8 @@ int anaCRun::anaEvent(Long64_t entry)
       }
     }
 
-    evCount->Fill(ib);       // chan 0 from GetBinContent(0)
-    double hitThreshold = 0; // 160.0;
+    evCount->Fill(ib);                       // chan 0 from GetBinContent(0)
+    double hitThreshold = 0.5 * nominalGain; // 500.0;
     if (ib == 12)
       hitThreshold = 10.0;
     finder->event(ichan, entry, digi, chanThreshold[ib], hitThreshold, diffStep); // DEG suggests 10
@@ -1421,6 +1444,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   ntChan = new TNtuple("ntchan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peakmax:sum2:sum:negcrossings:thresholds:pass");
   ntSpeYield = new TNtuple("ntSpeYield", "spe per sipm",
                            "event:spe0:spe1:spe2:spe3:spe4:spe5:spe6:spe7:spe8:spe9:spe10:spe11");
+  ntSetTrigTime = new TNtuple("ntSetTrigTime", " trig time and val", "event:chan:time:val");
   ntTrigTime = new TNtuple("ntTrigTime", "trigger time ntuple",
                            "entry:trigTime:trigTimeSigma:nonTimeAve:nonTimeSigma:trigTimeAve2:trigTimeSigma2:nonTimeAve2:nonTimeSigma2");
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
@@ -1439,6 +1463,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   hTriggerTime = new TH1D("TriggerTime", " ave of trigger Sipm times ", 800, 0, 800);
   hTriggerShift = new TH1D("TriggerShift", " ave trigger time shift ", 40, -20, 20);
   hTriggerTimeAll = new TH1D("TriggerTimeAll", " first time all channels ", 800, 00, 800);
+  hTriggerTimeAllVal = new TH1D("TriggerTimeAllVal", " first time val all channels ", 1000, 0, 500);
   hTriggerHitTimeAll = new TH1D("TriggerHitTimeAll", " first hit time all channels ", 80, 0, 800);
   TString htitle;
   htitle.Form(" pre time < %lu normalized qpeak", timeEarlyCut);
@@ -1548,7 +1573,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     chanList.push_back(ichan);
 
   finder = NULL;
-  finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList, channelSigmaValue);
+  finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList, channelSigmaValue, nominalGain);
   if (!finder)
   {
     printf(" failed to make finder ");
@@ -1586,6 +1611,9 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     else
     {
       ++nfail;
+      if (passBit != 0)
+        printf("xxxxxxx  event %lld fails with passBit %i total fail %i total pass %i \n", entry, passBit, nfail, npass);
+
       // printf(" event %llu fails with pass bit  %x pass %i fail %i \n", entry, passBit, npass, nfail);
       //  tbrun->print();
     }
@@ -1710,9 +1738,9 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
          fout->GetName());
 
   // hEventPass->Print("all");
-  printf("pass fractions total = %.0f \n", hEventPass->GetBinContent(0));
+  printf("pass fractions total = %.0f \n", hEventPass->GetEntries());
   for (int ibin = 1; ibin < hEventPass->GetNbinsX(); ++ibin)
-    printf(" bin %i fail %.f frac %.3f \n", ibin, hEventPass->GetBinContent(ibin), hEventPass->GetBinContent(ibin) / hEventPass->GetBinContent(0));
+    printf(" bin %i fail %.f frac %.3f \n", ibin, hEventPass->GetBinContent(ibin), hEventPass->GetBinContent(ibin) / hEventPass->GetEntries());
 
   for (int idet = 0; idet < hTotSum.size(); ++idet)
   {
@@ -1728,7 +1756,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   fout->Write();
   fout->Close();
-  printf(" ***** FINISHED ****** %s emtries %lld \n", fout->GetName(), nentries);
+  printf(" ***** FINISHED ****** %s entries %lld \n", fout->GetName(), nentries);
   return nentries;
 }
 
@@ -1736,7 +1764,7 @@ anaCRun::anaCRun(TString theTag)
 {
   tag = theTag;
   // tbrun = new TBRun(tag);
-  cout << " anaCRun::anaCRun instance of anaCRun with tag= " << tag << " CHANNELS = " << CHANNELS - 1 << " diffStep= " << diffStep << endl;
+  cout << " anaCRun::anaCRun instance of anaCRun gamma version  with tag= " << tag << " CHANNELS = " << CHANNELS - 1 << " diffStep= " << diffStep << endl;
 
   rawBr.clear();
 

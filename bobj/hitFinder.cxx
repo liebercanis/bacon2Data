@@ -36,13 +36,14 @@
 #include "TBRun.hxx"
 #include "hitFinder.hxx"
 
-hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan, vector<double> sigmaValue)
+hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan, vector<double> sigmaValue, double theNominalGain)
 {
   tbrun = brun;
   isCAEN = false;
   doFFT = false;
   fFFT = NULL;
   fInverseFFT = NULL;
+  nominalGain = theNominalGain;
   if (nSamples == CAENLENGTH)
     isCAEN = true;
   channelSigmaValue = sigmaValue;
@@ -241,6 +242,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   for (unsigned ichan = 0; ichan < QPEnominal.size(); ++ichan)
     printf("chan %i QPEnominal %f ; ", ichan, QPEnominal[ichan]);
   printf("\n");
+  printf("\t INSTANCE of hitFinder nominal gain %f \n", nominalGain);
 }
 //
 void hitFinder::fillWFilter(int ichan)
