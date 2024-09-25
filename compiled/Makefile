@@ -83,8 +83,10 @@ clean:
 	rm -rf ana.dSYM
 	rm -f ana1
 	rm -rf ana1.dSYM
-	rm -f anac1
-	rm -f anac1.dSYM
+	rm -f anaca
+	rm -rf anaca.dSYM
+	rm -f anacg
+	rm -rf anacg.dSYM
 	rm -f sis
 	rm -rf sis.dSYM
 	rm -f build
