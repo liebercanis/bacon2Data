@@ -1,4 +1,4 @@
-//  M.Gold April 2023 read CAEN files
+// M.Gold April 2023 read CAEN files
 /////////////////////////////////////////////////////////
 #include <sstream>
 #include <unistd.h>
@@ -141,6 +141,7 @@ public:
   vector<double> eslope;
   vector<double> chan;
   vector<double> echan;
+  vector<double> chanThreshold;
   ofstream dumpFile;
   // vector<TBWave *> waveList;
   hitFinder *finder;
@@ -193,7 +194,8 @@ public:
   unsigned trigStart = 600;
   unsigned trigEnd = 800;
   int nominalTrigger = 729;
-  double nominalGain = 227.4; // average
+  // double nominalGain = 227.4; // average
+  double nominalGain = 160.0; // average
   unsigned firstTime;         // corrected trigger time for event
   unsigned timeOffset = 13;   // changed from 17 may 13, 2024
   ULong_t taveEarlyCut = 710;
@@ -424,9 +426,19 @@ void anaCRun::clear()
   sipmGain.clear();
   sipmGainError.clear();
   // fill channel sigma in order of branches
+  chanThreshold.resize(CHANNELS);
   channelSigmaValue.resize(CHANNELS);
   for (unsigned long j = 0; j < channelSigmaValue.size(); ++j)
+  {
     channelSigmaValue[j] = 10;
+    chanThreshold[j] = 3. * 55.;
+  }
+  // special threshold values
+  chanThreshold[9] = 3. * 93.;
+  chanThreshold[10] = 3. * 200.;
+  chanThreshold[11] = 3. * 200.;
+  chanThreshold[12] = 3. * 24.;
+  chanThreshold[13] = 3. * 200.;
   nSpeSum.resize(CHANNELS);
 }
 
@@ -564,8 +576,7 @@ int anaCRun::anaEvent(Long64_t entry)
   std::fill(speCount.begin(), speCount.end(), 0);
   int passBit = 0;
   // previously 40 but channel 9 was missing peaks
-  double derivativeThreshold;
-  double hitThreshold = nominalGain - 3. * 16.; // this is 3 sigma of SPE peak June 3 2014
+  // double hitThreshold = nominalGain - 3. * 16.; // this is 3 sigma of SPE peak June 3 2014
   eventData->evtime = rawEventData->evtime;
   eventData->sec = rawEventData->sec;
   eventData->min = rawEventData->min;
@@ -774,7 +785,9 @@ int anaCRun::anaEvent(Long64_t entry)
     // find high and low
     for (unsigned long idd = 0; idd < ddigi.size(); ++idd)
     {
-      ntThresholdAll->Fill(double(entry), double(ib), double(idd), ddigi[idd]);
+      // limit size because otherwise this is huge
+      if (entry < 1000)
+        ntThresholdAll->Fill(float(entry), float(ib), float(idd), float(ddigi[idd]));
       if (ddigi[idd] < valLow)
       {
         valLow = ddigi[idd];
@@ -802,8 +815,8 @@ int anaCRun::anaEvent(Long64_t entry)
       }
     }
 
-    // plot to see
-    if (adcMax < 75 && valHigh > 200)
+    // plot to see a few of these
+    if (abs(valLow) > chanThreshold[ib] && valHigh > chanThreshold[ib] && threshDir->GetList()->GetEntries() < 100)
     {
       threshDir->cd();
       for (int ibin = 0; ibin < hWave[ib]->GetNbinsX(); ++ibin)
@@ -816,7 +829,8 @@ int anaCRun::anaEvent(Long64_t entry)
     }
 
     // printf("@line808 %lld ichan %lu low %lu high %lu maxBin %lu adcMax %f  \n", entry, ib, sampleLow, sampleHigh, maxBin, adcMax);
-    ntThreshold->Fill(entry, ib, sampleLow, ddigi[sampleLow], sampleHigh, ddigi[sampleHigh], maxBin, adcMax);
+    if (abs(valLow) > chanThreshold[ib] && valHigh > chanThreshold[ib])
+      ntThreshold->Fill(entry, ib, sampleLow, ddigi[sampleLow], sampleHigh, ddigi[sampleHigh], maxBin, adcMax);
   }
 
   /* **** */
@@ -847,9 +861,9 @@ int anaCRun::anaEvent(Long64_t entry)
   digi = sumDigi();
   TDet *tdet = tbrun->getDet(NONSUMCHANNELS);
   tdet->hits.clear();
-  derivativeThreshold = 30; // for summed waveform
   // printf("call to finder for chan 13 %lld \n",entry);
-  finder->event(NONSUMCHANNELS, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
+  double hitThreshold = 500.0;
+  finder->event(NONSUMCHANNELS, entry, digi, chanThreshold[13], hitThreshold, diffStep); // DEG suggests 10
   // which nominal gain, hit threshold id the same
 
   // event cuts
@@ -935,16 +949,10 @@ int anaCRun::anaEvent(Long64_t entry)
     }
 
     evCount->Fill(ib); // chan 0 from GetBinContent(0)
-
-    // tried to fix gap but didnt work
-    // if (ichan >8 ) //lower for trigger sipms
-    //  derivativeThreshold = 10.;
-    derivativeThreshold = 20; // for non summed
-    // if (passBit==0)
-    /*  call finder->event nosumwave channels */
-    // if (ib == 12)
-    //   printf("call finder second loop %u digi size %lu \n", ib, digi.size());
-    finder->event(ichan, entry, digi, derivativeThreshold, hitThreshold, diffStep); // DEG suggests 10
+    double hitThreshold = 160.0;
+    if (ib == 12)
+      hitThreshold = 10.0;
+    finder->event(ichan, entry, digi, chanThreshold[ib], hitThreshold, diffStep); // DEG suggests 10
     // make directories here
 
     /*
