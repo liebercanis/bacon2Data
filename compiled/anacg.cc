@@ -3,7 +3,7 @@
 static TBRun *theTBRun;
 int main(int argc, char *argv[])
 {
-  cout << "executing " << argv[0] << endl;
+  cout << "executing gamma " << argv[0] << endl;
   printf(" usage: ana  <run name>  <max entries  0=all> <firstEvent default 0> \n ");
   if (argc < 2)
     exit(0);

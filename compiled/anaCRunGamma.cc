@@ -1,4 +1,5 @@
-// M.Gold April 2023 read CAEN files
+
+
 // *** This is GAMMA version Sept 25 2024 ***
 /////////////////////////////////////////////////////////
 #include <sstream>
@@ -26,7 +27,7 @@
 #include <TH1D.h>
 #include <TH2D.h>
 #include <TF1.h>
-#include <TFormula.h>
+#include <TFormu/la.h>
 #include <TStyle.h>
 #include <TCanvas.h>
 #include <TGraphErrors.h>
@@ -764,6 +765,8 @@ int anaCRun::anaEvent(Long64_t entry)
     }
     if (time > 0 && ic > 8)
       hTriggerTime->Fill(double(time));
+
+    // fill an ntuple to monitor this cut
   }
 
   /* ave trigger sipm times before shift */
@@ -1449,7 +1452,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
                            "entry:trigTime:trigTimeSigma:nonTimeAve:nonTimeSigma:trigTimeAve2:trigTimeSigma2:nonTimeAve2:nonTimeSigma2");
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
   hEventPass = new TH1D("EventPass", " event failures", 16, 0, 16);
-  evCount = new TH1D("eventcount", "event count", CHANNELS, 0, CHANNELS);
+  evCount = new TH1D("eventcount", "event count", CHANNELS, 0, CHANNELS) 9;
   hNoPeak = new TH1D("noPeak", "no peak events count by channel", CHANNELS, 0, CHANNELS);
   histHitCount = new TH1D("hitCount", "hit count by channel", CHANNELS, 0, CHANNELS);
   histQSum = new TH1D("histqsum", "qsum by channel", CHANNELS, 0, CHANNELS);
@@ -1460,11 +1463,11 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   //
   anaDir->cd();
-  hTriggerTime = new TH1D("TriggerTime", " ave of trigger Sipm times ", 800, 0, 800);
-  hTriggerShift = new TH1D("TriggerShift", " ave trigger time shift ", 40, -20, 20);
-  hTriggerTimeAll = new TH1D("TriggerTimeAll", " first time all channels ", 800, 00, 800);
-  hTriggerTimeAllVal = new TH1D("TriggerTimeAllVal", " first time val all channels ", 1000, 0, 500);
-  hTriggerHitTimeAll = new TH1D("TriggerHitTimeAll", " first hit time all channels ", 80, 0, 800);
+  hTriggerTime = new TH1D("TriggerTime", " ave of trigger Sipm times ", 1000, 0, 1000);
+  hTriggerShift = new TH1D("TriggerShift", " ave trigger time shift ", 200, -100, 100);
+  hTriggerTimeAll = new TH1D("TriggerTimeAll", " first time all channels ", 1000, 00, 1000);
+  hTriggerTimeAllVal = new TH1D("TriggerTimeAllVal", " first time val all channels ", 1000, 0, 1000);
+  hTriggerHitTimeAll = new TH1D("TriggerHitTimeAll", " first hit time all channels ", 1000, 0, 1000);
   TString htitle;
   htitle.Form(" pre time < %lu normalized qpeak", timeEarlyCut);
   hPreQpeak = new TH1D("PreQpeak", htitle, 100, 0, 10);
