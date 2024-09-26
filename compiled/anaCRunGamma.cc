@@ -27,7 +27,7 @@
 #include <TH1D.h>
 #include <TH2D.h>
 #include <TF1.h>
-#include <TFormu/la.h>
+#include <TFormula.h>
 #include <TStyle.h>
 #include <TCanvas.h>
 #include <TGraphErrors.h>
@@ -1452,7 +1452,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
                            "entry:trigTime:trigTimeSigma:nonTimeAve:nonTimeSigma:trigTimeAve2:trigTimeSigma2:nonTimeAve2:nonTimeSigma2");
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
   hEventPass = new TH1D("EventPass", " event failures", 16, 0, 16);
-  evCount = new TH1D("eventcount", "event count", CHANNELS, 0, CHANNELS) 9;
+  evCount = new TH1D("eventcount", "event count", CHANNELS, 0, CHANNELS);
   hNoPeak = new TH1D("noPeak", "no peak events count by channel", CHANNELS, 0, CHANNELS);
   histHitCount = new TH1D("hitCount", "hit count by channel", CHANNELS, 0, CHANNELS);
   histQSum = new TH1D("histqsum", "qsum by channel", CHANNELS, 0, CHANNELS);
