@@ -233,10 +233,22 @@ void normalizeTotalPass(TString histSet)
 
 bool readGains(TString fileName)
 {
+  // set default
+  sipmGain.clear();
+  sipmGainError.clear();
+  sipmGain.resize(NONSUMCHANNELS);
+  sipmGainError.resize(NONSUMCHANNELS);
+  for (unsigned long j = 0; j < sipmGain.size(); ++j)
+  {
+    sipmGain[j] = nominalGain;
+    sipmGainError[j] = sqrt(nominalGain);
+  }
+
+  // open stored file
   TFile *fin = new TFile(fileName, "readonly");
   if (fin->IsZombie())
   {
-    std::cout << "Error opening file" << fileName << std::endl;
+    std::cout << "Error opening file" << fileName << " will use default nonminalGain " << nominalGain << std::endl;
     return false;
   }
   cout << " opened sipm gain file " << fileName << endl;
@@ -248,15 +260,6 @@ bool readGains(TString fileName)
     return false;
   }
   cout << "found graph named " << gGain->GetName() << " in file " << fileName << endl;
-  sipmGain.clear();
-  sipmGainError.clear();
-  sipmGain.resize(NONSUMCHANNELS);
-  sipmGainError.resize(NONSUMCHANNELS);
-  for (unsigned long j = 0; j < sipmGain.size(); ++j)
-  {
-    sipmGain[j] = nominalGain;
-    sipmGainError[j] = sqrt(nominalGain);
-  }
   for (int i = 0; i < gGain->GetN(); ++i)
   {
     int index = int(gGain->GetPointX(i));
@@ -539,7 +542,7 @@ void fileLoop()
       for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
       {
         gainOutName.Form("GainSumChan%i", ichan);
-        gainInName.Form("LatePeakSumChan%i", ichan);
+        gainInName.Form("TotPeakSumChan%i", ichan);
         TH1D *hIn = NULL;
         anaDir->GetObject(gainInName, hIn);
         if (hIn)
@@ -1294,11 +1297,7 @@ int main(int argc, char *argv[])
   // read old gain file
   TString gainFileName = TString(getenv("BOBJ")) + TString("/gains-2024-02-15-17-26-save.root");
   cout << "read gains from file " << gainFileName << endl;
-  if (!readGains(gainFileName))
-  {
-    printf("no gain file %s so exit \n", gainFileName.Data());
-    exit(0);
-  }
+  readGains(gainFileName);
 
   // use a relative normalization
   /*
