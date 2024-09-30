@@ -63,7 +63,7 @@ ana1: ana1.cc anaRun.cc
 anaca: anaca.cc anaCRunAlpha.cc
 	$(CPP) $< $(LIBS)  -o $@
 
-anacg: anaca.cc anaCRunGamma.cc
+anacg: anacg.cc anaCRunGamma.cc
 	$(CPP) $< $(LIBS)  -o $@
 
 summary: summary.cc 
