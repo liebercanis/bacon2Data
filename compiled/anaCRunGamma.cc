@@ -790,9 +790,6 @@ int anaCRun::anaEvent(Long64_t entry)
       hTriggerTimeAll->Fill(double(time));
       hTriggerTimeAllVal->Fill(double(val));
     }
-    if (time > 0 && ic > 8)
-      hTriggerTime->Fill(double(time));
-
     // fill an ntuple to monitor this cut
   }
 
@@ -807,15 +804,12 @@ int anaCRun::anaEvent(Long64_t entry)
   double nonTimeSigma = 0;
   getTriggerTimeStats(&trigTimes[6], nonTimeAve, nonTimeSigma);
 
+  hTriggerTime->Fill(double(firstTime));
   if (firstTime > firstTimeCut)
   {
     printf("@line782 failed firstTimeCut event %llu cut %lu time %u \n", entry, firstTimeCut, firstTime);
     passBit |= 0x2;
   }
-
-  hTriggerTime->Fill(double(firstTime));
-  int timeShift = nominalTrigger - firstTime;
-  hTriggerShift->Fill(timeShift);
 
   /*******
    * now that we have the firstTime
@@ -905,7 +899,7 @@ int anaCRun::anaEvent(Long64_t entry)
   tdet->hits.clear();
   // printf("call to finder for chan 13 %lld \n",entry);
   /* start with very high hit threshold*/
-  double hitThreshold = 3.0 * nominalGain;                                               // 0.9 * nominalGain;
+  double hitThreshold = 1.0 * nominalGain;                                               // 0.9 * nominalGain;
   finder->event(NONSUMCHANNELS, entry, digi, chanThreshold[13], hitThreshold, diffStep); // DEG suggests 10
   // which nominal gain, hit threshold id the same
 
@@ -1498,7 +1492,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   hCountLateTime = new TH1D("CountLateTime ", htitle, 30, 0, 7500);
   hCountLateTime->GetXaxis()->SetTitle("sample time");
   hCountLateTime->Sumw2();
-  hCountLateTimeQpeak = new TH2D("CountLateTimeQpeak", " sample>890 in sum qpeak vs time ", 30, 0, 7500, 20, 0, 20);
+  hCountLateTimeQpeak = new TH2D("CountLateTimeQpeak", " sample>890 in sum qpeak vs time ", 750, 0, 7500, 80, 0, 20);
   hCountLateTimeQpeak->GetXaxis()->SetTitle("sample time");
   hCountLateTimeQpeak->GetYaxis()->SetTitle("qpeak [SPE]");
 
@@ -1635,27 +1629,27 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
       // printf(" event %llu fails with pass bit  %x pass %i fail %i \n", entry, passBit, npass, nfail);
       //  tbrun->print();
-    }
-    // hEventPass->Fill(-1);
-    //  use total entries for all and bin 0 for passing
-    hEventPass->SetBinContent(passBit, hEventPass->GetBinContent(passBit) + 1);
-    // printf("line1441 event %lld passbit %x num  %i \n",entry, passBit,int(hEventPass->GetBinContent(passBit)));
-    //    if(eventPass!=0)
-    //      printf("event fails with eventPass = %x npass %i nfail %i \n", eventPass,npass,nfail);
-    //  tbrun->print();
-    //  printf(" %s %lu \n", tbrun->detList[13]->GetName(), tbrun->detList[13]->hits.size());
-    /*
-    for (unsigned it = 0; it < tbrun->detList[13]->hits.size();++it)
-     tbrun->detList[13]->hits[it].print();
+      // hEventPass->Fill(-1);
+      //  use total entries for all and bin 0 for passing
+      hEventPass->SetBinContent(passBit, hEventPass->GetBinContent(passBit) + 1);
+      // printf("line1441 event %lld passbit %x num  %i \n",entry, passBit,int(hEventPass->GetBinContent(passBit)));
+      //    if(eventPass!=0)
+      //      printf("event fails with eventPass = %x npass %i nfail %i \n", eventPass,npass,nfail);
+      //  tbrun->print();
+      //  printf(" %s %lu \n", tbrun->detList[13]->GetName(), tbrun->detList[13]->hits.size());
+      /*
+      for (unsigned it = 0; it < tbrun->detList[13]->hits.size();++it)
+       tbrun->detList[13]->hits[it].print();
 
-    tbrun->detList[13]->clear();
-  */
-    // set pass bit and fill tbrun
-    for (int idet = 0; idet < tbrun->detList.size(); ++idet)
-    {
-      tbrun->detList[idet]->pass = passBit;
+      tbrun->detList[13]->clear();
+    */
+      // set pass bit and fill tbrun
+      for (int idet = 0; idet < tbrun->detList.size(); ++idet)
+      {
+        tbrun->detList[idet]->pass = passBit;
+      }
+      tbrun->fill();
     }
-    tbrun->fill();
   }
   printf(" \n \n At END OF FILE total pass  = %i fail %i  \n", npass, nfail);
 
