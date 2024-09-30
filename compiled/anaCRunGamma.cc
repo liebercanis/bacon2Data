@@ -1,5 +1,3 @@
-
-
 // *** This is GAMMA version Sept 25 2024 ***
 /////////////////////////////////////////////////////////
 #include <sstream>
@@ -160,6 +158,7 @@ public:
   bool openFile(TString fileName);
   bool outFileCheck(TString outFileName);
   unsigned getListOfFiles(TString dir);
+  void printGains();
   bool readGains(TString fileName);
   void getSummedHists();
   unsigned getBranches();
@@ -198,13 +197,14 @@ public:
   int MaxSPEShape = 4;
   unsigned trigStart = 600;
   unsigned trigEnd = 800;
-  int nominalTrigger = 726;   // was 729;
-  double nominalGain = 227.4; // average
-  // double nominalGain = 160.0; // average
+  int nominalTrigger = 753; // was 729;
+  double nominalGain = 160.0;
+  // 227.4; // average
+  //  double nominalGain = 160.0; // average
   unsigned firstTime;       // corrected trigger time for event
   unsigned timeOffset = 13; // changed from 17 may 13, 2024
   ULong_t taveEarlyCut = 710;
-  ULong_t taveLateCut = 800; // 740;
+  ULong_t taveLateCut = 820; // 740;
   ULong_t timeEarlyCut = 660;
   ULong_t timeLateCut = 890;
   ULong_t timeVeryLateCut = 3500;
@@ -344,6 +344,15 @@ std::vector<double> anaCRun::sumDigi()
   return digiSum;
 }
 
+void anaCRun::printGains()
+{
+  printf("got %lu gains \n", sipmGain.size());
+  for (unsigned long j = 0; j < sipmGain.size(); ++j)
+  {
+    printf(" %lu  gain %.4f error %.4f   \n", j, sipmGain[j], sipmGainError[j]);
+  }
+}
+
 bool anaCRun::readGains(TString fileName)
 {
   /* define nominal */
@@ -351,10 +360,28 @@ bool anaCRun::readGains(TString fileName)
   sipmGainError.clear();
   sipmGain.resize(NONSUMCHANNELS);
   sipmGainError.resize(NONSUMCHANNELS);
+  /*    preliminaru gains
+        no trig 158
+        trig 760
+        PMT 11
+  */
   for (unsigned long j = 0; j < sipmGain.size(); ++j)
   {
-    sipmGain[j] = nominalGain;
-    sipmGainError[j] = sqrt(nominalGain);
+    if (j < 9)
+    {
+      sipmGain[j] = 158.;
+      sipmGainError[j] = sqrt(158.);
+    }
+    else if (j < 12)
+    {
+      sipmGain[j] = 760.;
+      sipmGainError[j] = sqrt(760.);
+    }
+    else
+    {
+      sipmGain[j] = 11.;
+      sipmGainError[j] = sqrt(11.);
+    }
   }
   /* look for gain file */
   bool exists = false;
@@ -363,8 +390,9 @@ bool anaCRun::readGains(TString fileName)
   if (aFile)
   {
     fclose(aFile);
-    exists = true;
+    exists = false;
   }
+
   if (!exists)
   {
     printf(" couldnt open template file %s\n", fileName.Data());
@@ -392,12 +420,6 @@ bool anaCRun::readGains(TString fileName)
     int index = int(gGain->GetPointX(i));
     sipmGain[index] = gGain->GetPointY(i);
     sipmGainError[index] = gGain->GetErrorY(i);
-  }
-
-  printf("stored gains %lu \n", sipmGain.size());
-  for (unsigned long j = 0; j < sipmGain.size(); ++j)
-  {
-    printf(" %lu  gain %.4f error %.4f   \n", j, sipmGain[j], sipmGainError[j]);
   }
   return true;
 }
@@ -773,7 +795,7 @@ int anaCRun::anaEvent(Long64_t entry)
   double trigTimeAve = 0;
   double trigTimeSigma = 0;
   getTriggerTimeStats(&trigTimes[9], trigTimeAve, trigTimeSigma);
-  firstTime = unsigned(trigTimeAve);
+  firstTime = unsigned(trigTimeAve); // ave of trigger sipm times
 
   /* ave non trig  sipm times before shift */
   double nonTimeAve = 0;
@@ -782,7 +804,7 @@ int anaCRun::anaEvent(Long64_t entry)
 
   if (firstTime > taveLateCut)
   {
-    printf("@line782 failed timeLateCut event %llu cut %lu time %u \n", entry, timeLateCut, firstTime);
+    printf("@line782 failed timeLateCut event %llu cut %lu time %u \n", entry, taveLateCut, firstTime);
     passBit |= 0x2;
   }
 
@@ -813,7 +835,7 @@ int anaCRun::anaEvent(Long64_t entry)
     for (unsigned long idd = 0; idd < ddigi.size(); ++idd)
     {
       // limit size because otherwise this is huge
-      if (entry < 1000)
+      if (ntThresholdAll->GetEntries() < 1.0E7)
         ntThresholdAll->Fill(float(entry), float(ib), float(idd), float(ddigi[idd]));
       if (ddigi[idd] < valLow)
       {
@@ -862,24 +884,12 @@ int anaCRun::anaEvent(Long64_t entry)
 
   /* **** */
   /* make ntuple of before and after shift */
-  for (unsigned ic = 6; ic < NONSUMCHANNELS; ++ic)
+  for (unsigned ic = 0; ic < NONSUMCHANNELS; ++ic)
   {
     double val;
     sTrigTimes[ic] = fixedTriggerTime(ic, val);
+    ntTrigTime->Fill(double(entry), double(ic), double(firstTime), trigTimes[ic], adcBin[ic], sTrigTimes[ic], val);
   }
-  /* ave trigger sipm times after shift */
-  double trigTimeAve2 = 0;
-  double trigTimeSigma2 = 0;
-  getTriggerTimeStats(&sTrigTimes[9], trigTimeAve2, trigTimeSigma2);
-
-  /* ave non trig  sipm times after shift*/
-  double nonTimeAve2 = 0;
-  double nonTimeSigma2 = 0;
-  getTriggerTimeStats(&sTrigTimes[6], nonTimeAve2, nonTimeSigma2);
-
-  ntTrigTime->Fill(entry,
-                   double(firstTime), trigTimeSigma, nonTimeAve, nonTimeSigma,
-                   trigTimeAve2, trigTimeSigma2, nonTimeAve2, nonTimeSigma2);
 
   /* *******
         do pulse finding on summed line for event cuts
@@ -1402,6 +1412,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   TString gainFileName = TString(getenv("BOBJ")) + TString("/gains-2024-02-15-17-26-save.root");
   cout << "read gains from file " << gainFileName << endl;
   readGains(gainFileName);
+  printGains();
 
   // need to fill rawBr[0]->rdigi.size()
   printf("Read zeroth entry from tree \n");
@@ -1448,8 +1459,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   ntSpeYield = new TNtuple("ntSpeYield", "spe per sipm",
                            "event:spe0:spe1:spe2:spe3:spe4:spe5:spe6:spe7:spe8:spe9:spe10:spe11");
   ntSetTrigTime = new TNtuple("ntSetTrigTime", " trig time and val", "event:chan:time:val");
-  ntTrigTime = new TNtuple("ntTrigTime", "trigger time ntuple",
-                           "entry:trigTime:trigTimeSigma:nonTimeAve:nonTimeSigma:trigTimeAve2:trigTimeSigma2:nonTimeAve2:nonTimeSigma2");
+  ntTrigTime = new TNtuple("ntTrigTime", "trigger time ntuple", "entry:chan:firstTime:time:adc:ftime:fadc");
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
   hEventPass = new TH1D("EventPass", " event failures", 16, 0, 16);
   evCount = new TH1D("eventcount", "event count", CHANNELS, 0, CHANNELS);
