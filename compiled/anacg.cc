@@ -4,7 +4,7 @@ static TBRun *theTBRun;
 int main(int argc, char *argv[])
 {
   cout << "executing gamma " << argv[0] << endl;
-  printf(" usage: ana  <run name>  <max entries  0=all> <firstEvent default 0> \n ");
+  printf(" usage: ana  gamma <run name>  <max entries  0=all> <firstEvent default 0> \n ");
   if (argc < 2)
     exit(0);
   TString tag("run");
@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
   theTBRun = new TBRun(tag);
 
   // make output tree
-  printf(" starting anaRun %s maxEntries %lld firstEntry %lld \n", tag.Data(), maxEntries, firstEntry);
+  printf(" starting anaCRunGamma %s maxEntries %lld firstEntry %lld \n", tag.Data(), maxEntries, firstEntry);
   anaCRun *r = new anaCRun(tag);
   // r->setTBRun(theTBRun);
   r->anaCRunFile(tag, maxEntries, firstEntry);
