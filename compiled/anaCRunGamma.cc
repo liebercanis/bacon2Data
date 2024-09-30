@@ -1,4 +1,4 @@
-// *** This is GAMMA version Sept 25 2024 ***
+// ***This is GAMMA version Sept 25 2024 * **
 /////////////////////////////////////////////////////////
 #include <sstream>
 #include <unistd.h>
@@ -203,10 +203,11 @@ public:
   //  double nominalGain = 160.0; // average
   unsigned firstTime;       // corrected trigger time for event
   unsigned timeOffset = 13; // changed from 17 may 13, 2024
-  ULong_t taveEarlyCut = 710;
-  ULong_t taveLateCut = 820; // 740;
+  ULong_t passTimeEarlyCut = 710;
+  double passValEarlyCut = 100.0;
+  double passValEarlyPmtCut = 225.0;
+  ULong_t firstTimeCut = 890; // 740;
   ULong_t timeEarlyCut = 660;
-  ULong_t timeLateCut = 890;
   ULong_t timeVeryLateCut = 3500;
   double prePeakCut = 0.5;
   double latePeakCut = 3.5; // march 18 2024 2.5;
@@ -224,7 +225,7 @@ unsigned anaCRun::getTriggerTime(int ic, double &adc)
   if (ic < 9)
     off = timeOffset;
   adc = 0;
-  for (unsigned j = 0; j < timeLateCut; ++j)
+  for (unsigned j = 0; j < firstTimeCut; ++j)
   {
     double val = double(rawBr[ic]->rdigi[j]) - idet->base;
     val *= nominalGain / sipmGain[ic];
@@ -246,7 +247,7 @@ void anaCRun::getTriggerTimeStats(unsigned *timeArray, double &ave, double &sigm
   for (unsigned ic = 0; ic < 3; ++ic)
   {
     // 690 < time < 890
-    if (timeArray[ic] < timeLateCut && timeArray[ic] > timeEarlyCut)
+    if (timeArray[ic] < firstTimeCut && timeArray[ic] > timeEarlyCut)
     {
       ave += double(timeArray[ic]);
       ++nave;
@@ -462,14 +463,14 @@ void anaCRun::clear()
   channelSigmaValue.resize(CHANNELS);
   for (unsigned long j = 0; j < channelSigmaValue.size(); ++j)
   {
-    chanThreshold[j] = 3. * 55.;
+    chanThreshold[j] = 3. * 56.;
   }
   // special threshold values
-  chanThreshold[9] = 3. * 93.;
-  chanThreshold[10] = 3. * 200.;
-  chanThreshold[11] = 3. * 200.;
-  chanThreshold[12] = 3. * 24.;
-  chanThreshold[13] = 3. * 200.;
+  chanThreshold[9] = 3. * 37.4;
+  chanThreshold[10] = 3. * 37.4;
+  chanThreshold[11] = 3. * 37.4;
+  chanThreshold[12] = 3. * 160.;
+  chanThreshold[13] = 3. * 100.;
   nSpeSum.resize(CHANNELS);
 }
 
@@ -767,17 +768,21 @@ int anaCRun::anaEvent(Long64_t entry)
   for (unsigned ic = 0; ic < NONSUMCHANNELS; ++ic)
   {
     double val = 0;
-    // get time for maximim val before timeLateCut
+    // get time for maximim val before firstTimeCut
     unsigned time = getTriggerTime(ic, val); // include timeOffset in routine
     ntSetTrigTime->Fill(double(entry), double(ic), double(time), double(val));
     trigTimes[ic] = time;
     adcBin[ic] = val;
-    // if (time < nominalTrigger - 5 * triggerSigma)
 
-    // printf("@line749 timeEarlyCut event %llu chan %i cut %lu time %u val %f \n", entry, ic, taveEarlyCut, time, val);
-    if (time < unsigned(taveEarlyCut) && val > 0.5 * nominalGain)
+    /* set passBit 1 val cut is different for PMT*/
+    if (time < unsigned(passTimeEarlyCut) && val > passValEarlyCut && ic < 12)
     {
-      printf("@line757 failed timeEarlyCut event %llu chan %i cut %lu time %u val %f \n", entry, ic, taveEarlyCut, time, val);
+      printf("@line757 failed passBit 1 timeEarlyCut event %llu chan %i time %u val %f \n", entry, ic, time, val);
+      passBit |= 0x1;
+    }
+    if (time < unsigned(passTimeEarlyCut) && val > passValEarlyPmtCut && ic == 12)
+    {
+      printf("@line757 failed timeEarlyCut event %llu chan %i time %u val %f \n", entry, ic, time, val);
       passBit |= 0x1;
     }
     if (time > 0)
@@ -802,9 +807,9 @@ int anaCRun::anaEvent(Long64_t entry)
   double nonTimeSigma = 0;
   getTriggerTimeStats(&trigTimes[6], nonTimeAve, nonTimeSigma);
 
-  if (firstTime > taveLateCut)
+  if (firstTime > firstTimeCut)
   {
-    printf("@line782 failed timeLateCut event %llu cut %lu time %u \n", entry, taveLateCut, firstTime);
+    printf("@line782 failed firstTimeCut event %llu cut %lu time %u \n", entry, firstTimeCut, firstTime);
     passBit |= 0x2;
   }
 
@@ -899,7 +904,8 @@ int anaCRun::anaEvent(Long64_t entry)
   TDet *tdet = tbrun->getDet(NONSUMCHANNELS);
   tdet->hits.clear();
   // printf("call to finder for chan 13 %lld \n",entry);
-  double hitThreshold = 0.9 * nominalGain;                                               // 500.0;
+  /* start with very high hit threshold*/
+  double hitThreshold = 3.0 * nominalGain;                                               // 0.9 * nominalGain;
   finder->event(NONSUMCHANNELS, entry, digi, chanThreshold[13], hitThreshold, diffStep); // DEG suggests 10
   // which nominal gain, hit threshold id the same
 
@@ -918,13 +924,13 @@ int anaCRun::anaEvent(Long64_t entry)
       ++nPreHits;
       // printf("event preHits %llu cut %lu hitStartTime %lu  qpeak %.2f nPreHits %i \n", entry, timeEarlyCut, hitStartTime, hiti.qpeak, nPreHits);
     }
-    if (hitStartTime > timeLateCut)
+    if (hitStartTime > firstTimeCut)
       hLateQpeak->Fill(tdet->hits[ihit].qpeak / nominalGain);
-    if (hitStartTime > timeLateCut && tdet->hits[ihit].qpeak / nominalGain > latePeakCut)
+    if (hitStartTime > firstTimeCut && tdet->hits[ihit].qpeak / nominalGain > latePeakCut)
     {
       ++nLateHits;
       hCountLateTime->Fill(hitStartTime);
-      // printf("event lateHits %llu cut %lu hitStartTime %lu  qpeak %.2f nLateHits %i \n", entry, timeLateCut, hitStartTime, hiti.qpeak, nLateHits);
+      // printf("event lateHits %llu cut %lu hitStartTime %lu  qpeak %.2f nLateHits %i \n", entry, firstTimeCut, hitStartTime, hiti.qpeak, nLateHits);
       //  hCountLateTime->Fill(tdet->hits[ihit].startTime);
     }
     // if (hitStartTime > 600 && hitStartTime < 800 && hitStartTime < firstTime)
@@ -1086,8 +1092,8 @@ int anaCRun::anaEvent(Long64_t entry)
     }
 
     // loop over hits
-    if (tdet->hits.size() > 0 && idet == 12) // PMT
-      printf("@line978 event %llu  det %u nhits %lu \n", entry, idet, tdet->hits.size());
+    // if (tdet->hits.size() > 0 && idet == 12) // PMT
+    //  printf("@line978 event %llu  det %u nhits %lu \n", entry, idet, tdet->hits.size());
     // add peak sums
     if (tdet->hits.size() == 0)
       hNoPeak->SetBinContent(tdet->channel + 1, hNoPeak->GetBinContent(tdet->channel + 1) + 1);
@@ -1101,7 +1107,7 @@ int anaCRun::anaEvent(Long64_t entry)
       hQSpe[idet]->Fill(0);
     }
 
-    printf("@line1065 event %llu  det %u nhits %lu \n", entry, idet, tdet->hits.size());
+    // printf("@line1065 event %llu  det %u nhits %lu \n", entry, idet, tdet->hits.size());
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
     {
       TDetHit thit = tdet->hits[ihit];
@@ -1113,7 +1119,7 @@ int anaCRun::anaEvent(Long64_t entry)
       // do peak sums
       tdet->totPeakSum += thit.qpeak;
 
-      if (hitTime > timeEarlyCut && hitTime < timeLateCut && hitTime < firstHitTime)
+      if (hitTime > timeEarlyCut && hitTime < firstTimeCut && hitTime < firstHitTime)
         firstHitTime = hitTime;
       //
       if (hitTime < trigStart)
@@ -1481,14 +1487,14 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   TString htitle;
   htitle.Form(" pre time < %lu normalized qpeak", timeEarlyCut);
   hPreQpeak = new TH1D("PreQpeak", htitle, 100, 0, 10);
-  htitle.Form(" pre time > %lu normalized qpeak", timeLateCut);
+  htitle.Form(" pre time > %lu normalized qpeak", firstTimeCut);
   hLateQpeak = new TH1D("LateQpeak", htitle, 100, 0, 10);
   hCountPre = new TH1D("CountPre", " hits sample<600 in sum", 20, 0, 20);
-  htitle.Form("hits qpeak>%.2f SPE sample>%luin sum", latePeakCut, timeLateCut);
+  htitle.Form("hits qpeak>%.2f SPE sample>%luin sum", latePeakCut, firstTimeCut);
   hCountLate = new TH1D("CountLate", htitle, 20, 0, 20);
   htitle.Form("number of late time hits with qpeak>%.2f", latePeakCut);
   hCountLate->GetXaxis()->SetTitle(htitle);
-  htitle.Form("hits qpeak>%.2f SPE sample>%lu in sum", latePeakCut, timeLateCut);
+  htitle.Form("hits qpeak>%.2f SPE sample>%lu in sum", latePeakCut, firstTimeCut);
   hCountLateTime = new TH1D("CountLateTime ", htitle, 30, 0, 7500);
   hCountLateTime->GetXaxis()->SetTitle("sample time");
   hCountLateTime->Sumw2();
