@@ -75,6 +75,7 @@ public:
   TBEventData *eventData;
   TBEventData *rawEventData;
   TNtuple *ntThresholdAll;
+  TNtuple *ntThresholdAdc;
   TNtuple *ntThreshold;
   TNtuple *ntChan;
   TNtuple *ntChanSum;
@@ -364,7 +365,7 @@ bool anaCRun::readGains(TString fileName)
   /*    preliminaru gains
         no trig 158
         trig 760
-        PMT 11
+        PMT 380
   */
   for (unsigned long j = 0; j < sipmGain.size(); ++j)
   {
@@ -380,7 +381,7 @@ bool anaCRun::readGains(TString fileName)
     }
     else
     {
-      sipmGain[j] = 11.;
+      sipmGain[j] = 380.;
       sipmGainError[j] = sqrt(11.);
     }
   }
@@ -626,7 +627,8 @@ int anaCRun::anaEvent(Long64_t entry)
     // define trigger sipms
     bool trig = ichan == 9 || ichan == 10 || ichan == 11;
     // deal with trigger channel sign by overwriting rdigi
-    if (trig)
+    // also invert pulse on PMT
+    if (trig || ib == 12)
     {
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
       {
@@ -689,7 +691,7 @@ int anaCRun::anaEvent(Long64_t entry)
       sigma = gfit->GetParameter(2);
     }
     else
-      printf("line627!!!! gaus fit fails event %lld chan %u fitStaus %i \n", entry, ib, fitStatus);
+      printf("line627!!!! gaus fit fails event %lld chan %u fitStaus %i base %f \n", entry, ib, fitStatus, base);
 
     // printf("@line652 baseline %lld chan %u base %f ave %f  \n", entry, ib, base, ave);
 
@@ -707,7 +709,7 @@ int anaCRun::anaEvent(Long64_t entry)
     TDet *idet = tbrun->getDet(ichan);
     if (idet == NULL)
     {
-      printf("!!!!!NULL idet br %u ichan %i\n", ib, ichan);
+      printf("@line711!!!!!NULL idet br %u ichan %i\n", ib, ichan);
       continue;
     }
     idet->ave = ave;
@@ -830,12 +832,12 @@ int anaCRun::anaEvent(Long64_t entry)
     double valLow = 1.E-9;
     unsigned long sampleHigh = 0;
     double valHigh = -1.E-9;
+    unsigned long maxBin = 0;
+    double adcMax = -1.E-9;
     // find high and low
     for (unsigned long idd = 0; idd < ddigi.size(); ++idd)
     {
       // limit size because otherwise this is huge
-      if (ntThresholdAll->GetEntries() < 1.0E7)
-        ntThresholdAll->Fill(float(entry), float(ib), float(idd), float(ddigi[idd]));
       if (ddigi[idd] < valLow)
       {
         valLow = ddigi[idd];
@@ -846,22 +848,20 @@ int anaCRun::anaEvent(Long64_t entry)
         valHigh = ddigi[idd];
         sampleHigh = idd;
       }
-    }
+      if (ntThresholdAll->GetEntries() < 1.0E7)
+        ntThresholdAll->Fill(float(entry), float(ib), float(idd), float(ddigi[idd]));
 
-    if (!((sampleLow - sampleHigh) > 0 && (sampleLow - sampleHigh) < 50))
-      continue;
-    // find max
-    unsigned long maxBin = 0;
-    double adcMax = -1.E-9;
-    // max
-    for (unsigned long jdigi = sampleHigh; jdigi < sampleLow; ++jdigi)
-    {
-      if (digi[jdigi] > adcMax)
+      //  find max anywhere
+      if (digi[idd] > adcMax)
       {
-        maxBin = jdigi;
-        adcMax = digi[jdigi];
+        maxBin = idd;
+        adcMax = digi[idd];
       }
-    }
+    } // ddigi loop
+    // if (!((sampleLow - sampleHigh) > 0 && (sampleLow - sampleHigh) < 50))
+    //   continue;
+
+    ntThresholdAdc->Fill(entry, ib, sampleLow, sampleHigh, maxBin, adcMax);
 
     // plot to see a few of these
     if (abs(valLow) > chanThreshold[ib] && valHigh > chanThreshold[ib] && threshDir->GetList()->GetEntries() < 100)
@@ -1453,6 +1453,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   // fout->append(tbrun->btree);e("ntHit", " hits
   ntThresholdAll = new TNtuple("ntThresholdAll", "ntThreshold", "event:chan:sample:ddigi");
+  ntThresholdAdc = new TNtuple("ntThresholdAdc", "ntThresholdAdc", "event:chan:sampleLow:sampleHigh:maxBin:adcMax");
   ntThreshold = new TNtuple("ntThreshold", "ntThreshold", "event:chan:sampleLow:ddigiLow:sampleHigh:ddigiHigh:maxBin:adcMax");
   ntHit = new TNtuple("ntHit", "hit ntuple", "event:flag:chan:time:peakTime:qpeak");
   ntChan = new TNtuple("ntchan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peakmax:sum2:sum:negcrossings:thresholds:pass");
@@ -1492,7 +1493,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   hCountLateTime = new TH1D("CountLateTime ", htitle, 30, 0, 7500);
   hCountLateTime->GetXaxis()->SetTitle("sample time");
   hCountLateTime->Sumw2();
-  hCountLateTimeQpeak = new TH2D("CountLateTimeQpeak", " sample>890 in sum qpeak vs time ", 750, 0, 7500, 80, 0, 20);
+  hCountLateTimeQpeak = new TH2D("CountLateTimeQpeak", " sum qpeak vs time ", 750, 0, 7500, 80, 0, 20);
   hCountLateTimeQpeak->GetXaxis()->SetTitle("sample time");
   hCountLateTimeQpeak->GetYaxis()->SetTitle("qpeak [SPE]");
 
