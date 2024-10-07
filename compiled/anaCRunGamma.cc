@@ -467,11 +467,11 @@ void anaCRun::clear()
     chanThreshold[j] = 3. * 56.;
   }
   // special threshold values
-  chanThreshold[9] = 3. * 37.4;
-  chanThreshold[10] = 3. * 37.4;
-  chanThreshold[11] = 3. * 37.4;
-  chanThreshold[12] = 3. * 160.;
-  chanThreshold[13] = 3. * 100.;
+  chanThreshold[9] = 3. * 35.;
+  chanThreshold[10] = 3. * 35.;
+  chanThreshold[11] = 3. * 35.;
+  chanThreshold[12] = 3. * 5.3;
+  chanThreshold[13] = 3. * 56.;
   nSpeSum.resize(CHANNELS);
 }
 

@@ -197,8 +197,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     hFilteredSummedWave.push_back(new TH1D(Form("FilteredSummedWave%s", deti->GetName()), Form("filtered summed wave%s", deti->GetName()), nsamples, 0, nsamples));
   }
   fout->cd();
-  // ntFinder->Fill(float(thefalseEvent), float(idet), float(detHits.size()), float(dhit.firstBin), float(dhit.startTime), float(dhit.peakBin), float(dhit.lastBin));
-  ntFinder = new TNtuple("ntFinder", " hit finder ", "event:chan:nhit:first:start:peak:last:qpeak");
+  ntFinder = new TNtuple("ntFinder", " hit finder ", "event:chan:nhit:startt:peakBin:lastBin:qpeak");
   ntSplit = new TNtuple("ntSplit", " split for finder ", "event:chan:cross:nsplit:bin:ratio:batr:width");
   ntPeakFix = new TNtuple("ntPeakFix", "peak fix for singlet", "detHits:idet:singlett:peakt:qpeak:qpeakFix");
 
@@ -851,6 +850,9 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
       if (imax - ilow > 30)
         printf("line830 ilow Diff! in makePeaks %lli add det %i  imax %i val %f icross %u from (%u,%u) %i\n", theEvent, idet, imax, maxVal, crossingBin[icross], ilow, ihigh, icross);
     }
+
+    if (ilow > 7500 && ihigh > 7500)
+      printf("line855 makePeaks ERROR!! LATE %lli add det %i  imax %i val %f icross %u from (%u,%u) %i\n", theEvent, idet, imax, maxVal, crossingBin[icross], ilow, ihigh, icross);
   }
 }
 
@@ -876,8 +878,12 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
   {
     unsigned klow = std::get<0>(peakList[ip]);
     unsigned khigh = std::get<1>(peakList[ip]);
+    if (klow > 7500 || khigh > 7500)
+      printf("line882 hitFinder::makeHit LATE (%u,%u) ip %u \n", klow, khigh, ip);
+    // if (idet == 12)
+    //   printf("line881 hitFinder::makeHits event %lli det %i hit  %u (%u,%u) kind %i length %u \n", theEvent, idet, ip, klow, khigh, peakKind[ip], khigh - klow);
     if (verbose)
-      printf("line819 hitFinder::makeHits event %lli det %i hit  %u (%u,%u) kind %i length %u \n", theEvent, idet, ip, klow, khigh, peakKind[ip], khigh - klow);
+      printf("line883 hitFinder::makeHits event %lli det %i hit  %u (%u,%u) kind %i length %u \n", theEvent, idet, ip, klow, khigh, peakKind[ip], khigh - klow);
     hHitLength->Fill(khigh - klow + 1);
     if (khigh - klow + 1 < minLength)
     {
@@ -898,12 +904,26 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
       }
     }
 
+    // if (idet == 12)
+    //   printf("line905 HitFinderMakeHits ihit %i qpeak %f time %f \n ", int(detHits.size()), qpeak, double(peakt));
+
     // redefine low, ihgh relative to this peak
-    unsigned kstart = TMath::Max(unsigned(0), peakt - peakWidth);
+    // this is a bug because of possible negative unisgned!
+    int diff = peakt - peakWidth;
+    unsigned kstart = 0;
+    if (diff > 0)
+      kstart = unsigned(diff);
     unsigned kend = TMath::Min(unsigned(digi.size()), peakt + peakWidth);
+
+    if (kstart > 7500 || kend > 7500)
+      printf("line915 hitFinder::makeHit LATE %u width %u (start %u,end %u) ip %u \n", peakt, peakWidth, kstart, kend, ip);
     // cut small peaks below hitThreshold
     hPeakCut[idet]->Fill(qpeak);
     hPeakCutAndTime[idet]->Fill(peakt, qpeak);
+
+    if (qpeak < hitThreshold && idet == 12)
+      printf("line911 HitFinderMakeHits ihit %i qpeak %f thresh %f \n ", int(detHits.size()), qpeak, hitThreshold);
+
     if (qpeak < hitThreshold)
       continue;
 
@@ -938,6 +958,14 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     }
     Double_t hitTime = dhit.startTime * timeUnit * microSec;
 
+    if (dhit.startTime > 7500)
+    {
+      printf("line959 hitFinder::makeHits !!!LATE HIT TIME!!! %llu insert hit idet %i  time %f (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, dhit.startTime, dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
+    }
+
+    // if (idet == 12)
+    //   printf("line951HitFinderMakeHits ihit %i time %f qpeak %f \n ", int(detHits.size()), double(dhit.startTime), dhit.qpeak);
+
     // ensure new hit it does not have same peak bin and check
     bool used = false;
     for (hitMapIter hitIter = detHits.begin(); hitIter != detHits.end(); ++hitIter)
@@ -947,9 +975,12 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
       {
         used = true;
         if (verbose)
-          printf("line887 hitFinder::makeHit found multiple hits det %i this (%i,%i,%i)  last peak (%i,%i,%i) dethit size %lu \n", idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, dhit.firstBin, dhit.peakBin, dhit.lastBin, detHits.size());
+          printf("line963 hitFinder::makeHit found multiple hits det %i this (%i,%i,%i)  last peak (%i,%i,%i) dethit size %lu \n", idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, dhit.firstBin, dhit.peakBin, dhit.lastBin, detHits.size());
       }
     }
+
+    // if (idet == 12)
+    //  printf("line968  hitFinder::makeHit  det %i last peak (%i,%i,%i) dethit size %lu used %i \n", idet, dhit.firstBin, dhit.peakBin, dhit.lastBin, detHits.size(), int(used));
     if (used)
       continue;
 
@@ -969,6 +1000,15 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
       printf("line925 detHits %lu  %i singlett %u peakt %u  \n", detHits.size(), idet, singletPeakTime, peakt);
     }
 
+    // fill tFinder
+    // ntFinder = new TNtuple("ntFinder", " hit finder ", "event:chan:nhit:startt:peakBin:lastBin:qpeak");
+    // if (idet == 12)
+    //  printf("line990  detHits fill ntFinder %lu  %i  peakt %f qpeak %f  \n", detHits.size(), idet, dhit.startTime, dhit.qpeak);
+    ntFinder->Fill(float(theEvent), float(idet), float(detHits.size()), float(dhit.startTime), float(dhit.peakBin), float(dhit.lastBin), dhit.qpeak);
+
+    if (dhit.qpeak < hitThreshold && idet == 12)
+      printf("line975HitFinderMakeHits ihit %i qpeak %f thresh %f \n ", int(detHits.size()), dhit.qpeak, hitThreshold);
+
     // cheak after peak fix
     if (dhit.qpeak < hitThreshold)
       continue;
@@ -978,6 +1018,11 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     if (verbose)
     {
       printf("line941 hitFinder::makeHits %llu insert hit idet %i  time %f (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, hitTime, dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
+    }
+
+    if (dhit.startTime > 7500)
+    {
+      printf("line941 hitFinder::makeHits !!!LATE HIT TIME!!! %llu insert hit idet %i  time %i (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, int(dhit.startTime), dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
     }
   }
 

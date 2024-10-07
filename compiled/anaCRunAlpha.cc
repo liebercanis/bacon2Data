@@ -190,7 +190,7 @@ public:
   unsigned firstTime;         // corrected trigger time for event
   unsigned timeOffset = 13;   // changed from 17 may 13, 2024
   ULong_t taveEarlyCut = 710;
-  ULong_t taveLateCut = 740;
+  ULong_t taveLateCut = 780;
   ULong_t timeEarlyCut = 660;
   ULong_t timeLateCut = 890;
   double prePeakCut = 0.5;
