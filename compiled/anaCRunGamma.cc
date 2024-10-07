@@ -1,4 +1,4 @@
-// ***This is GAMMA version Sept 25 2024 * **
+/ ***This is GAMMA version Sept 25 2024 * **
 /////////////////////////////////////////////////////////
 #include <sstream>
 #include <unistd.h>
@@ -10,7 +10,7 @@
 #include <valarray>
 #include <numeric>
 #include <algorithm> // std::sort
-// root
+// root/chan
 #include <TROOT.h>
 #include <TKey.h>
 #include <TBranch.h>
@@ -36,7 +36,7 @@
 #include "hitFinder.hxx"
 #include "TBFile.hxx"
 
-class anaCRun
+                                           class anaCRun
 {
 public:
   enum
@@ -371,18 +371,18 @@ bool anaCRun::readGains(TString fileName)
   {
     if (j < 9)
     {
-      sipmGain[j] = 158.;
-      sipmGainError[j] = sqrt(158.);
+      sipmGain[j] = 159.;
+      sipmGainError[j] = sqrt(159.);
     }
     else if (j < 12)
     {
-      sipmGain[j] = 760.;
-      sipmGainError[j] = sqrt(760.);
+      sipmGain[j] = 752.;
+      sipmGainError[j] = sqrt(752.);
     }
     else
     {
-      sipmGain[j] = 380.;
-      sipmGainError[j] = sqrt(11.);
+      sipmGain[j] = 9.;
+      sipmGainError[j] = sqrt(9.);
     }
   }
   /* look for gain file */
