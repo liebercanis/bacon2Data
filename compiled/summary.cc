@@ -755,9 +755,9 @@ void fileLoop()
       if (name.find("sumPeakWave") != std::string::npos)
       {
         // waveSumDir->cd();
-        // cout << "line722 sumPeakWave clone " << name << " file " << ifile << endl;
         string chan = name.substr(name.find_last_of("e") + 1);
         int ichan = stoi(chan);
+        printf("line760 sumPeakWave clone %s file %i chan %i\n", name.c_str(), ifile, ichan);
         TString cloneName;
         cloneName.Form("RunPeakWaveFile%uChan%i", ifile, ichan);
         hClone = (TH1D *)h->Clone(cloneName);
@@ -1388,7 +1388,7 @@ endNow:
   }
 
   /* runSum integrals of waveSuDir */
-  printf("from Directory %s with %i keys do integrals: \n", waveSumDir->GetName(), waveSumDir->GetNkeys());
+  printf("line1391 from Directory %s with %i keys do integrals: \n", waveSumDir->GetName(), waveSumDir->GetNkeys());
   // waveSumDir->ls();
   runSums.resize(NONSUMCHANNELS);
   runSumNames.resize(NONSUMCHANNELS);
@@ -1403,11 +1403,11 @@ endNow:
 
     TString sname = h->GetName();
     int chanNumber = TString(sname(sname.Last('n') + 1, sname.Length())).Atoi();
-    if (chanNumber > 11)
+    if (chanNumber > 12)
       continue;
     int fileNumber = TString(sname(sname.Last('e') + 1, sname.Length())).Atoi();
     double inte = h->Integral();
-    // printf("file %i chan %i %s pass %i integral %.3E \n",fileNumber,chanNumber,h->GetName(),filePass[fileNumber],inte);
+    printf("line1410 file %i chan %i %s pass %i integral %.3E \n", fileNumber, chanNumber, h->GetName(), filePass[fileNumber], inte);
     runSums[chanNumber].push_back(inte);
     runSumNames[chanNumber].push_back(h->GetName());
   }
