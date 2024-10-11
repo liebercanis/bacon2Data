@@ -411,16 +411,15 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   //   digi = fdigi;
   //}
   hEvAllSumWave->Reset("ICESM");
+  // fill wave for smoothing
   for (unsigned isample = 0; isample < digi.size(); isample++)
   {
-    hEvWave[idet]->SetBinContent(isample + 1, digi[isample]);
     hEvSmooth[idet]->SetBinContent(isample + 1, digi[isample]);
     if (doFFT)
       hEvFiltWave[idet]->SetBinContent(isample + 1, fdigi[isample]);
     if (doFFT)
       hInvFFT[idet]->SetBinContent(isample + 1, fdigi[isample]);
     // sum all waves for this event
-    hEvAllSumWave->SetBinContent(isample + 1, hEvAllSumWave->GetBinContent(isample + 1) + digi[isample]);
   }
   // smooth and fill vector
   hEvSmooth[idet]->Smooth(1); // one time
@@ -431,8 +430,15 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   // use smooth wave if smoothing
   if (verbose)
     printf("line401  smoothing ? %i  digi size %lu \n", smoothing, digi.size());
-  if (!smoothing)
+  if (smoothing)
     digi = sdigi;
+
+  // fill event wave after smoothing
+  for (unsigned isample = 0; isample < digi.size(); isample++)
+  {
+    hEvWave[idet]->SetBinContent(isample + 1, digi[isample]);
+    hEvAllSumWave->SetBinContent(isample + 1, hEvAllSumWave->GetBinContent(isample + 1) + digi[isample]);
+  }
 
   ddigi.clear();
   differentiate();
@@ -490,8 +496,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
         hdigi[iv] = digi[iv];
     // if (hiti.qsum > 7000 && hiti.qsum < 10000) // FILL ONLY SINGLE PE
 
-    // fill hit peak wave
-    hEvHitPeakWave[idet]->SetBinContent(hiti.peakBin, hiti.qpeak);
+    // fill hit peak wave first bin is number one!
+    hEvHitPeakWave[idet]->SetBinContent(hiti.peakBin + 1, hiti.qpeak);
     if (verbose)
       printf("line461 size %lu hit%i idet %i time %f peakBin %i qpeak  %f \n", detHits.size(), hitNumber++, idet, hitIter->first, hiti.peakBin, hiti.qpeak);
     // make sums with cut
@@ -879,7 +885,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     unsigned klow = std::get<0>(peakList[ip]);
     unsigned khigh = std::get<1>(peakList[ip]);
     if (klow > 7500 || khigh > 7500)
-      printf("line882 hitFinder::makeHit LATE (%u,%u) ip %u \n", klow, khigh, ip);
+      printf("line882 hitFinder::makeHit WARNING!!! LATE (%u,%u) ip %u \n", klow, khigh, ip);
     // if (idet == 12)
     //   printf("line881 hitFinder::makeHits event %lli det %i hit  %u (%u,%u) kind %i length %u \n", theEvent, idet, ip, klow, khigh, peakKind[ip], khigh - klow);
     if (verbose)
@@ -947,7 +953,6 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     // this is N= q/qnorm and delta q = root(n)*qnorm;
     dhit.qerr = sqrt(pow(sigma * Double_t(dhit.peakWidth), 2) + qnorm * qsum);
     dhit.kind = peakKind[ip];
-    // printf("line909 in makeHits event %lli  det %i ip %u  peak %u start %i \n",theEvent, idet, ip, dhit.peakt, dhit.firstBin);
 
     // just use the biggest pulse
     if (qsum > qmax)
@@ -1020,10 +1025,18 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
       printf("line941 hitFinder::makeHits %llu insert hit idet %i  time %f (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, hitTime, dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
     }
 
+    /* debugging but should never print */
     if (dhit.startTime > 7500)
     {
-      printf("line941 hitFinder::makeHits !!!LATE HIT TIME!!! %llu insert hit idet %i  time %i (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, int(dhit.startTime), dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
+      printf("line hitFinder::makeHits !!!LATE HIT TIME!!! %llu insert hit idet %i  time %i (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, int(dhit.startTime), dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
     }
+
+    /* debugging
+    if (idet == 12)
+    {
+      printf("line1030hitFinder::makeHits event %llu insert hit idet %i  first,last (%u,%u) peak bin %i  ADC kind %i length %u qpeak %f ADC %f %f %f  detHit size %lu  \n", theEvent, idet, dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, digi[dhit.peakBin - 1], digi[dhit.peakBin], digi[dhit.peakBin + 1], detHits.size());
+    }
+    */
   }
 
   int nhit = 0;
