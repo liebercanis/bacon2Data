@@ -1,4 +1,4 @@
-/ ***This is GAMMA version Sept 25 2024 * **
+// ***This is GAMMA version Sept 25 2024 * **
 /////////////////////////////////////////////////////////
 #include <sstream>
 #include <unistd.h>
@@ -36,7 +36,7 @@
 #include "hitFinder.hxx"
 #include "TBFile.hxx"
 
-                                           class anaCRun
+class anaCRun
 {
 public:
   enum
@@ -470,8 +470,8 @@ void anaCRun::clear()
   chanThreshold[9] = 3. * 35.;
   chanThreshold[10] = 3. * 35.;
   chanThreshold[11] = 3. * 35.;
-  chanThreshold[12] = 3. * 5.3;
-  chanThreshold[13] = 3. * 56.;
+  chanThreshold[12] = 3. * 160.; // based on histogram sigma, had been 5.3;
+  chanThreshold[13] = 3. * 35.;  // should be same as trigger sipm
   nSpeSum.resize(CHANNELS);
 }
 
