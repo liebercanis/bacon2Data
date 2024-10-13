@@ -59,6 +59,7 @@ public:
   };
 
   bool doNotOverWrite = true;
+  bool theFirstFile = true;
   TBRun *tbrun;
   TFile *fout;
   TFile *fin;
@@ -1412,7 +1413,15 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   TString gainFileName = TString(getenv("BOBJ")) + TString("/gains-2024-02-15-17-26-save.root");
   cout << "read gains from file " << gainFileName << endl;
   readGains(gainFileName);
-  printGains();
+
+  if (theFirstFile)
+  {
+    theFirstFile = false;
+    printf("chanThreshold values \n");
+    for (unsigned j = 0; j < chanThreshold.size(); ++j)
+      printf("chan %u chanThreshold %.3f \n", j, chanThreshold[j]);
+    printGains();
+  }
 
   // need to fill rawBr[0]->rdigi.size()
   printf("Read zeroth entry from tree \n");
