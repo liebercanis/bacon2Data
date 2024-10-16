@@ -165,7 +165,7 @@ public:
   void getSummedHists();
   unsigned getBranches();
   int anaEvent(Long64_t entry);                   // return passBit
-  void differentiate();                           //
+  void differentiate(double step);                //
   void derivativeCount(TDet *idet, Double_t rms); // not used
   void negativeCrossingCount(int ichan);
   void thresholdCrossingCount(double thresh);
@@ -213,7 +213,8 @@ public:
   ULong_t timeVeryLateCut = 3500;
   double prePeakCut = 0.5;
   double latePeakCut = 3.5; // march 18 2024 2.5;
-  double diffStep = 5.;     // back to one from 4 May 4 2024
+  double diffStepSipm = 3.; // 6 ns steps for SIPM
+  double diffStepPmt = 1.;  // back to one on Oct 15 2024
 };
 
 /** get trigger time
@@ -230,7 +231,8 @@ unsigned anaCRun::getTriggerTime(int ic, double &adc)
   for (unsigned j = 0; j < firstTimeCut; ++j)
   {
     double val = double(rawBr[ic]->rdigi[j]) - idet->base;
-    val *= nominalGain / sipmGain[ic];
+    // here I want the pure ADC count
+    // val *= nominalGain / sipmGain[ic];
     if (val > adc)
     {
       adc = val;
@@ -372,18 +374,18 @@ bool anaCRun::readGains(TString fileName)
   {
     if (j < 9)
     {
-      sipmGain[j] = 159.;
-      sipmGainError[j] = sqrt(159.);
+      sipmGain[j] = 158.;
+      sipmGainError[j] = sqrt(158.);
     }
     else if (j < 12)
     {
-      sipmGain[j] = 752.;
-      sipmGainError[j] = sqrt(752.);
+      sipmGain[j] = 755.;
+      sipmGainError[j] = sqrt(755.);
     }
     else
     {
-      sipmGain[j] = 9.;
-      sipmGainError[j] = sqrt(9.);
+      sipmGain[j] = 545.;
+      sipmGainError[j] = sqrt(545.);
     }
   }
   /* look for gain file */
@@ -828,7 +830,10 @@ int anaCRun::anaEvent(Long64_t entry)
   {
     digi.clear();
     digi = fixedDigi[ib];
-    differentiate();
+    if (ib == 12)
+      differentiate(diffStepPmt);
+    else
+      differentiate(diffStepSipm);
     unsigned long sampleLow = 0;
     double valLow = 1.E-9;
     unsigned long sampleHigh = 0;
@@ -900,8 +905,9 @@ int anaCRun::anaEvent(Long64_t entry)
   tdet->hits.clear();
   // printf("call to finder for chan 13 %lld \n",entry);
   /* start with very high hit threshold*/
-  double hitThreshold = 1.0 * nominalGain;                                               // 0.9 * nominalGain;
-  finder->event(NONSUMCHANNELS, entry, digi, chanThreshold[13], hitThreshold, diffStep); // DEG suggests 10
+  double hitThreshold = 1.0 * nominalGain;
+  double theStep = diffStepSipm;
+  finder->event(NONSUMCHANNELS, entry, digi, chanThreshold[13], hitThreshold, theStep); // DEG suggests 10
   // which nominal gain, hit threshold id the same
 
   // event cuts
@@ -924,7 +930,6 @@ int anaCRun::anaEvent(Long64_t entry)
     if (hitStartTime > firstTimeCut && tdet->hits[ihit].qpeak / nominalGain > latePeakCut)
     {
       ++nLateHits;
-      hCountLateTime->Fill(hitStartTime);
       // printf("event lateHits %llu cut %lu hitStartTime %lu  qpeak %.2f nLateHits %i \n", entry, firstTimeCut, hitStartTime, hiti.qpeak, nLateHits);
       //  hCountLateTime->Fill(tdet->hits[ihit].startTime);
     }
@@ -991,9 +996,12 @@ int anaCRun::anaEvent(Long64_t entry)
 
     evCount->Fill(ib);                       // chan 0 from GetBinContent(0)
     double hitThreshold = 0.5 * nominalGain; // 500.0;
+    double theStep = diffStepSipm;
     if (ib == 12)
-      hitThreshold = 10.0;
-    finder->event(ichan, entry, digi, chanThreshold[ib], hitThreshold, diffStep); // DEG suggests 10
+    {
+      theStep = diffStepPmt;
+    }
+    finder->event(ichan, entry, digi, chanThreshold[ib], hitThreshold, theStep); // DEG suggests 10
     // make directories here
 
     /*
@@ -1241,7 +1249,7 @@ int anaCRun::anaEvent(Long64_t entry)
 } // anaEvent
 // copied from hitFinder spt 18 2924
 // revised derivative Jan 27 2023 MG
-void anaCRun::differentiate()
+void anaCRun::differentiate(double diffStep)
 {
   ddigi.clear();
   ddigi.resize(digi.size());
@@ -1658,8 +1666,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
       {
         tbrun->detList[idet]->pass = passBit;
       }
-      tbrun->fill();
     }
+    tbrun->fill();
   }
   printf(" \n \n At END OF FILE total pass  = %i fail %i  \n", npass, nfail);
 
@@ -1787,7 +1795,7 @@ anaCRun::anaCRun(TString theTag)
 {
   tag = theTag;
   // tbrun = new TBRun(tag);
-  cout << " anaCRun::anaCRun instance of anaCRun gamma version  with tag= " << tag << " CHANNELS = " << CHANNELS - 1 << " diffStep= " << diffStep << endl;
+  cout << " anaCRun::anaCRun instance of anaCRun gamma version  with tag= " << tag << " CHANNELS = " << CHANNELS - 1 << " diffStepSipm= " << diffStepSipm << " diffStepPmt= " << diffStepPmt << endl;
 
   rawBr.clear();
 
