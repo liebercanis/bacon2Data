@@ -906,7 +906,7 @@ int anaCRun::anaEvent(Long64_t entry)
   tdet->hits.clear();
   // printf("call to finder for chan 13 %lld \n",entry);
   /* start with very high hit threshold*/
-  double hitThreshold = 1.0 * nominalGain;
+  double hitThreshold = 0.; // 1.0 * nominalGain;
   double theStep = diffStepSipm;
   finder->event(NONSUMCHANNELS, entry, digi, chanThreshold[13], hitThreshold, theStep); // DEG suggests 10
   // which nominal gain, hit threshold id the same
@@ -995,8 +995,8 @@ int anaCRun::anaEvent(Long64_t entry)
       }
     }
 
-    evCount->Fill(ib);                       // chan 0 from GetBinContent(0)
-    double hitThreshold = 0.5 * nominalGain; // 500.0;
+    evCount->Fill(ib);        // chan 0 from GetBinContent(0)
+    double hitThreshold = 0.; // 0.5 * nominalGain; // 500.0;
     double theStep = diffStepSipm;
     if (ib == 12)
     {
