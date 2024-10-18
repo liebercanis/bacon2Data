@@ -457,9 +457,11 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   findDerivativeCrossings(idet);
   // findThresholdCrossings(idet, threshold);
   makePeaks(idet, digi);
-  if (peakList.size() > 0)
-    fitSinglet(idet, ievent);
-  // splitPeaks(idet);
+  /*
+     if (peakList.size() > 0)
+       fitSinglet(idet, ievent);
+      splitPeaks(idet);
+  */
   makeHits(idet, triggerTime, firstCharge);
   hPeakCount->Fill(idet, peakList.size());
   // fill hits
