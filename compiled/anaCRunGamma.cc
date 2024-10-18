@@ -468,14 +468,14 @@ void anaCRun::clear()
   // based on step 3 for SIPMs and 1 for PMT Oct 16,2024
   for (unsigned long j = 0; j < channelSigmaValue.size(); ++j)
   {
-    chanThreshold[j] = 3. * 36.4;
+    chanThreshold[j] = 2. * 36.4;
   }
   // special threshold values
-  chanThreshold[9] = 3. * 21.6;
-  chanThreshold[10] = 3. * 21.6;
-  chanThreshold[11] = 3. * 21.6;
-  chanThreshold[12] = 3. * 2.1;  // based on histogram sigma, had been 5.3;
-  chanThreshold[13] = 3. * 36.4; // should be same as trigger sipm
+  chanThreshold[9] = 2. * 21.6;
+  chanThreshold[10] = 2. * 21.6;
+  chanThreshold[11] = 2. * 21.6;
+  chanThreshold[12] = 2. * 2.1;  // based on histogram sigma, had been 5.3;
+  chanThreshold[13] = 2. * 36.4; // should be same as trigger sipm
   nSpeSum.resize(CHANNELS);
 }
 
