@@ -940,6 +940,7 @@ int anaCRun::anaEvent(Long64_t entry)
   hCountPre->Fill(nPreHits);
   hCountLate->Fill(nLateHits);
 
+  /*
   if (nPreHits > 0)
   {
     printf("@line901 failed nPreHits event %llu nPre %i \n", entry, nPreHits);
@@ -950,10 +951,10 @@ int anaCRun::anaEvent(Long64_t entry)
     printf("@line904 failed nLate event %llu nLate %i \n", entry, nLateHits);
     passBit |= 0x8;
   }
+  */
 
   evCount->Fill(-1); // underflow bin
   // printf("line818  event %lld passbit %i \n",entry,passBit);
-
   if (passBit != 0)
   {
     printf("@line913 event %lld passBit %i det %i nhits %u \n",
