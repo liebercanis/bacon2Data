@@ -14,20 +14,20 @@ class TBRawSummary : public TNamed
 public:
   TBRawSummary();
   std::vector<double> mean;
-  std::vector<double> sigma;
+  std::vector<double> rms;
 
   void
   clear()
   {
     mean.clear();
-    sigma.clear();
+    rms.clear();
   }
   void print()
   {
     printf("TBRawSummary %lu channels \n", mean.size());
-    if (mean.size() == sigma.size())
+    if (mean.size() == rms.size())
       for (unsigned long ic = 0; ic < mean.size(); ++ic)
-        printf(" chan %lu mean %f sigma %f \n", ic, mean[ic], sigma[ic]);
+        printf(" chan %lu mean %f sigma %f \n", ic, mean[ic], rms[ic]);
   }
   ClassDef(TBRawSummary, 1)
 };
