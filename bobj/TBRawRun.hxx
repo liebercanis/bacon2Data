@@ -10,6 +10,7 @@
 #include <TTree.h>
 #include "TBRawEvent.hxx"
 #include "TBEventData.hxx"
+#include "TBRawSummary.hxx"
 
 using namespace std;
 
@@ -20,11 +21,12 @@ class TBRawRun : public TNamed
 public:
   TBRawRun();
   TBRawRun(TString runName = "run0");
-  virtual ~TBRawRun(){};
+  virtual ~TBRawRun() {};
 
   void clear();
   TTree *btree;
   TBEventData *eventData;
+  TBRawSummary *eventSummary;
 
   vector<TBRawEvent *> detList;
   void detListClear();
@@ -33,7 +35,8 @@ public:
     return btree->Fill();
   }
 
-  void updateTime(time_t evtime) {
+  void updateTime(time_t evtime)
+  {
     eventData->update(evtime);
   }
 
@@ -56,7 +59,7 @@ public:
         break;
       }
     }
-    if(rev==NULL)
+    if (rev == NULL)
       rev = this->addDet(ichan);
     return rev;
   }
