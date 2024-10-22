@@ -12,6 +12,7 @@ ClassImp(TBRawRun)
 void TBRawRun::clear()
 {
   detListClear();
+  eventSummary->clear();
 }
 
 void TBRawRun::detListClear()
