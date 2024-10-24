@@ -31,7 +31,7 @@ public:
   Double_t skew;
   Double_t base;
   Double_t mode;
-  Double_t peak;
+  Double_t peakMax;
   Double_t totSum;  // waveform ADC sum
   Double_t preSum;  // pre trigger waveform ADC sum
   Double_t trigSum; // trigger window waveform ADC sum
@@ -48,6 +48,8 @@ public:
   Double_t qarea;
   Double_t qpeak;
   int pass;
+  Double_t maxAdc; // max ADC in wave
+  Int_t maxSample; // sample of max ADC in wave
   std::vector<TDetHit> hits;
 
   unsigned nhits() { return hits.size(); }
@@ -62,7 +64,9 @@ public:
     skew = 0;
     base = 0;
     mode = 0;
-    peak = 0;
+    maxSample = -1;
+    peakMax = 0;
+    maxAdc = 0;
     totSum = 0;
     preSum = 0;
     trigSum = 0;
@@ -80,6 +84,6 @@ public:
     hits.clear();
   }
 
-  ClassDef(TDet, 11)
+  ClassDef(TDet, 12)
 };
 #endif

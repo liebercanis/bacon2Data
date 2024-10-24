@@ -123,7 +123,7 @@ public:
 
   double timeUnit;
   double microSec;
-  UInt_t peakWidth = 60.;
+  UInt_t peakWidth = 60;
   int trigEnd = 800;
   int nominalTrigger = 729;
   void event(int idet, Long64_t ievent, vector<double> rdigi, double theDerivativeThreshold, double theHitThreshold, unsigned step = 3);

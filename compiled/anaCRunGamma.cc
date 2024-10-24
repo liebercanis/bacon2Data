@@ -83,6 +83,7 @@ public:
   TNtuple *ntTrigTime;
   TNtuple *ntSetTrigTime;
   TNtuple *ntSpeYield;
+  TNtuple *ntAdc;
   vector<TH1D *> baseHist;
   vector<TH1D *> noiseHist;
   vector<TH1D *> skewHist;
@@ -174,6 +175,7 @@ public:
   void getTriggerTimeStats(unsigned *timeArray, double &ave, double &sigma);
   unsigned fixedTriggerTime(int ichan, double &adc);
   void doTimeShiftAndNorm();
+  void getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample);
   void setTBRun(TBRun *theTBRun)
   {
     tbrun = theTBRun;
@@ -216,6 +218,20 @@ public:
   double diffStepSipm = 3.; // 6 ns steps for SIPM
   double diffStepPmt = 1.;  // back to one on Oct 15 2024
 };
+
+void anaCRun::getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample)
+{
+  maxAdc = -1.E0;
+  for (unsigned j = 0; j < rawBr[ichan]->rdigi.size(); ++j)
+  {
+    double adc = double(rawBr[ichan]->rdigi[j]) - base;
+    if (adc > maxAdc)
+    {
+      maxAdc = adc;
+      maxSample = int(j);
+    }
+  }
+}
 
 /** get trigger time
  * do not make the cut here but after this call
@@ -746,6 +762,13 @@ int anaCRun::anaEvent(Long64_t entry)
     idet->prePeakSum = 0;
     idet->trigPeakSum = 0;
     idet->latePeakSum = 0;
+    /* add maxAdc */
+    double maxAdc;
+    int maxSample;
+    getMaxRawAdc(ib, idet->base, maxAdc, maxSample);
+    idet->maxAdc = maxAdc;
+    idet->maxSample = maxSample;
+    printf("line769 chan %i adc %f sample %i\n", ib, maxAdc, maxSample);
     double peakMax = 0;
     for (unsigned j = 0; j < digi.size(); ++j)
     {
@@ -762,7 +785,7 @@ int anaCRun::anaEvent(Long64_t entry)
         idet->lateSum += digi[j];
     }
     // add some other variables
-    idet->peak = peakMax;
+    idet->peakMax = peakMax;
 
     ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peakMax), float(idet->trigSum), float(idet->totSum), float(crossings.size()), float(thresholds.size()), float(idet->pass));
 
@@ -783,12 +806,12 @@ int anaCRun::anaEvent(Long64_t entry)
     /* set passBit 1 val cut is different for PMT*/
     if (time < unsigned(passTimeEarlyCut) && val > passValEarlyCut && ic < 12)
     {
-      printf("@line757 failed passBit 1 timeEarlyCut event %llu chan %i time %u val %f \n", entry, ic, time, val);
+      // printf("@line757 failed passBit 1 timeEarlyCut event %llu chan %i time %u val %f \n", entry, ic, time, val);
       passBit |= 0x1;
     }
     if (time < unsigned(passTimeEarlyCut) && val > passValEarlyPmtCut && ic == 12)
     {
-      printf("@line757 failed timeEarlyCut event %llu chan %i time %u val %f \n", entry, ic, time, val);
+      // printf("@line757 failed timeEarlyCut event %llu chan %i time %u val %f \n", entry, ic, time, val);
       passBit |= 0x1;
     }
     if (time > 0)
@@ -957,8 +980,8 @@ int anaCRun::anaEvent(Long64_t entry)
   // printf("line818  event %lld passbit %i \n",entry,passBit);
   if (passBit != 0)
   {
-    printf("@line913 event %lld passBit %i det %i nhits %u \n",
-           entry, int(passBit), NONSUMCHANNELS, tbrun->detList[NONSUMCHANNELS]->nhits());
+    // printf("@line913 event %lld passBit %i det %i nhits %u \n",
+    //        entry, int(passBit), NONSUMCHANNELS, tbrun->detList[NONSUMCHANNELS]->nhits());
     return passBit;
   }
 
@@ -1004,6 +1027,24 @@ int anaCRun::anaEvent(Long64_t entry)
       theStep = diffStepPmt;
     }
     finder->event(ichan, entry, digi, chanThreshold[ib], hitThreshold, theStep); // DEG suggests 10
+
+    // look at PMT
+    TDirectory *pmtDir = (TDirectory *)fout->FindObject("pmtDir");
+    for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+    {
+      double adc = double(rawBr[ib]->rdigi[j]) - tdet->base;
+      /* I have added this to the TDet as  maxSample maxAdc
+      if (abs(adc) > 50.) // && ntAdc->GetEntries() < 1E6)
+      {
+        ntAdc->Fill(double(entry), double(ib), double(j), adc);
+      }
+      */
+      if (ib == 12 && adc > 200 && pmtDir->GetList()->GetEntries() < 1000)
+      {
+        finder->plot1Wave(pmtDir, tdet->channel, entry);
+      }
+    }
+
     // make directories here
 
     /*
@@ -1028,7 +1069,6 @@ int anaCRun::anaEvent(Long64_t entry)
 
     // add some event plots
     bool trig = tdet->channel == 9 || tdet->channel == 10 || tdet->channel == 11;
-    TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
     TDirectory *finderDir = (TDirectory *)fout->FindObject("finderDir");
     if (finderDir->GetList()->GetEntries() < 2000)
     {
@@ -1074,19 +1114,22 @@ int anaCRun::anaEvent(Long64_t entry)
     // finder->plotEvent(fftDir, 8, entry);
 
     TDirectory *sumWaveDir = (TDirectory *)fout->FindObject("sumWaveDir");
-    if (tdet->hits.size() > 1 && tdet->channel < 13 && sumWaveDir->GetList()->GetEntries() < 5000)
+    if (tdet->hits.size() > 1 && tdet->channel == 12 && sumWaveDir->GetList()->GetEntries() < 5000)
     {
-      // printf("xxxxxxx anaCRun::event event %llu chan %i hits %lu der thresh %f hit thresh %f \n", entry, tdet->channel, tdet->hits.size(), derivativeThreshold, hitThreshold);
+      // printf("line1083xxxxxxx anaCRun::event event %llu chan %i hits %lu der thresh %f hit thresh %f \n", entry, tdet->channel, tdet->hits.size(), chanThreshold[tdet->channel], hitThreshold);
       finder->plotEvent(sumWaveDir, tdet->channel, entry);
     }
 
+    /*
     TDirectory *pmtDir = (TDirectory *)fout->FindObject("pmtDir");
     if (tdet->hits.size() > 1 && tdet->channel == 12 && pmtDir->GetList()->GetEntries() < 5000)
     {
       // printf("xxxxxxx anaCRun::event event %llu chan %i hits %lu der thresh %f hit thresh %f \n", entry, tdet->channel, tdet->hits.size(), derivativeThreshold, hitThreshold);
       finder->plot1Wave(pmtDir, tdet->channel, entry);
     }
+    */
 
+    TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
     if (fftDir)
     {
       if (trig && tdet->hits.size() == 0 && fftDir->GetList()->GetEntries() < 2000)
@@ -1406,7 +1449,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   TDirectory *splitDir = fout->mkdir("splitDir");
   TDirectory *fitSingletDir = fout->mkdir("fitSingletDir");
   TDirectory *sumWaveDir = fout->mkdir("sumWaveDir");
-  TDirectory *pmttDir = fout->mkdir("pmtDir");
   fout->ls();
 
   currentBuffer = -1;
@@ -1471,6 +1513,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
 
   // fout->append(tbrun->btree);e("ntHit", " hits
+  // ntAdc = new TNtuple("ntAdc", " ADC ntuple ", "event:chan:sample:digi");
   ntThresholdAll = new TNtuple("ntThresholdAll", "ntThreshold", "event:chan:sample:ddigi");
   ntThresholdAdc = new TNtuple("ntThresholdAdc", "ntThresholdAdc", "event:chan:sampleLow:sampleHigh:maxBin:adcMax");
   ntThreshold = new TNtuple("ntThreshold", "ntThreshold", "event:chan:sampleLow:ddigiLow:sampleHigh:ddigiHigh:maxBin:adcMax");
@@ -1644,8 +1687,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     else
     {
       ++nfail;
-      if (passBit != 0)
-        printf("xxxxxxx  event %lld fails with passBit %i total fail %i total pass %i \n", entry, passBit, nfail, npass);
+      // if (passBit != 0)
+      //   printf("xxxxxxx  event %lld fails with passBit %i total fail %i total pass %i \n", entry, passBit, nfail, npass);
 
       // printf(" event %llu fails with pass bit  %x pass %i fail %i \n", entry, passBit, npass, nfail);
       //  tbrun->print();
