@@ -691,7 +691,7 @@ int anaCRun::anaEvent(Long64_t entry)
         idet->lateSum += digi[j];
     }
     // add some other variables
-    idet->peak = peakMax;
+    idet->peakMax = peakMax;
 
     ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peakMax), float(idet->trigSum), float(idet->totSum), float(crossings.size()), float(thresholds.size()), float(idet->pass));
 
