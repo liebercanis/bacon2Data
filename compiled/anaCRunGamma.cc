@@ -66,7 +66,12 @@ public:
     EARLYCUT = 0x2,
     FIRSTTIME = 0x4,
     COSMIC = 0x8,
-    GAMMA = 0x16
+    GAMMA = 0x16,
+  };
+
+  enum
+  {
+    TOTALCODES = 6
   };
 
   int badEvent = 5671;
@@ -163,6 +168,7 @@ public:
   vector<double> chan;
   vector<double> echan;
   vector<double> chanThreshold;
+  // sums
   ofstream dumpFile;
   // vector<TBWave *> waveList;
   hitFinder *finder;
@@ -748,7 +754,7 @@ int anaCRun::anaEvent(Long64_t entry)
     else
     {
       // printf("line627!!!! gaus fit fails event %lld chan %u fitStaus %i base %f \n", entry, ib, fitStatus, base);
-      printf("@line750 failed Baseline Cut event %llu cut %lu time %u \n", entry, firstTimeCut, firstTime);
+      // printf("@line750 failed Baseline Cut event %llu cut %lu time %u \n", entry, firstTimeCut, firstTime);
       if (badEventDir->GetList()->GetEntries() < 100)
       {
         badEventDir->cd();
@@ -813,10 +819,13 @@ int anaCRun::anaEvent(Long64_t entry)
     getMaxRawAdc(ib, idet->base, maxAdc, maxSample);
     idet->maxAdc = maxAdc;
     idet->maxSample = maxSample;
-    // printf("line769 chan %i adc %f sample %i\n", ib, maxAdc, maxSample);
     double peakMax = 0;
+    // digi sums
+    // add sum min cut for these sums
     for (unsigned j = 0; j < digi.size(); ++j)
     {
+      if (digi[j] < 10.)
+        continue;
       idet->totSum += digi[j];
       if (j < trigStart)
         idet->preSum += digi[j];
@@ -832,7 +841,7 @@ int anaCRun::anaEvent(Long64_t entry)
     // add some other variables
     idet->peakMax = peakMax;
 
-    ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peakMax), float(idet->trigSum), float(idet->totSum), float(crossings.size()), float(thresholds.size()), float(idet->pass));
+    ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peakMax), float(idet->totSum), float(idet->lateSum), float(crossings.size()), float(thresholds.size()), float(idet->pass));
 
   } // channel loop
   /* find trigger time from trigger sipms */
@@ -856,7 +865,7 @@ int anaCRun::anaEvent(Long64_t entry)
       if (badEventDir->GetList()->GetEntries() < 100)
       {
         badEventDir->cd();
-        printf("@line862 failed RawEarlyEvent event %llu chan%u cut %lu time %u val %f \n", entry, ib, firstTimeCut, time, val);
+        // printf("@line862 failed RawEarlyEvent event %llu chan%u cut %lu time %u val %f \n", entry, ib, firstTimeCut, time, val);
         TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEarlyEvent%lld-Ch%i", entry, ib));
         EvRawWave->SetTitle(Form("EvRawEarlyEvent%lld-Ch%i", entry, ib));
       }
@@ -868,7 +877,7 @@ int anaCRun::anaEvent(Long64_t entry)
       if (badEventDir->GetList()->GetEntries() < 100)
       {
         badEventDir->cd();
-        printf("@line862 failed RawEarlyEvent event %llu chan %u cut %lu time %u val %f \n", entry, ib, firstTimeCut, time, val);
+        // printf("@line862 failed RawEarlyEvent event %llu chan %u cut %lu time %u val %f \n", entry, ib, firstTimeCut, time, val);
         TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEarlyEvent%lld-Ch%i", entry, ib));
         EvRawWave->SetTitle(Form("EvRawEarlyEvent%lld-Ch%i", entry, ib));
       }
@@ -900,7 +909,7 @@ int anaCRun::anaEvent(Long64_t entry)
   hTriggerTime->Fill(double(firstTime));
   if (firstTime > firstTimeCut && firstTime < firstTimeCut0)
   {
-    printf("@line893 failed firstTimeCut event %llu cut %lu time %u \n", entry, firstTimeCut, firstTime);
+    // printf("@line893 failed firstTimeCut event %llu cut %lu time %u \n", entry, firstTimeCut, firstTime);
     passBit |= FIRSTTIME;
     if (badEventDir->GetList()->GetEntries() < 100)
     {
@@ -1001,6 +1010,14 @@ int anaCRun::anaEvent(Long64_t entry)
   {
     unsigned ichan = ib;
     TDet *tdet = tbrun->getDet(ib);
+
+    // fill tdet13 sums
+    tdet13->totSum += tdet->totSum;
+    tdet13->preSum += tdet->preSum;
+    tdet13->trigSum += tdet->trigSum;
+    tdet13->lateSum += tdet->lateSum;
+
+    // make hit
     tdet->hits.clear();
     bool trig = ichan == 9 || ichan == 10 || ichan == 11;
     int nbins = rawBr[ib]->rdigi.size();
@@ -1590,13 +1607,13 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   ntThresholdAdc = new TNtuple("ntThresholdAdc", "ntThresholdAdc", "event:chan:sampleLow:sampleHigh:maxBin:adcMax");
   ntThreshold = new TNtuple("ntThreshold", "ntThreshold", "event:chan:sampleLow:ddigiLow:sampleHigh:ddigiHigh:maxBin:adcMax");
   ntHit = new TNtuple("ntHit", "hit ntuple", "event:flag:chan:time:peakTime:qpeak");
-  ntChan = new TNtuple("ntchan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peakmax:sum2:sum:negcrossings:thresholds:pass");
+  ntChan = new TNtuple("ntchan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peakmax:totSum:lateSum:negcrossings:thresholds:pass");
   ntSpeYield = new TNtuple("ntSpeYield", "spe per sipm",
                            "event:spe0:spe1:spe2:spe3:spe4:spe5:spe6:spe7:spe8:spe9:spe10:spe11");
   ntSetTrigTime = new TNtuple("ntSetTrigTime", " trig time and val", "event:chan:time:val");
   ntTrigTime = new TNtuple("ntTrigTime", "trigger time ntuple", "entry:chan:firstTime:time:adc:ftime:fadc");
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
-  hEventPass = new TH1D("EventPass", " event failures", LATEHIT + 1, 0, LATEHIT + 1);
+  hEventPass = new TH1D("EventPass", " event failures", TOTALCODES, 0, TOTALCODES);
   evCount = new TH1D("eventcount", "event count", CHANNELS, 0, CHANNELS);
   hNoPeak = new TH1D("noPeak", "no peak events count by channel", CHANNELS, 0, CHANNELS);
   histHitCount = new TH1D("hitCount", "hit count by channel", CHANNELS, 0, CHANNELS);
@@ -1873,8 +1890,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     hitMean.push_back(mean);
     hitIntegral.push_back(inte);
   }
-
-  hEventPass->Print("all");
 
   // printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
   printf(" finished %i ( %i ) pass %i (%i) fail %i ( frac %0.3f ) output file %s  \n",
