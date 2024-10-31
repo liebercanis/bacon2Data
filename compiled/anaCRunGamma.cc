@@ -819,29 +819,6 @@ int anaCRun::anaEvent(Long64_t entry)
     getMaxRawAdc(ib, idet->base, maxAdc, maxSample);
     idet->maxAdc = maxAdc;
     idet->maxSample = maxSample;
-    double peakMax = 0;
-    // digi sums
-    // add sum min cut for these sums
-    for (unsigned j = 0; j < digi.size(); ++j)
-    {
-      if (digi[j] < 10.)
-        continue;
-      idet->totSum += digi[j];
-      if (j < trigStart)
-        idet->preSum += digi[j];
-      else if (j < trigEnd)
-      {
-        idet->trigSum += digi[j];
-        if (digi[j] > peakMax)
-          peakMax = digi[j];
-      }
-      else
-        idet->lateSum += digi[j];
-    }
-    // add some other variables
-    idet->peakMax = peakMax;
-
-    ntChan->Fill(float(rawBr[ib]->trigger), float(ichan), float(ave), float(sigma), float(skew), float(base), float(peakMax), float(idet->totSum), float(idet->lateSum), float(crossings.size()), float(thresholds.size()), float(idet->pass));
 
   } // channel loop
   /* find trigger time from trigger sipms */
@@ -927,11 +904,36 @@ int anaCRun::anaEvent(Long64_t entry)
   // printf("doTimeSiftAndNorm %lld \n",entry);
   doTimeShiftAndNorm();
 
-  /*  fill ntuple for threshold sett/ing loop over channels */
+  /*  fill ntuple for threshold setting loop over channels */
   for (unsigned long ib = 0; ib < NONSUMCHANNELS; ++ib)
   {
     digi.clear();
     digi = fixedDigi[ib];
+    TDet *idet = tbrun->getDet(ib);
+
+    double peakMax = 0;
+    // do digi sums on fixedDigi
+    for (unsigned j = 0; j < digi.size(); ++j)
+    {
+      if (digi[j] < 10.)
+        continue;
+      idet->totSum += digi[j];
+      if (j < trigStart)
+        idet->preSum += digi[j];
+      else if (j < trigEnd)
+      {
+        idet->trigSum += digi[j];
+        if (digi[j] > peakMax)
+          peakMax = digi[j];
+      }
+      else
+        idet->lateSum += digi[j];
+    }
+    // add some other variables
+    idet->peakMax = peakMax;
+
+    ntChan->Fill(float(rawBr[ib]->trigger), float(ib), float(idet->ave), float(idet->sigma), float(idet->skew), float(idet->base), float(peakMax), float(idet->totSum), float(idet->lateSum), float(crossings.size()), float(passBit));
+
     if (ib == 12)
       differentiate(diffStepPmt);
     else
@@ -1607,7 +1609,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   ntThresholdAdc = new TNtuple("ntThresholdAdc", "ntThresholdAdc", "event:chan:sampleLow:sampleHigh:maxBin:adcMax");
   ntThreshold = new TNtuple("ntThreshold", "ntThreshold", "event:chan:sampleLow:ddigiLow:sampleHigh:ddigiHigh:maxBin:adcMax");
   ntHit = new TNtuple("ntHit", "hit ntuple", "event:flag:chan:time:peakTime:qpeak");
-  ntChan = new TNtuple("ntchan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peakmax:totSum:lateSum:negcrossings:thresholds:pass");
+  ntChan = new TNtuple("ntchan", "channel ntuple", "trig:chan:ave:sigma:skew:base:peakmax:totSum:lateSum:negcrossings:pass");
   ntSpeYield = new TNtuple("ntSpeYield", "spe per sipm",
                            "event:spe0:spe1:spe2:spe3:spe4:spe5:spe6:spe7:spe8:spe9:spe10:spe11");
   ntSetTrigTime = new TNtuple("ntSetTrigTime", " trig time and val", "event:chan:time:val");
