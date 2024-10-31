@@ -67,17 +67,15 @@ public:
     FIRSTTIME = 0x4,
     COSMIC = 0x8,
     GAMMA = 0x16,
-  };
-
-  enum
-  {
-    TOTALCODES = 6
+    TOTALCODES
   };
 
   int badEvent = 5671;
 
   bool doNotOverWrite = true;
   bool theFirstFile = true;
+  int badEventDirMax = 500;
+  bool reportFailures = false;
   TBRun *tbrun;
   TFile *fout;
   TFile *fin;
@@ -143,8 +141,8 @@ public:
   TH1D *threshHist;
   TH2D *threshValueHist;
   TH1D *crossHist;
-  TH1D *cosmicCut1;
-  TH1D *cosmicCut2;
+  TH1D *hGammaCut;
+  TH1D *hCosmicCut;
   // TH1D *histQPE;
   TH1D *histQPrompt;
   TH1D *hTriggerTimeDiff;
@@ -239,6 +237,8 @@ public:
   double latePeakCut = 3.5; // march 18 2024 2.5;
   double diffStepSipm = 3.; // 6 ns steps for SIPM
   double diffStepPmt = 1.;  // back to one on Oct 15 2024
+  double cosmicCut = 1.E4;
+  double gammaCut = 5.E5;
 };
 
 void anaCRun::getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample)
@@ -753,9 +753,9 @@ int anaCRun::anaEvent(Long64_t entry)
     // fit status = migradStatus + 10*minosStatus + 100*hesseStatus + 1000*improveStatus \n", fullResult);
     else
     {
-      // printf("line627!!!! gaus fit fails event %lld chan %u fitStaus %i base %f \n", entry, ib, fitStatus, base);
-      // printf("@line750 failed Baseline Cut event %llu cut %lu time %u \n", entry, firstTimeCut, firstTime);
-      if (badEventDir->GetList()->GetEntries() < 100)
+      if (reportFailures)
+        printf("@line750 failed Baseline Cut event %llu cut %lu time %u \n", entry, firstTimeCut, firstTime);
+      if (badEventDir->GetList()->GetEntries() < badEventDirMax)
       {
         badEventDir->cd();
         TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawBaselineEvent%lld-Ch%i", entry, ib));
@@ -837,9 +837,10 @@ int anaCRun::anaEvent(Long64_t entry)
     /* set passBit 1 val cut is different for PMT*/
     if (time < unsigned(passTimeEarlyCut) && val > passValEarlyCut && ib < 12)
     {
-      // printf("@line757 failed passBit 1 timeEarlyCut event %llu chan %i time %u val %f \n", entry, ib, time, val);
+      if (reportFailures)
+        printf("@line757 failed passBit 1 timeEarlyCut event %llu chan %i time %u val %f \n", entry, ib, time, val);
       passBit |= EARLYCUT;
-      if (badEventDir->GetList()->GetEntries() < 100)
+      if (badEventDir->GetList()->GetEntries() < badEventDirMax)
       {
         badEventDir->cd();
         // printf("@line862 failed RawEarlyEvent event %llu chan%u cut %lu time %u val %f \n", entry, ib, firstTimeCut, time, val);
@@ -849,9 +850,10 @@ int anaCRun::anaEvent(Long64_t entry)
     }
     if (time < unsigned(passTimeEarlyCut) && val > passValEarlyPmtCut && ib == 12)
     {
-      // printf("@line757 failed timeEarlyCut event %llu chan %i time %u val %f \n", entry, ib, time, val);
+      if (reportFailures)
+        printf("@line757 failed timeEarlyCut event %llu chan %i time %u val %f \n", entry, ib, time, val);
       passBit |= EARLYCUT;
-      if (badEventDir->GetList()->GetEntries() < 100)
+      if (badEventDir->GetList()->GetEntries() < badEventDirMax)
       {
         badEventDir->cd();
         // printf("@line862 failed RawEarlyEvent event %llu chan %u cut %lu time %u val %f \n", entry, ib, firstTimeCut, time, val);
@@ -886,9 +888,9 @@ int anaCRun::anaEvent(Long64_t entry)
   hTriggerTime->Fill(double(firstTime));
   if (firstTime > firstTimeCut && firstTime < firstTimeCut0)
   {
-    // printf("@line893 failed firstTimeCut event %llu cut %lu time %u \n", entry, firstTimeCut, firstTime);
+    printf("@line893 failed firstTimeCut event %llu cut %lu time %u \n", entry, firstTimeCut, firstTime);
     passBit |= FIRSTTIME;
-    if (badEventDir->GetList()->GetEntries() < 100)
+    if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
       badEventDir->cd();
       TH1D *EvRawWave = (TH1D *)hEvRawWave[chanBad]->Clone(Form("EvRawFirstTimeEvent%lld-Ch%i", entry, chanBad));
@@ -1007,11 +1009,18 @@ int anaCRun::anaEvent(Long64_t entry)
   // also fill chan 13
   TDet *tdet13 = tbrun->getDet(NONSUMCHANNELS); // get channel 13 det
   tdet13->hits.clear();
-
+  hEvRawWave[NONSUMCHANNELS]->Reset("ICES");
   for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
   {
     unsigned ichan = ib;
     TDet *tdet = tbrun->getDet(ib);
+
+    // fill summed wave
+    for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+    {
+      double val = double(rawBr[ib]->rdigi[j]) - tdet->base; // base is > digi value!
+      hEvRawWave[NONSUMCHANNELS]->SetBinContent(j + 1, val);
+    }
 
     // fill tdet13 sums
     tdet13->totSum += tdet->totSum;
@@ -1065,6 +1074,36 @@ int anaCRun::anaEvent(Long64_t entry)
           finder->plot1Wave(badEventDir, tdet->channel, entry);
         }
         */
+    }
+  }
+
+  // do cosmic cut
+  hCosmicCut->Fill(tbrun->getDet(12)->totSum);
+  if (tbrun->getDet(12)->totSum > cosmicCut)
+  {
+    if (reportFailures)
+      printf("@line1077 failed cosmic event %llu cut %E totSum %E \n", entry, cosmicCut, tbrun->getDet(12)->totSum);
+    passBit |= COSMIC;
+    if (badEventDir->GetList()->GetEntries() < badEventDirMax)
+    {
+      badEventDir->cd();
+      TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawCosmicEvent%lld-Ch%i", entry, 12));
+      EvRawWave->SetTitle(Form("EvRawCosmicEvent%lld-Ch%i", entry, 12));
+    }
+  }
+
+  // do gamma cut
+  hGammaCut->Fill(tbrun->getDet(13)->lateSum);
+  if (tbrun->getDet(13)->lateSum > gammaCut)
+  {
+    if (reportFailures)
+      printf("@line1090 failed gamma event %llu cut %E totSum %E \n", entry, gammaCut, tbrun->getDet(13)->lateSum);
+    passBit |= GAMMA;
+    if (badEventDir->GetList()->GetEntries() < badEventDirMax)
+    {
+      badEventDir->cd();
+      TH1D *EvRawWave = (TH1D *)hEvRawWave[NONSUMCHANNELS]->Clone(Form("EvRawGammaEvent%lld-Ch%i", entry, 13));
+      EvRawWave->SetTitle(Form("EvRawGammaEvent%lld-Ch%i", entry, 13));
     }
   }
 
@@ -1360,7 +1399,6 @@ int anaCRun::anaEvent(Long64_t entry)
 
   } // det loop
 
-  // printf(" event %llu  pass %i fail 1 %i cosmic only %i fail both %i \n",entry, int(hEventPass->GetBinContent(1)), int(hEventPass->GetBinContent(2)), int(hEventPass->GetBinContent(3)), int(hEventPass->GetBinContent(4)));
   ntChanSum->Fill(&fsum[0]); // fill sumHitWave and Q sums
   ntSpeYield->Fill(entry,
                    speCount[0], speCount[1], speCount[2],
@@ -1624,6 +1662,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   histQPrompt = new TH1D("histqprompt", "qprompt by channel", CHANNELS, 0, CHANNELS);
   histQSum->Sumw2();
   histQPrompt->Sumw2();
+  hCosmicCut = new TH1D("CosmicCut", "cosmic total sum chan 12 ", 1000, 0, 10. * cosmicCut);
+  hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 ", 1000, 0, 10. * gammaCut);
 
   //
   anaDir->cd();
@@ -1682,8 +1722,9 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     hTrigSum.push_back(new TH1D(Form("TrigPeakSumChan%i", i), Form("trig peak sum chan %i", i), nbins, 0, limit));
     hLateSum.push_back(new TH1D(Form("LatePeakSumChan%i", i), Form("late peak sum chan %i", i), nbins, 0, limit));
   }
-  cosmicCut1 = new TH1D("cosmicCut1", " cosmic total sum chan 12 ", 100, 0, 100);
-  cosmicCut2 = new TH1D("cosmicCut2", " cosmic late large hit chan 12 ", 200, 0, 2000);
+  // one more for summed channel 13
+  hEvRawWave.push_back(new TH1D(Form("evRawWave%i", 13), Form("evRawWave%i", 13), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+
   threshValueHist = new TH2D("threshValueHist", " threshold crossings value channels by time  ", 7500, 0, 7500, 1000, 0, 100000);
   threshHist = new TH1D("threshHist", " threshold crossings trig channels ", 20, 0, 20);
   crossHist = new TH1D("crossHist", "  negative crossings non trigger channels", 100, 0, 100);
@@ -1755,10 +1796,29 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   for (Long64_t entry = firstEntry; entry < nentries; ++entry)
   {
     tbrun->clear();
-    if (entry / 1000 * 1000 == entry)
+    rawTree->GetEntry(entry);
+
+    // main ana routine
+    int passBit = anaEvent(entry);
+    if (passBit == 0)
+    {
+      ++npass;
+    }
+    else
+    {
+      ++nfail;
+      // set pass bit and fill tbrun
+      for (int idet = 0; idet < tbrun->detList.size(); ++idet)
+      {
+        tbrun->detList[idet]->pass = passBit;
+      }
+    }
+    hEventPass->SetBinContent(passBit, hEventPass->GetBinContent(passBit) + 1);
+    tbrun->fill();
+    if (entry / 100 * 100 == entry)
     {
       printf("... entry %llu pass %u fail %u \n", entry, npass, nfail);
-      // hEventPass->Print("all"); bacondaq seg violated here
+      hEventPass->Print("all");
 
       if (npass > 0)
       {
@@ -1769,42 +1829,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
         printf("  \n");
       }
     }
-    rawTree->GetEntry(entry);
-
-    int passBit = anaEvent(entry);
-    if (passBit == 0)
-    {
-      ++npass;
-    }
-    else
-    {
-      ++nfail;
-      // if (passBit != 0)
-      //   printf("xxxxxxx  event %lld fails with passBit %i total fail %i total pass %i \n", entry, passBit, nfail, npass);
-
-      // printf(" event %llu fails with pass bit  %x pass %i fail %i \n", entry, passBit, npass, nfail);
-      //  tbrun->print();
-      // hEventPass->Fill(-1);
-      //  use total entries for all and bin 0 for passing
-      // printf("line1441 event %lld passbit %x num  %i \n",entry, passBit,int(hEventPass->GetBinContent(passBit)));
-      //    if(eventPass!=0)
-      //      printf("event fails with eventPass = %x npass %i nfail %i \n", eventPass,npass,nfail);
-      //  tbrun->print();
-      //  printf(" %s %lu \n", tbrun->detList[13]->GetName(), tbrun->detList[13]->hits.size());
-      /*
-      for (unsigned it = 0; it < tbrun->detList[13]->hits.size();++it)
-       tbrun->detList[13]->hits[it].print();
-
-      tbrun->detList[13]->clear();
-    */
-      // set pass bit and fill tbrun
-      for (int idet = 0; idet < tbrun->detList.size(); ++idet)
-      {
-        tbrun->detList[idet]->pass = passBit;
-      }
-    }
-    hEventPass->SetBinContent(passBit, hEventPass->GetBinContent(passBit) + 1);
-    tbrun->fill();
   }
   printf(" \n \n At END OF FILE total pass  = %i fail %i  \n", npass, nfail);
 
