@@ -219,19 +219,17 @@ public:
   //
   int MaxSPEShape = 4;
   unsigned trigStart = 600;
-  unsigned trigEnd = 800;
   int nominalTrigger = 753; // was 729;
   double nominalGain = 160.0;
   // 227.4; // average
   //  double nominalGain = 160.0; // average
   unsigned firstTime;       // corrected trigger time for event
   unsigned timeOffset = 13; // changed from 17 may 13, 2024
-  ULong_t passTimeEarlyCut = 720;
   double passValEarlyCut = 100.0;
   double passValEarlyPmtCut = 225.0;
-  ULong_t firstTimeCut = 800;  // 740;
-  ULong_t firstTimeCut0 = 730; // 740;
-  ULong_t timeEarlyCut = 660;
+  ULong_t triggerEnd = 800; // 740;
+  ULong_t lateTimeStart = 900;
+  ULong_t triggerStart = 730; // 740;
   ULong_t timeVeryLateCut = 3500;
   double prePeakCut = 0.5;
   double latePeakCut = 3.5; // march 18 2024 2.5;
@@ -266,7 +264,7 @@ unsigned anaCRun::getTriggerTime(int ic, double &adc)
   if (ic < 9)
     off = timeOffset;
   adc = 0;
-  for (unsigned j = 0; j < firstTimeCut; ++j)
+  for (unsigned j = 0; j < triggerEnd; ++j)
   {
     double val = double(rawBr[ic]->rdigi[j]) - idet->base;
     // here I want the pure ADC count
@@ -288,8 +286,7 @@ void anaCRun::getTriggerTimeStats(unsigned *timeArray, double &ave, double &sigm
   // calculate ave
   for (unsigned ic = 0; ic < 3; ++ic)
   {
-    // 690 < time < 890
-    if (timeArray[ic] < firstTimeCut && timeArray[ic] > timeEarlyCut)
+    if (timeArray[ic] < triggerEnd && timeArray[ic] > triggerStart)
     {
       ave += double(timeArray[ic]);
       ++nave;
@@ -754,7 +751,7 @@ int anaCRun::anaEvent(Long64_t entry)
     else
     {
       if (reportFailures)
-        printf("@line750 failed Baseline Cut event %llu cut %lu time %u \n", entry, firstTimeCut, firstTime);
+        printf("@line750 failed Baseline Cut event %llu cut %lu time %u \n", entry, triggerEnd, firstTime);
       if (badEventDir->GetList()->GetEntries() < badEventDirMax)
       {
         badEventDir->cd();
@@ -828,35 +825,35 @@ int anaCRun::anaEvent(Long64_t entry)
   for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
   {
     double val = 0;
-    // get time for maximim val before firstTimeCut
+    // get time for maximim val before triggerEnd
     unsigned time = getTriggerTime(ib, val); // include timeOffset in routine
     ntSetTrigTime->Fill(double(entry), double(ib), double(time), double(val));
     trigTimes[ib] = time;
     adcBin[ib] = val;
 
     /* set passBit 1 val cut is different for PMT*/
-    if (time < unsigned(passTimeEarlyCut) && val > passValEarlyCut && ib < 12)
+    if (time < unsigned(triggerStart) && val > passValEarlyCut && ib < 12)
     {
       if (reportFailures)
-        printf("@line757 failed passBit 1 timeEarlyCut event %llu chan %i time %u val %f \n", entry, ib, time, val);
+        printf("@line757 failed passBit 1 triggerStart event %llu chan %i time %u val %f \n", entry, ib, time, val);
       passBit |= EARLYCUT;
       if (badEventDir->GetList()->GetEntries() < badEventDirMax)
       {
         badEventDir->cd();
-        // printf("@line862 failed RawEarlyEvent event %llu chan%u cut %lu time %u val %f \n", entry, ib, firstTimeCut, time, val);
+        // printf("@line862 failed RawEarlyEvent event %llu chan%u cut %lu time %u val %f \n", entry, ib, triggerEnd, time, val);
         TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEarlyEvent%lld-Ch%i", entry, ib));
         EvRawWave->SetTitle(Form("EvRawEarlyEvent%lld-Ch%i", entry, ib));
       }
     }
-    if (time < unsigned(passTimeEarlyCut) && val > passValEarlyPmtCut && ib == 12)
+    if (time < unsigned(triggerStart) && val > passValEarlyPmtCut && ib == 12)
     {
       if (reportFailures)
-        printf("@line757 failed timeEarlyCut event %llu chan %i time %u val %f \n", entry, ib, time, val);
+        printf("@line757 failed triggerStart event %llu chan %i time %u val %f \n", entry, ib, time, val);
       passBit |= EARLYCUT;
       if (badEventDir->GetList()->GetEntries() < badEventDirMax)
       {
         badEventDir->cd();
-        // printf("@line862 failed RawEarlyEvent event %llu chan %u cut %lu time %u val %f \n", entry, ib, firstTimeCut, time, val);
+        // printf("@line862 failed RawEarlyEvent event %llu chan %u cut %lu time %u val %f \n", entry, ib, triggerEnd, time, val);
         TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEarlyEvent%lld-Ch%i", entry, ib));
         EvRawWave->SetTitle(Form("EvRawEarlyEvent%lld-Ch%i", entry, ib));
       }
@@ -886,9 +883,9 @@ int anaCRun::anaEvent(Long64_t entry)
   getTriggerTimeStats(&trigTimes[6], nonTimeAve, nonTimeSigma, chanBad2, dmax2);
 
   hTriggerTime->Fill(double(firstTime));
-  if (firstTime > firstTimeCut && firstTime < firstTimeCut0)
+  if (firstTime > triggerEnd && firstTime < triggerStart)
   {
-    printf("@line893 failed firstTimeCut event %llu cut %lu time %u \n", entry, firstTimeCut, firstTime);
+    printf("@line893 failed triggerEnd event %llu cut %lu time %u \n", entry, triggerEnd, firstTime);
     passBit |= FIRSTTIME;
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
@@ -917,18 +914,20 @@ int anaCRun::anaEvent(Long64_t entry)
     // do digi sums on fixedDigi
     for (unsigned j = 0; j < digi.size(); ++j)
     {
-      if (digi[j] < 10.)
+      if (digi[j] < 0.)
         continue;
       idet->totSum += digi[j];
-      if (j < trigStart)
+      if (j < triggerStart)
         idet->preSum += digi[j];
-      else if (j < trigEnd)
+
+      if (j > triggerStart && j < triggerEnd)
       {
         idet->trigSum += digi[j];
         if (digi[j] > peakMax)
           peakMax = digi[j];
       }
-      else
+
+      if (j > lateTimeStart)
         idet->lateSum += digi[j];
     }
     // add some other variables
@@ -1008,7 +1007,7 @@ int anaCRun::anaEvent(Long64_t entry)
 
   // also fill chan 13
   TDet *tdet13 = tbrun->getDet(NONSUMCHANNELS); // get channel 13 det
-  tdet13->hits.clear();
+  tdet13->clear();
   hEvRawWave[NONSUMCHANNELS]->Reset("ICES");
   for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
   {
@@ -1019,10 +1018,11 @@ int anaCRun::anaEvent(Long64_t entry)
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
       double val = double(rawBr[ib]->rdigi[j]) - tdet->base; // base is > digi value!
-      hEvRawWave[NONSUMCHANNELS]->SetBinContent(j + 1, val);
+      hEvRawWave[NONSUMCHANNELS]->SetBinContent(j + 1, hEvRawWave[NONSUMCHANNELS]->GetBinContent(j + 1) + val);
     }
 
     // fill tdet13 sums
+    tdet13->event = entry;
     tdet13->totSum += tdet->totSum;
     tdet13->preSum += tdet->preSum;
     tdet13->trigSum += tdet->trigSum;
@@ -1081,14 +1081,14 @@ int anaCRun::anaEvent(Long64_t entry)
   hCosmicCut->Fill(tbrun->getDet(12)->totSum);
   if (tbrun->getDet(12)->totSum > cosmicCut)
   {
-    if (reportFailures)
-      printf("@line1077 failed cosmic event %llu cut %E totSum %E \n", entry, cosmicCut, tbrun->getDet(12)->totSum);
+    // if (reportFailures)
+    printf("@line1077 failed cosmic event %llu cut %E totSum %E \n", entry, cosmicCut, tbrun->getDet(12)->totSum);
     passBit |= COSMIC;
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
       badEventDir->cd();
-      TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawCosmicEvent%lld-Ch%i", entry, 12));
-      EvRawWave->SetTitle(Form("EvRawCosmicEvent%lld-Ch%i", entry, 12));
+      TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawCosmicEvent%lldVal%.0E-Ch%i", entry, tbrun->getDet(12)->totSum, 12));
+      EvRawWave->SetTitle(Form("EvRawCosmicEvent%lldVal%.3E-Ch%i", entry, tbrun->getDet(12)->totSum, 12));
     }
   }
 
@@ -1096,14 +1096,14 @@ int anaCRun::anaEvent(Long64_t entry)
   hGammaCut->Fill(tbrun->getDet(13)->lateSum);
   if (tbrun->getDet(13)->lateSum > gammaCut)
   {
-    if (reportFailures)
-      printf("@line1090 failed gamma event %llu cut %E totSum %E \n", entry, gammaCut, tbrun->getDet(13)->lateSum);
+    // if (reportFailures)
+    printf("@line1090 failed gamma event %llu cut %E lateSum %E \n", entry, gammaCut, tbrun->getDet(13)->lateSum);
     passBit |= GAMMA;
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
       badEventDir->cd();
-      TH1D *EvRawWave = (TH1D *)hEvRawWave[NONSUMCHANNELS]->Clone(Form("EvRawGammaEvent%lld-Ch%i", entry, 13));
-      EvRawWave->SetTitle(Form("EvRawGammaEvent%lld-Ch%i", entry, 13));
+      TH1D *EvRawWave = (TH1D *)hEvRawWave[NONSUMCHANNELS]->Clone(Form("EvRawGammaEvent%lldVal%.0E-Ch%i", entry, tbrun->getDet(13)->lateSum, 13));
+      EvRawWave->SetTitle(Form("EvRawGammaEvent%lldVal%.3E-Ch%i", entry, tbrun->getDet(13)->lateSum, 13));
     }
   }
 
@@ -1117,16 +1117,16 @@ int anaCRun::anaEvent(Long64_t entry)
     TDetHit hiti = tdet13->hits[ihit];
     ULong_t hitStartTime = ULong_t(tdet13->hits[ihit].startTime);
     hCountLateTimeQpeak->Fill(hitStartTime, tdet13->hits[ihit].qpeak / nominalGain);
-    if (hitStartTime < timeEarlyCut)
+    if (hitStartTime < triggerStart)
       hPreQpeak->Fill(tdet13->hits[ihit].qpeak / nominalGain);
-    if (hitStartTime < timeEarlyCut && tdet13->hits[ihit].qpeak / nominalGain > prePeakCut)
+    if (hitStartTime < triggerStart && tdet13->hits[ihit].qpeak / nominalGain > prePeakCut)
     {
       ++nPreHits;
-      // printf("event preHits %llu cut %lu hitStartTime %lu  qpeak %.2f nPreHits %i \n", entry, timeEarlyCut, hitStartTime, hiti.qpeak, nPreHits);
+      // printf("event preHits %llu cut %lu hitStartTime %lu  qpeak %.2f nPreHits %i \n", entry, triggerStart, hitStartTime, hiti.qpeak, nPreHits);
     }
-    if (hitStartTime > firstTimeCut)
+    if (hitStartTime > triggerEnd)
       hLateQpeak->Fill(tdet13->hits[ihit].qpeak / nominalGain);
-    if (hitStartTime > firstTimeCut && tdet13->hits[ihit].qpeak / nominalGain > latePeakCut)
+    if (hitStartTime > triggerEnd && tdet13->hits[ihit].qpeak / nominalGain > latePeakCut)
     {
       ++nLateHits;
       // printf("event lateHits %llu cut %lu hitStartTime %lu  qpeak %.2f nLateHits %i \n", entry, firstTimeCut, hitStartTime, hiti.qpeak, nLateHits);
@@ -1296,12 +1296,12 @@ int anaCRun::anaEvent(Long64_t entry)
       // do peak sums
       tdet->totPeakSum += thit.qpeak;
 
-      if (hitTime > timeEarlyCut && hitTime < firstTimeCut && hitTime < firstHitTime)
+      if (hitTime > triggerStart && hitTime < triggerEnd && hitTime < firstHitTime)
         firstHitTime = hitTime;
       //
       if (hitTime < trigStart)
         tdet->prePeakSum += thit.qpeak;
-      else if (hitTime < trigEnd)
+      else if (hitTime < triggerEnd)
       {
         tdet->trigPeakSum += thit.qpeak;
       }
@@ -1313,10 +1313,10 @@ int anaCRun::anaEvent(Long64_t entry)
       if (hitTime < trigStart)
         hPreSum[idet]->Fill(thit.qpeak);
 
-      if (hitTime > trigStart && hitTime < trigEnd)
+      if (hitTime > trigStart && hitTime < triggerEnd)
         hTrigSum[idet]->Fill(thit.qpeak);
 
-      if (hitTime > trigEnd)
+      if (hitTime > triggerEnd)
         hLateSum[idet]->Fill(thit.qpeak);
 
       // do threshold for summed waveform
@@ -1367,7 +1367,7 @@ int anaCRun::anaEvent(Long64_t entry)
           int fillBin = thePeakBin - thit.peakBin + jbin;
           double val = fixedDigi[idet][jbin];
           // fill 1 SPE from late
-          if (thit.startTime > trigEnd && nSPE == 1)
+          if (thit.startTime > triggerEnd && nSPE == 1)
             hSPEShapeLate[idet]->SetBinContent(fillBin, hSPEShapeLate[idet]->GetBinContent(fillBin) + val);
           // fill the right histogram for 1 SPE take from after trigger
           if (nSPE > 0 && nSPE < MaxSPEShape)
@@ -1673,16 +1673,16 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   hTriggerTimeAllVal = new TH1D("TriggerTimeAllVal", " first time val all channels ", 1000, 0, 1000);
   hTriggerTimeAllValPmt = new TH1D("TriggerTimeAllValPmt", " first time val Pmt ", 1000, 0, 1000);
   TString htitle;
-  htitle.Form(" pre time < %lu normalized qpeak", timeEarlyCut);
+  htitle.Form(" pre time < %lu normalized qpeak", triggerStart);
   hPreQpeak = new TH1D("PreQpeak", htitle, 100, 0, 10);
-  htitle.Form(" pre time > %lu normalized qpeak", firstTimeCut);
+  htitle.Form(" pre time > %lu normalized qpeak", triggerEnd);
   hLateQpeak = new TH1D("LateQpeak", htitle, 100, 0, 10);
   hCountPre = new TH1D("CountPre", " hits sample<600 in sum", 20, 0, 20);
-  htitle.Form("hits qpeak>%.2f SPE sample>%luin sum", latePeakCut, firstTimeCut);
+  htitle.Form("hits qpeak>%.2f SPE sample>%luin sum", latePeakCut, triggerEnd);
   hCountLate = new TH1D("CountLate", htitle, 20, 0, 20);
   htitle.Form("number of late time hits with qpeak>%.2f", latePeakCut);
   hCountLate->GetXaxis()->SetTitle(htitle);
-  htitle.Form("hits qpeak>%.2f SPE sample>%lu in sum", latePeakCut, firstTimeCut);
+  htitle.Form("hits qpeak>%.2f SPE sample>%lu in sum", latePeakCut, triggerEnd);
   hCountLateTime = new TH1D("CountLateTime ", htitle, 30, 0, 7500);
   hCountLateTime->GetXaxis()->SetTitle("sample time");
   hCountLateTime->Sumw2();
