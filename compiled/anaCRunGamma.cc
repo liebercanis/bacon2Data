@@ -66,9 +66,11 @@ public:
     EARLYCUT = 0x2,
     FIRSTTIME = 0x4,
     COSMIC = 0x8,
-    GAMMA = 0x16,
-    TOTALCODES
+    GAMMA = 0x10,
+    TOTALCODES = 2 * GAMMA
   };
+
+  std::vector<TString> codeNames;
 
   int badEvent = 5671;
 
@@ -235,8 +237,8 @@ public:
   double latePeakCut = 3.5; // march 18 2024 2.5;
   double diffStepSipm = 3.; // 6 ns steps for SIPM
   double diffStepPmt = 1.;  // back to one on Oct 15 2024
-  double cosmicCut = 1.E4;
-  double gammaCut = 5.E5;
+  double cosmicCut = 3.E3;  // set Nov 3 2024
+  double gammaCut = 1.E5;   // set Nov 3 2024
 };
 
 void anaCRun::getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample)
@@ -885,7 +887,8 @@ int anaCRun::anaEvent(Long64_t entry)
   hTriggerTime->Fill(double(firstTime));
   if (firstTime > triggerEnd && firstTime < triggerStart)
   {
-    printf("@line893 failed triggerEnd event %llu cut %lu time %u \n", entry, triggerEnd, firstTime);
+    if (reportFailures)
+      printf("@line893 failed triggerEnd event %llu cut %lu time %u \n", entry, triggerEnd, firstTime);
     passBit |= FIRSTTIME;
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
@@ -894,12 +897,12 @@ int anaCRun::anaEvent(Long64_t entry)
       EvRawWave->SetTitle(Form("EvRawFirstTimeEvent%lld-Ch%i", entry, chanBad));
     }
   }
-  /*******
+  /********************************************************
    * now that we have the firstTime
         align to nominalTrigger
         defined as timeShift>0 shift right
         normalize to nominal gain
-   ********/
+   ********************************************************/
   // printf("doTimeSiftAndNorm %lld \n",entry);
   doTimeShiftAndNorm();
 
@@ -914,8 +917,6 @@ int anaCRun::anaEvent(Long64_t entry)
     // do digi sums on fixedDigi
     for (unsigned j = 0; j < digi.size(); ++j)
     {
-      if (digi[j] < 0.)
-        continue;
       idet->totSum += digi[j];
       if (j < triggerStart)
         idet->preSum += digi[j];
@@ -1081,8 +1082,8 @@ int anaCRun::anaEvent(Long64_t entry)
   hCosmicCut->Fill(tbrun->getDet(12)->totSum);
   if (tbrun->getDet(12)->totSum > cosmicCut)
   {
-    // if (reportFailures)
-    printf("@line1077 failed cosmic event %llu cut %E totSum %E \n", entry, cosmicCut, tbrun->getDet(12)->totSum);
+    if (reportFailures)
+      printf("@line1077 failed cosmic event %llu cut %E totSum %E \n", entry, cosmicCut, tbrun->getDet(12)->totSum);
     passBit |= COSMIC;
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
@@ -1096,8 +1097,8 @@ int anaCRun::anaEvent(Long64_t entry)
   hGammaCut->Fill(tbrun->getDet(13)->lateSum);
   if (tbrun->getDet(13)->lateSum > gammaCut)
   {
-    // if (reportFailures)
-    printf("@line1090 failed gamma event %llu cut %E lateSum %E \n", entry, gammaCut, tbrun->getDet(13)->lateSum);
+    if (reportFailures)
+      printf("@line1090 failed gamma event %llu cut %E lateSum %E \n", entry, gammaCut, tbrun->getDet(13)->lateSum);
     passBit |= GAMMA;
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
@@ -1815,7 +1816,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     }
     hEventPass->SetBinContent(passBit, hEventPass->GetBinContent(passBit) + 1);
     tbrun->fill();
-    if (entry / 100 * 100 == entry)
+    if (entry / 1000 * 1000 == entry)
     {
       printf("... entry %llu pass %u fail %u \n", entry, npass, nfail);
       hEventPass->Print("all");
@@ -1930,7 +1931,13 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   // hEventPass->Print("all");
   printf("pass fractions total = %.0f \n", hEventPass->GetEntries());
   for (int ibin = 0; ibin < hEventPass->GetNbinsX(); ++ibin)
-    printf(" bin %i fail %.f frac %.3f \n", ibin, hEventPass->GetBinContent(ibin), hEventPass->GetBinContent(ibin) / hEventPass->GetEntries());
+  { // include error on poisson probability
+    double nbin = hEventPass->GetBinContent(ibin);
+    double ntot = hEventPass->GetEntries();
+    double prob = nbin / ntot;
+    double perror = sqrt(prob * (1. - prob) / ntot);
+    printf(" bin %i fail %.f frac %.3f +/- %.3f name %s \n", ibin, hEventPass->GetBinContent(ibin), prob, perror, codeNames[ibin].Data());
+  }
 
   for (int idet = 0; idet < hTotSum.size(); ++idet)
   {
@@ -1952,6 +1959,30 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
 anaCRun::anaCRun(TString theTag)
 {
+  // define failure code names
+
+  // pass bit failures
+  /*enum FAILURECODES
+  {
+    PASS = 0,
+    GAUSFAIL = 0x1,
+    EARLYCUT = 0x2,
+    FIRSTTIME = 0x4,
+    COSMIC = 0x8,
+    GAMMA = 0x16,
+    TOTALCODES
+  };
+  */
+
+  for (unsigned ic = 0; ic < TOTALCODES; ++ic)
+    codeNames.push_back(TString("mixed"));
+  codeNames[PASS] = TString("pass");
+  codeNames[GAUSFAIL] = TString("baseline");
+  codeNames[EARLYCUT] = TString("earlycut");
+  codeNames[FIRSTTIME] = TString("firsttime");
+  codeNames[COSMIC] = TString("cosmic");
+  codeNames[GAMMA] = TString("gamma");
+
   tag = theTag;
   // tbrun = new TBRun(tag);
   cout << " anaCRun::anaCRun instance of anaCRun gamma version  with tag= " << tag << " CHANNELS = " << CHANNELS - 1 << " diffStepSipm= " << diffStepSipm << " diffStepPmt= " << diffStepPmt << endl;
