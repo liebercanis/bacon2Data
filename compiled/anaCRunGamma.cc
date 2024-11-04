@@ -76,7 +76,7 @@ public:
 
   bool doNotOverWrite = true;
   bool theFirstFile = true;
-  int badEventDirMax = 500;
+  int badEventDirMax = 1000;
   bool reportFailures = false;
   TBRun *tbrun;
   TFile *fout;
@@ -819,6 +819,15 @@ int anaCRun::anaEvent(Long64_t entry)
     idet->maxAdc = maxAdc;
     idet->maxSample = maxSample;
 
+    /*
+    if (maxAdc > 50 && ib == 12 && badEventDir->GetList()->GetEntries() < badEventDirMax)
+    {
+      badEventDir->cd();
+      TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawPMTEvent%lldVal%.0E-Ch%i", entry, maxAdc, 12));
+      EvRawWave->SetTitle(Form("EvRawPMTEvent%lldVal%.3E-Ch%i", entry, maxAdc, 12));
+    }
+    */
+
   } // channel loop
   /* find trigger time from trigger sipms */
   trigTimes.resize(NONSUMCHANNELS);
@@ -1065,7 +1074,7 @@ int anaCRun::anaEvent(Long64_t entry)
     {
       double adc = double(rawBr[ib]->rdigi[j]) - tdet->base;
       /* I have added this to the TDet as  maxSample maxAdc */
-      if (abs(adc) > 50. && ntAdc->GetEntries() < 1E6)
+      if (ntAdc->GetEntries() < 1E6)
       {
         ntAdc->Fill(double(entry), double(ib), double(j), adc);
       }
