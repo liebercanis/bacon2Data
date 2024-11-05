@@ -192,6 +192,7 @@ void setTime(TString startTag, TString endTag)
 // normalize to total pass
 void normalizeTotalPass(TString histSet)
 {
+  printf("\n\n \t  in normalizeTotalPass runSumDir has %d \n", runSumDir->GetList()->GetEntries());
   TString histName;
   for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
   {
@@ -1470,7 +1471,6 @@ endNow:
     // else printf(" did not find %s \n",histName.Data());
   }
 
-  printf(" final run sum dir \n");
   runSumDir->ls();
   fout->Purge(1);
   fout->Write();
