@@ -633,30 +633,38 @@ void fileLoop()
     // cosmic 1
     anaDir->GetObject("cosmicCut1", hCosmicCut1);
     if (!hCosmicCut1)
-      cout << " no cosmic 1" << endl;
-    if (ifile == 0)
     {
-      hRunCosmicCut1 = (TH1D *)hCosmicCut1->Clone("RunCosmicCut1");
-      fout->Add(hRunCosmicCut1);
+      cout << " no cosmic 1" << endl;
     }
     else
     {
-      fout->GetObject("RunCosmicCut1", hRunCosmicCut1);
-      hRunCosmicCut1->Add(hCosmicCut1);
+      if (ifile == 0)
+      {
+        hRunCosmicCut1 = (TH1D *)hCosmicCut1->Clone("RunCosmicCut1");
+        fout->Add(hRunCosmicCut1);
+      }
+      else
+      {
+        fout->GetObject("RunCosmicCut1", hRunCosmicCut1);
+        hRunCosmicCut1->Add(hCosmicCut1);
+      }
     }
     // cosmic 2
     anaDir->GetObject("cosmicCut2", hCosmicCut2);
     if (!hCosmicCut2)
       cout << " no cosmic 2" << endl;
-    if (ifile == 0)
-    {
-      hRunCosmicCut2 = (TH1D *)hCosmicCut2->Clone("RunCosmicCut2");
-      fout->Add(hRunCosmicCut2);
-    }
     else
     {
-      fout->GetObject("RunCosmicCut2", hRunCosmicCut2);
-      hRunCosmicCut2->Add(hCosmicCut2);
+      if (ifile == 0)
+      {
+        hRunCosmicCut2 = (TH1D *)hCosmicCut2->Clone("RunCosmicCut2");
+        fout->Add(hRunCosmicCut2);
+      }
+      else
+      {
+        fout->GetObject("RunCosmicCut2", hRunCosmicCut2);
+        hRunCosmicCut2->Add(hCosmicCut2);
+      }
     }
 
     //
