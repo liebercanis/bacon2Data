@@ -244,6 +244,22 @@ bool readGains(TString fileName)
     sipmGainError[j] = sqrt(nominalGain);
   }
 
+  /* look for gain file */
+  bool exists = false;
+  FILE *aFile;
+  aFile = fopen(fileName.Data(), "r");
+  if (aFile)
+  {
+    fclose(aFile);
+    exists = false;
+  }
+
+  if (!exists)
+  {
+    printf(" couldnt open template file %s\n", fileName.Data());
+    return false;
+  }
+
   // open stored file
   TFile *fin = new TFile(fileName, "readonly");
   if (fin->IsZombie())
