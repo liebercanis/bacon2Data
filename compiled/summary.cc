@@ -1470,6 +1470,8 @@ endNow:
     // else printf(" did not find %s \n",histName.Data());
   }
 
+  printf(" final run sum dir \n");
+  runSumDir->ls();
   fout->Purge(1);
   fout->Write();
   fout->Close();
