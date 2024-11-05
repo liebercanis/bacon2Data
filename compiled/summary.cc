@@ -633,7 +633,7 @@ void fileLoop()
     // cosmic 1
     anaDir->GetObject("cosmicCut1", hCosmicCut1);
     if (!hCosmicCut1)
-      cout << " cosmic 1" << endl;
+      cout << " no cosmic 1" << endl;
     if (ifile == 0)
     {
       hRunCosmicCut1 = (TH1D *)hCosmicCut1->Clone("RunCosmicCut1");
@@ -647,7 +647,7 @@ void fileLoop()
     // cosmic 2
     anaDir->GetObject("cosmicCut2", hCosmicCut2);
     if (!hCosmicCut2)
-      cout << " cosmic 2" << endl;
+      cout << " no cosmic 2" << endl;
     if (ifile == 0)
     {
       hRunCosmicCut2 = (TH1D *)hCosmicCut2->Clone("RunCosmicCut2");
