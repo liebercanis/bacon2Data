@@ -196,9 +196,6 @@ void normalizeTotalPass(TString histSet)
   TString histName;
   for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
   {
-    if (ichan == 12) // skip broken PMT
-      continue;
-
     histName.Form("UnNormed%sChan%i", histSet.Data(), ichan);
     TH1D *hist;
     runSumDir->GetObject(histName, hist);
@@ -867,8 +864,6 @@ void fileLoop()
 
 void sumHistosChannel(int ichan, TString histSet)
 {
-  if (ichan == 12) // skip PMT
-    return;
   vecQPEMean[ichan] = QPEMean[ichan]; // starting value
   /* if (ichan > 8 && ichan < 12)
     return; // skip trigger sipms
