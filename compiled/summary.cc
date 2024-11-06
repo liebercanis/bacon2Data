@@ -192,7 +192,7 @@ void setTime(TString startTag, TString endTag)
 // normalize to total pass
 void normalizeTotalPass(TString histSet)
 {
-  printf("\n\n \t  in normalizeTotalPass runSumDir has %d \n", runSumDir->GetList()->GetEntries());
+  printf("line195 \n\n \t  in normalizeTotalPass runSumDir has %d \n", runSumDir->GetList()->GetEntries());
   TString histName;
   for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
   {
@@ -570,7 +570,7 @@ void fileLoop()
           {
             hOut = (TH1D *)hIn->Clone(gainOutName);
             hOut->SetTitle(gainOutName);
-            cout << "line516 ... addding  " << hIn->GetName() << " file "
+            cout << "line516 ... adding  " << hIn->GetName() << " file "
                  << fin->GetName() << " summed entries " << hOut->GetEntries() << endl;
             gainSumDir->Add(hOut);
           }
@@ -852,17 +852,17 @@ void fileLoop()
         }
       }
     } // sum over keys
-    cout << " end loop over sumDir keys " << endl; // loop over sumDir keys
-    printf("line812 file %i WaveSumDir %i keys \n", ifile, waveSumDir->GetNkeys());
+
     fout->Write();
     // if(ifile==0) fout->ls();
     // waveSumDir->Write();
     totalPass += int(npass);
     ++nFiles;
-    printf("line839 finised file %i of %i named %s file pass %i totalPass %i \n", ifile, nFiles, fin->GetName(), int(npass), totalPass);
     fin->Close();
+    printf("line812 end loop over sumDir keys file %i of %i named %s file pass %i totalPass %i WaveSumDir keys %i \n", ifile, nFiles, fin->GetName(), int(npass), totalPass, waveSumDir->GetNkeys());
   } // end loop over files
-  printf("fileLoop finished over %lld good files %d  totalPass %i \n", maxFiles, nFiles, totalPass); // DEF would be nice to put in a way to look at the last maxFiles files
+
+  printf("line865 end of fileLoop finished over %lld good files %d  totalPass %i waveSumDir has %d \n", maxFiles, nFiles, totalPass, waveSumDir->GetNkeys()); // DEF would be nice to put in a way to look at the last maxFiles files
 }
 
 void sumHistosChannel(int ichan, TString histSet)
@@ -1346,25 +1346,25 @@ int main(int argc, char *argv[])
     printf(" %i %s \n", int(filenum[jfile]), fileList[jfile].Data());
   }
 
-  printf("line1327 ..................... endNow skipping sumHistos...................\n");
-  goto endNow;
-  // cout << "@ fitQPE" << endl;
-  // fitQPE();
+  // printf("line1327 ..................... endNow skipping sumHistos...................\n");
+  // goto endNow;
+  //  cout << "@ fitQPE" << endl;
+  //  fitQPE();
 
   // call function to fit slopes and fill vSlope, vESlope
   if (filenum.size() > 0)
   {
-    cout << "@ line1228 sumHistos files " << filenum.size() << " total pass " << totalPass << endl;
+    cout << "line1357 call sumHistos files " << filenum.size() << " total pass " << totalPass << endl;
     sumHistos();
     // cout << "@  line1230 fitSlopes" << endl;
     //  fitSlopes();
     // cout << "@ line1232 makeGraphs" << endl;
     //  makeGraphs();
   }
-endNow:
+  // endNow:
 
   // print totalHits
-  printf("\t >>> end of job: files processed << %li  total pass %i <<<<< \n", filenum.size(), totalPass);
+  printf("line1367 \t >>> end of job: files processed << %li  total pass %i <<<<< \n", filenum.size(), totalPass);
 
   printf("\n totalHits in %i passed triggers \n", totalPass);
   for (unsigned ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
@@ -1413,7 +1413,7 @@ endNow:
   }
 
   /* runSum integrals of waveSuDir */
-  printf("line1391 from Directory %s with %i keys do integrals: \n", waveSumDir->GetName(), waveSumDir->GetNkeys());
+  printf("line1416 from Directory %s with %i keys do integrals: \n", waveSumDir->GetName(), waveSumDir->GetNkeys());
   // waveSumDir->ls();
   runSums.resize(NONSUMCHANNELS);
   runSumNames.resize(NONSUMCHANNELS);
@@ -1432,12 +1432,12 @@ endNow:
       continue;
     int fileNumber = TString(sname(sname.Last('e') + 1, sname.Length())).Atoi();
     double inte = h->Integral();
-    printf("line1410 file %i chan %i %s pass %i integral %.3E \n", fileNumber, chanNumber, h->GetName(), filePass[fileNumber], inte);
+    printf("line1435 file %i chan %i %s pass %i integral %.3E \n", fileNumber, chanNumber, h->GetName(), filePass[fileNumber], inte);
     runSums[chanNumber].push_back(inte);
     runSumNames[chanNumber].push_back(h->GetName());
   }
 
-  printf("line1419 filenum %lu runSums 0 %lu  make graphs from integrals \n", filenum.size(), runSums[0].size());
+  printf("line1440 filenum %lu runSums 0 %lu  make graphs from integrals \n", filenum.size(), runSums[0].size());
   gInte.resize(runSums.size());
   for (int ichan = 0; ichan < runSums.size(); ++ichan)
   {
@@ -1454,12 +1454,8 @@ endNow:
     fout->Add(gInte[ichan]);
   }
 
-  cout << "summary finished "
-       << " total pass " << totalPass << " maxFiles  " << maxFiles << " files written to " << fout->GetName() << endl;
-
   // calculate mean hits from waveforms
-  printf("line1440 calculate mean hits from hRunPeakWave %lu from runSumDir\n", hRunPeakWave.size());
-  runSumDir->ls();
+  printf("line1461 calculate mean hits from hRunPeakWave %lu from runSumDir \n", hRunPeakWave.size());
   for (int idet = 0; idet < hRunPeakWave.size(); ++idet)
   {
     TString histName;
@@ -1471,10 +1467,13 @@ endNow:
     // else printf(" did not find %s \n",histName.Data());
   }
 
-  runSumDir->ls();
   fout->Purge(1);
   fout->Write();
   fout->Close();
+
+  cout << "line1474 summary finished "
+       << " total pass " << totalPass << " maxFiles  " << maxFiles << " files written to " << fout->GetName() << endl;
+
   exit(0);
 }
 
