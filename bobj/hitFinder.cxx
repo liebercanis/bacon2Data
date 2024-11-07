@@ -929,8 +929,8 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     hPeakCut[idet]->Fill(qpeak);
     hPeakCutAndTime[idet]->Fill(peakt, qpeak);
 
-    if (qpeak < hitThreshold && idet == 12)
-      printf("line911 HitFinderMakeHits ihit %i qpeak %f thresh %f \n ", int(detHits.size()), qpeak, hitThreshold);
+    // if (qpeak < hitThreshold && idet == 12)
+    //   printf("line911 HitFinderMakeHits ihit %i qpeak %f thresh %f \n ", int(detHits.size()), qpeak, hitThreshold);
 
     if (qpeak < hitThreshold)
       continue;
