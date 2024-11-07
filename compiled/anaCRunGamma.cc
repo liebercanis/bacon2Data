@@ -206,7 +206,6 @@ public:
   std::vector<unsigned> sTrigTimes; // after correction
   std::vector<double> adcBin;
   std::vector<double> speCount;
-
   TDirectory *threshDir;
   TDirectory *earlyPeakDir;
   TDirectory *rawSumDir;
@@ -216,6 +215,7 @@ public:
   TDirectory *sumDir;
   TDirectory *anaDir;
   TDirectory *badEventDir;
+  TDirectory *pmtDir;
   Long64_t nentries;
   double QPEPeak;
   //
@@ -818,15 +818,16 @@ int anaCRun::anaEvent(Long64_t entry)
     getMaxRawAdc(ib, idet->base, maxAdc, maxSample);
     idet->maxAdc = maxAdc;
     idet->maxSample = maxSample;
-
-    /*
-    if (maxAdc > 50 && ib == 12 && badEventDir->GetList()->GetEntries() < badEventDirMax)
+    /* I have added this to the TDet as  maxSample maxAdc */
+    if (ntAdc->GetEntries() < 1E9)
     {
-      badEventDir->cd();
-      TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawPMTEvent%lldVal%.0E-Ch%i", entry, maxAdc, 12));
-      EvRawWave->SetTitle(Form("EvRawPMTEvent%lldVal%.3E-Ch%i", entry, maxAdc, 12));
+      for (unsigned j = 0; j < rawBr[ichan]->rdigi.size(); ++j)
+      {
+        double adc = double(rawBr[ichan]->rdigi[j]) - idet->base;
+        if (adc > 2. * idet->sigma)
+          ntAdc->Fill(double(entry), double(ib), double(j), adc);
+      }
     }
-    */
 
   } // channel loop
   /* find trigger time from trigger sipms */
@@ -1049,6 +1050,8 @@ int anaCRun::anaEvent(Long64_t entry)
 
     evCount->Fill(ib);                       // chan 0 from GetBinContent(0)
     double hitThreshold = 0.2 * nominalGain; // 500.0;
+    if (ib == 12)
+      hitThreshold = 10;
     double theStep = diffStepSipm;
     if (ib == 12)
     {
@@ -1060,6 +1063,16 @@ int anaCRun::anaEvent(Long64_t entry)
     {
       tdet13->hits.push_back(tdet->hits[ihit]);
     }
+
+    // look at PMT events
+    if (tdet->peakMax > 10 && ib == 12 && pmtDir->GetList()->GetEntries() < 1000)
+    {
+      pmtDir->cd();
+      TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawPMTEvent%lldVal%.0E-Ch%i", entry, tdet->peakMax, 12));
+      EvRawWave->SetTitle(Form("EvRawPMTEvent%lldVal%.3E-Ch%i", entry, tdet->peakMax, 12));
+      finder->plotEvent(pmtDir, tdet->channel, entry);
+    }
+
     /* this was one cosmic
     if (badEvent == entry)
       finder->plot1Wave(badEventDir, tdet->channel, entry);
@@ -1070,21 +1083,17 @@ int anaCRun::anaEvent(Long64_t entry)
 
     // look at PMT
     // TDirectory *badEventDir = (TDirectory *)fout->FindObject("badEventDir");
+
+    /* do not fill here any more
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
       double adc = double(rawBr[ib]->rdigi[j]) - tdet->base;
-      /* I have added this to the TDet as  maxSample maxAdc */
-      if (ntAdc->GetEntries() < 1E6)
+      if (ntAdc->GetEntries() < 1E9)
       {
         ntAdc->Fill(double(entry), double(ib), double(j), adc);
       }
-      /* no need to plot
-        if (ib == 12 && adc > 200 && badEventDir->GetList()->GetEntries() < 100)
-        {
-          finder->plot1Wave(badEventDir, tdet->channel, entry);
-        }
-        */
     }
+    */
   }
 
   // do cosmic cut
@@ -1578,6 +1587,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   rawSumDir = fout->mkdir("rawSumDir");
   baseDir = fout->mkdir("baseDir");
   badEventDir = fout->mkdir("badEventDir");
+  pmtDir = fout->mkdir("pmtDir");
   badDir = fout->mkdir("badDir");
   badTrigDir = fout->mkdir("badTrigDir");
   threshDir = fout->mkdir("threshDir");
