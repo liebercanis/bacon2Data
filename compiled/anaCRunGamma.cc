@@ -434,8 +434,8 @@ bool anaCRun::readGains(TString fileName)
     }
     else
     {
-      sipmGain[j] = 545.;
-      sipmGainError[j] = sqrt(545.);
+      sipmGain[j] = nominalGain;
+      sipmGainError[j] = sqrt(nominalGain);
     }
   }
   /* look for gain file */
