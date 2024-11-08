@@ -1051,7 +1051,7 @@ int anaCRun::anaEvent(Long64_t entry)
     evCount->Fill(ib);                       // chan 0 from GetBinContent(0)
     double hitThreshold = 0.2 * nominalGain; // 500.0;
     if (ib == 12)
-      hitThreshold = 10;
+      hitThreshold = 50;
     double theStep = diffStepSipm;
     if (ib == 12)
     {
