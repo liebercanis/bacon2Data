@@ -112,6 +112,7 @@ public:
   vector<TH1D *> sumWaveB;
   vector<TH1D *> valHistB;
 
+  vector<TH1D *> hMult;
   vector<TH1D *> hQSum;
   vector<TH1D *> hQPeak;
   vector<TH1D *> hQSpe;
@@ -145,6 +146,7 @@ public:
   TH1D *crossHist;
   TH1D *hGammaCut;
   TH1D *hCosmicCut;
+  TH1D *hCosmicMult;
   // TH1D *histQPE;
   TH1D *histQPrompt;
   TH1D *hTriggerTimeDiff;
@@ -239,6 +241,7 @@ public:
   double diffStepPmt = 1.;  // back to one on Oct 15 2024
   double cosmicCut = 3.E3;  // set Nov 3 2024
   double gammaCut = 1.E5;   // set Nov 3 2024
+  double qpeakCosmicCut = 200.;
 };
 
 void anaCRun::getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample)
@@ -1039,12 +1042,11 @@ int anaCRun::anaEvent(Long64_t entry)
     tdet13->trigSum += tdet->trigSum;
     tdet13->lateSum += tdet->lateSum;
 
-    // make hit
+    /************************************/
+    // make hit on channel ib
     tdet->hits.clear();
     bool trig = ichan == 9 || ichan == 10 || ichan == 11;
     int nbins = rawBr[ib]->rdigi.size();
-
-    /* take care here for summed ib=CHANNELS-2 and set appropriate hitThreshold */
     digi.clear();
     digi = fixedDigi[ib];
 
@@ -1065,7 +1067,7 @@ int anaCRun::anaEvent(Long64_t entry)
     }
 
     // look at PMT events
-    if (tdet->peakMax > 10 && ib == 12 && pmtDir->GetList()->GetEntries() < 1000)
+    if (tdet->peakMax > 20 && ib == 12 && pmtDir->GetList()->GetEntries() < 1000)
     {
       pmtDir->cd();
       TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawPMTEvent%lldVal%.0E-Ch%i", entry, tdet->peakMax, 12));
@@ -1096,18 +1098,28 @@ int anaCRun::anaEvent(Long64_t entry)
     */
   }
 
-  // do cosmic cut
-  hCosmicCut->Fill(tbrun->getDet(12)->totSum);
-  if (tbrun->getDet(12)->totSum > cosmicCut)
+  // for cosmic cut, count large photons
+  int nCosmicHits = 0;
+  TDet *tdetPmt = tbrun->getDet(12);
+  for (unsigned ihit = 0; ihit < tdetPmt->hits.size(); ++ihit)
+  {
+    if (tdetPmt->hits[ihit].qpeak > qpeakCosmicCut)
+      ++nCosmicHits;
+  }
+
+  // do cosmic cut based on large pulse counting
+  hCosmicMult->Fill(double(nCosmicHits));
+  hCosmicCut->Fill(tdetPmt->totSum);
+  if (nCosmicHits > 0)
   {
     if (reportFailures)
-      printf("@line1077 failed cosmic event %llu cut %E totSum %E \n", entry, cosmicCut, tbrun->getDet(12)->totSum);
+      printf("@line1077 failed cosmic event %llu cut %E totSum %E nCosmicHits %i \n", entry, cosmicCut, tdetPmt->totSum, nCosmicHits);
     passBit |= COSMIC;
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
       badEventDir->cd();
-      TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawCosmicEvent%lldVal%.0E-Ch%i", entry, tbrun->getDet(12)->totSum, 12));
-      EvRawWave->SetTitle(Form("EvRawCosmicEvent%lldVal%.3E-Ch%i", entry, tbrun->getDet(12)->totSum, 12));
+      TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawCosmicEvent%lldTotSum%.0E-Ch%i", entry, tdetPmt->totSum, 12));
+      EvRawWave->SetTitle(Form("EvRawCosmicEvent%lldTotSum%.3E-Ch%i", entry, tbrun->getDet(12)->totSum, 12));
     }
   }
 
@@ -1203,8 +1215,6 @@ int anaCRun::anaEvent(Long64_t entry)
     return passBit;
   }
 
-  // continue if event passes
-
   // fill total light
   vector<float> fsum;
   fsum.resize(tbrun->detList.size());
@@ -1214,7 +1224,7 @@ int anaCRun::anaEvent(Long64_t entry)
     TDet *tdet = tbrun->detList[idet];
     // printf(" anaCRuna::event at event %llu idet %i chan %i hits %lu \n", entry, idet, tdet->channel, tdet->hits.size());
     fsum[tdet->channel] = tdet->totSum;
-
+    hMult[idet]->Fill(double(tdet->hits.size())); // hit multiplicity
     // add some event plots
     bool trig = tdet->channel == 9 || tdet->channel == 10 || tdet->channel == 11;
     TDirectory *finderDir = (TDirectory *)fout->FindObject("finderDir");
@@ -1682,6 +1692,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   histQPrompt = new TH1D("histqprompt", "qprompt by channel", CHANNELS, 0, CHANNELS);
   histQSum->Sumw2();
   histQPrompt->Sumw2();
+  hCosmicMult = new TH1D("CosmicMult", "CosmicMult", 10, 0, 10);
   hCosmicCut = new TH1D("CosmicCut", "cosmic total sum chan 12 ", 1000, 0, 10. * cosmicCut);
   hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 ", 1000, 0, 10. * gammaCut);
 
@@ -1713,6 +1724,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
     unsigned ichan = i;
+    hMult.push_back(new TH1D(Form("HitMultChan%i", ichan), Form("HitMultChan%i", ichan), 10, 0, 10));
     hWave.push_back(new TH1D(Form("waveChan%i", ichan), Form("WaveChan%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
     hWave[hWave.size() - 1]->SetDirectory(nullptr);
     hChannelGaus.push_back(new TH1D(Form("channelGaus%i", ichan), Form("channelGaus%i", ichan), 600, -100, 500));
@@ -1970,6 +1982,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   for (int idet = 0; idet < hitMean.size(); ++idet)
     printf("chan %i wave integral %.4E average hits per event %.4f \n ", idet, hitIntegral[idet], hitMean[idet]);
 
+  printf("PMT HIT MULTIPLICITY cut %0.f \n", qpeakCosmicCut);
+  hCosmicMult->Print("all");
   fout->Write();
   fout->Close();
   printf(" ***** FINISHED ****** %s entries %lld \n", fout->GetName(), nentries);
