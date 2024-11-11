@@ -1114,17 +1114,6 @@ int anaCRun::anaEvent(Long64_t entry)
     }
   }
 
-  // look at PMT events
-  if (nCosmicHits == 0 && tdetPmt->peakMax > hitThresholdPmt && pmtDir->GetList()->GetEntries() < 1000)
-  {
-    pmtDir->cd();
-    printf("@line1120 print event %llu peakMax %E \n", entry, tdetPmt->peakMax);
-    TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawPMTEvent%lldVal%.0E-Ch%i", entry, tdetPmt->peakMax, 12));
-    EvRawWave->SetTitle(Form("EvRawPMTEvent%lldVal%.3E-Ch%i", entry, tdetPmt->peakMax, 12));
-    if (tdetPmt->hits.size() > 0)
-      finder->plotEvent(pmtDir, tdetPmt->channel, entry);
-  }
-
   // do gamma cut
   hGammaCut->Fill(tbrun->getDet(13)->lateSum);
   if (tbrun->getDet(13)->lateSum > gammaCut)
@@ -1138,6 +1127,17 @@ int anaCRun::anaEvent(Long64_t entry)
       TH1D *EvRawWave = (TH1D *)hEvRawWave[NONSUMCHANNELS]->Clone(Form("EvRawGammaEvent%lldVal%.0E-Ch%i", entry, tbrun->getDet(13)->lateSum, 13));
       EvRawWave->SetTitle(Form("EvRawGammaEvent%lldVal%.3E-Ch%i", entry, tbrun->getDet(13)->lateSum, 13));
     }
+  }
+
+  // look at good PMT events
+  if (passBit == 0 && tdetPmt->peakMax > hitThresholdPmt && pmtDir->GetList()->GetEntries() < 1000)
+  {
+    pmtDir->cd();
+    printf("@line1120 print event %llu peakMax %E \n", entry, tdetPmt->peakMax);
+    TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawPMTEvent%lldVal%.0E-Ch%i", entry, tdetPmt->peakMax, 12));
+    EvRawWave->SetTitle(Form("EvRawPMTEvent%lldVal%.3E-Ch%i", entry, tdetPmt->peakMax, 12));
+    if (tdetPmt->hits.size() > 0)
+      finder->plotEvent(pmtDir, tdetPmt->channel, entry);
   }
 
   // printf("line975 chan 13 has %lu hits \n", tdet13->hits.size());
