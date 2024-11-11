@@ -1115,7 +1115,7 @@ int anaCRun::anaEvent(Long64_t entry)
   }
 
   // look at PMT events
-  if (passBit == 0 && tdetPmt->peakMax > hitThresholdPmt && pmtDir->GetList()->GetEntries() < 1000)
+  if (nCosmicHits == 0 && tdetPmt->peakMax > hitThresholdPmt && pmtDir->GetList()->GetEntries() < 1000)
   {
     pmtDir->cd();
     printf("@line1120 print event %llu peakMax %E \n", entry, tdetPmt->peakMax);
