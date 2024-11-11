@@ -241,7 +241,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   for (unsigned ichan = 0; ichan < QPEnominal.size(); ++ichan)
     printf("chan %i QPEnominal %f ; ", ichan, QPEnominal[ichan]);
   printf("\n");
-  printf("\t INSTANCE of hitFinder nominal gain %f \n", nominalGain);
+  printf("\t HHHHHHHH INSTANCE of hitFinder nominal gain %f verbose %i \n", nominalGain, verbose);
 }
 //
 void hitFinder::fillWFilter(int ichan)
@@ -750,9 +750,9 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
   // loop over crossings using  PUP or NUP
   for (int icross = 0; icross < crossings.size(); ++icross)
   {
-    if (!(crossings[icross] == PUP || crossings[icross] == NUP))
-      continue;
-    // find local max
+    // if (!(crossings[icross] == PUP || crossings[icross] == NUP))
+    //   continue;
+    //  find local max
     hCrossingBinA[idet]->Fill(crossingBin[icross]);
     unsigned imax = 0;
 

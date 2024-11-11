@@ -242,6 +242,7 @@ public:
   double cosmicCut = 3.E3;  // set Nov 3 2024
   double gammaCut = 1.E5;   // set Nov 3 2024
   double qpeakCosmicCut = 200.;
+  double hitThresholdPmt = 30.;
 };
 
 void anaCRun::getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample)
@@ -1053,7 +1054,7 @@ int anaCRun::anaEvent(Long64_t entry)
     evCount->Fill(ib);                       // chan 0 from GetBinContent(0)
     double hitThreshold = 0.2 * nominalGain; // 500.0;
     if (ib == 12)
-      hitThreshold = 50;
+      hitThreshold = hitThresholdPmt; // this is 5*(6 sigma noise)
     double theStep = diffStepSipm;
     if (ib == 12)
     {
@@ -1064,15 +1065,6 @@ int anaCRun::anaEvent(Long64_t entry)
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
     {
       tdet13->hits.push_back(tdet->hits[ihit]);
-    }
-
-    // look at PMT events
-    if (tdet->peakMax > 20 && ib == 12 && pmtDir->GetList()->GetEntries() < 1000)
-    {
-      pmtDir->cd();
-      TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawPMTEvent%lldVal%.0E-Ch%i", entry, tdet->peakMax, 12));
-      EvRawWave->SetTitle(Form("EvRawPMTEvent%lldVal%.3E-Ch%i", entry, tdet->peakMax, 12));
-      finder->plotEvent(pmtDir, tdet->channel, entry);
     }
 
     /* this was one cosmic
@@ -1106,7 +1098,6 @@ int anaCRun::anaEvent(Long64_t entry)
     if (tdetPmt->hits[ihit].qpeak > qpeakCosmicCut)
       ++nCosmicHits;
   }
-
   // do cosmic cut based on large pulse counting
   hCosmicMult->Fill(double(nCosmicHits));
   hCosmicCut->Fill(tdetPmt->totSum);
@@ -1121,6 +1112,17 @@ int anaCRun::anaEvent(Long64_t entry)
       TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawCosmicEvent%lldTotSum%.0E-Ch%i", entry, tdetPmt->totSum, 12));
       EvRawWave->SetTitle(Form("EvRawCosmicEvent%lldTotSum%.3E-Ch%i", entry, tbrun->getDet(12)->totSum, 12));
     }
+  }
+
+  // look at PMT events
+  if (passBit == 0 && tdetPmt->peakMax > hitThresholdPmt && pmtDir->GetList()->GetEntries() < 1000)
+  {
+    pmtDir->cd();
+    printf("@line1120 print event %llu peakMax %E \n", entry, tdetPmt->peakMax);
+    TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawPMTEvent%lldVal%.0E-Ch%i", entry, tdetPmt->peakMax, 12));
+    EvRawWave->SetTitle(Form("EvRawPMTEvent%lldVal%.3E-Ch%i", entry, tdetPmt->peakMax, 12));
+    if (tdetPmt->hits.size() > 0)
+      finder->plotEvent(pmtDir, tdetPmt->channel, entry);
   }
 
   // do gamma cut
@@ -1721,6 +1723,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   hCountLateTimeQpeak->GetXaxis()->SetTitle("sample time");
   hCountLateTimeQpeak->GetYaxis()->SetTitle("qpeak [SPE]");
 
+  printf("line1724 rawBr.size %lu \n", rawBr.size());
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
     unsigned ichan = i;
@@ -1755,7 +1758,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     hLateSum.push_back(new TH1D(Form("LatePeakSumChan%i", i), Form("late peak sum chan %i", i), nbins, 0, limit));
   }
   // one more for summed channel 13
-  hEvRawWave.push_back(new TH1D(Form("evRawWave%i", 13), Form("evRawWave%i", 13), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+  // hEvRawWave.push_back(new TH1D(Form("evRawWave%i", 13), Form("evRawWave%i", 13), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
 
   threshValueHist = new TH2D("threshValueHist", " threshold crossings value channels by time  ", 7500, 0, 7500, 1000, 0, 100000);
   threshHist = new TH1D("threshHist", " threshold crossings trig channels ", 20, 0, 20);
@@ -1824,8 +1827,9 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   int npass = 0;
   int nfail = 0;
-  printf("... total entries  %llu looping over %llu firstEntry %llu \n ", rawTree->GetEntries(), nentries, firstEntry);
-  for (Long64_t entry = firstEntry; entry < nentries; ++entry)
+  Long64_t lastEntry = firstEntry + nentries;
+  printf("... total entries  %llu looping over %llu firstEntry %llu last %lld \n ", rawTree->GetEntries(), nentries, firstEntry, lastEntry);
+  for (Long64_t entry = firstEntry; entry < lastEntry; ++entry)
   {
     tbrun->clear();
     rawTree->GetEntry(entry);
