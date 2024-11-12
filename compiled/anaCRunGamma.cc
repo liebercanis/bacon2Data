@@ -806,7 +806,7 @@ int anaCRun::anaEvent(Long64_t entry)
       if (hChannelGaus.size() > 0)
         hChannelGaus[ib]->Fill(val);
     }
-    idet->pass = true;
+    idet->pass = passBit;
     // waveform sums on baseline subtracted waveform
     idet->totSum = 0;
     idet->preSum = 0;
@@ -1189,6 +1189,9 @@ int anaCRun::anaEvent(Long64_t entry)
   // fill histograms for good and bad events
   for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
   {
+    // update pass bit
+    tbrun->getDet(ib)->pass = passBit;
+
     /* take care here for summed ib=CHANNELS-2 and set appropriate hitThreshold */
     digi.clear();
     digi = fixedDigi[ib];
