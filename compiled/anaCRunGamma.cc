@@ -236,13 +236,13 @@ public:
   ULong_t triggerStart = 730; // 740;
   ULong_t timeVeryLateCut = 3500;
   double prePeakCut = 0.5;
-  double latePeakCut = 3.5; // march 18 2024 2.5;
-  double diffStepSipm = 3.; // 6 ns steps for SIPM
-  double diffStepPmt = 1.;  // back to one on Oct 15 2024
-  double cosmicCut = 3.E3;  // set Nov 3 2024
-  double gammaCut = 1.E5;   // set Nov 3 2024
-  double qpeakCosmicCut = 200.;
-  double hitThresholdPmt = 30.; // set Nov 13 2024
+  double latePeakCut = 3.5;                 // march 18 2024 2.5;
+  double diffStepSipm = 3.;                 // 6 ns steps for SIPM
+  double diffStepPmt = 1.;                  // back to one on Oct 15 2024
+  double cosmicCut = 3.E3;                  // set Nov 3 2024
+  double gammaCut = 1.E5;                   // set Nov 3 2024
+  double qpeakCosmicCut = 4. * nominalGain; // 4*SPE
+  double hitThresholdPmt = 30.;             // set Nov 13 2024
 };
 
 void anaCRun::getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample)
@@ -1129,7 +1129,7 @@ int anaCRun::anaEvent(Long64_t entry)
   // do cosmic cut based on large pulse counting
   hCosmicMult->Fill(double(nCosmicHits));
   hCosmicCut->Fill(tdetPmt->totSum);
-  if (nCosmicHits > 0)
+  if (nCosmicHits > 0 || tdetPmt->totSum > 15000)
   {
     if (reportFailures)
       printf("@line1077 failed cosmic event %llu cut %E totSum %E nCosmicHits %i \n", entry, cosmicCut, tdetPmt->totSum, nCosmicHits);
