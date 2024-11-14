@@ -928,7 +928,8 @@ int anaCRun::anaEvent(Long64_t entry)
     TDet *idet = tbrun->getDet(ib);
 
     double peakMax = 0;
-    // recalculate and save the average
+    // line931  recalculate and save the average
+    /*
     double theAve = 0;
     for (unsigned j = 0; j < digi.size(); ++j)
     {
@@ -936,22 +937,23 @@ int anaCRun::anaEvent(Long64_t entry)
     }
     theAve /= double(rawBr[ib]->rdigi.size());
     idet->ave = theAve;
+    */
     // do digi sums on fixedDigi
     for (unsigned j = 0; j < digi.size(); ++j)
     {
-      idet->totSum += digi[j] - theAve;
+      idet->totSum += digi[j];
       if (j < triggerStart)
-        idet->preSum += digi[j] - theAve;
+        idet->preSum += digi[j];
 
       if (j > triggerStart && j < triggerEnd)
       {
-        idet->trigSum += digi[j] - theAve;
+        idet->trigSum += digi[j];
         if (digi[j] > peakMax)
           peakMax = digi[j];
       }
 
       if (j > lateTimeStart)
-        idet->lateSum += digi[j] - theAve;
+        idet->lateSum += digi[j];
     }
     // add some other variables
     idet->peakMax = peakMax;
