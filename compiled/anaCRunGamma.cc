@@ -1,4 +1,4 @@
-// ***This is GAMMA version Sept 25 2024 * **
+// ***Ths is GAMMA version Sept 25 2024 * **
 /////////////////////////////////////////////////////////
 #include <sstream>
 #include <unistd.h>
@@ -223,8 +223,8 @@ public:
   //
   int MaxSPEShape = 4;
   unsigned trigStart = 600;
-  int nominalTrigger = 753; // was 729;
-  double nominalGain = 160.0;
+  int nominalTrigger = 753;  // was 729;
+  double nominalGain = 100.; // was 160.0; set Nov 13 2024
   // 227.4; // average
   //  double nominalGain = 160.0; // average
   unsigned firstTime;       // corrected trigger time for event
@@ -242,7 +242,7 @@ public:
   double cosmicCut = 3.E3;  // set Nov 3 2024
   double gammaCut = 1.E5;   // set Nov 3 2024
   double qpeakCosmicCut = 200.;
-  double hitThresholdPmt = 30.;
+  double hitThresholdPmt = 30.; // set Nov 13 2024
 };
 
 void anaCRun::getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample)
@@ -420,26 +420,26 @@ bool anaCRun::readGains(TString fileName)
   sipmGain.resize(NONSUMCHANNELS);
   sipmGainError.resize(NONSUMCHANNELS);
   /*    preliminaru gains
-        no trig 158
-        trig 760
-        PMT 380
+        no trig 107
+        trig 509
+        PMT 395
   */
   for (unsigned long j = 0; j < sipmGain.size(); ++j)
   {
     if (j < 9)
     {
-      sipmGain[j] = 158.;
-      sipmGainError[j] = sqrt(158.);
+      sipmGain[j] = 107.;
+      sipmGainError[j] = sqrt(107.);
     }
     else if (j < 12)
     {
-      sipmGain[j] = 755.;
-      sipmGainError[j] = sqrt(755.);
+      sipmGain[j] = 509.;
+      sipmGainError[j] = sqrt(509.);
     }
     else
     {
-      sipmGain[j] = nominalGain;
-      sipmGainError[j] = sqrt(nominalGain);
+      sipmGain[j] = 395.;
+      sipmGainError[j] = sqrt(395.);
     }
   }
   /* look for gain file */
@@ -928,22 +928,30 @@ int anaCRun::anaEvent(Long64_t entry)
     TDet *idet = tbrun->getDet(ib);
 
     double peakMax = 0;
+    // recalculate and save the average
+    double theAve = 0;
+    for (unsigned j = 0; j < digi.size(); ++j)
+    {
+      theAve += digi[j];
+    }
+    theAve /= double(rawBr[ib]->rdigi.size());
+    idet->ave = theAve;
     // do digi sums on fixedDigi
     for (unsigned j = 0; j < digi.size(); ++j)
     {
-      idet->totSum += digi[j];
+      idet->totSum += digi[j] - theAve;
       if (j < triggerStart)
-        idet->preSum += digi[j];
+        idet->preSum += digi[j] - theAve;
 
       if (j > triggerStart && j < triggerEnd)
       {
-        idet->trigSum += digi[j];
+        idet->trigSum += digi[j] - theAve;
         if (digi[j] > peakMax)
           peakMax = digi[j];
       }
 
       if (j > lateTimeStart)
-        idet->lateSum += digi[j];
+        idet->lateSum += digi[j] - theAve;
     }
     // add some other variables
     idet->peakMax = peakMax;
@@ -1006,6 +1014,24 @@ int anaCRun::anaEvent(Long64_t entry)
     if (abs(valLow) > chanThreshold[ib] && valHigh > chanThreshold[ib])
       ntThreshold->Fill(entry, ib, sampleLow, ddigi[sampleLow], sampleHigh, ddigi[sampleHigh], maxBin, adcMax);
   }
+
+  /* debug negative totsum
+  for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
+  {
+    TDet *idet = tbrun->getDet(ib);
+    digi = fixedDigi[ib];
+    if (idet->totSum < 0)
+    {
+      printf("@line1028 negative totSum event %llu channel %u totSum= %E ave %.3f  \n", entry, ib, idet->totSum, idet->ave);
+      if (badEventDir->GetList()->GetEntries() < badEventDirMax)
+      {
+        badEventDir->cd();
+        TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawTotSumEvent%lldTotSum%.0E-Ch%i", entry, idet->totSum, ib));
+        EvRawWave->SetTitle(Form("EvRawTotSumEvent%lldTotSum%.3E-Ch%i", entry, idet->totSum, ib));
+      }
+    }
+  }
+  */
 
   /* **** */
   /* make ntuple of before and after shift */
