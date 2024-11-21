@@ -240,9 +240,10 @@ public:
   double diffStepSipm = 3.;                 // 6 ns steps for SIPM
   double diffStepPmt = 1.;                  // back to one on Oct 15 2024
   double cosmicCut = 3.E3;                  // set Nov 3 2024
-  double gammaCut = 1.E5;                   // set Nov 3 2024
-  double qpeakCosmicCut = 4. * nominalGain; // 4*SPE
-  double hitThresholdPmt = 30.;             // set Nov 13 2024
+  double qpeakCosmicCut = 3. * nominalGain; // 3*SPE
+  double lateSumGammaCut = 2.E4;
+  double totSumCosmicCut = 2.E3;
+  double hitThresholdPmt = 30.; // set Nov 13 2024
 };
 
 void anaCRun::getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample)
@@ -1129,7 +1130,7 @@ int anaCRun::anaEvent(Long64_t entry)
   // do cosmic cut based on large pulse counting
   hCosmicMult->Fill(double(nCosmicHits));
   hCosmicCut->Fill(tdetPmt->totSum);
-  if (nCosmicHits > 0 || tdetPmt->totSum > 15000)
+  if (nCosmicHits > 0 || tdetPmt->totSum > totSumCosmicCut)
   {
     if (reportFailures)
       printf("@line1077 failed cosmic event %llu cut %E totSum %E nCosmicHits %i \n", entry, cosmicCut, tdetPmt->totSum, nCosmicHits);
@@ -1144,10 +1145,10 @@ int anaCRun::anaEvent(Long64_t entry)
 
   // do gamma cut
   hGammaCut->Fill(tbrun->getDet(13)->lateSum);
-  if (tbrun->getDet(13)->lateSum > gammaCut)
+  if (tbrun->getDet(13)->lateSum > lateSumGammaCut)
   {
     if (reportFailures)
-      printf("@line1090 failed gamma event %llu cut %E lateSum %E \n", entry, gammaCut, tbrun->getDet(13)->lateSum);
+      printf("@line1090 failed gamma event %llu cut %E lateSum %E \n", entry, lateSumGammaCut, tbrun->getDet(13)->lateSum);
     passBit |= GAMMA;
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
@@ -1727,7 +1728,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   histQPrompt->Sumw2();
   hCosmicMult = new TH1D("CosmicMult", "CosmicMult", 10, 0, 10);
   hCosmicCut = new TH1D("CosmicCut", "cosmic total sum chan 12 ", 1000, 0, 10. * cosmicCut);
-  hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 ", 1000, 0, 10. * gammaCut);
+  hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 ", 1000, 0, 10. * lateSumGammaCut);
 
   //
   anaDir->cd();
