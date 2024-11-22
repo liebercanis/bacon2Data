@@ -73,6 +73,8 @@ public:
   std::vector<TString> codeNames;
 
   int badEvent = 5671;
+  int failGamma = 0;
+  int failCosmic = 0;
 
   bool doNotOverWrite = true;
   bool theFirstFile = true;
@@ -242,8 +244,8 @@ public:
   double cosmicCut = 3.E3;                  // set Nov 3 2024
   double qpeakCosmicCut = 3. * nominalGain; // 3*SPE
   double lateSumGammaCut = 2.E4;
-  double totSumCosmicCut = 2.E3;
-  double hitThresholdPmt = 30.; // set Nov 13 2024
+  double totSumCosmicCut = 1.5E3; // set Nov 21
+  double hitThresholdPmt = 30.;   // set Nov 13 2024
 };
 
 void anaCRun::getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample)
@@ -1132,9 +1134,10 @@ int anaCRun::anaEvent(Long64_t entry)
   hCosmicCut->Fill(tdetPmt->totSum);
   if (nCosmicHits > 0 || tdetPmt->totSum > totSumCosmicCut)
   {
-    if (reportFailures)
-      printf("@line1077 failed cosmic event %llu cut %E totSum %E nCosmicHits %i \n", entry, cosmicCut, tdetPmt->totSum, nCosmicHits);
     passBit |= COSMIC;
+    ++failCosmic;
+    if (reportFailures)
+      printf("@line1077 failed cosmic event %llu bit %i cut %E totSum %E nCosmicHits %i \n", entry, passBit, cosmicCut, tdetPmt->totSum, nCosmicHits);
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
       badEventDir->cd();
@@ -1147,9 +1150,10 @@ int anaCRun::anaEvent(Long64_t entry)
   hGammaCut->Fill(tbrun->getDet(13)->lateSum);
   if (tbrun->getDet(13)->lateSum > lateSumGammaCut)
   {
-    if (reportFailures)
-      printf("@line1090 failed gamma event %llu cut %E lateSum %E \n", entry, lateSumGammaCut, tbrun->getDet(13)->lateSum);
     passBit |= GAMMA;
+    ++failGamma;
+    if (reportFailures)
+      printf("@line1090 failed gamma event %llu bit %i cut %E lateSum %E \n", entry, passBit, lateSumGammaCut, tbrun->getDet(13)->lateSum);
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
       badEventDir->cd();
@@ -1226,13 +1230,13 @@ int anaCRun::anaEvent(Long64_t entry)
     digi = fixedDigi[ib];
     for (unsigned j = 0; j < digi.size(); ++j)
     {
-      if (passBit != 0)
+      if (passBit == 0) // good waves
       {
         sumWave[ib]->SetBinContent(j + 1, sumWave[ib]->GetBinContent(j + 1) + digi[j]);
         valHist[ib]->Fill(digi[j]);
         // histogram//  bad events
       }
-      else
+      else // bad sum waves
       {
         sumWaveB[ib]->SetBinContent(j + 1, sumWaveB[ib]->GetBinContent(j + 1) + digi[j]);
         valHistB[ib]->Fill(digi[j]);
@@ -1996,7 +2000,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
          fout->GetName());
 
   // hEventPass->Print("all");
-  printf("pass fractions total = %.0f \n", hEventPass->GetEntries());
+  printf("pass fractions total = %.0f fail cosmic %i fail gamma %i \n", hEventPass->GetEntries(), failCosmic, failGamma);
   for (int ibin = 0; ibin < hEventPass->GetNbinsX(); ++ibin)
   { // include error on poisson probability
     double nbin = hEventPass->GetBinContent(ibin);
