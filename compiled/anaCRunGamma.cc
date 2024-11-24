@@ -79,6 +79,7 @@ public:
   bool doNotOverWrite = true;
   bool theFirstFile = true;
   int badEventDirMax = 1000;
+  int exampleDirMax = 1000;
   bool reportFailures = false;
   TBRun *tbrun;
   TFile *fout;
@@ -213,7 +214,7 @@ public:
   TDirectory *threshDir;
   TDirectory *earlyPeakDir;
   TDirectory *rawSumDir;
-  TDirectory *badDir;
+  TDirectory *exampleDir;
   TDirectory *badTrigDir;
   TDirectory *baseDir;
   TDirectory *sumDir;
@@ -383,6 +384,16 @@ void anaCRun::doTimeShiftAndNorm()
       else
         fDigi[j - ULong_t(absShift)] = val;
     }
+    // FIX time shift bug Nov 24 202$! fill in remaining array with normalized value
+    if (timeShift < 0)
+      for (ULong_t j = rawBr[0]->rdigi.size() - ULong_t(absShift); j < rawBr[0]->rdigi.size(); ++j)
+      {
+        double val = double(rawBr[ib]->rdigi[j]) - idet->base;
+        // scale all channels by nominal gain
+        val *= nominalGain / sipmGain[ib];
+        fDigi[j] = val;
+      }
+
     fixedDigi.push_back(fDigi);
   }
 }
@@ -735,6 +746,7 @@ int anaCRun::anaEvent(Long64_t entry)
       hEvGaus[ib]->Fill(val);
       hEvRawWave[ib]->SetBinContent(j + 1, val);
     }
+
     // get the distribution mode
     double mode = hEvGaus[ib]->GetBinLowEdge(hEvGaus[ib]->GetMaximumBin()) + 0.5 * hEvGaus[ib]->GetBinWidth(hEvGaus[ib]->GetMaximumBin());
 
@@ -1166,11 +1178,32 @@ int anaCRun::anaEvent(Long64_t entry)
   if (passBit == 0 && tdetPmt->peakMax > hitThresholdPmt && pmtDir->GetList()->GetEntries() < 1000)
   {
     pmtDir->cd();
-    printf("@line1120 print event %llu peakMax %E \n", entry, tdetPmt->peakMax);
+    printf("@line1171 print event %llu peakMax %E \n", entry, tdetPmt->peakMax);
     TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawPMTEvent%lldVal%.0E-Ch%i", entry, tdetPmt->peakMax, 12));
     EvRawWave->SetTitle(Form("EvRawPMTEvent%lldVal%.3E-Ch%i", entry, tdetPmt->peakMax, 12));
     if (tdetPmt->hits.size() > 0)
       finder->plotEvent(pmtDir, tdetPmt->channel, entry);
+  }
+  // for  late hits
+  int nLate9 = 0;
+  TDet *tdet9 = tbrun->getDet(9);
+  int startLast = 0;
+  for (unsigned ihit = 0; ihit < tdet9->hits.size(); ++ihit)
+  {
+    if (tdet9->hits[ihit].startTime > 7435)
+    {
+      ++nLate9;
+      startLast = tdet9->hits[ihit].startTime;
+    }
+  }
+  /* just collect some events */
+  if (nLate9 > 0 && exampleDir->GetList()->GetEntries() < exampleDirMax)
+  {
+    printf("@line1192 print event %llu start %i \n", entry, startLast);
+    exampleDir->cd();
+    TH1D *EvRawWave = (TH1D *)hEvRawWave[9]->Clone(Form("EvRawEvent%lld-Ch%i-Start%i", entry, 9, startLast));
+    EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, 9));
+    finder->plotEvent(exampleDir, tdet9->channel, entry);
   }
 
   // printf("line975 chan 13 has %lu hits \n", tdet13->hits.size());
@@ -1636,7 +1669,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   baseDir = fout->mkdir("baseDir");
   badEventDir = fout->mkdir("badEventDir");
   pmtDir = fout->mkdir("pmtDir");
-  badDir = fout->mkdir("badDir");
+  exampleDir = fout->mkdir("exampleDir");
   badTrigDir = fout->mkdir("badTrigDir");
   threshDir = fout->mkdir("threshDir");
   earlyPeakDir = fout->mkdir("earlyPeakDir");
