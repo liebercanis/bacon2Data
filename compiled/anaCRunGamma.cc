@@ -355,12 +355,14 @@ void anaCRun::doTimeShiftAndNorm()
   fixedDigi.clear();
   // timeShift = 0; // for debugging!!
   // loop over all branches
-  std::vector<double> fDigi;
-  fDigi.clear();
-  fDigi.resize(rawBr[0]->rdigi.size());
-  std::fill(fDigi.begin(), fDigi.end(), ULong_t(0));
+  // start out with array filled with zeros
   for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
   {
+    // FIX time shift bug Nov 24 2024!
+    std::vector<double> fDigi;
+    fDigi.clear();
+    fDigi.resize(rawBr[0]->rdigi.size());
+    std::fill(fDigi.begin(), fDigi.end(), 0);
     int timeShift = nominalTrigger - firstTime;
     // printf(" first %u  shift %i off %u chan %u \n", firstTime, timeShift, timeOffset, ib);
     if (ib < 9)
@@ -384,16 +386,6 @@ void anaCRun::doTimeShiftAndNorm()
       else
         fDigi[j - ULong_t(absShift)] = val;
     }
-    // FIX time shift bug Nov 24 202$! fill in remaining array with normalized value
-    if (timeShift < 0)
-      for (ULong_t j = rawBr[0]->rdigi.size() - ULong_t(absShift); j < rawBr[0]->rdigi.size(); ++j)
-      {
-        double val = double(rawBr[ib]->rdigi[j]) - idet->base;
-        // scale all channels by nominal gain
-        val *= nominalGain / sipmGain[ib];
-        fDigi[j] = val;
-      }
-
     fixedDigi.push_back(fDigi);
   }
 }
@@ -1197,7 +1189,7 @@ int anaCRun::anaEvent(Long64_t entry)
     }
   }
   /* just collect some events */
-  if (nLate9 > 0 && exampleDir->GetList()->GetEntries() < exampleDirMax)
+  if (exampleDir->GetList()->GetEntries() < exampleDirMax)
   {
     printf("@line1192 print event %llu start %i \n", entry, startLast);
     exampleDir->cd();
