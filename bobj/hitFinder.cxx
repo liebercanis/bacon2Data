@@ -411,6 +411,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   //   digi = fdigi;
   //}
   hEvAllSumWave->Reset("ICESM");
+  hEvWave[idet]->Reset("ICESM");
+  hEvDerWave[idet]->Reset("ICESM");
   // fill wave for smoothing
   for (unsigned isample = 0; isample < digi.size(); isample++)
   {
