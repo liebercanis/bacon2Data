@@ -79,7 +79,7 @@ public:
   bool doNotOverWrite = true;
   bool theFirstFile = true;
   int badEventDirMax = 1000;
-  int exampleDirMax = 1000;
+  int exampleDirMax = 100;
   bool reportFailures = false;
   TBRun *tbrun;
   TFile *fout;
