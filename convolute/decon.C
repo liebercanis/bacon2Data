@@ -50,13 +50,15 @@ const int ntrigger = 730 * 2; // ns
 const double sign = 1.0;
 const double speMPV = double(ntrigger);
 const double speSigma = 2. * 14.; // ns
-const double snoise = 1.E-3;      // in SPE units
+const double spe = 1.;
+const double snoise = 1.E-6; // in SPE units
 
 class decon
 {
 public:
   decon();
   virtual ~decon() { ; }
+  bool addNoise;
   TVirtualFFT *fFFT;
   TVirtualFFT *fInverseFFT;
   TRandom3 *ran;
@@ -113,12 +115,9 @@ void decon::getPulse(double timeOffset, double numSPE)
   // fill histogram
   for (int i = 0; i < hInputWave->GetNbinsX(); ++i)
   {
-    // add in ramdom noise
     double val = speLandau->Eval(hInputWave->GetBinCenter(i)) + snoise * ran->Rndm();
     // printf("getPulse bin %i val %f \n", i, val);
     hInputWave->SetBinContent(i, val);
-    if (i > int(speMPV) && val < numSPE * 1.E-9)
-      break;
   }
 }
 
@@ -213,7 +212,7 @@ void decon::getResponse(double timeOffset)
   speLandau->SetParameter(1, speSigma);
   speLandau->SetParName(2, "norm");
   speLandau->SetParameter(2, numSPE); // single SPE
-  printf("line113 getResponse with  MPV %f sigma %f norm %f nbins %i \n", speLandau->GetParameter(0), speLandau->GetParameter(1), speLandau->GetParameter(2), hResponseWave->GetNbinsX());
+  printf("line113 getResponse with  MPV %f sigma %f norm %f nbins %i \n", speLandau->GetParameter(0), speLandau->GetParameter(1), speLandau->GetParameter(2), nsamples);
 
   // fill histogram
   for (int i = 0; i < hResponseWave->GetNbinsX(); ++i)
@@ -252,26 +251,24 @@ void decon::getHits(int nSinglet = 1, int nTriplet = 1)
 {
   double sTau = 7.;
   double tTau = 1600.;
-  double spe = 1.;
   for (int ir = 0; ir < nSinglet; ++ir)
   {
     double val = sTau * ran->Rndm() + double(ntrigger);
     int ibin = hHitWave->FindBin(val);
-    printf("... %f bin %i \n", val, ibin);
-
+    printf("xxx bin %i time %f \n", ibin, val);
     hHitWave->SetBinContent(ibin, hHitWave->GetBinContent(ibin) + spe);
   }
   for (int ir = 0; ir < nTriplet; ++ir)
   {
     double val = tTau * ran->Rndm() + double(ntrigger);
     int ibin = hHitWave->FindBin(val);
-    printf("... %f bin %i \n", val, ibin);
-
+    printf("xxx bin %i time  %f \n", ibin, val);
     hHitWave->SetBinContent(ibin, hHitWave->GetBinContent(ibin) + spe);
   }
 }
 decon::decon()
 {
+  addNoise = true;
   ran = new TRandom3();
   // initialize fft
   TString canName;
@@ -289,7 +286,7 @@ decon::decon()
   hResponseFFT->GetXaxis()->SetTitle("time [ns]");
   hInputWave = new TH1D("InputWave", "InputWave", nsamples, 0, 2 * nsamples);
   hInputWave->GetXaxis()->SetTitle("time [ns]");
-  hOutputWave = new TH1D("OutputWave", "OutoutWave", nsamples, 0, 2 * nsamples);
+  hOutputWave = new TH1D("OutputWave", "OutputWave", nsamples, 0, 2 * nsamples);
   hOutputWave->GetXaxis()->SetTitle("time [ns]");
   hInputFFT = new TH1D("InputFFT", "InputFFT", nsamples, 0, 2 * nsamples);
   hInputFFT->GetXaxis()->SetTitle("time [ns]");
@@ -324,9 +321,38 @@ decon::decon()
   // offset is trigger time do not understand why I need to normalize hInputWave
   std::vector<double> realOutputFFT = getRealFFTWave(hInputWave, fftOutputWave, offset, double(fftOutputWave.size()));
 
+  // copy of fft input without noise
+  std::vector<std::complex<double>> fftInputNoiseWave = fftInputWave;
+  // add noise on top of signal
+  // From TRandom Gaus (Double_t mean=0, Double_t sigma=1)
+  if (addNoise)
+  {
+    printf("\t add noise hist size %i noise sigma %f \n", hInputWave->GetNbinsX(), snoise);
+    for (int ibin = 0; ibin < hInputWave->GetNbinsX(); ++ibin)
+    {
+      double gspe = ran->Gaus(0.0, spe * snoise);
+      hInputWave->SetBinContent(ibin, hInputWave->GetBinContent(ibin) + gspe);
+      // if (ibin > ntrigger / 2 && ibin < ntrigger / 2 + 10)
+      //   printf("addNoise ibin %i gspe %f content %f \n", ibin, gspe, hInputWave->GetBinContent(ibin));
+    }
+
+    // now make FFT of input wave with noise added
+    // setup for FFT
+    yval.clear();
+    yval.resize(hInputWave->GetNbinsX());
+    for (int i = 0; i < hInputWave->GetNbinsX(); ++i)
+    {
+      yval[i] = hInputWave->GetBinContent(i);
+    }
+
+    // FFT of input without convolution
+    printf("FFT of signal with no convolution and fill hInputFFT, hInputWave\n");
+    fftInputNoiseWave = FFT(yval, gInput);
+  }
+
   // inverse FFT
   printf("deconvolute inverse FFT using response and fill hOutputWave, hInputWave offset %i\n", offset);
-  std::vector<std::complex<double>> fftDeconvolveWave = inverseFFT(fftInputWave, gResponse);
+  std::vector<std::complex<double>> fftDeconvolveWave = inverseFFT(fftInputNoiseWave, gResponse);
   offset = 0;
   std::vector<double> realDeconvolveFFT = getRealFFTWave(hOutputWave, fftDeconvolveWave, offset);
 
@@ -363,11 +389,13 @@ decon::decon()
   hInputWave->SetLineColor(kBlue);
   hInputWave->Draw();
   hHitWave->Draw("same");
+  canInput->Print(".pdf");
 
   TCanvas *canOutput = new TCanvas("Output", "Output");
   hOutputWave->SetLineColor(kGreen);
   hOutputWave->Draw();
   hHitWave->Draw("same");
+  canOutput->Print(".pdf");
 
   fout->Write();
 }
