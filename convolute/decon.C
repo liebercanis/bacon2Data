@@ -53,14 +53,16 @@ const double sign = 1.0;
 const double speMPV = double(triggerOffset); // Landau cannot start from zero
 const double speSigma = 2. * 14.;            // ns
 const double spe = 1.;
-double snoise = 0; // in SPE units
 int totalTime = nsamples * 2;
+double tiny = 1.E-10; // Avoid division by zero
+
 class decon
 {
 public:
   decon(int noise = 1);
   virtual ~decon() { ; }
   bool addNoise;
+  double noiseSigma;
   TVirtualFFT *fFFT;
   TVirtualFFT *fInverseFFT;
   TRandom3 *ran;
@@ -80,8 +82,6 @@ public:
   std::vector<std::complex<double>> inverseFFT(std::vector<std::complex<double>> complexVector, std::vector<std::complex<double>> gResponse);
   std::vector<double> getRealFFTWave(TH1D *h, std::vector<std::complex<double>> complexWave, double norm = 1.);
   TGraph *makeFFTGraph(std::vector<std::complex<double>> complexVector);
-  std::vector<double> xval;
-  std::vector<double> yval;
 };
 
 // make fft graph
@@ -104,18 +104,10 @@ TGraph *decon::makeFFTGraph(std::vector<std::complex<double>> complexVector)
 // input is real wave to transform output is complex FFT
 std::vector<std::complex<double>> decon::FFT(TH1D *hin, std::vector<std::complex<double>> gResponse)
 {
-  // setup for FFT
-  yval.clear();
-  yval.resize(hin->GetNbinsX());
-  for (int i = 0; i < hin->GetNbinsX(); ++i)
-  {
-    yval[i] = hin->GetBinContent(i);
-  }
-
   std::vector<std::complex<double>> complexVector;
-  int nsamples = (int)yval.size();
+  int nsamples = hin->GetNbinsX();
   for (int is = 0; is < nsamples; ++is)
-    fFFT->SetPoint(is, yval[is]);
+    fFFT->SetPoint(is, hin->GetBinContent(is));
   fFFT->Transform(); //
 
   std::vector<Double_t> realVec, imVec;
@@ -142,13 +134,14 @@ std::vector<std::complex<double>> decon::inverseFFT(std::vector<std::complex<dou
 {
   std::vector<std::complex<double>> complexOutput;
   int nsamples = (int)complexInput.size();
-  // deconvolution is C[w]=H[w]/G[w]
+  // deconvolution is C[w]=H[w]/G[w] with Wiener from wikipedia https://en.wikipedia.org/wiki/Wiener_deconvolution
   printf("deconvolute complex size %lu response %lu \n", complexInput.size(), gResponse.size());
   if (gResponse.size() > 0)
   {
     for (int i = 0; i < complexInput.size(); ++i)
     {
-      complexInput[i] /= gResponse[i];
+      std::complex<double> W = std::conj(gResponse[i]) / (std::norm(gResponse[i]) + noiseSigma);
+      complexInput[i] *= W;
     }
   }
   for (int is = 0; is < nsamples; ++is)
@@ -202,10 +195,8 @@ void decon::getResponse()
   // fill histogram
   for (int i = 0; i < hResponseWave->GetNbinsX(); ++i)
   {
-    double val = speLandau->Eval(hResponseWave->GetBinCenter(i));
+    double val = TMath::Max(tiny, speLandau->Eval(hResponseWave->GetBinCenter(i)));
     hResponseWave->SetBinContent(i, val);
-    if (i > speMPV && val < numSPE * 1.E-9)
-      break;
   }
 
   std::vector<std::complex<double>> gNoResponse; // zero length vector will do no convoluton
@@ -246,7 +237,9 @@ void decon::getHits(int nSinglet = 1, int nTriplet = 1)
 decon::decon(int noise = 1)
 {
   addNoise = noise;
-  double snoise = 0; // in SPE units
+  noiseSigma = 0;
+  if (addNoise)
+    noiseSigma = 1.E-9; // in SPE units
   ran = new TRandom3();
   // initialize fft
   TString canName;
@@ -295,10 +288,10 @@ decon::decon(int noise = 1)
   // add noise to hInputWave
   if (addNoise)
   {
-    printf("\t add noise hist size %i noise sigma %f \n", hInputWave->GetNbinsX(), snoise);
-    for (int ibin = 0; ibin < hInputWave->GetNbinsX() / 2; ++ibin) // padding with zeros
+    printf("\t add noise hist size %i noise sigma %f \n", hInputWave->GetNbinsX(), noiseSigma);
+    for (int ibin = 0; ibin < hInputWave->GetNbinsX(); ++ibin) //
     {
-      double gspe = ran->Gaus(0.0, spe * snoise);
+      double gspe = ran->Gaus(0.0, noiseSigma);
       double val = hInputWave->GetBinContent(ibin);
       hInputWave->SetBinContent(ibin, val + gspe);
       if (ibin > triggerTime / 2 && ibin < triggerTime / 2 + 10)
@@ -307,16 +300,15 @@ decon::decon(int noise = 1)
   }
 
   // now FFT the input wave with noise, without dconvolution
-  std::vector<std::complex<double>> fftInputNoiseWave = FFT(hHitWave, gNoResponse);
+  std::vector<std::complex<double>> fftInputNoiseWave = FFT(hInputWave, gNoResponse);
 
   // shift hHitWave for display
 
-  // inverse FFT
+  // inverse FFT of signal
   std::vector<std::complex<double>> fftDeconvolveWave;
   if (addNoise)
   {
-    printf("deconvolute fftInputNoiseWave  with noise using response and fill hOutputWave \n");
-    // works perfectly with fftInputWave but not with fftInputNoiseWave
+    printf("deconvolute fftInputNoiseWave using response and fill hOutputWave \n");
     fftDeconvolveWave = inverseFFT(fftInputNoiseWave, gResponse);
   }
   else
@@ -368,7 +360,7 @@ decon::decon(int noise = 1)
   TCanvas *canOutput = new TCanvas("Output", "Output");
   hOutputWave->SetLineColor(kGreen);
   hOutputWave->Draw();
-  hHitWave->Draw("same");
+  // hHitWave->Draw("same");
   canOutput->Print(".pdf");
 
   fout->Write();
