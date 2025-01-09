@@ -1,0 +1,16 @@
+
+int nsamples = 10;
+void gausTest()
+{
+  double mean =  double(nsamples);
+  double sigma  =  double(nsamples);
+  double w0 = TMath::Gaus(mean,mean,sigma, false);
+  printf("W0 %.0f mean %.0f sigma %.f \n",w0,mean,sigma );
+
+  for (int i = 0; i <=  nsamples ; ++i) { 
+    int ifreq = i - nsamples / 2;
+    double x = double(ifreq); 
+    double w = TMath::Gaus(x,mean,sigma, false);
+    printf("  i %i x %.0f w %E \n",i, x , w );
+  }
+}
