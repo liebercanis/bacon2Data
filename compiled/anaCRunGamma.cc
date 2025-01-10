@@ -221,6 +221,8 @@ public:
   TDirectory *anaDir;
   TDirectory *badEventDir;
   TDirectory *pmtDir;
+  TDirectory *fftDir;
+
   Long64_t nentries;
   double QPEPeak;
   //
@@ -1671,6 +1673,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   TDirectory *splitDir = fout->mkdir("splitDir");
   TDirectory *fitSingletDir = fout->mkdir("fitSingletDir");
   TDirectory *sumWaveDir = fout->mkdir("sumWaveDir");
+  TDirectory *finderDir = fout->mkdir("fftDir");
   fout->ls();
 
   currentBuffer = -1;
