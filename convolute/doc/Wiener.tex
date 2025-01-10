@@ -12,7 +12,7 @@
 %SetFonts
 
 
-\title{Wiener Deconvolution}
+\title{Wiener Deconvolution of SIPM Data}
 \author{M. Gold}
 \date{\today}							% Activate to display a given date or no date
 
@@ -20,6 +20,15 @@
 \maketitle
 %\section{}
 %\subsection{}
+Test of Wiener deconvolution applied to our data. 
+Code is in run2 branch of bacon2Data as bacon2Data/convolute/decon.C (root macro)
+
+Generated one event with 7 singlet photons and 7 triplet photons.  The data is convoluted with a Landau corresponding to our SIPM response, Figure~\ref{fig:input}.  Noise of 0.04 SPE is
+added corresponding to our data noise.  Wiener deconvolution algorithm is shown in Figure~\ref{fig:output}.  We see one photon is recovered which would otherwise be lost due to 
+our SIPM response.  The derivative pulse finding algorithm would not be able to find this photon.  This work suggests trying this deconvolution on our data and doing threshold pulse finding.
+
+I am imagining lots of cross checks that could be done with this simulation if anyone was interested.
+
 \begin{figure}[htbp] %  figure placement: here, top, bottom, or page
    \centering
    \includegraphics[width=0.9\linewidth]{input-4.00E-02-sigma-7500.pdf} 
@@ -34,10 +43,8 @@
    \centering
    \includegraphics[width=0.9\linewidth]{outputNoise-4.00E-02-sigma-7500.pdf} 
    \caption{Wiener deconvoluted output with input photon distribution}
-   \label{fig:input}
+   \label{fig:output}
 \end{figure}
-
-
 
 
 \end{document}  
