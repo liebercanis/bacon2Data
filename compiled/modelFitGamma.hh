@@ -1,3 +1,4 @@
+/* this is model for a gamma Nov 22, 2024 */
 // MG added additions from Doug and geometry Jun 27, 2023
 // time is in microseconds
 // model with absorption
