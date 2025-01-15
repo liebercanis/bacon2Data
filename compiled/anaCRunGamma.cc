@@ -1,4 +1,5 @@
 // ***Ths is GAMMA version Sept 25 2024 * **
+// revised Jan 15 2025
 /////////////////////////////////////////////////////////
 #include <sstream>
 #include <unistd.h>
@@ -1026,24 +1027,6 @@ int anaCRun::anaEvent(Long64_t entry)
       ntThreshold->Fill(entry, ib, sampleLow, ddigi[sampleLow], sampleHigh, ddigi[sampleHigh], maxBin, adcMax);
   }
 
-  /* debug negative totsum
-  for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
-  {
-    TDet *idet = tbrun->getDet(ib);
-    digi = fixedDigi[ib];
-    if (idet->totSum < 0)
-    {
-      printf("@line1028 negative totSum event %llu channel %u totSum= %E ave %.3f  \n", entry, ib, idet->totSum, idet->ave);
-      if (badEventDir->GetList()->GetEntries() < badEventDirMax)
-      {
-        badEventDir->cd();
-        TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawTotSumEvent%lldTotSum%.0E-Ch%i", entry, idet->totSum, ib));
-        EvRawWave->SetTitle(Form("EvRawTotSumEvent%lldTotSum%.3E-Ch%i", entry, idet->totSum, ib));
-      }
-    }
-  }
-  */
-
   /* **** */
   /* make ntuple of before and after shift */
   for (unsigned ic = 0; ic < NONSUMCHANNELS; ++ic)
@@ -1673,7 +1656,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   TDirectory *splitDir = fout->mkdir("splitDir");
   TDirectory *fitSingletDir = fout->mkdir("fitSingletDir");
   TDirectory *sumWaveDir = fout->mkdir("sumWaveDir");
-  TDirectory *finderDir = fout->mkdir("fftDir");
+  TDirectory *fftDir = fout->mkdir("fftDir");
   fout->ls();
 
   currentBuffer = -1;
@@ -2060,21 +2043,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
 anaCRun::anaCRun(TString theTag)
 {
-  // define failure code names
-
-  // pass bit failures
-  /*enum FAILURECODES
-  {
-    PASS = 0,
-    GAUSFAIL = 0x1,
-    EARLYCUT = 0x2,
-    FIRSTTIME = 0x4,
-    COSMIC = 0x8,
-    GAMMA = 0x16,
-    TOTALCODES
-  };
-  */
-
   for (unsigned ic = 0; ic < TOTALCODES; ++ic)
     codeNames.push_back(TString("mixed"));
   codeNames[PASS] = TString("pass");
@@ -2086,7 +2054,7 @@ anaCRun::anaCRun(TString theTag)
 
   tag = theTag;
   // tbrun = new TBRun(tag);
-  cout << " anaCRun::anaCRun instance of anaCRun gamma version  with tag= " << tag << " CHANNELS = " << CHANNELS - 1 << " diffStepSipm= " << diffStepSipm << " diffStepPmt= " << diffStepPmt << endl;
+  cout << " anaCRun::anaCRun instance of anaCRun gamma version 2  with tag= " << tag << " CHANNELS = " << CHANNELS - 1 << " diffStepSipm= " << diffStepSipm << " diffStepPmt= " << diffStepPmt << endl;
 
   rawBr.clear();
 
