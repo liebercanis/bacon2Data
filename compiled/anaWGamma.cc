@@ -1,4 +1,8 @@
-// ***Ths is GAMMA version Sept 25 2024 * **
+/*
+ *  Ths is GAMMA version Sept 25 2024 * **
+ *  version with Wiener filter Jan 10 2025
+ */
+
 /////////////////////////////////////////////////////////
 #include <sstream>
 #include <unistd.h>
@@ -9,6 +13,8 @@
 #include <complex> //includes std::pair, std::make_pair
 #include <valarray>
 #include <numeric>
+#include <cmath>
+#include <complex>
 #include <algorithm> // std::sort
 // root/chan
 #include <TROOT.h>
@@ -35,10 +41,22 @@
 #include "TBRawEvent.hxx"
 #include "hitFinder.hxx"
 #include "TBFile.hxx"
+#include <TRandom3.h>
+typedef std::complex<double> Complex;
+
+// spe landau shape
+static double myLandau(Double_t *xx, Double_t *par)
+{
+  double x = xx[0];
+  return par[2] * TMath::Landau(x, par[0], par[1], 1);
+}
 
 class anaCRun
 {
 public:
+  // FFT
+  TVirtualFFT *fFFT;
+  TVirtualFFT *fInverseFFT;
   enum
   {
     UPCROSS,
@@ -70,11 +88,40 @@ public:
     TOTALCODES = 2 * GAMMA
   };
 
+  TRandom3 *ran;
   std::vector<TString> codeNames;
-
+  int nsamples = WAVELENGTH;
+  double filterMean = 0;
+  double filterSigma = double(WAVELENGTH);
+  int MaxSPEShape = 4;
+  unsigned trigStart = 600;
+  int nominalTrigger = 730;  // was 729;
+  double nominalGain = 100.; // was 160.0; set Nov 13 2024
+  // 227.4; // average
+  //  double nominalGain = 160.0; // average
+  unsigned firstTime;       // corrected trigger time for event
+  unsigned timeOffset = 13; // changed from 17 may 13, 2024
+  double passValEarlyCut = 100.0;
+  double passValEarlyPmtCut = 225.0;
+  ULong_t triggerEnd = 800; // 740;
+  ULong_t lateTimeStart = 900;
+  ULong_t triggerStart = 730; // 740;
+  ULong_t timeVeryLateCut = 3500;
+  double prePeakCut = 0.5;
+  double latePeakCut = 3.5;                 // march 18 2024 2.5;
+  double diffStepSipm = 3.;                 // 6 ns steps for SIPM
+  double diffStepPmt = 1.;                  // back to one on Oct 15 2024
+  double cosmicCut = 3.E3;                  // set Nov 3 2024
+  double qpeakCosmicCut = 3. * nominalGain; // 3*SPE
+  double lateSumGammaCut = 2.E4;
+  double totSumCosmicCut = 1.5E3; // set Nov 21
+  double hitThresholdPmt = 30.;   // set Nov 13 2024
   int badEvent = 5671;
   int failGamma = 0;
   int failCosmic = 0;
+  const double tiny = 1.E-44;
+  const double speMPV = double(triggerStart); // Landau cannot start from zero
+  const double speSigma = 2. * 14.;           // ns
 
   bool doNotOverWrite = true;
   bool theFirstFile = true;
@@ -122,6 +169,8 @@ public:
   TH1D *hEvBaseWave;
   vector<TH1D *> hEvGaus;
   vector<TH1D *> hEvRawWave;
+  vector<TH1D *> hEvUnFiltWave;
+  vector<TH1D *> hEvFiltWave;
   vector<TH1D *> hChannelGaus;
   std::vector<std::vector<TH1D *>> hSPEShape; // 4 shapes per channel
   std::vector<TH1D *> hSPEShapeLate;
@@ -131,6 +180,9 @@ public:
   std::vector<TH1D *> hTrigSum;
   std::vector<TH1D *> hLateSum;
   std::vector<TH1D *> hWave;
+  std::vector<TH1D *> hNoise;
+  std::vector<TH1D *> hNoiseFFT;
+  std::vector<TH1D *> hFilterWeight;
 
   TH1D *hPreQpeak;
   TH1D *hLateQpeak;
@@ -158,6 +210,21 @@ public:
   TH1D *hTriggerHitTimeAll;
   TH1D *hTriggerTime;
   TH1D *hTriggerShift;
+  /* from decon*/
+  TF1 *speLandau;
+  TH1D *hResponseWave;
+  TH1D *hResponseFFT;
+
+  TH1D *hHitWave;
+  TH1D *hInputWave;
+  TH1D *hInputNoiseWave;
+  TH1D *hInputWaveShift;
+  TH1D *hInputNoiseWaveShift;
+  TH1D *hOutputWave;
+  TH1D *hOutputNoiseWave;
+  TH1D *hInputFFT;
+  TH1D *hInputNoiseFFT;
+  /* from decon*/
   vector<double> channelSigmaValue;
   vector<double> channelSigma;
   vector<double> channelSigmaErr;
@@ -182,6 +249,18 @@ public:
   Long64_t currentBufferCount;
   anaCRun(TString theTag = TString("dirName"));
   ~anaCRun() {}
+  /* for Wiener need these */
+  void getResponse();
+  std::vector<std::complex<double>> gNoResponse; // zero length vector will do no convoluton
+  std::vector<std::complex<double>> gResponse;   // store respoinse
+  std::vector<std::complex<double>> FFT(TH1D *hin, std::vector<std::complex<double>> gResponse);
+  std::vector<std::complex<double>> inverseFFT(int ichan, std::vector<std::complex<double>> complexVector, std::vector<std::complex<double>> gResponse, bool filter = false, int shift = 0);
+  void getRealFFTWave(TH1D *h, std::vector<std::complex<double>> complexWave, double norm = 1.);
+
+  /* smoothing  */
+  std::vector<double> savitzkyGolay(std::vector<double> &y, int windowSize, int polynomialOrder);
+  std::vector<double> solve(std::vector<std::vector<double>> A, std::vector<double> yWindow);
+
   Long64_t anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t firstEntry = 0);
   void clear();
   bool openFile(TString fileName);
@@ -206,11 +285,16 @@ public:
   {
     tbrun = theTBRun;
   }
+  /* FFT containers */
+  std::vector<std::complex<double>> fftNoiseWave;
+  std::vector<std::complex<double>> fftInputWave;
+  /***** FFT  *** */
   std::vector<std::vector<double>> fixedDigi; // all the fixed waveforms
   std::vector<unsigned> trigTimes;
   std::vector<unsigned> sTrigTimes; // after correction
   std::vector<double> adcBin;
   std::vector<double> speCount;
+  TDirectory *fftDir;
   TDirectory *threshDir;
   TDirectory *earlyPeakDir;
   TDirectory *rawSumDir;
@@ -224,30 +308,205 @@ public:
   Long64_t nentries;
   double QPEPeak;
   //
-  int MaxSPEShape = 4;
-  unsigned trigStart = 600;
-  int nominalTrigger = 753;  // was 729;
-  double nominalGain = 100.; // was 160.0; set Nov 13 2024
-  // 227.4; // average
-  //  double nominalGain = 160.0; // average
-  unsigned firstTime;       // corrected trigger time for event
-  unsigned timeOffset = 13; // changed from 17 may 13, 2024
-  double passValEarlyCut = 100.0;
-  double passValEarlyPmtCut = 225.0;
-  ULong_t triggerEnd = 800; // 740;
-  ULong_t lateTimeStart = 900;
-  ULong_t triggerStart = 730; // 740;
-  ULong_t timeVeryLateCut = 3500;
-  double prePeakCut = 0.5;
-  double latePeakCut = 3.5;                 // march 18 2024 2.5;
-  double diffStepSipm = 3.;                 // 6 ns steps for SIPM
-  double diffStepPmt = 1.;                  // back to one on Oct 15 2024
-  double cosmicCut = 3.E3;                  // set Nov 3 2024
-  double qpeakCosmicCut = 3. * nominalGain; // 3*SPE
-  double lateSumGammaCut = 2.E4;
-  double totSumCosmicCut = 1.5E3; // set Nov 21
-  double hitThresholdPmt = 30.;   // set Nov 13 2024
 };
+
+/* added from decon.C */
+// input is real wave to transform output is complex FFT
+std::vector<std::complex<double>> anaCRun::FFT(TH1D *hin, std::vector<std::complex<double>> gResponse)
+{
+  std::vector<std::complex<double>> complexVector;
+  int nsamples = hin->GetNbinsX();
+  for (int is = 0; is < nsamples; ++is)
+    fFFT->SetPoint(is, hin->GetBinContent(is));
+  fFFT->Transform(); //
+
+  std::vector<Double_t> realVec, imVec;
+  for (int i = 0; i < nsamples; ++i)
+  {
+    double rl, im;
+    fFFT->GetPointComplex(i, rl, im);
+    std::complex<double> c(rl, im);
+    // c = c / sqrt(double(nsamples)); // normalize
+    complexVector.push_back(c);
+  }
+
+  // convolution is H[w]=C[w]*G[w]
+  printf("convolute complex size %lu \n", complexVector.size());
+  if (gResponse.size() > 0)
+    for (int i = 0; i < complexVector.size(); ++i)
+      complexVector[i] *= gResponse[i];
+
+  return complexVector;
+}
+
+// input is complex FFT output is complex FFT
+std::vector<std::complex<double>> anaCRun::inverseFFT(int ichan, std::vector<std::complex<double>> complexInput, std::vector<std::complex<double>> gResponse, bool filter, int shift)
+{
+  std::vector<std::complex<double>> complexOutput;
+  int nsamples = (int)complexInput.size();
+  // deconvolution is C[w]=H[w]/G[w] with Wiener from wikipedia https://en.wikipedia.org/wiki/Wiener_deconvolution
+  printf("deconvolute complex size %lu noise %lu response %lu  filter bool %i shift %i \n", complexInput.size(), fftNoiseWave.size(), gResponse.size(), filter, shift);
+  if (gResponse.size() > 0)
+  {
+
+    double responseNorm = 0;
+    double weightNorm = 0;
+    // loop over frequency bins
+    for (int i = 0; i < complexInput.size(); ++i)
+    {
+      std::complex<double> W;
+      if (filter)
+      {
+        std::complex<double> signalPower = std::norm(complexInput[i]);
+        std::complex<double> noisePower = std::norm(fftNoiseWave[i]);
+        std::complex<double> zero = 0.0;
+        double noiseSignalRatio = double(std::norm(fftNoiseWave[i])) / double(std::norm(signalPower));
+        // modified with cut-off
+        // Gaus args (x, filterMean, sigma , false = unnormalized = default)
+        int ifreq = i - nsamples / 2;
+        std::complex<double> noiseWeight = std::max(tiny, noiseSignalRatio * TMath::Gaus(double(ifreq), filterMean, filterSigma));
+        if (ifreq >= 0)
+        {
+          hFilterWeight[ichan]->SetBinContent(ifreq + 1, std::abs(noiseWeight));
+        }
+        responseNorm += std::norm(gResponse[i]);
+        weightNorm += std::norm(noiseWeight);
+        // printf("f=%i N/S %E \n", i, weightNorm);
+        std::complex denom = std::norm(gResponse[i]) + noiseWeight;
+        W = std::conj(gResponse[i]) / (std::norm(gResponse[i]) + noiseWeight);
+        std::complex<double> z2 = 1. / gResponse[i];
+        // norm
+        // W /= std::abs(W);
+        // bunch of cross checks on complex
+        std::complex<double> z1 = gResponse[i];
+        std::complex<double> z3 = std::conj(gResponse[i]) / std::norm(gResponse[i]);
+        // print some values
+        if (i > nsamples - 5)
+        {
+          printf("filter int %i ratio %E mag weight %E abs inv g %E abs denom %E abs W %E W = (%f,%f) inv g = (%f,%f)=(%f,%f) \n",
+                 i, noiseSignalRatio, std::abs(noiseWeight), std::abs(z2), std::abs(denom), std::abs(W), W.real(), W.imag(), std::abs(z2), std::arg(z2), std::abs(z3), std::arg(z3));
+        }
+      }
+      else
+      {
+        W = 1. / gResponse[i];
+        if (i > nsamples - 20)
+          printf("no filter int %i abs W %E \n", i, std::abs(W));
+        // apply transform
+      }
+      complexInput[i] *= W;
+    }
+  }
+  // if applying time shift
+  if (shift != 0)
+    for (int i = 0; i < complexInput.size(); ++i)
+    {
+      // add a phase shift 1i is sqrt(-1) frequency i/nsamples
+      std::complex<double> phase = std::exp(1i * double(shift) * double(i) / double(nsamples) * 2. * TMath::Pi());
+      cout << shift << " " << i << " phase " << phase << endl;
+      complexInput[i] *= phase;
+    }
+  for (int is = 0; is < nsamples; ++is)
+  {
+    fInverseFFT->SetPoint(is, complexInput[is].real(), complexInput[is].imag());
+  }
+  fInverseFFT->Transform();
+  /*
+  ** FFTW computes an unnormalized transform, in that there is no coefficient in front of the summation in the DFT.
+  ** In other words, applying the forward and then the backward transform will multiply the input by n.
+  ** */
+  std::vector<Double_t> realVec, imVec;
+  for (int i = 0; i < nsamples; ++i)
+  {
+    double rl, im;
+    fInverseFFT->GetPointComplex(i, rl, im);
+    std::complex<double> c(rl, im);
+    // normalize
+    c /= double(nsamples);
+    complexOutput.push_back(c);
+  }
+  return complexOutput;
+}
+
+// fill real FFT output
+void anaCRun::getRealFFTWave(TH1D *h, std::vector<std::complex<double>> complexWave, double norm)
+{
+  for (int i = 0; i < complexWave.size(); ++i)
+    h->SetBinContent(i, complexWave[i].real() * norm);
+}
+
+// make SPE pulse in time relative to trigger=0 and number of SPE numSPE
+void anaCRun::getResponse()
+{
+  double numSPE = 1.;
+  // landau response function
+  speLandau = new TF1("myLandau", myLandau, 0, double(nsamples), 3);
+  // set SPE response parameters
+  speLandau->SetParName(1, "MPV");
+  speLandau->SetParameter(0, speMPV);
+  speLandau->SetParName(1, "sigma");
+  speLandau->SetParameter(1, speSigma);
+  speLandau->SetParName(2, "norm");
+  speLandau->SetParameter(2, numSPE); // single SPE
+  printf("line113 getResponse with  MPV %f sigma %f norm %f nbins %i \n", speLandau->GetParameter(0), speLandau->GetParameter(1), speLandau->GetParameter(2), nsamples);
+
+  // fill histogram
+  for (int i = 0; i < hResponseWave->GetNbinsX(); ++i)
+  {
+    double val = TMath::Max(tiny, speLandau->Eval(hResponseWave->GetBinCenter(i)));
+    hResponseWave->SetBinContent(i, val);
+  }
+
+  // FFT of response function
+  gResponse = FFT(hResponseWave, gNoResponse);
+  getRealFFTWave(hResponseFFT, gResponse);
+}
+
+//
+std::vector<double> anaCRun::solve(std::vector<std::vector<double>> A, std::vector<double> yWindow)
+{
+  // dummy
+  std::vector<double> x;
+  return x;
+}
+
+// chatGPT version
+std::vector<double> anaCRun::savitzkyGolay(std::vector<double> &y, int windowSize, int polynomialOrder)
+{
+  int halfWindowSize = windowSize / 2;
+  std::vector<double> result(y.size());
+  for (int i = halfWindowSize; i < y.size() - halfWindowSize; ++i)
+  {
+    std::vector<double> x(windowSize);
+    std::vector<double> yWindow(windowSize);
+
+    for (int j = -halfWindowSize; j <= halfWindowSize; ++j)
+    {
+      x[j + halfWindowSize] = j;
+      yWindow[j + halfWindowSize] = y[i + j];
+    }
+
+    // Construct design matrix
+    std::vector<std::vector<double>> A(windowSize, std::vector<double>(polynomialOrder + 1));
+    for (int k = 0; k < windowSize; ++k)
+    {
+      for (int l = 0; l <= polynomialOrder; ++l)
+      {
+        A[k][l] = pow(x[k], l);
+      }
+    }
+
+    // Solve for coefficients
+    // You can use a linear algebra library to solve this system
+    // Here, we'll assume you have a function 'solve' for this purpose
+    std::vector<double> coefficients = solve(A, yWindow);
+
+    // Compute smoothed value
+    result[i] = coefficients[0]; // Value at the center point
+  }
+
+  return result;
+}
 
 void anaCRun::getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample)
 {
@@ -509,6 +768,8 @@ void anaCRun::clear()
   valHistB.clear();
   hEvGaus.clear();
   hEvRawWave.clear();
+  hEvUnFiltWave.clear();
+  hEvFiltWave.clear();
   hChannelGaus.clear();
   digi.clear();
   ddigi.clear();
@@ -660,6 +921,15 @@ void anaCRun::getSummedHists()
 /* analyze rawBr */
 int anaCRun::anaEvent(Long64_t entry)
 {
+  ran = new TRandom3();
+  int nfft = WAVELENGTH;
+  fFFT = TVirtualFFT::FFT(1, &nfft, "R2C M K");
+  fInverseFFT = TVirtualFFT::FFT(1, &nfft, "C2R M K");
+  // get SIPM response
+  getResponse();
+  gResponse = FFT(hResponseWave, gNoResponse);
+  getRealFFTWave(hResponseFFT, gResponse);
+
   //  clear
   TTree *tree = NULL;
   fout->GetObject("RunTree", tree);
@@ -926,6 +1196,53 @@ int anaCRun::anaEvent(Long64_t entry)
    ********************************************************/
   // printf("doTimeSiftAndNorm %lld \n",entry);
   doTimeShiftAndNorm();
+
+  /* here try Wiener filter*/
+  for (unsigned long ib = 0; ib < NONSUMCHANNELS; ++ib)
+  {
+    digi.clear();
+    digi = fixedDigi[ib];
+    hEvUnFiltWave[ib]->Reset("ICES");
+    hEvFiltWave[ib]->Reset("ICES");
+    for (unsigned j = 0; j < digi.size(); ++j)
+    {
+      hEvUnFiltWave[ib]->SetBinContent(j + 1, digi[j]);
+    }
+
+    TDet *idet = tbrun->getDet(ib);
+    /** get noise FFT... default  */
+    hNoise[ib]->Reset("ICES");
+    hNoiseFFT[ib]->Reset("ICES");
+    printf("event %lld chan %lu noise %f \n", entry, ib, idet->sigma * nominalGain / sipmGain[ib]);
+    for (int ibin = 0; ibin < hNoise[ib]->GetNbinsX(); ++ibin) //
+    {
+      hNoise[ib]->SetBinContent(ibin, ran->Gaus(0.0, idet->sigma * nominalGain / sipmGain[ib]));
+    }
+
+    // FFT of response function
+    // make FFT of the noise for Wiener filter
+    fftNoiseWave = FFT(hNoise[ib], gNoResponse);
+    getRealFFTWave(hNoiseFFT[ib], fftNoiseWave);
+
+    // Weiner
+    // inverse FFT of signal applying filter
+
+    // now FFT the input noise wave without dconvolution
+    std::vector<std::complex<double>> fftInputNoiseWave = FFT(hEvUnFiltWave[ib], gNoResponse);
+    // getRealFFTWave(hInputNoiseFFT, fftInputNoiseWave);
+    printf("\t deconvolute fftInputNoiseWave using response X filter and fill hOutputWave \n");
+    std::vector<std::complex<double>> fftDeconvolveNoiseWave = inverseFFT(ib, fftInputNoiseWave, gResponse, false);
+    // again do not understand this normalization and it is noise dependent!
+    printf(" fill EvFiltWave %lu \n", ib);
+    getRealFFTWave(hEvFiltWave[ib], fftDeconvolveNoiseWave);
+    if (fftDir)
+    {
+      TH1D *hUn = (TH1D *)hEvUnFiltWave[ib]->Clone(Form("EvUnFilt%lldChan%lu", entry, ib));
+      TH1D *hFilt = (TH1D *)hEvFiltWave[ib]->Clone(Form("EvFilt%lldChan%lu", entry, ib));
+      fftDir->Append(hUn);
+      fftDir->Append(hFilt);
+    }
+  }
 
   /*  fill ntuple for threshold setting loop over channels */
   for (unsigned long ib = 0; ib < NONSUMCHANNELS; ++ib)
@@ -1350,16 +1667,6 @@ int anaCRun::anaEvent(Long64_t entry)
     }
     */
 
-    TDirectory *fftDir = (TDirectory *)fout->FindObject("fftDir");
-    if (fftDir)
-    {
-      if (trig && tdet->hits.size() == 0 && fftDir->GetList()->GetEntries() < 2000)
-      {
-        // printf("!!!!!! anaCRuna::event plot event %llu idet %i chan %i hits %lu \n", entry, idet, tdet->channel, tdet->hits.size());
-        finder->plotEvent(fftDir, tdet->channel, entry);
-      }
-    }
-
     // loop over hits
     // if (tdet->hits.size() > 0 && idet == 12) // PMT
     //  printf("@line978 event %llu  det %u nhits %lu \n", entry, idet, tdet->hits.size());
@@ -1663,6 +1970,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   pmtDir = fout->mkdir("pmtDir");
   exampleDir = fout->mkdir("exampleDir");
   badTrigDir = fout->mkdir("badTrigDir");
+  fftDir = fout->mkdir("fftDir");
   threshDir = fout->mkdir("threshDir");
   earlyPeakDir = fout->mkdir("earlyPeakDir");
   anaDir = fout->mkdir("anadir");
@@ -1759,11 +2067,28 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   hCosmicCut = new TH1D("CosmicCut", "cosmic total sum chan 12 ", 1000, 0, 10. * cosmicCut);
   hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 ", 1000, 0, 10. * lateSumGammaCut);
 
+  // response fft
+  fftDir->cd();
+  hResponseWave = new TH1D("ResponseWave", "ResponseWave", nsamples, 0, nsamples);
+  hResponseWave->GetXaxis()->SetTitle("time [ns]");
+  hResponseFFT = new TH1D("ResponseFFT", "ResponseFFT", nsamples, -nsamples / 2, nsamples / 2);
+  hResponseFFT->GetXaxis()->SetTitle("frequency MHz");
+  for (unsigned i = 0; i < rawBr.size(); ++i)
+  {
+    int ichan = i;
+    hNoise.push_back(new TH1D(Form("NoiseChan%i", ichan), Form("NoiseChan%i", ichan), nsamples, 0, nsamples));
+    hNoise[hNoise.size() - 1]->GetXaxis()->SetTitle("time [ns]");
+    hNoiseFFT.push_back(new TH1D(Form("NoiseFFTChan%i", ichan), Form("NoiseFFTChan%i", ichan), nsamples, -nsamples / 2, nsamples / 2));
+    hNoiseFFT[hNoiseFFT.size() - 1]->GetXaxis()->SetTitle("frequency MHz");
+
+    hFilterWeight.push_back(new TH1D(Form("FilterWeightChan%i", ichan), Form("FilterWeightChan%i", ichan), nsamples / 2, 0, nsamples / 2));
+    hFilterWeight[hFilterWeight.size() - 1]->GetXaxis()->SetTitle("frequency MHz");
+  }
   //
   anaDir->cd();
   hTriggerTime = new TH1D("TriggerTime", " ave of trigger Sipm times ", 1000, 0, 1000);
   hTriggerTimeDiff = new TH1D("TriggerTimeDiff", " max trigger time diff ", 1000, 0, 1000);
-  hTriggerShift = new TH1D("TriggerShift", " ave trigger time shift ", 200, -100, 100);
+  hTriggerShift = new TH1D("TriggerShift", " ave trigger time shift ", 20, -100, 100);
   hTriggerTimeAllVal = new TH1D("TriggerTimeAllVal", " first time val all channels ", 1000, 0, 1000);
   hTriggerTimeAllValPmt = new TH1D("TriggerTimeAllValPmt", " first time val Pmt ", 1000, 0, 1000);
   TString htitle;
@@ -1795,6 +2120,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     noiseHist.push_back(new TH1D(Form("noiseChan%i", ichan), Form("noiseChan%i", ichan), 1000, 0, 1000));
     skewHist.push_back(new TH1D(Form("skewChan%i", ichan), Form("skewChan%i", ichan), 200, -3, 7));
     hEvRawWave.push_back(new TH1D(Form("evRawWave%i", ichan), Form("evRawWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+    hEvUnFiltWave.push_back(new TH1D(Form("evUnFiltWave%i", ichan), Form("evUnFiltWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+    hEvFiltWave.push_back(new TH1D(Form("evFiltWave%i", ichan), Form("evFiltWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
     if (ichan > 8 && ichan < 12)
     {
       valHist.push_back(new TH1D(Form("valChan%i", ichan), Form("valChan%i", ichan), 1500, -500, 1000));
@@ -2083,7 +2410,7 @@ anaCRun::anaCRun(TString theTag)
 
   tag = theTag;
   // tbrun = new TBRun(tag);
-  cout << " anaCRun::anaCRun instance of anaCRun gamma version  with tag= " << tag << " CHANNELS = " << CHANNELS - 1 << " diffStepSipm= " << diffStepSipm << " diffStepPmt= " << diffStepPmt << endl;
+  cout << " anaCRun::anaCRun instance of anaCRun gamma Wiener version  with tag= " << tag << " CHANNELS = " << CHANNELS - 1 << " diffStepSipm= " << diffStepSipm << " diffStepPmt= " << diffStepPmt << endl;
 
   rawBr.clear();
 
