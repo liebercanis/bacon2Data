@@ -1176,11 +1176,11 @@ int anaCRun::anaEvent(Long64_t entry)
   /* just collect some events */
   if (exampleDir->GetList()->GetEntries() < exampleDirMax)
   {
-    printf("@line1192 print event %llu start %i \n", entry, startLast);
     exampleDir->cd();
     TH1D *EvRawWave = (TH1D *)hEvRawWave[9]->Clone(Form("EvRawEvent%lld-Ch%i-Start%i", entry, 9, startLast));
     EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, 9));
     finder->plotEvent(exampleDir, tdet9->channel, entry);
+    printf("@line1192 print event %llu start %i printed %i \n", entry, startLast, exampleDir->GetList()->GetEntries());
   }
 
   // printf("line975 chan 13 has %lu hits \n", tdet13->hits.size());
@@ -1654,7 +1654,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   sumDir = fout->mkdir("sumDir");
   TDirectory *finderDir = fout->mkdir("finderDir");
   TDirectory *splitDir = fout->mkdir("splitDir");
-  TDirectory *fitSingletDir = fout->mkdir("fitSingletDir");
+  // TDirectory *fitSingletDir = fout->mkdir("fitSingletDir");
   TDirectory *sumWaveDir = fout->mkdir("sumWaveDir");
   TDirectory *fftDir = fout->mkdir("fftDir");
   fout->ls();
