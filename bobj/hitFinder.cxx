@@ -66,7 +66,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   // save vchan
   vChannel = vchan;
   if (verbose)
-    cout << "INSTANCE OF HITFINDER "
+    cout << "INSTANCE OF HITFINDER using only PUP and NUP type crossings "
          << " vchan.size " << vchan.size() << endl;
   smoothing = false;
   fout = theFile;
@@ -770,8 +770,8 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
         maxVal = v[ibin];
       }
     }
-    else
-    { // NUP is other side of derivative going through zero
+    else if (crossings[icross] == NUP) // case NUP
+    {                                  // NUP is other side of derivative going through zero
       maxVal = -99999.;
       for (unsigned ibin = crossingBin[icross]; ibin > 0; --ibin)
       {
