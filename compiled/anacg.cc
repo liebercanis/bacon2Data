@@ -4,7 +4,7 @@
 static TBRun *theTBRun;
 int main(int argc, char *argv[])
 {
-  cout << "executing gamma with anaWGamma derivative pulse finding " << argv[0] << endl;
+  cout << "executing gamma with anaCRunGamma derivative pulse finding " << argv[0] << endl;
   printf(" usage: ana  gamma <run name>  <max entries  0=all> <firstEvent default 0> \n ");
   if (argc < 2)
     exit(0);
