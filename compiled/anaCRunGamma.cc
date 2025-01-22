@@ -223,6 +223,7 @@ public:
   TDirectory *badEventDir;
   TDirectory *pmtDir;
   TDirectory *fftDir;
+  TDirectory *templateDir;
 
   Long64_t nentries;
   double QPEPeak;
@@ -1072,7 +1073,7 @@ int anaCRun::anaEvent(Long64_t entry)
     digi = fixedDigi[ib];
 
     evCount->Fill(ib);                       // chan 0 from GetBinContent(0)
-    double hitThreshold = 0.2 * nominalGain; // 500.0;
+    double hitThreshold = 0.5 * nominalGain; // 500.0;
     if (ib == 12)
       hitThreshold = hitThresholdPmt; // this is 5*(6 sigma noise)
     double theStep = diffStepSipm;
@@ -1657,6 +1658,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   // TDirectory *fitSingletDir = fout->mkdir("fitSingletDir");
   TDirectory *sumWaveDir = fout->mkdir("sumWaveDir");
   TDirectory *fftDir = fout->mkdir("fftDir");
+  TDirectory *templateDir = fout->mkdir("templateDir");
   fout->ls();
 
   currentBuffer = -1;
@@ -1840,6 +1842,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     sumPeakWave.push_back(new TH1D(Form("sumPeakWave%i", ichan), Form("sumPeakWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
   }
   // SPE Shapes
+  templateDir->cd();
   for (unsigned ichan = 0; ichan < rawBr.size(); ++ichan)
   {
     hSPEShapeLate.push_back(new TH1D(Form("SPEShapeLateChan%i", ichan), Form("SPEShapeLateChan%i", ichan), 1000, 0, 1000));
