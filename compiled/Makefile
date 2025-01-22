@@ -63,7 +63,9 @@ ana1: ana1.cc anaRun.cc
 anaca: anaca.cc anaCRunAlpha.cc
 	$(CPP) $< $(LIBS)  -o $@
 
+# derivative pulse finding version
 anacg: anacg.cc anaCRunGamma.cc
+	@echo "compile anaCRumGamma derivative pulse finding"
 	$(CPP) $< $(LIBS)  -o $@
 
 summary: summary.cc 
