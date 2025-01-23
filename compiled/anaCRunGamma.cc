@@ -1643,6 +1643,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   fout = new TFile(outFileName, "recreate");
   cout << " opened output file " << fout->GetName() << endl;
 
+  templateDir = fout->mkdir("templateDir");
   rawSumDir = fout->mkdir("rawSumDir");
   baseDir = fout->mkdir("baseDir");
   badEventDir = fout->mkdir("badEventDir");
@@ -1658,7 +1659,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   // TDirectory *fitSingletDir = fout->mkdir("fitSingletDir");
   TDirectory *sumWaveDir = fout->mkdir("sumWaveDir");
   TDirectory *fftDir = fout->mkdir("fftDir");
-  TDirectory *templateDir = fout->mkdir("templateDir");
   fout->ls();
 
   currentBuffer = -1;
