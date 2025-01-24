@@ -759,11 +759,10 @@ void fileLoop()
       /****** get run sum ****/
       TH1D *hClone;
       TH1D *hRunClone;
-      /* skip sumWave
       if (name.find("sumWave") != std::string::npos && name.find("Bad") == std::string::npos)
       {
         // waveSumDir->cd();
-        //cout << "line700  sumWave clone " << name << " file " << ifile << endl;
+        // cout << "line700  sumWave clone " << name << " file " << ifile << endl;
         string chan = name.substr(name.find_last_of("e") + 1);
         int ichan = stoi(chan);
         TString cloneName;
@@ -773,7 +772,6 @@ void fileLoop()
         hSumWave.push_back(hClone);
         waveSumDir->Add(hClone);
       }
-      */
       if (name.find("sumPeakWave") != std::string::npos)
       {
         // waveSumDir->cd();
