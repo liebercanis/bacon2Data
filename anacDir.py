@@ -25,6 +25,7 @@ def main(args):
             files.append(i)
 
     n = len(files)
+    ntot=n 
     if (n < 1):
         return
 
@@ -32,7 +33,7 @@ def main(args):
     if (len(sys.argv) > 2):
         n = int(sys.argv[2])
 
-    print(" number of files to run  %i ", n)
+    print(" number of files to run  %i of %i  ", n,ntot)
     for i in range(0, n):
         print(" file ", i, " file ", files[i])
 
