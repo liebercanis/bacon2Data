@@ -71,6 +71,14 @@ public:
     TOTALCODES = 2 * GAMMA
   };
 
+  enum
+  {
+    FAILBITS = 5
+  };
+
+  std::vector<TString> bitNames;
+  int failCode[FAILBITS];
+
   std::vector<TString> codeNames;
 
   int badEvent = 5671;
@@ -114,8 +122,10 @@ public:
   vector<TH1D *> sumHitWave;
   vector<TH1D *> sumPeakWave;
   vector<TH1D *> valHist;
+  vector<TH1D *> sumWaveA;
   vector<TH1D *> sumWaveB;
   vector<TH1D *> valHistB;
+  std::vector<std::vector<TH1D *>> sumWaveFail;
 
   vector<TH1D *> hMult;
   vector<TH1D *> hQSum;
@@ -143,6 +153,7 @@ public:
   TH1D *evCount;
   TH1D *histQSum;
   TH1D *hEventPass;
+  TH1D *hEventFail;
   TH1D *histHitCount;
   TH1D *hNoPeak;
   TH1D *hSumPMT;
@@ -510,7 +521,10 @@ void anaCRun::clear()
   sumHitWave.clear();
   sumPeakWave.clear();
   valHist.clear();
+  sumWaveA.clear();
   sumWaveB.clear();
+  sumWaveFail.clear();
+  sumWaveFail.resize(FAILBITS);
   valHistB.clear();
   hEvGaus.clear();
   hEvRawWave.clear();
@@ -1116,11 +1130,35 @@ int anaCRun::anaEvent(Long64_t entry)
   // for cosmic cut, count large photons
   int nCosmicHits = 0;
   TDet *tdetPmt = tbrun->getDet(12);
+  TDet *tdet1 = tbrun->getDet(1);
+  TDet *tdet4 = tbrun->getDet(4);
   for (unsigned ihit = 0; ihit < tdetPmt->hits.size(); ++ihit)
   {
     if (tdetPmt->hits[ihit].qpeak > qpeakCosmicCut)
       ++nCosmicHits;
   }
+
+  int nPmtTrigger = 0;
+  for (unsigned ihit = 0; ihit < tdetPmt->hits.size(); ++ihit)
+  {
+    if (tdetPmt->hits[ihit].startTime > triggerStart && tdetPmt->hits[ihit].startTime < triggerEnd)
+      ++nPmtTrigger;
+  }
+
+  for (unsigned ihit = 0; ihit < tdet1->hits.size(); ++ihit)
+  {
+    if (tdet1->hits[ihit].startTime > triggerStart && tdet1->hits[ihit].startTime < triggerEnd)
+      ++nPmtTrigger;
+  }
+  for (unsigned ihit = 0; ihit < tdet4->hits.size(); ++ihit)
+  {
+    if (tdet4->hits[ihit].startTime > triggerStart && tdet4->hits[ihit].startTime < triggerEnd)
+      ++nPmtTrigger;
+  }
+
+  if (nPmtTrigger > 0)
+    printf("line1146 event %llu size hits 1,4,pmt %lu %lu %lu nPmtTrigger %i \n", entry, tdet1->hits.size(), tdet4->hits.size(), tdetPmt->hits.size(), nPmtTrigger);
+
   // do cosmic cut based on large pulse counting
   hCosmicMult->Fill(double(nCosmicHits));
   hCosmicCut->Fill(tdetPmt->totSum);
@@ -1177,7 +1215,8 @@ int anaCRun::anaEvent(Long64_t entry)
     }
   }
   /* just collect some events */
-  if (exampleDir->GetList()->GetEntries() < exampleDirMax)
+  // if (exampleDir->GetList()->GetEntries() < exampleDirMax)
+  if (0)
   {
     exampleDir->cd();
     TH1D *EvRawWave = (TH1D *)hEvRawWave[9]->Clone(Form("EvRawEvent%lld-Ch%i-Start%i", entry, 9, startLast));
@@ -1254,14 +1293,54 @@ int anaCRun::anaEvent(Long64_t entry)
         valHist[ib]->Fill(digi[j]);
       }
     } // check cosmic,gamma failure events
-    // if ((passBit & int(pow(2, 3))) != 0 | (passBit & int(pow(2, 4))) != 0)
-    //{
+
     // make this sum All instead of Bad
     for (unsigned j = 0; j < digi.size(); ++j)
     {
-      sumWaveB[ib]->SetBinContent(j + 1, sumWaveB[ib]->GetBinContent(j + 1) + digi[j]);
-      valHistB[ib]->Fill(digi[j]);
+      sumWaveA[ib]->SetBinContent(j + 1, sumWaveA[ib]->GetBinContent(j + 1) + digi[j]);
     }
+
+    // make this for Bad
+    if (passBit != 0)
+      for (unsigned j = 0; j < digi.size(); ++j)
+      {
+        sumWaveB[ib]->SetBinContent(j + 1, sumWaveB[ib]->GetBinContent(j + 1) + digi[j]);
+        valHistB[ib]->Fill(digi[j]);
+      }
+
+    // sum wave by failure code
+    for (int ic = 0; ic < FAILBITS; ++ic)
+    {
+      if (passBit & failCode[ic])
+        for (unsigned j = 0; j < digi.size(); ++j)
+        {
+          sumWaveFail[ic][ib]->SetBinContent(j + 1, sumWaveFail[ic][ib]->GetBinContent(j + 1) + digi[j]);
+        }
+    }
+
+    if (passBit == 0 && totHits > 0)
+    { // waves with hits
+      for (unsigned j = 0; j < digi.size(); ++j)
+      {
+        sumHitWave[ib]->SetBinContent(j + 1, sumHitWave[ib]->GetBinContent(j + 1) + digi[j]);
+      }
+    } // check cosmic,gamma failure events
+    // if ((passBit & int(pow(2, 3))) != 0 | (passBit & int(pow(2, 4))) != 0)
+    //{
+
+    /* just collect some events */
+    if (passBit == 0 && totHits > 0 && (ib == 0 || ib == 1))
+    {
+      if (exampleDir->GetList()->GetEntries() < exampleDirMax)
+      {
+        exampleDir->cd();
+        TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lld-Ch%i-Start%i", entry, ib, tbrun->getDet(ib)->hits[0].firstBin));
+        EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, ib));
+        finder->plotEvent(exampleDir, tbrun->getDet(ib)->channel, entry);
+        // printf("@line1192 print event %llu start %i printed %i \n", entry, startLast, exampleDir->GetList()->GetEntries());
+      }
+    }
+
     //}
   }
 
@@ -1412,7 +1491,7 @@ int anaCRun::anaEvent(Long64_t entry)
       //  printf("line980 in anaCRun event %lli  det %i  peak %u start %i \n",entry, idet, thit.peakt, thit.firstBin);
 
       // if(thit.qpeak > 7.5* nominalGain)  printf("line1008 idet %i qpeak %f \n",idet,thit.qpeak/nominalGain );
-      sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
+      // sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
       sumPeakWave[idet]->SetBinContent(thit.firstBin + 1, sumPeakWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
       histHitCount->SetBinContent(tdet->channel + 1, histHitCount->GetBinContent(tdet->channel + 1) + 1);
 
@@ -1745,8 +1824,9 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   ntSetTrigTime = new TNtuple("ntSetTrigTime", " trig time and val", "event:chan:time:val");
   ntTrigTime = new TNtuple("ntTrigTime", "trigger time ntuple", "entry:chan:firstTime:time:adc:ftime:fadc");
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
-  hEventPass = new TH1D("EventPass", " event failures", TOTALCODES, 0, TOTALCODES);
   evCount = new TH1D("eventcount", "event count", CHANNELS, 0, CHANNELS);
+  hEventPass = new TH1D("EventPass", " event failures", TOTALCODES, 0, TOTALCODES);
+  hEventFail = new TH1D("EventFail", " event fail bit", FAILBITS + 2, 0, FAILBITS + 2); // first bin is pass
   hNoPeak = new TH1D("noPeak", "no peak events count by channel", CHANNELS, 0, CHANNELS);
   histHitCount = new TH1D("hitCount", "hit count by channel", CHANNELS, 0, CHANNELS);
   histQSum = new TH1D("histqsum", "qsum by channel", CHANNELS, 0, CHANNELS);
@@ -1848,7 +1928,14 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 700, 0, 7.));
     hQSpe.push_back(new TH1D(Form("QSpeChan%i", ichan), Form("QSpeChan%i", ichan), 9, 0, 9.));
     sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
-    sumWaveB.push_back(new TH1D(Form("sumWaveAll%i", ichan), Form("sumWaveAll%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+    sumWaveA.push_back(new TH1D(Form("sumWaveAll%i", ichan), Form("sumWaveAll%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+    sumWaveB.push_back(new TH1D(Form("sumWaveBad%i", ichan), Form("sumWaveBad%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+
+    for (int ic = 0; ic < FAILBITS; ++ic)
+    {
+      sumWaveFail[ic].push_back(new TH1D(Form("sumWaveFail%iChan%i", failCode[ic], ichan), Form("sumWaveFail%iChan%i", failCode[ic], ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+    }
+
     sumHitWave.push_back(new TH1D(Form("sumHitWave%i", ichan), Form("sumHitWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
     sumPeakWave.push_back(new TH1D(Form("sumPeakWave%i", ichan), Form("sumPeakWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
   }
@@ -1900,10 +1987,16 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     if (passBit == 0)
     {
       ++npass;
+      hEventFail->SetBinContent(1, hEventFail->GetBinContent(1) + 1);
     }
     else
     {
       ++nfail;
+      for (int ic = 0; ic <= FAILBITS; ++ic)
+      {
+        if (passBit & failCode[ic]) // logical and
+          hEventFail->SetBinContent(ic + 2, hEventFail->GetBinContent(ic + 2) + 1);
+      }
       // set pass bit and fill tbrun
       for (int idet = 0; idet < tbrun->detList.size(); ++idet)
       {
@@ -1911,13 +2004,28 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
       }
     }
     hEventPass->SetBinContent(passBit, hEventPass->GetBinContent(passBit) + 1);
+    // failure rate by bit
+
+    // sum wave by failure code
+
     tbrun->fill();
     if (entry / 1000 * 1000 == entry)
     {
-      printf("... entry %llu pass %u fail %u \n", entry, npass, nfail);
-      hEventPass->Print("all");
+      printf("... entry %llu pass %u fail %u  failures by bit:\n", entry, npass, nfail);
+      // printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
+      printf(" entry %i ( %i ) pass %i (%i) fail %i ( frac %0.3f )  \n",
+             npass + nfail,
+             int(hEventFail->GetEntries()),
+             npass, int(hEventFail->GetBinContent(1)),
+             nfail,
+             double(nfail) / double(npass + nfail));
 
-      if (npass > 0)
+      for (int ibin = 0; ibin < hEventFail->GetNbinsX(); ++ibin)
+        printf(" bin %i content %.0f %s \n", ibin, hEventFail->GetBinContent(ibin), bitNames[ibin].Data());
+      hEventFail->Print("all");
+
+      // if (npass > 0)
+      if (0)
       {
         printf(" \t hits by channel  \n");
         for (int ibin = 0; ibin < histHitCount->GetNbinsX() - 1; ++ibin)
@@ -2014,6 +2122,17 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     hitIntegral.push_back(inte);
   }
 
+  // hEventPass->Print("all");
+  printf("pass fractions total = %.0f fail cosmic %i fail gamma %i \n", hEventPass->GetEntries(), failCosmic, failGamma);
+  for (int ibin = 0; ibin < hEventPass->GetNbinsX(); ++ibin)
+  { // include error on poisson probability
+    double nbin = hEventPass->GetBinContent(ibin);
+    double ntot = hEventPass->GetEntries();
+    double prob = nbin / ntot;
+    double perror = sqrt(prob * (1. - prob) / ntot);
+    printf(" bin %i fail %.f frac %.3f +/- %.3f name %s \n", ibin, hEventPass->GetBinContent(ibin), prob, perror, codeNames[ibin].Data());
+  }
+
   // printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
   printf(" finished %i ( %i ) pass %i (%i) fail %i ( frac %0.3f ) output file %s  \n",
          npass + nfail,
@@ -2025,14 +2144,14 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
          fout->GetName());
 
   // hEventPass->Print("all");
-  printf("pass fractions total = %.0f fail cosmic %i fail gamma %i \n", hEventPass->GetEntries(), failCosmic, failGamma);
-  for (int ibin = 0; ibin < hEventPass->GetNbinsX(); ++ibin)
+  printf(" fail bit frequency total = %.0f  pass %i fail %i fail cosmic %i fail gamma %i \n", hEventFail->GetEntries(), npass, nfail, failCosmic, failGamma);
+  for (int ibin = 1; ibin < hEventFail->GetNbinsX(); ++ibin)
   { // include error on poisson probability
-    double nbin = hEventPass->GetBinContent(ibin);
-    double ntot = hEventPass->GetEntries();
+    double nbin = hEventFail->GetBinContent(ibin);
+    double ntot = hEventFail->GetEntries();
     double prob = nbin / ntot;
     double perror = sqrt(prob * (1. - prob) / ntot);
-    printf(" bin %i fail %.f frac %.3f +/- %.3f name %s \n", ibin, hEventPass->GetBinContent(ibin), prob, perror, codeNames[ibin].Data());
+    printf(" bit %i fail %.f frac %.3f +/- %.3f  %s \n", ibin, hEventFail->GetBinContent(ibin), prob, perror, bitNames[ibin].Data());
   }
 
   for (int idet = 0; idet < hTotSum.size(); ++idet)
@@ -2057,6 +2176,21 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
 anaCRun::anaCRun(TString theTag)
 {
+
+  for (int ic = 0; ic < FAILBITS; ++ic)
+  {
+    failCode[ic] = pow(2, ic);
+  }
+
+  bitNames.resize(FAILBITS + 2);
+  bitNames[0] = TString("underflow");
+  bitNames[1] = TString("pass");
+  bitNames[2] = TString("baseline");
+  bitNames[3] = TString("earlycut");
+  bitNames[4] = TString("firsttime");
+  bitNames[5] = TString("cosmic");
+  bitNames[6] = TString("gamma");
+
   for (unsigned ic = 0; ic < TOTALCODES; ++ic)
     codeNames.push_back(TString("mixed"));
   codeNames[PASS] = TString("pass");
