@@ -34,7 +34,7 @@ Long64_t totalPhotons;
 Long64_t ncount[NCHAN];
 TH1D *hCount;
 TH1D *hResponse;
-double gain = 1.E2;
+double gain = 1.E1;
 // 2*14         // ns
 
 double LY = 25.6; //  photone/kev Doke
@@ -56,7 +56,7 @@ static double myLandau(Double_t *xx, Double_t *par)
 
 void convolve(TH1D *hist, double time) // time is when photon arrives
 {
-  int offsetBin = hist->FindBin(540.); // read offf of Response histogram
+  int offsetBin = hist->FindBin(640.); // read offf of Response histogram
   int startBin = hist->FindBin(time);
   // printf("convolve: %s time %f startBin %i offsetBin %i\n", hist->GetName(), time, startBin, offsetBin);
   for (int ib = startBin; ib < hist->GetNbinsX(); ++ib)
@@ -220,9 +220,9 @@ void btb(int ngen = 10000000)
         TH1D *hSignalEvent = (TH1D *)hSignal[ih]->Clone(histName);
         hSignalEvent->SetTitle(histName);
       }
+    if (rawRun)
+      rawRun->fill();
   }
-  if (rawRun)
-    rawRun->fill();
 
   for (int ich = 0; ich < NCHAN; ++ich)
     hCount->SetBinContent(ich + 1, ncount[ich]);
