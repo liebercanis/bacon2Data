@@ -260,7 +260,7 @@ void btb(int ngen = 10000000)
         hit.startTime = (UInt_t)hTime->FindBin(time);
         hit.qpeak = gain;
         det->hits.push_back(hit);
-        printf(" \t\t after triplets %iev %ch %lu \n", iev, ich, det->hits.size());
+        // printf(" \t\t after triplets %iev %ch %lu \n", iev, ich, det->hits.size());
       }
       // add baseline and noise
       for (int ibin = 1; ibin <= hSignal[ich]->GetNbinsX(); ++ibin)
