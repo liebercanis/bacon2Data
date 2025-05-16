@@ -1,18 +1,20 @@
-// #include "anaWGamma.cc"
 #include "anaCRunGamma.cc"
 
-static TBRun *theTBRun;
+// static TBRun *theTBRun;
 int main(int argc, char *argv[])
 {
-  cout << "executing gamma with anaCRunGamma derivative pulse finding " << argv[0] << endl;
+  std::cout << "executing gamma with anaCRunGamma derivative pulse finding " << argv[0] << std::endl;
   printf(" usage: ana  gamma <run name>  <max entries  0=all> <firstEvent default 0> \n ");
   if (argc < 2)
-    exit(0);
+  {
+    printf("... %i %s exit\n", argc, argv[0]);
+    exit(1);
+  }
+
   TString tag("run");
   Long64_t firstEntry = 0;
-  if (argc < 2)
-    exit(0);
   Long64_t maxEntries = 0;
+
   if (argc > 1)
   {
     tag = TString(argv[1]);
@@ -25,12 +27,12 @@ int main(int argc, char *argv[])
   {
     firstEntry = atoi(argv[3]);
   }
-  theTBRun = new TBRun(tag);
 
   // make output tree
   printf(" starting anaCRunGamma %s maxEntries %lld firstEntry %lld \n", tag.Data(), maxEntries, firstEntry);
   anaCRun *r = new anaCRun(tag);
   // r->setTBRun(theTBRun);
   r->anaCRunFile(tag, maxEntries, firstEntry);
+  printf("... %s exit\n", argv[0]);
   exit(0);
 }

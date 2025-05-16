@@ -3,7 +3,7 @@
 LIBNAME :=BaconAna
 LIBRARY := lib$(LIBNAME).so
 ARCH  = $(shell root-config --arch)
-include $(ROOTSYS)/etc/Makefile.arch
+include $(ROOTSYS)/etc/root/makefile.arch
 
 SYS := $(shell uname)
 LOCAL        := $(shell pwd)
@@ -22,6 +22,7 @@ CINTFLAGS    := -I$(ROOTINCS)
 ifeq ($(ARCH),macosx64)
                 SOFLAGS = -dynamiclib -install_name $(INSTALLNAME)
 				CXX = clang++ -arch x86_64 -ggdb 
+				LD=clang++ -arch x86_64  
 				CXXFLAGS += -fPIC
 				CPP= $(CXX) $(CXXFLAGS)
 else ifeq ($(ARCH),macosxarm64)

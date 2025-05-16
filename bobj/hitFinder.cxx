@@ -477,6 +477,9 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   hdigi.clear();
   hdigi.resize(digi.size());
 
+  // store threshold
+  tbrun->detList[idet]->thresholds = derivativeThreshold;
+
   //  for (const auto &[key, value] : m)
   //    std::cout << '[' << key << "] = " << value << "; "
   // push hits to tbrun
@@ -489,6 +492,11 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   hEvHitPeakWave[idet]->Reset("ICESM");
   int hitNumber = 0;
   TString hitTitle;
+
+  /*
+    loop over detHits and add hits to TDet in tbrun
+  */
+
   for (hitMapIter hitIter = detHits.begin(); hitIter != detHits.end(); ++hitIter)
   {
     TDetHit hiti = hitIter->second;

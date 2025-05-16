@@ -39,7 +39,7 @@ static int theBinWidth = 2;
 static double Wionization = 25.6;      // eV Tadayoshi Doke et al 2002 Jpn. J. Appl. Phys. 41 1538
 static double nPhotons = 60.E3 / 25.6; // 60 keV gamma
 static double fillFactor = 0.7;        // sipm data sheet
-static double nominalGain = 227.4;
+static double nominalGain = 100;       //  was 227.4;
 static double nonZeroFraction = 1. - 0.61;
 static double tTriplet0 = 1600.0; // 2100.0;
 static double tSinglet0 = 7.0;
@@ -513,12 +513,20 @@ modelFit::modelFit(int theFit, int ichan, double ppm)
   vparNames[BKGTAU] = TString("bkgtau");
   vparNames[CHAN] = TString("chan");
   vparNames[TYPE] = TString("type");
-
+  // for BTB from georgia
   distanceLevel[0] = 0.5;
-  distanceLevel[1] = 11.6;
-  distanceLevel[2] = 23.2;
-  distanceLevel[3] = 34.8;
-  distanceLevel[4] = 36.0;
+  distanceLevel[1] = 11.9;
+  distanceLevel[2] = 21.8;
+  distanceLevel[3] = 31.8;
+  distanceLevel[4] = 42.7;
+
+  /* previous BTB numbers
+    distanceLevel[0] = 0.5;
+    distanceLevel[1] = 11.6;
+    distanceLevel[2] = 23.2;
+    distanceLevel[3] = 34.8;
+    distanceLevel[4] = 36.0;
+    */
 
   int ilevel = level(ichan);
   double dist = distanceLevel[ilevel];

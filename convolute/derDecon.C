@@ -35,6 +35,7 @@
 #include <algorithm> // std::sort
 #include <TSpectrum.h>
 #include <TRandom3.h>
+#include <TPython.h>
 
 #include "../bobj/TOyHit.hxx"
 
@@ -96,10 +97,12 @@ public:
   TF1 *speLandau;
   // histos
   TH1D *hNoise;
+  TH1D *hNoiseSmooth;
   TH1D *hResponseWave;
   TH1D *hResponseWaveDer;
   TH1D *hHitWave;
   TH1D *hInputWave;
+  TH1D *hInputSmooth;
   TH1D *hInputWaveDer;
   TH1D *hOutputWaveDer;
   double maxtime;
@@ -109,6 +112,8 @@ public:
 
   SavitzkyGolay *sgfilt;
   dConvolute *dConv;
+  int nwindow = 75;
+  int npoly = 3;
 };
 
 std::vector<double> derDecon::fillVector(TH1D *hist)
@@ -153,6 +158,7 @@ void derDecon::makeHistograms()
   // TEvent->Branch("dataHit", &dataHit);
 
   hNoise = new TH1D("Noise", "Noise", 100, -.2, .2);
+  hNoiseSmooth = new TH1D("NoiseSmooth", "Noise", 100, -.2, .2);
 
   hHitWave = new TH1D("HitWave", "HitWave", nsamples, -triggerOffset, totalTime - triggerOffset);
   hHitWave->GetXaxis()->SetTitle("time [ns]");
@@ -165,6 +171,9 @@ void derDecon::makeHistograms()
 
   hInputWave = new TH1D("InputWave", "InputWave", nsamples, -triggerOffset, totalTime - triggerOffset);
   hInputWave->GetXaxis()->SetTitle("time [ns]");
+
+  hInputSmooth = new TH1D("InputSmooth", "InputSmooth", nsamples, -triggerOffset, totalTime - triggerOffset);
+  hInputSmooth->GetXaxis()->SetTitle("time [ns]");
 
   hInputWaveDer = new TH1D("InputWaveDer", "InputWaveDer", nsamples, -triggerOffset, totalTime - triggerOffset);
   hInputWaveDer->GetXaxis()->SetTitle("time [ns]");
@@ -187,7 +196,7 @@ std::vector<double> derDecon::getResponse()
   speLandau->SetParameter(1, speSigma);
   speLandau->SetParName(2, "norm");
   speLandau->SetParameter(2, numSPE); // single SPE
-  printf("line113 getResponse with  MPV %f sigma %f norm %f nbins %i \n", speLandau->GetParameter(0), speLandau->GetParameter(1), speLandau->GetParameter(2), nsamples);
+  // printf("line113 getResponse with  MPV %f sigma %f norm %f nbins %i \n", speLandau->GetParameter(0), speLandau->GetParameter(1), speLandau->GetParameter(2), nsamples);
 
   for (int i = 0; i < nsamples; ++i)
   {
@@ -241,8 +250,7 @@ void derDecon::derDeconEvent(int iev) //
   int nsinglet = ran->Poisson(7);
   int ntriplet = ran->Poisson(7);
   getHits(nsinglet, ntriplet);
-  printf("getHits event %i  %i %i total %i (%i) \n", iev, nsinglet, ntriplet, nsinglet + ntriplet,
-         int((hHitWave->GetEntries())));
+  // printf("getHits event %i  %i %i total %i (%i) \n", iev, nsinglet, ntriplet, nsinglet + ntriplet,int((hHitWave->GetEntries())));
 
   std::vector vhits = fillVector(hHitWave);
 
@@ -256,17 +264,30 @@ void derDecon::derDeconEvent(int iev) //
   {
     auto max_element_it = std::max_element(vinput.begin(), vinput.end());
     double vinputMax = *max_element_it;
-    cout << "max vinput " << vinputMax << endl;
+    // cout << "max vinput " << vinputMax << endl;
     for (unsigned i; i < vinput.size(); ++i)
       vinput[i] = vinput[i] + vinputMax * vnoise[i];
   }
 
   fillHisto(vinput, hInputWave);
-  cout << " max InputWave " << hInputWave->GetMaximum() << " bin " << hInputWave->GetMaximumBin() << endl;
-  int shift = -1 * hInputWave->GetMaximumBin();
+
+  // smooth
+  std::vector<double> vsmooth = sgfilt->SavGolFilter(vinput, nwindow, npoly);
+  fillHisto(vsmooth, hInputSmooth);
+
+  std::vector<double> vnoiseSmooth = sgfilt->SavGolFilter(vnoise, nwindow, npoly);
+
+  // smooth noise
+  for (unsigned ibin = 0; ibin < vnoiseSmooth.size(); ++ibin)
+  {
+    hNoiseSmooth->Fill(vnoiseSmooth[ibin]);
+  }
+
+  // cout << " max InputWave " << hInputWave->GetMaximum() << " bin " << hInputWave->GetMaximumBin() << endl;
+  // int shift = -1 * hInputWave->GetMaximumBin();
 
   // input derivative
-  std::vector<double> dInputDer = dConv->differentiate(vinput);
+  std::vector<double> dInputDer = dConv->differentiate(vsmooth);
 
   fillHisto(dInputDer, hInputWaveDer);
 
@@ -285,8 +306,8 @@ void derDecon::derDeconEvent(int iev) //
   // scale output
   double max0 = hHitWave->GetMaximum();
   double max2 = hOutputWaveDer->GetMaximum();
-  cout << max0 << " max  " << max2 << " bin " << hOutputWaveDer->GetMaximumBin() << endl;
-  // hOutputWaveDer->Scale(max0 / max2);
+  // cout << max0 << " max  " << max2 << " bin " << hOutputWaveDer->GetMaximumBin() << endl;
+  //  hOutputWaveDer->Scale(max0 / max2);
   for (int ibin = 0; ibin < hOutputWaveDer->GetNbinsX(); ++ibin)
     hOutputWaveDer->SetBinContent(ibin, hOutputWaveDer->GetBinContent(ibin) * max0 / max2);
 
@@ -315,7 +336,12 @@ void derDecon::derDeconEvent(int iev) //
 
 derDecon::derDecon(int ngen, double noiseValue, int nwindowSG, int npoly) // 30/750
 {
-  addNoise = false;
+  //TPython::LoadMacro("MyWeiner.py");
+  TPython::Import("MyWeiner.py");
+  MyWeiner myWeiner;
+
+  return;
+  addNoise = true;
   ran = new TRandom3();
   // setup FFT in root
   int nfft = nsamples;
@@ -350,7 +376,11 @@ derDecon::derDecon(int ngen, double noiseValue, int nwindowSG, int npoly) // 30/
 
   // call event
   for (int iev = 0; iev < ngen; ++iev)
+  {
+    if ((iev / 1000) * 1000 == iev)
+      printf(".... %i \n", iev);
     derDeconEvent(iev);
+  }
 
   // make noise vector
   fout->Write();

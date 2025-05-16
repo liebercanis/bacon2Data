@@ -71,7 +71,17 @@ public:
     // Default destructor
     // Savitzky Golay filter parameter mwindow (filterLength = 2*mwindow+1)
     // Savitzky Golay filter parameter npoly ( order of polynomial )
+    // method  based on TH1D
     std::vector<double> SavGolFilter(TH1D *hist, int mwindow = 3, int npoly = 3)
+    {
+        std::vector<double> vect;
+        for (int ibin = 1; ibin < hist->GetNbinsX(); ++ibin)
+            vect.push_back(hist->GetBinContent(ibin));
+        return SavGolFilter(vect, mwindow, npoly);
+    }
+
+    // method  based on std vector
+    std::vector<double> SavGolFilter(std::vector<double> vect, int mwindow = 3, int npoly = 3)
     {
         std::vector<std::vector<double>> weight;
         weight.resize(3);
@@ -90,12 +100,12 @@ public:
         // use weights to smooth
         // makea vector for doing sum
         std::vector<double> yfilt;
-        yfilt.resize(hist->GetNbinsX());
+        yfilt.resize(vect.size());
         std::fill(yfilt.begin(), yfilt.end(), 0);
 
         int filterLength = 2 * mwindow + 1;
         // loop over input histogram bins
-        for (int i = 0; i < hist->GetNbinsX(); i++)
+        for (int i = 0; i < vect.size(); i++)
         {
             //  loop over filter window starting at bin i avoid end of vector yfilt
             for (int kk = 0; kk < filterLength; kk++)
@@ -103,9 +113,9 @@ public:
                 int ibin = i + kk - mwindow;
                 if (ibin < 0)
                     continue;
-                if (ibin > hist->GetNbinsX())
+                if (ibin > vect.size())
                     continue;
-                yfilt[i] += hist->GetBinContent(ibin) * weight[0][kk];
+                yfilt[i] += vect[ibin] * weight[0][kk];
                 // if (kk == filterLength - 1 && ibin / 100 * 100 == ibin)
                 //     printf("SGSUM bin=%i kk=%i weight %f bin %f weighted sum %f \n", ibin, kk, weight[0][kk], hist->GetBinContent(i), yfilt[i]);
             }
