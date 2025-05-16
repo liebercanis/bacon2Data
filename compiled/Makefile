@@ -23,11 +23,11 @@ BOBJ=../bobj
 CXXFLAGS     :=  $(ROOTCFLAGS) -fPIC  -I$(LOCAL) 
 CXXFLAGS     += -I$(LOCAL) -I/$/usr/include -I/usr/local/include -I$(BOBJ)
 LIBS         := -L$(BOBJ) -lBaconAna $(ROOTLIBS)  
-##$(CINTFLAGS)
 ## remove CXXFLAGS += -fPIC  -fsanitize=address 
 
 ifeq ($(ARCH),macosx64)
-				CXX := clang++ -arch x86_64 -ggdb 
+				CXX := clang++ -arch x86_64 -glldb 
+				LD=clang++ -arch x86_64 -delay-lx 
 				CXXFLAGS += -fPIC  
 				CPP= $(CXX) $(CXXFLAGS)
 else ifeq ($(ARCH),macosxarm64)
@@ -43,10 +43,15 @@ endif
 #CPP+=-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
 
 
-all: sis build summary anaca anacg
+all: sis build summary anaca anacg btbSim
 
 sis: sis.cc
 	$(CPP) $< $(LIBS)  -o $@
+
+btbSim: btbSim.cc
+	$(CPP) $< $(LIBS)  -o $@
+
+
 
 build: build.cc
 	$(CPP) $< $(LIBS)  -o $@

@@ -3,7 +3,8 @@
 LIBNAME :=BaconAna
 LIBRARY := lib$(LIBNAME).so
 ARCH  = $(shell root-config --arch)
-include $(ROOTSYS)/etc/root/makefile.arch
+##include $(ROOTSYS)/etc/root/makefile.arch
+include ./Makefile.arch
 
 SYS := $(shell uname)
 LOCAL        := $(shell pwd)
