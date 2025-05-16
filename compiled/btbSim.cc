@@ -219,7 +219,7 @@ void btb(int ngen = 10000000)
       det->event = iev;
       det->trigger = iev;
       // simRun->btree->GetListOfBranches()->ls();
-      printf(" simRun ev %i  channel %i \n", iev, ich);
+      // printf(" simRun ev %i  channel %i \n", iev, ich);
 
       // rawEvent->time = EventInfo->TriggerTimeTag;
 
