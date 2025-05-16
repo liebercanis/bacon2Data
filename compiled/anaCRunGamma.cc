@@ -695,7 +695,6 @@ void anaCRun::getSummedHists()
 /* analyze rawBr */
 int anaCRun::anaEvent(Long64_t entry)
 {
-  printf("\t\t\t event %lld \n", entry);
   //  clear
   eventNumber = entry;
   TTree *tree = NULL;
@@ -2100,7 +2099,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     if (passBit == 0)
     {
       ++npass;
-      printf("line1990 event %lld passes\n", entry);
+      // printf("line1990 event %lld passes\n", entry);
       hEventFail->SetBinContent(1, hEventFail->GetBinContent(1) + 1);
     }
     else
@@ -2126,7 +2125,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     // sum wave by failure code
 
     tbrun->fill();
-    if (entry / 1000 * 1000 == entry)
+    if (entry / 100 * 100 == entry)
     {
       printf("... entry %llu pass %u fail %u  failures by bit:\n", entry, npass, nfail);
       // printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
