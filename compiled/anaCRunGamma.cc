@@ -783,14 +783,6 @@ int anaCRun::anaEvent(Long64_t entry)
       hEvRawWave[ib]->SetBinContent(j + 1, val);
     }
 
-    // if (badEventDir->GetList()->GetEntries() < badEventDirMax)
-    //{
-    exampleDir->cd();
-    TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawBaselineEvent%lld-Ch%i", entry, ib));
-    EvRawWave->SetTitle(Form("EvRawBaselineEvent%lld-Ch%i", entry, ib));
-    // cout << "line779  \t \t " << EvRawWave->GetName() << " " << exampleDir->GetList()->GetEntries() << endl;
-    // }
-
     // get the distribution mode
     double mode = hEvGaus[ib]->GetBinLowEdge(hEvGaus[ib]->GetMaximumBin()) + 0.5 * hEvGaus[ib]->GetBinWidth(hEvGaus[ib]->GetMaximumBin());
 
@@ -1312,8 +1304,7 @@ int anaCRun::anaEvent(Long64_t entry)
     }
   }
   /* just collect some events */
-  // if (exampleDir->GetList()->GetEntries() < exampleDirMax)
-  if (0)
+  if (exampleDir->GetList()->GetEntries() < exampleDirMax)
   {
     exampleDir->cd();
     TH1D *EvRawWave = (TH1D *)hEvRawWave[9]->Clone(Form("EvRawEvent%lld-Ch%i-Start%i", entry, 9, startLast));
@@ -2039,17 +2030,27 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 1000, 0, 500.));
     hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 700, 0, 7.));
     hQSpe.push_back(new TH1D(Form("QSpeChan%i", ichan), Form("QSpeChan%i", ichan), 9, 0, 9.));
-    sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
-    sumWaveA.push_back(new TH1D(Form("sumWaveAll%i", ichan), Form("sumWaveAll%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
-    sumWaveB.push_back(new TH1D(Form("sumWaveBad%i", ichan), Form("sumWaveBad%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+    sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), rawBr[0]->rdigi.size(), 0, 2 * rawBr[0]->rdigi.size()));
+    sumWaveA.push_back(new TH1D(Form("sumWaveAll%i", ichan), Form("sumWaveAll%i", ichan), rawBr[0]->rdigi.size(), 0, 2 * rawBr[0]->rdigi.size()));
+    sumWaveB.push_back(new TH1D(Form("sumWaveBad%i", ichan), Form("sumWaveBad%i", ichan), rawBr[0]->rdigi.size(), 0, 2 * rawBr[0]->rdigi.size()));
 
     for (int ic = 0; ic < FAILBITS; ++ic)
     {
-      sumWaveFail[ic].push_back(new TH1D(Form("sumWaveFail%iChan%i", failCode[ic], ichan), Form("sumWaveFail%iChan%i", failCode[ic], ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+      sumWaveFail[ic].push_back(new TH1D(Form("sumWaveFail%iChan%i", failCode[ic], ichan), Form("sumWaveFail%iChan%i", failCode[ic], ichan), rawBr[0]->rdigi.size(), 0, 2 * rawBr[0]->rdigi.size()));
     }
 
-    sumHitWave.push_back(new TH1D(Form("sumHitWave%i", ichan), Form("sumHitWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
-    sumPeakWave.push_back(new TH1D(Form("sumPeakWave%i", ichan), Form("sumPeakWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+    sumHitWave.push_back(new TH1D(Form("sumHitWave%i", ichan), Form("sumHitWave%i", ichan), rawBr[0]->rdigi.size(), 0, 2 * rawBr[0]->rdigi.size()));
+    sumPeakWave.push_back(new TH1D(Form("sumPeakWave%i", ichan), Form("sumPeakWave%i", ichan), rawBr[0]->rdigi.size(), 0, 2 * rawBr[0]->rdigi.size()));
+  }
+
+  for (int ih = 0; ih < sumHitWave.size(); ++ih)
+  {
+    sumWave[ih]->GetXaxis()->SetTitle("time [ns]");
+    sumWaveA[ih]->GetXaxis()->SetTitle("time [ns]");
+    sumWaveB[ih]->GetXaxis()->SetTitle("time [ns]");
+    sumHitWave[ih]->GetXaxis()->SetTitle("time [ns]");
+    sumHitWave[ih]->GetXaxis()->SetTitle("time [ns]");
+    sumPeakWave[ih]->GetXaxis()->SetTitle("time [ns]");
   }
   // SPE Shapes
   templateDir->cd();
