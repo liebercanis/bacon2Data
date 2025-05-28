@@ -64,12 +64,12 @@ public:
   {
     PASS = 0,
     BASEFAIL = 0x1,
-    TRIGFAIL = 0x2,
-    EARLYCUT = 0x4,
-    FIRSTTIME = 0x8,
-    COSMIC = 0x10,
-    GAMMA = 0x20,
-    TOTALCODES = 2 * GAMMA
+    EARLYCUT = 0x2,
+    FIRSTTIME = 0x4,
+    COSMIC = 0x8,
+    GAMMA = 0x10,
+    TRIGFAIL = 0x20,
+    TOTALCODES = 2 * TRIGFAIL
   };
 
   enum
@@ -100,6 +100,7 @@ public:
   // ntuples to check cuts
   TNtuple *ntBase;
   TNtuple *ntTrig;
+  TNtuple *ntNonTrig;
   TH1D *hPreSumCut;
   TH1D *hCosmicCut;
   TH1D *hGammaCut;
@@ -249,24 +250,27 @@ public:
   //
   int MaxSPEShape = 4;
   unsigned trigStart = 600;
-  int nominalTrigger = 753;  // was 729;
-  double nominalGain = 100.; // was 160.0; set Nov 13 2024
-  double landauMax = 0.018063;
-  // 227.4; // average
-  //  double nominalGain = 160.0; // average
+  int nominalTrigger = 753; // was 729;
+  double nominalTriggerGain = 700.0;
+  double nominalGain = 167.;     // was 160.0; set Nov 13 2024
+  double nominalGainTrig = 700.; // was 160.0; set Nov 13 2024
+  double landauMax = 1.0;        // 0.018063;
+  //  227.4; // average
+  //   double nominalGain = 160.0; // average
   unsigned firstTime;       // corrected trigger time for event
   unsigned timeOffset = 13; // changed from 17 may 13, 2024
   double passValEarlyCut = 100.0;
-  double passValEarlyPmtCut = 225.0;
+  /// double passValEarlyPmtCut = 225.0;
   ULong_t triggerEnd = 800; // 740;
   ULong_t lateTimeStart = 900;
   ULong_t triggerStart = 730; // 740;
   ULong_t timeVeryLateCut = 3500;
   /* need to tune these cuts on data */
-  double trigSumCut = 100.;   // in effective number of photons
-  double preSumCut = 3.;      // in effective number of photons
-  double totCosmicCut = 100;  // in effective number of photons
-  double lateGammaCut = 1000; // in effective number of photons
+  double trigSumCut = nominalGain;          //
+  double preSumCut = 4. * nominalGain;      //
+  double totCosmicCut = 50. * nominalGain;  //
+  double lateGammaCut = 100. * nominalGain; //
+
   double prePeakCut = 0.5;
   double latePeakCut = 3.5;                 // march 18 2024 2.5;
   double diffStepSipm = 3.;                 // 6 ns steps for SIPM
@@ -851,7 +855,6 @@ int anaCRun::anaEvent(Long64_t entry)
     idet->trigger = rawBr[ib]->trigger;
     idet->base = base + fitMean; // add in fit mean if fit succeeded
     idet->mode = mode;
-    idet->pass = passBit;
     idet->totSum = 0;
     idet->preSum = 0;
     idet->trigSum = 0;
@@ -862,19 +865,21 @@ int anaCRun::anaEvent(Long64_t entry)
     idet->latePeakSum = 0;
 
     /*********
-     * make summs for cuts
+     * make sums for cuts
      *********/
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
       double val = double(rawBr[ib]->rdigi[j]) - idet->base;
-      idet->totSum += val / nominalGain * landauMax;   // convert to approximate number of photons
-      tdet13->totSum += val / nominalGain * landauMax; // convert to approximate number of photons
+      if (val < 3. * idet->sigma)
+        continue;
+      idet->totSum += val / nominalGain;   // convert to approximate number of photons
+      tdet13->totSum += val / nominalGain; // convert to approximate number of photons
       if (j < triggerStart)
-        idet->preSum += val / nominalGain * landauMax;
+        idet->preSum += val / nominalGain;
       if (j > lateTimeStart)
       {
-        idet->lateSum += val / nominalGain * landauMax;
-        tdet13->lateSum += val / nominalGain * landauMax;
+        idet->lateSum += val / nominalGain;
+        tdet13->lateSum += val / nominalGain;
       }
       // channel sum
       baseHist[ichan]->Fill(val);
@@ -882,13 +887,13 @@ int anaCRun::anaEvent(Long64_t entry)
         hChannelGaus[ib]->Fill(val);
     }
 
-    /* add maxAdc
+    /* add maxAdc */
     double maxAdc;
     int maxSample;
     getMaxRawAdc(ib, idet->base, maxAdc, maxSample);
     idet->maxAdc = maxAdc;
     idet->maxSample = maxSample;
-    //I have added this to the TDet as  maxSample maxAdc
+    // I have added this to the TDet as  maxSample maxAdc
     if (ntAdc->GetEntries() < 1E9)
     {
       for (unsigned j = 0; j < rawBr[ichan]->rdigi.size(); ++j)
@@ -897,19 +902,9 @@ int anaCRun::anaEvent(Long64_t entry)
         if (adc > 2. * idet->sigma)
           ntAdc->Fill(double(entry), double(ib), double(j), adc);
       }
-    }*/
+    }
 
   } // channel loop
-
-  /******   trigger cut ********/
-  TDet *idet9 = tbrun->getDet(9);
-  TDet *idet10 = tbrun->getDet(10);
-  TDet *idet11 = tbrun->getDet(11);
-
-  bool failsTrigger = idet9->totSum < trigSumCut || idet10->totSum < trigSumCut || idet11->totSum < trigSumCut;
-  ntTrig->Fill(double(entry), idet9->totSum, idet10->totSum, idet11->totSum, tdet13->totSum, failsTrigger);
-  if (failsTrigger)
-    passBit |= TRIGFAIL;
 
   double preSum = 0;
   /*********  early cut to remove photons before trigger *******/
@@ -917,12 +912,15 @@ int anaCRun::anaEvent(Long64_t entry)
   {
     unsigned ichan = ib;
     TDet *idet = tbrun->getDet(ichan);
-    preSum += idet->preSum;
+    preSum += idet->preSum / nominalGain;
   }
 
   hPreSumCut->Fill(preSum);
   if (preSum > preSumCut)
+  {
+    printf("line919 fail EARLYCUT cut %f val %f \n", preSumCut, preSum);
     passBit |= EARLYCUT;
+  }
 
   /******* trigger time cut *********/
   /* find trigger time from trigger sipms */
@@ -1023,6 +1021,9 @@ int anaCRun::anaEvent(Long64_t entry)
   }
 
   /********** gamma cut *********/
+  TDet *idet9 = tbrun->getDet(9);
+  TDet *idet10 = tbrun->getDet(10);
+  TDet *idet11 = tbrun->getDet(11);
   hGammaCut->Fill(tbrun->getDet(13)->lateSum);
   if (tbrun->getDet(13)->lateSum > lateGammaCut)
   {
@@ -1039,6 +1040,27 @@ int anaCRun::anaEvent(Long64_t entry)
       TH1D *EvRawWave = (TH1D *)hEvRawWave[NONSUMCHANNELS]->Clone(Form("EvRawGammaEvent%lldVal%.0E-Ch%i", entry, tbrun->getDet(13)->lateSum, 13));
       EvRawWave->SetTitle(Form("EvRawGammaEvent%lldVal%.3E-Ch%i", entry, tbrun->getDet(13)->lateSum, 13));
     }
+  }
+
+  /******   trigger cut ********/
+  int failsTrigger = 0;
+  if (idet9->totSum < trigSumCut)
+    failsTrigger |= 0x2;
+  if (idet10->totSum < trigSumCut)
+    failsTrigger |= 0x4;
+  if (idet11->totSum < trigSumCut)
+    failsTrigger |= 0x8;
+
+  // if (passBit == 0)
+  for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
+  {
+    ntNonTrig->Fill(double(entry), double(ib), tbrun->getDet(ib)->totSum);
+  }
+  ntTrig->Fill(double(entry), idet9->totSum, idet10->totSum, idet11->totSum, tdet13->totSum, failsTrigger);
+  if (failsTrigger != 0)
+  {
+    passBit |= TRIGFAIL;
+    printf("line1054 TRIGFAIL %lld cut %f chan 9 %f chan 10 %f chan 11%f \n", entry, trigSumCut, idet9->totSum, idet10->totSum, idet11->totSum);
   }
 
   /********************************************************
@@ -1073,21 +1095,22 @@ int anaCRun::anaEvent(Long64_t entry)
     idet->lateSum = 0;
     for (unsigned j = 0; j < digi.size(); ++j)
     {
-      idet->totSum += digi[j] / nominalGain * landauMax;
+      idet->totSum += digi[j] / nominalGain;
       if (j < triggerStart)
-        idet->preSum += digi[j] / nominalGain * landauMax;
+        idet->preSum += digi[j] / nominalGain;
 
       if (j > triggerStart && j < triggerEnd)
       {
-        idet->trigSum += digi[j] / nominalGain * landauMax;
+        idet->trigSum += digi[j] / nominalGain;
         if (digi[j] > peakMax)
           peakMax = digi[j];
       }
 
       if (j > lateTimeStart)
-        idet->lateSum += digi[j] / nominalGain * landauMax;
+        idet->lateSum += digi[j] / nominalGain;
     }
     // add some other variables
+    idet->pass = passBit;
     idet->peakMax = peakMax;
 
     ntChan->Fill(float(rawBr[ib]->trigger), float(ib), float(idet->ave), float(idet->sigma), float(idet->skew), float(idet->base), float(peakMax), float(idet->totSum), float(idet->lateSum), float(crossings.size()), float(passBit));
@@ -1262,8 +1285,8 @@ int anaCRun::anaEvent(Long64_t entry)
       ++nPmtTrigger;
   }
 
-  if (nPmtTrigger > 0)
-    printf("line1146 event %llu size hits 1,4,pmt %lu %lu %lu nPmtTrigger %i \n", entry, tdet1->hits.size(), tdet4->hits.size(), tdetPmt->hits.size(), nPmtTrigger);
+  // if (nPmtTrigger > 0)
+  //   printf("line1146 event %llu size hits 1,4,pmt %lu %lu %lu nPmtTrigger %i \n", entry, tdet1->hits.size(), tdet4->hits.size(), tdetPmt->hits.size(), nPmtTrigger);
 
   // do cosmic cut based on large pulse counting
   // hCosmicMult->Fill(double(nCosmicHits));
@@ -1295,6 +1318,7 @@ int anaCRun::anaEvent(Long64_t entry)
       finder->plotEvent(pmtDir, tdetPmt->channel, entry);
   }
   // for  late hits
+  /*
   int nLate9 = 0;
   TDet *tdet9 = tbrun->getDet(9);
   int startLast = 0;
@@ -1306,14 +1330,25 @@ int anaCRun::anaEvent(Long64_t entry)
       startLast = tdet9->hits[ihit].startTime;
     }
   }
+  */
   /* just collect some events */
+  TDet *tdet9 = tbrun->getDet(9);
+  TDet *tdet10 = tbrun->getDet(10);
+  TDet *tdet11 = tbrun->getDet(11);
+  /* refill */
+  // baseline correction from fitted Gaussian
   if (exampleDir->GetList()->GetEntries() < exampleDirMax)
   {
     exampleDir->cd();
-    TH1D *EvRawWave = (TH1D *)hEvRawWave[9]->Clone(Form("EvRawEvent%lld-Ch%i-Start%i", entry, 9, startLast));
+    TH1D *EvRawWave = (TH1D *)hEvRawWave[9]->Clone(Form("EvRawEvent%lld-Ch%i-totSum%.0f", entry, 9, tdet9->totSum));
     EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, 9));
-    finder->plotEvent(exampleDir, tdet9->channel, entry);
-    // printf("@line1192 print event %llu start %i printed %i \n", entry, startLast, exampleDir->GetList()->GetEntries());
+    EvRawWave = (TH1D *)hEvRawWave[10]->Clone(Form("EvRawEvent%lld-Ch%i-totSum%.0f", entry, 10, tdet10->totSum));
+    EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, 10));
+
+    EvRawWave = (TH1D *)hEvRawWave[11]->Clone(Form("EvRawEvent%lld-Ch%i-totSum%.0f", entry, 11, tdet11->totSum));
+    EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, 11));
+    // finder->plotEvent(exampleDir, tdet9->channel, entry);
+    //  printf("@line1192 print event %llu start %i printed %i \n", entry, startLast, exampleDir->GetList()->GetEntries());
   }
 
   // printf("line975 chan 13 has %lu hits \n", tdet13->hits.size());
@@ -1328,7 +1363,7 @@ int anaCRun::anaEvent(Long64_t entry)
     hCountLateTimeQpeak->Fill(hitStartTime, tdet13->hits[ihit].qpeak / nominalGain);
     if (hitStartTime < triggerStart)
       hPreQpeak->Fill(tdet13->hits[ihit].qpeak / nominalGain);
-    if (hitStartTime < triggerStart && tdet13->hits[ihit].qpeak / nominalGain > prePeakCut)
+    if (hitStartTime < triggerStart && tdet13->hits[ihit].qpeak > prePeakCut)
     {
       ++nPreHits;
       // printf("event preHits %llu cut %lu hitStartTime %lu  qpeak %.2f nPreHits %i \n", entry, triggerStart, hitStartTime, hiti.qpeak, nPreHits);
@@ -1420,6 +1455,7 @@ int anaCRun::anaEvent(Long64_t entry)
     //{
 
     /* just collect some events */
+    /*
     if (passBit == 0 && totHits > 0 && (ib == 0 || ib == 1))
     {
       if (exampleDir->GetList()->GetEntries() < exampleDirMax)
@@ -1431,6 +1467,7 @@ int anaCRun::anaEvent(Long64_t entry)
         // printf("@line1192 print event %llu start %i printed %i \n", entry, startLast, exampleDir->GetList()->GetEntries());
       }
     }
+      */
 
     //}
   }
@@ -1911,15 +1948,16 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   // histograms for event cuts
   ntBase = new TNtuple("ntBase", " baseline ntuple ", "event:chan:base0:base1:fitMean:sigma:status"); // Fill(entry, ib, ave, sigma, fitStatus);;
+  ntAdc = new TNtuple("ntAdc", " ADC ntuple ", "event:chan:sample:digi");
   ntTrig = new TNtuple("ntTrig", " trigger cut  ntuple ", "event:qsum9:qsum10:qsum11:qsum13:fails");
+  ntNonTrig = new TNtuple("ntNonTrig", " non trigger ntuple ", "event:chan:qsum");
   hTriggerTime = new TH1D("TriggerTime", " ave of trigger Sipm times ", 1000, 0, 1000);
-  hPreSumCut = new TH1D("PreSumCut", " pre trigger sum in effective photons ", 100, 0, 100);
-  hCosmicCut = new TH1D("CosmicCut", " PMT sum in effective photons ", 1000, 0, 2. * totCosmicCut);
-  hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 in effective photons ", 1000, 0, 2. * lateGammaCut);
+  hPreSumCut = new TH1D("PreSumCut", " pre trigger sum /nominal gain ", 100, 0, 2 * preSumCut);
+  hCosmicCut = new TH1D("CosmicCut", " PMT sum /nominal gain", 1000, 0, 2. * totCosmicCut);
+  hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 /nominal gain ", 1000, 0, 2. * lateGammaCut);
 
   // Fill(entry, ib, ave, sigma, fitStatus);;
   ntFailures = new TNtuple("ntFailures", " failures ntuple ", "event:chan:totHits:pass");
-  // ntAdc = new TNtuple("ntAdc", " ADC ntuple ", "event:chan:sample:digi");
   ntThresholdAll = new TNtuple("ntThresholdAll", "ntThreshold no cuts", "event:chan:sample:ddigi");
   ntThresholdAdc = new TNtuple("ntThresholdAdc", "ntThresholdAdc", "event:chan:sampleLow:sampleHigh:maxBin:adcMax");
   ntThreshold = new TNtuple("ntThreshold", "ntThreshold passing cuts", "event:chan:sampleLow:ddigiLow:sampleHigh:ddigiHigh:maxBin:adcMax");
@@ -1932,7 +1970,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
   evCount = new TH1D("eventcount", "event count", CHANNELS, 0, CHANNELS);
   hEventPass = new TH1D("EventPass", " event failures", TOTALCODES, 0, TOTALCODES);
-  hEventFail = new TH1D("EventFail", " event fail bit", FAILBITS + 1, 0, FAILBITS + 1); // first bin is pass
+  hEventFail = new TH1D("EventFail", " event fail bit", FAILBITS, 0, FAILBITS); // first bin is pass
   hNoPeak = new TH1D("noPeak", "no peak events count by channel", CHANNELS, 0, CHANNELS);
   histHitCount = new TH1D("hitCount", "hit count by channel", CHANNELS, 0, CHANNELS);
   histQSum = new TH1D("histqsum", "qsum by channel", CHANNELS, 0, CHANNELS);
@@ -2298,20 +2336,20 @@ anaCRun::anaCRun(TString theTag)
 {
   failCode[0] = PASS;
   failCode[1] = BASEFAIL;
-  failCode[2] = TRIGFAIL;
-  failCode[3] = EARLYCUT;
-  failCode[4] = FIRSTTIME;
-  failCode[5] = COSMIC;
-  failCode[6] = GAMMA;
+  failCode[2] = EARLYCUT;
+  failCode[3] = FIRSTTIME;
+  failCode[4] = COSMIC;
+  failCode[5] = GAMMA;
+  failCode[6] = TRIGFAIL;
 
   bitNames.resize(FAILBITS);
   bitNames[0] = TString("pass");
   bitNames[1] = TString("baseline");
-  bitNames[2] = TString("trigger");
-  bitNames[3] = TString("earlycut");
-  bitNames[4] = TString("firsttime");
-  bitNames[5] = TString("cosmic");
-  bitNames[6] = TString("gamma");
+  bitNames[2] = TString("earlycut");
+  bitNames[3] = TString("firsttime");
+  bitNames[4] = TString("cosmic");
+  bitNames[5] = TString("gamma");
+  bitNames[6] = TString("trigger");
 
   for (unsigned ic = 0; ic < TOTALCODES; ++ic)
     codeNames.push_back(TString("mixed"));
@@ -2326,6 +2364,8 @@ anaCRun::anaCRun(TString theTag)
   printf(" failure codes \n");
   for (unsigned ic = 0; ic < FAILBITS; ++ic)
     printf("bit %i hex %x %s\n", ic, failCode[ic], bitNames[ic].Data());
+
+  printf("TRIGSUMCUT %f nominalGain %f\n", trigSumCut, nominalGain);
 
   tag = theTag;
   // tbrun = new TBRun(tag);

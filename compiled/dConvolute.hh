@@ -64,9 +64,10 @@ public:
     std::vector<std::complex<double>> FFT(std::vector<double> vin, std::vector<std::complex<double>> dResponse)
     {
         // do transform
-        std::vector<std::complex<double>> complexVector;
-        for (unsigned is = 0; is < vin.size(); ++is)
-            fFFT->SetPoint(is, vin[is]);
+        std::vector<std::complex<double>>
+            complexVector;
+        for (unsigned i = 0; i < vin.size(); ++i)
+            fFFT->SetPoint(i, vin[i]);
         fFFT->Transform(); //
 
         // build return vector

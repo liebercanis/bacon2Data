@@ -43,7 +43,9 @@ uint16_t maxAdc = pow(2, 14);
 double gain = nominalGain;
 double landauMax = 0.018063;
 // 2*14         // ns
-
+/* parameters quoted in talk  "A new optical model for LEGEND-200
+with remage" Manuel Huber <ge38nap@mytum.de>, Luigi Pertoldi
+LEGEND collaboration meeting · March 25, 2025 */
 double LY = 25.6; //  photone/kev Doke
 double numPhotons = 60 * LY;
 double singletFrac = 0.20;
@@ -231,8 +233,9 @@ void btb(int ngen = 10000000)
 
       ncount[ich] += nsinglet + ntriplet;
 
-      if (iev / 100000 * 100000 == iev)
-        printf("event %i ich %i eff %E nPhotons  %E \n", iev, ich, eff, double(ncount[ich]));
+      if (iev / 1 * 1 == iev)
+        if (ich < 12 && ich > 8)
+          printf("event %i ich %i eff %E singlet %i triplet %i tot  %lld \n", iev, ich, eff, nsinglet, ntriplet, ncount[ich]);
 
       // singlet times
       for (int it = 0; it < nsinglet; ++it)
