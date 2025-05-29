@@ -82,7 +82,7 @@ void convolve(TH1D *hist, double time) // time is when photon arrives
 
 void btb(int ngen = 10000000)
 {
-  printf(" btb sim generate ngen =  %i \n", ngen);
+  printf(" btb sim generate ngen =  %i LY %.1f photons/kev * 60 = %.1f \n", ngen, LY, numPhotons);
 
   /* channel efficiences */
   for (int i = 0; i < NCHAN - 1; ++i)
@@ -225,7 +225,7 @@ void btb(int ngen = 10000000)
 
       // rawEvent->time = EventInfo->TriggerTimeTag;
 
-      double eff = effGeoFunc(ich);
+      double eff = effGeoFunc(ich) * SiPMQE128Ham;
       double nsmean = double(nPhotonsEvent) * eff * singletFrac;
       double ntmean = double(nPhotonsEvent) * eff - nsmean;
       int nsinglet = ran->Poisson(nsmean);
@@ -235,7 +235,7 @@ void btb(int ngen = 10000000)
 
       if (iev / 1 * 1 == iev)
         if (ich < 12 && ich > 8)
-          printf("event %i ich %i eff %E singlet %i triplet %i tot  %lld \n", iev, ich, eff, nsinglet, ntriplet, ncount[ich]);
+          printf("event %i nphotons %i ich %i eff %E singlet %i triplet %i tot  %i \n", iev, nPhotonsEvent, ich, eff, nsinglet, ntriplet, nsinglet + ntriplet);
 
       // singlet times
       for (int it = 0; it < nsinglet; ++it)
