@@ -233,7 +233,7 @@ void btb(int ngen = 10000000)
 
       ncount[ich] += nsinglet + ntriplet;
 
-      if (iev / 1 * 1 == iev)
+      if (iev / 100 * 100 == iev)
         if (ich < 12 && ich > 8)
           printf("event %i nphotons %i ich %i eff %E singlet %i triplet %i tot  %i \n", iev, nPhotonsEvent, ich, eff, nsinglet, ntriplet, nsinglet + ntriplet);
 
