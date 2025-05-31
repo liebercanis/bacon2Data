@@ -513,12 +513,12 @@ modelFit::modelFit(int theFit, int ichan, double ppm)
   vparNames[BKGTAU] = TString("bkgtau");
   vparNames[CHAN] = TString("chan");
   vparNames[TYPE] = TString("type");
-  // for BTB from georgia
-  distanceLevel[0] = 0.5;
-  distanceLevel[1] = 11.9;
-  distanceLevel[2] = 21.8;
-  distanceLevel[3] = 31.8;
-  distanceLevel[4] = 42.7;
+  // for BTB from georgia May 30 2025
+  distanceLevel[0] = 1.486;
+  distanceLevel[1] = 12.032;
+  distanceLevel[2] = 21.970;
+  distanceLevel[3] = 31.916;
+  distanceLevel[4] = 42.68;
 
   /* previous BTB numbers
     distanceLevel[0] = 0.5;
