@@ -254,7 +254,10 @@ public:
   double nominalTriggerGain = 700.0;
   double nominalGain = 167.;     // was 160.0; set Nov 13 2024
   double nominalGainTrig = 700.; // was 160.0; set Nov 13 2024
-  double landauMax = 1.0;        // 0.018063;
+  double qsumGain[CHANNELS];
+  double nominalQsumGain = 7050;
+  double nominalQsumTrigGain = 3.7E4;
+  double landauMax = 1.0; // 0.018063;
   //  227.4; // average
   //   double nominalGain = 160.0; // average
   unsigned firstTime;       // corrected trigger time for event
@@ -266,8 +269,8 @@ public:
   ULong_t triggerStart = 730; // 740;
   ULong_t timeVeryLateCut = 3500;
   /* need to tune these cuts on data */
-  double trigSumCut = nominalGain;          //
-  double preSumCut = 4. * nominalGain;      //
+  double trigSumCut = 2.;                   // units of nominalQsumTrigGain;
+  double preSumCut = 4. * nominalGain;      ///
   double totCosmicCut = 50. * nominalGain;  //
   double lateGammaCut = 100. * nominalGain; //
 
@@ -453,6 +456,12 @@ void anaCRun::printGains()
 
 bool anaCRun::readGains(TString fileName)
 {
+  for (int i = 0; i < CHANNELS; ++i)
+    qsumGain[i] = nominalQsumGain;
+  qsumGain[9] = nominalQsumTrigGain;
+  qsumGain[10] = nominalQsumTrigGain;
+  qsumGain[11] = nominalQsumTrigGain;
+
   /* define nominal */
   sipmGain.clear();
   sipmGainError.clear();
@@ -872,14 +881,14 @@ int anaCRun::anaEvent(Long64_t entry)
       double val = double(rawBr[ib]->rdigi[j]) - idet->base;
       if (val < 3. * idet->sigma)
         continue;
-      idet->totSum += val / nominalGain;   // convert to approximate number of photons
-      tdet13->totSum += val / nominalGain; // convert to approximate number of photons
+      idet->totSum += val / qsumGain[ib];   // convert to approximate number of photons
+      tdet13->totSum += val / qsumGain[ib]; // convert to approximate number of photons
       if (j < triggerStart)
-        idet->preSum += val / nominalGain;
+        idet->preSum += val / qsumGain[ib];
       if (j > lateTimeStart)
       {
-        idet->lateSum += val / nominalGain;
-        tdet13->lateSum += val / nominalGain;
+        idet->lateSum += val / qsumGain[ib];
+        tdet13->lateSum += val / qsumGain[ib];
       }
       // channel sum
       baseHist[ichan]->Fill(val);
@@ -912,7 +921,7 @@ int anaCRun::anaEvent(Long64_t entry)
   {
     unsigned ichan = ib;
     TDet *idet = tbrun->getDet(ichan);
-    preSum += idet->preSum / nominalGain;
+    preSum += idet->preSum / qsumGain[ib];
   }
 
   hPreSumCut->Fill(preSum);
@@ -1060,7 +1069,7 @@ int anaCRun::anaEvent(Long64_t entry)
   if (failsTrigger != 0)
   {
     passBit |= TRIGFAIL;
-    printf("line1054 TRIGFAIL %lld cut %f chan 9 %f chan 10 %f chan 11%f \n", entry, trigSumCut, idet9->totSum, idet10->totSum, idet11->totSum);
+    printf("line1054 TRIGFAIL %lld cut %f chan 9 %f chan 10 %f chan 11 %f \n", entry, trigSumCut, idet9->totSum, idet10->totSum, idet11->totSum);
   }
 
   /********************************************************
@@ -1095,19 +1104,19 @@ int anaCRun::anaEvent(Long64_t entry)
     idet->lateSum = 0;
     for (unsigned j = 0; j < digi.size(); ++j)
     {
-      idet->totSum += digi[j] / nominalGain;
+      idet->totSum += digi[j] / qsumGain[ib];
       if (j < triggerStart)
-        idet->preSum += digi[j] / nominalGain;
+        idet->preSum += digi[j] / qsumGain[ib];
 
       if (j > triggerStart && j < triggerEnd)
       {
-        idet->trigSum += digi[j] / nominalGain;
+        idet->trigSum += digi[j] / qsumGain[ib];
         if (digi[j] > peakMax)
           peakMax = digi[j];
       }
 
       if (j > lateTimeStart)
-        idet->lateSum += digi[j] / nominalGain;
+        idet->lateSum += digi[j] / qsumGain[ib];
     }
     // add some other variables
     idet->pass = passBit;

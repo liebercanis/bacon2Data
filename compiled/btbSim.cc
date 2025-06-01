@@ -12,6 +12,7 @@
 #include "TRandom3.h"
 #include "TNtuple.h"
 #include "TFile.h"
+#include "Math/Vector3D.h"
 #include "modelFitGamma.hh"
 #include "TBRawRun.hxx"
 #include "TBSimRun.hxx"
@@ -30,6 +31,8 @@ std::vector<uint16_t> wave;
 bool writeRawData = true;
 
 modelFit *models[NCHAN];
+TNtuple *ntOrigin;
+TNtuple *ntTrigCh;
 TNtuple *ntTrig;
 TH1D *hPhoton[NCHAN];
 TH1D *hConvolve[NCHAN];
@@ -53,6 +56,9 @@ int binWidth = 2;
 double noiseToSignal = 0.04;
 double baseline = 1100.; // 1100; // ADC
 double thePPM = 0.0;
+double meanFreePath = 1.0; // guess for 60kev gamma in cm
+
+ROOT::Math::XYZVector eventOrigin(0, 0, 0);
 
 /*
 efficiencies  PMTQE175 = 0.38;
@@ -78,6 +84,72 @@ void convolve(TH1D *hist, double time) // time is when photon arrives
   // printf("convolve: %s time %f startBin %i offsetBin %i\n", hist->GetName(), time, startBin, offsetBin);
   for (int ib = startBin; ib < hist->GetNbinsX(); ++ib)
     hist->SetBinContent(ib, hist->GetBinContent(ib) + gain / landauMax * hResponse->GetBinContent(ib - startBin + offsetBin));
+}
+
+ROOT::Math::XYZVector getXYZVector(double r, double theta, double phi) // angles in radians
+{
+  // construct XYZ coordinates
+  double cost = cos(theta);
+  double sint = sin(theta);
+  double cosp = cos(phi);
+  double sinp = sin(phi);
+  double x = r * sint * cosp;
+  double y = r * sint * sinp;
+  double z = r * cost;
+  ROOT::Math::XYZVector pos(x, y, z);
+  return pos;
+}
+
+double effGeoSim(int ichan, bool show = false) // uses PositionVector3D eventOrigin;
+{
+  bool isTrig = ichan == 9 || ichan == 10 || ichan == 11;
+  if (!isTrig)
+    return effGeoFunc(ichan);
+
+  int ilevel = level(ichan);
+  double e = 1.0;
+  if (ilevel != 0)
+    return e;
+
+  // det positions Georgia May 2025
+  double trigRadius = 1.486;
+  // convert to radians
+  double trigTheta = 55.06 / 360. * TMath::TwoPi(); // 11,10,9
+  double trigPhi[3];
+  trigPhi[0] = 0.;                           // 9
+  trigPhi[1] = 240. / 360. * TMath::TwoPi(); // 10
+  trigPhi[2] = 120. / 360. * TMath::TwoPi(); // 11
+
+  ROOT::Math::XYZVector rSipm = getXYZVector(trigRadius, trigTheta, trigPhi[ichan - 9]);
+  ROOT::Math::XYZVector relative = rSipm + eventOrigin;
+
+  double distance2 = relative.Mag2();
+  /* Area of SiPMs is 6.0mm x 6.0mm
+      Channels 6, 7, and 8 are at 11.6 cm
+      from the source Channels 3, 4, and 5 are at 23.2 cm
+      from the source Channels 0, 1, and 2 are at 34.8 cm from the source Channel 12 is at 36 cm from the source.
+  */
+  double aPmt = TMath::Pi() / 4.0 * pow(6.4, 2); // R11410-20  Effective area : 64 mm dia
+  double a = pow(0.6, 2.);                       // SIPM area
+  double b = 4.0 * TMath::Pi();
+
+  // correct solid angle
+  ROOT::Math::XYZVector runit = rSipm.Unit();
+  ROOT::Math::XYZVector ounit = relative.Unit();
+  double cos = runit.Dot(ounit);
+  // printf(" chan %i cos %f \n", ichan, cos);
+  if (cos < 0.)
+    cos = 0; // origin behind sipm
+  a *= cos;
+
+  e = a / b / distance2;
+  // shift phi for printing.
+  double localPhi = relative.Phi() * 360. / TMath::TwoPi();
+  if (localPhi < 0)
+    localPhi += 360.;
+  if (show)
+    printf("effGeoSim ichan  %i level %i  cos %f dist %f R,Theta,Phi (%f,%f,%f) area %f eff %f \n", ichan, ilevel, cos, sqrt(distance2), relative.R(), relative.Theta() * 360. / TMath::TwoPi(), localPhi, a, e);
+  return e;
 }
 
 void btb(int ngen = 10000000)
@@ -124,7 +196,9 @@ void btb(int ngen = 10000000)
     // rawRun->print();
   }
 
-  ntTrig = new TNtuple("ntTrig", " trigger info ", "ev:ch:qsum:psum:nph");
+  ntOrigin = new TNtuple("ntOrigin", " event origin ", "ev:r:cos:theta:phi:x:y:z");
+  ntTrigCh = new TNtuple("ntTrigCh", " trigger info by channel ", "ev:ch:qsum:psum:nph:r:theta:phi:x:y:z");
+  ntTrig = new TNtuple("ntTrig", " trigger info by event  ", "ev:nph9:nph10:nph11:r:theta:phi:x:y:z");
   hCount = new TH1D("Count", "hit count", 13, 0, 13);
   hTime = new TH1D("Time", "photon time ", 7500, 0, 2 * 7500);
   // landau response function
@@ -176,12 +250,20 @@ void btb(int ngen = 10000000)
   }
 
   // print info for channel
-  for (int ich = NCHAN - 2; ich >= 0; --ich)
+  printf("\n******* efficienies ****\n ");
+  for (int ich = 8; ich >= 0; --ich)
   {
     double eff = effGeoFunc(ich);
     int ilevel = level(ich);
     printf(" chan %i level %i distance %f eff %E \n", ich, ilevel, distanceLevel[ilevel], eff);
   }
+
+  // trigger sipms
+  for (int ich = 9; ich < 12; ++ich)
+  {
+    double eff = effGeoSim(ich, true);
+  }
+  printf("***********\n ");
 
   // print info for pmt
   double eff = effGeoFunc(12);
@@ -199,8 +281,21 @@ void btb(int ngen = 10000000)
 
     int nPhotonsEvent = (int)ran->Gaus(numPhotons, sqrt(numPhotons));
     totalPhotons += nPhotonsEvent;
+
+    /********  generate gamma position  *********/
+    double gammaR = abs(ran->Gaus(0.0, meanFreePath));
+    double gammaCosTheta = 2. * ran->Rndm() - 1.;   // cos flat from 1 to -1
+    double gammaPhi = TMath::TwoPi() * ran->Rndm(); // phi flat from 0 to 2pi
+    eventOrigin = getXYZVector(gammaR, acos(gammaCosTheta), gammaPhi);
+    double localPhi = eventOrigin.Phi() * 360. / TMath::TwoPi();
+    if (localPhi < 0)
+      localPhi += 360.;
+
+    ntOrigin->Fill(iev, eventOrigin.R(), cos(eventOrigin.Theta()), eventOrigin.Theta() * 360. / TMath::TwoPi(), localPhi), eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z();
+
     if (iev / 100 * 100 == iev)
-      printf("... event %i total photons %E \n", iev, double(totalPhotons));
+      printf("... event %i total photon %0.f (r,cosTheta,phi) = (%f, %f, %f) (r,theta,Phi) = (%f , %f ,%f ) \n", iev, double(totalPhotons), gammaR, gammaCosTheta, gammaPhi, eventOrigin.R(), eventOrigin.Theta() * 360. / TMath::TwoPi(), localPhi);
+    // get event position
 
     // loop over channels
     for (int ich = 0; ich < NCHAN; ++ich)
@@ -224,8 +319,7 @@ void btb(int ngen = 10000000)
       // printf(" simRun ev %i  channel %i \n", iev, ich);
 
       // rawEvent->time = EventInfo->TriggerTimeTag;
-
-      double eff = effGeoFunc(ich) * SiPMQE128Ham;
+      double eff = effGeoSim(ich) * SiPMQE128Ham;
       double nsmean = double(nPhotonsEvent) * eff * singletFrac;
       double ntmean = double(nPhotonsEvent) * eff - nsmean;
       int nsinglet = ran->Poisson(nsmean);
@@ -302,9 +396,10 @@ void btb(int ngen = 10000000)
         for (int ibin = 1; ibin <= hPhoton[ich]->GetNbinsX(); ++ibin)
           psum += hPhoton[ich]->GetBinContent(ibin) / gain;
 
-        ntTrig->Fill(iev, ich, qsum, psum, hPhoton[ich]->GetEntries());
+        ntTrigCh->Fill(iev, ich, qsum, psum, hPhoton[ich]->GetEntries(), eventOrigin.R(), eventOrigin.Theta() * 360. / TMath::TwoPi(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
       }
     } // end channel loop
+    ntTrig->Fill(iev, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries(), eventOrigin.R(), eventOrigin.Theta() * 360. / TMath::TwoPi(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
 
     /* event histograms */
     TString histName;
@@ -343,9 +438,6 @@ void btb(int ngen = 10000000)
   // fout->ls();
   printf("end of btbgen  ngen %i %s exit\n", ngen, fout->GetName());
   simRun->print();
-  fout->ls();
-  fout->Write();
-  fout->Close();
 }
 
 // static TBRun *theTBRun;
@@ -361,6 +453,9 @@ int main(int argc, char *argv[])
   }
 
   btb(ngen);
-  printf("... %s ngen %i exit\n", argv[0], ngen);
+  printf("... %s ngen %i file %s exit\n", argv[0], ngen, fout->GetName());
+  // fout->ls();
+  fout->Write();
+  fout->Close();
   exit(0);
 }
