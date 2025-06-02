@@ -154,6 +154,7 @@ public:
   std::vector<TH1D *> hLateSum;
   std::vector<TH1D *> hWave;
 
+  TH1D *hTrigSumCut;
   TH1D *hPreQpeak;
   TH1D *hLateQpeak;
   TH1D *hCountPre;
@@ -269,7 +270,7 @@ public:
   ULong_t triggerStart = 730; // 740;
   ULong_t timeVeryLateCut = 3500;
   /* need to tune these cuts on data */
-  double trigSumCut = 2.;                   // units of nominalQsumTrigGain;
+  double trigSumCut = 0.5;                  // units of nominalQsumTrigGain;
   double preSumCut = 4. * nominalGain;      ///
   double totCosmicCut = 50. * nominalGain;  //
   double lateGammaCut = 100. * nominalGain; //
@@ -1053,6 +1054,7 @@ int anaCRun::anaEvent(Long64_t entry)
 
   /******   trigger cut ********/
   int failsTrigger = 0;
+  double trigSum = idet9->totSum + idet10->totSum + idet11->totSum;
   if (idet9->totSum < trigSumCut)
     failsTrigger |= 0x2;
   if (idet10->totSum < trigSumCut)
@@ -1066,6 +1068,7 @@ int anaCRun::anaEvent(Long64_t entry)
     ntNonTrig->Fill(double(entry), double(ib), tbrun->getDet(ib)->totSum);
   }
   ntTrig->Fill(double(entry), idet9->totSum, idet10->totSum, idet11->totSum, tdet13->totSum, failsTrigger);
+  hTrigSumCut->Fill(trigSum);
   if (failsTrigger != 0)
   {
     passBit |= TRIGFAIL;
@@ -1964,6 +1967,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   hPreSumCut = new TH1D("PreSumCut", " pre trigger sum /nominal gain ", 100, 0, 2 * preSumCut);
   hCosmicCut = new TH1D("CosmicCut", " PMT sum /nominal gain", 1000, 0, 2. * totCosmicCut);
   hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 /nominal gain ", 1000, 0, 2. * lateGammaCut);
+  hTrigSumCut = new TH1D("TrigSumCut", " qsum9+qsum10+qsum11  in units nominal PE ", 40, 0, 40.);
 
   // Fill(entry, ib, ave, sigma, fitStatus);;
   ntFailures = new TNtuple("ntFailures", " failures ntuple ", "event:chan:totHits:pass");
