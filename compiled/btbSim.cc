@@ -56,7 +56,7 @@ int binWidth = 2;
 double noiseToSignal = 0.04;
 double baseline = 1100.; // 1100; // ADC
 double thePPM = 0.0;
-double meanFreePath = 1.0; // guess for 60kev gamma in cm
+double meanFreePath = 1.5; // guess for 60kev gamma in cm
 
 ROOT::Math::XYZVector eventOrigin(0, 0, 0);
 
