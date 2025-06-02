@@ -121,7 +121,7 @@ double effGeoSim(int ichan, bool show = false) // uses PositionVector3D eventOri
   trigPhi[2] = 120. / 360. * TMath::TwoPi(); // 11
 
   ROOT::Math::XYZVector rSipm = getXYZVector(trigRadius, trigTheta, trigPhi[ichan - 9]);
-  ROOT::Math::XYZVector relative = rSipm + eventOrigin;
+  ROOT::Math::XYZVector relative = rSipm - eventOrigin;
 
   double distance2 = relative.Mag2();
   /* Area of SiPMs is 6.0mm x 6.0mm
@@ -283,7 +283,7 @@ void btb(int ngen = 10000000)
     totalPhotons += nPhotonsEvent;
 
     /********  generate gamma position  *********/
-    double gammaR = abs(ran->Gaus(0.0, meanFreePath));
+    double gammaR = abs(ran->Exp(meanFreePath));
     double gammaCosTheta = 2. * ran->Rndm() - 1.;   // cos flat from 1 to -1
     double gammaPhi = TMath::TwoPi() * ran->Rndm(); // phi flat from 0 to 2pi
     eventOrigin = getXYZVector(gammaR, acos(gammaCosTheta), gammaPhi);
