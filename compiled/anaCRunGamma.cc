@@ -2206,14 +2206,14 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     {
       printf("... entry %llu pass %u fail %u  failures by bit:\n", entry, npass, nfail);
       // printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
-      printf(" entry %i ( %i ) pass %i (%i) fail %i ( frac %0.3f )  \n",
+      printf(" line 2209 entry %i ( %i ) pass %i (%i) fail %i ( frac %0.3f )  \n",
              npass + nfail,
              int(hEventFail->GetEntries()),
              npass, int(hEventFail->GetBinContent(1)),
              nfail,
              double(nfail) / double(npass + nfail));
 
-      for (int ibin = 1; ibin < hEventFail->GetNbinsX(); ++ibin)
+      for (int ibin = 1; ibin <= hEventFail->GetNbinsX(); ++ibin)
         printf(" bin %i content %.0f %s \n", ibin, hEventFail->GetBinContent(ibin), bitNames[ibin - 1].Data());
       hEventFail->Print("all");
 
