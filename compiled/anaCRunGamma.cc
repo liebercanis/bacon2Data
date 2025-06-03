@@ -154,7 +154,9 @@ public:
   std::vector<TH1D *> hLateSum;
   std::vector<TH1D *> hWave;
 
+  TH1D *hTrigSumNoCut;
   TH1D *hTrigSumCut;
+  std::vector<TH1D *> hTrigSumCutRatio;
   TH1D *hPreQpeak;
   TH1D *hLateQpeak;
   TH1D *hCountPre;
@@ -271,6 +273,8 @@ public:
   ULong_t timeVeryLateCut = 3500;
   /* need to tune these cuts on data */
   double trigSumCut = 0.5;                  // units of nominalQsumTrigGain;
+  double trigRatioCutLow = 0.5;             // qsum ratio cut
+  double trigRatioCutHigh = 1.75;           // qsum ratio cut
   double preSumCut = 4. * nominalGain;      ///
   double totCosmicCut = 50. * nominalGain;  //
   double lateGammaCut = 100. * nominalGain; //
@@ -1052,28 +1056,37 @@ int anaCRun::anaEvent(Long64_t entry)
     }
   }
 
-  /******   trigger cut ********/
-  int failsTrigger = 0;
-  double trigSum = idet9->totSum + idet10->totSum + idet11->totSum;
-  if (idet9->totSum < trigSumCut)
-    failsTrigger |= 0x2;
-  if (idet10->totSum < trigSumCut)
-    failsTrigger |= 0x4;
-  if (idet11->totSum < trigSumCut)
-    failsTrigger |= 0x8;
-
   // if (passBit == 0)
   for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
   {
     ntNonTrig->Fill(double(entry), double(ib), tbrun->getDet(ib)->totSum);
   }
-  ntTrig->Fill(double(entry), idet9->totSum, idet10->totSum, idet11->totSum, tdet13->totSum, failsTrigger);
-  hTrigSumCut->Fill(trigSum);
+  double trigSum = idet9->totSum + idet10->totSum + idet11->totSum;
+  hTrigSumNoCut->Fill(trigSum);
+  double trigRatio[3];
+  trigRatio[0] = idet9->totSum / idet10->totSum;
+  trigRatio[1] = idet9->totSum / idet11->totSum;
+  trigRatio[2] = idet10->totSum / idet11->totSum;
+  for (unsigned iratio = 0; iratio < hTrigSumCutRatio.size(); ++iratio)
+    hTrigSumCutRatio[iratio]->Fill(trigRatio[iratio]);
+
+  /******   trigger cut ********/
+  int failsTrigger = 0;
+  if (idet9->totSum < trigSumCut || idet10->totSum < trigSumCut || idet11->totSum < trigSumCut)
+    failsTrigger |= 0x2;
+  if (trigRatio[0] > trigRatioCutHigh || trigRatio[1] > trigRatioCutHigh || trigRatio[2] > trigRatioCutHigh)
+    failsTrigger |= 0x4;
+  if (trigRatio[0] < trigRatioCutLow || trigRatio[1] < trigRatioCutLow || trigRatio[2] < trigRatioCutLow)
+    failsTrigger |= 0x8;
+
+  ntTrig->Fill(double(entry), idet9->totSum, idet10->totSum, idet11->totSum, tdet13->totSum, trigRatio[0], trigRatio[1], trigRatio[2], failsTrigger);
   if (failsTrigger != 0)
   {
     passBit |= TRIGFAIL;
-    printf("line1054 TRIGFAIL %lld cut %f chan 9 %f chan 10 %f chan 11 %f \n", entry, trigSumCut, idet9->totSum, idet10->totSum, idet11->totSum);
+    printf("line1054 TRIGFAIL %lld cut %f chan 9 %f chan 10 %f chan 11 %f ratio 9-10 %f ratio 9-11 %f ratio 10-11 %f \n", entry, trigSumCut, idet9->totSum, idet10->totSum, idet11->totSum, trigRatio[0], trigRatio[1], trigRatio[2]);
   }
+  if (failsTrigger == 0)
+    hTrigSumCut->Fill(trigSum);
 
   /********************************************************
    * now that we have the firstTime
@@ -1961,13 +1974,22 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   // histograms for event cuts
   ntBase = new TNtuple("ntBase", " baseline ntuple ", "event:chan:base0:base1:fitMean:sigma:status"); // Fill(entry, ib, ave, sigma, fitStatus);;
   ntAdc = new TNtuple("ntAdc", " ADC ntuple ", "event:chan:sample:digi");
-  ntTrig = new TNtuple("ntTrig", " trigger cut  ntuple ", "event:qsum9:qsum10:qsum11:qsum13:fails");
+  ntTrig = new TNtuple("ntTrig", " trigger cut  ntuple ", "event:qsum9:qsum10:qsum11:qsum13:ratio910:ratio911:ratio1011:fails");
   ntNonTrig = new TNtuple("ntNonTrig", " non trigger ntuple ", "event:chan:qsum");
   hTriggerTime = new TH1D("TriggerTime", " ave of trigger Sipm times ", 1000, 0, 1000);
   hPreSumCut = new TH1D("PreSumCut", " pre trigger sum /nominal gain ", 100, 0, 2 * preSumCut);
   hCosmicCut = new TH1D("CosmicCut", " PMT sum /nominal gain", 1000, 0, 2. * totCosmicCut);
   hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 /nominal gain ", 1000, 0, 2. * lateGammaCut);
-  hTrigSumCut = new TH1D("TrigSumCut", " qsum9+qsum10+qsum11  in units nominal PE ", 40, 0, 40.);
+  hTrigSumNoCut = new TH1D("TrigSumNoCut", " before cut qsum9+qsum10+qsum11  in units nominal PE ", 160, 0, 40.);
+  hTrigSumCut = new TH1D("TrigSumCut", " qsum9+qsum10+qsum11  in units nominal PE ", 160, 0, 40.);
+
+  TString hName;
+  hName.Form("TrigRatio%i-9-10", 0);
+  hTrigSumCutRatio.push_back(new TH1D(hName, hName, 50, 0., 10.));
+  hName.Form("TrigRatio%i-9-11", 1);
+  hTrigSumCutRatio.push_back(new TH1D(hName, hName, 50, 0., 10.));
+  hName.Form("TrigRatio%i-10-11", 2);
+  hTrigSumCutRatio.push_back(new TH1D(hName, hName, 50, 0., 10.));
 
   // Fill(entry, ib, ave, sigma, fitStatus);;
   ntFailures = new TNtuple("ntFailures", " failures ntuple ", "event:chan:totHits:pass");
@@ -2316,7 +2338,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   // hEventPass->Print("all");
   printf(" fail bit frequency total = %.0f  pass %i fail %i fail cosmic %i fail gamma %i \n", hEventFail->GetEntries(), npass, nfail, failCosmic, failGamma);
-  for (int ibin = 1; ibin < hEventFail->GetNbinsX(); ++ibin)
+  for (int ibin = 1; ibin <= hEventFail->GetNbinsX(); ++ibin)
   { // include error on poisson probability
     double nbin = hEventFail->GetBinContent(ibin);
     double ntot = hEventFail->GetEntries();
