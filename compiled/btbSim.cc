@@ -16,6 +16,8 @@
 #include "modelFitGamma.hh"
 #include "TBRawRun.hxx"
 #include "TBSimRun.hxx"
+#include "triggerPeakFit.hh"
+#include "TMinuit.h"
 std::string sdate;
 // time is in microseconds
 using namespace TMath;
@@ -59,6 +61,12 @@ double thePPM = 0.0;
 double meanFreePath = 1.5; // guess for 60kev gamma in cm
 
 ROOT::Math::XYZVector eventOrigin(0, 0, 0);
+TMinuit *gMinuit;
+
+enum
+{
+  NPAR = 4
+};
 
 /*
 efficiencies  PMTQE175 = 0.38;
@@ -69,6 +77,48 @@ int triggerStart = 2 * 700; // 730; sipm rise time
 double speMPV = double(triggerStart);
 double speSigma = 20.; // ns from single PI data fit
 TF1 *speLandau;
+
+double z[NPAR], x[NPAR], y[NPAR], errorz[NPAR];
+
+/* test minuit */
+//______________________________________________________________________________
+void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
+{
+  qsumValue[0] = 1.;
+  qsumValue[1] = 2.;
+  qsumValue[2] = 3.;
+  f = peakFit(par);
+}
+
+void testMinuit(double q9, double q10, double q11)
+{
+  gMinuit->SetFCN(fcn);
+
+  Double_t arglist[10];
+  Int_t ierflg = 0;
+
+  arglist[0] = 1;
+  gMinuit->mnexcm("SET ERR", arglist, 1, ierflg);
+
+  // Set starting values and step sizes for parameters
+  static Double_t vstart[NPAR] = {1, 0, 0, 0};
+  static Double_t step[NPAR] = {0.01, 0.01, 0.01, 0.01};
+  gMinuit->mnparm(0, "radius", vstart[0], step[0], 0, 0, ierflg);
+  gMinuit->mnparm(1, "radius", vstart[1], step[1], 0, 0, ierflg);
+  gMinuit->mnparm(2, "theta", vstart[2], step[2], 0, 0, ierflg);
+  gMinuit->mnparm(3, "phi", vstart[3], step[3], 0, 0, ierflg);
+
+  // Now ready for minimization step
+  arglist[0] = 500;
+  arglist[1] = 1.;
+  gMinuit->mnexcm("MIGRAD", arglist, 2, ierflg);
+
+  // Print results
+  Double_t amin, edm, errdef;
+  Int_t nvpar, nparx, icstat;
+  gMinuit->mnstat(amin, edm, errdef, nvpar, nparx, icstat);
+  // gMinuit->mnprin(3,amin);
+}
 
 // spe landau shape
 static double myLandau(Double_t *xx, Double_t *par)
@@ -112,7 +162,8 @@ double effGeoSim(int ichan, bool show = false) // uses PositionVector3D eventOri
     return e;
 
   // det positions Georgia May 2025
-  double trigRadius = 1.486;
+  // double trigRadius = 1.486;
+  double trigRadius = 1.;
   // convert to radians
   double trigTheta = 55.06 / 360. * TMath::TwoPi(); // 11,10,9
   double trigPhi[3];
@@ -291,6 +342,10 @@ void btb(int ngen = 10000000)
     if (localPhi < 0)
       localPhi += 360.;
 
+    /* cut out the events blocked by the source holder */
+    if (eventOrigin.Z() < 0.)
+      continue;
+
     ntOrigin->Fill(iev, eventOrigin.R(), cos(eventOrigin.Theta()), eventOrigin.Theta() * 360. / TMath::TwoPi(), localPhi), eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z();
 
     if (iev / 100 * 100 == iev)
@@ -443,6 +498,8 @@ void btb(int ngen = 10000000)
 // static TBRun *theTBRun;
 int main(int argc, char *argv[])
 {
+  gMinuit = new TMinuit(NPAR); // initialize TMinuit with a maximum of 5 params
+
   int ngen = 1000000;
 
   std::cout << "  usage: btbSim <ngen> default 1000000  " << argv[0] << std::endl;
@@ -451,6 +508,12 @@ int main(int argc, char *argv[])
   {
     ngen = atoi(argv[1]);
   }
+
+  Double_t *par;
+  qsumValue[0] = 1.;
+  qsumValue[1] = 2.;
+  qsumValue[2] = 3.;
+  peakFit(par);
 
   btb(ngen);
   printf("... %s ngen %i file %s exit\n", argv[0], ngen, fout->GetName());
