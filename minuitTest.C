@@ -18,17 +18,17 @@ static std::vector<double> yerr;
 // function to minimize
 void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
 {
-  // get fit parameters
+  // sum negative log likelihood
   double val = 0;
   for (unsigned i = 0; i < ngen; i++)
   {
     double ymean = par[0] * xval[i] + par[1];
     double z = (yval[i] - ymean) / yerr[i];
-    val -= 0.5 * z * z;
-    // printf("point %i x %f y %f fcn value %f par0  \n", i, xval[i], yval[i], val);
+    val += 0.5 * z * z;
+    // printf("point %i x %f y %f par0  %f %f fcn val %f \n", i, xval[i], yval[i], par[0], par[1], val);
   }
   // printf("slope %f intercept %f fcn value %f \n", par[0], par[1], val);
-  f = max(val, -1000.);
+  f = val;
 }
 
 void minuitTest(double slope = 1, double intercept = 0)
@@ -85,13 +85,13 @@ void minuitTest(double slope = 1, double intercept = 0)
   gMinuit->mnexcm("SET ERR", arglist, 1, ierflg);
 
   // Set starting values and step sizes for parameters
-  double step = 0.01;
+  double step = 0.0001;
   /* the range must be specified unlike in bad example Ifit.C!! */
   gMinuit->mnparm(0, "slope", slope, step, -100. * slope, 100. * slope, ierflg);
   // gMinuit->mnparm(1, "intercept", intercept, step, -100. * intercept, 100. * intercept, ierflg); // because intercept value is zero cannot do this
-  gMinuit->mnparm(1, "intercept", intercept, step, -10., 10., ierflg);
+  gMinuit->mnparm(1, "intercept", intercept, step, -100., 100., ierflg);
   // fix slope
-  gMinuit->FixParameter(1);
+  // gMinuit->FixParameter(1);
 
   double val, err;
   gMinuit->GetParameter(0, val, err);
@@ -104,11 +104,13 @@ void minuitTest(double slope = 1, double intercept = 0)
   gMinuit->mnstat(amin, edm, errdef, nvpar, nparx, icstat);
 
   // Now ready for minimization step with MIGRAD
-  arglist[0] = 500; // ??
-  arglist[1] = 0.5; // UP for likelihood
   gMinuit->mnexcm("MIGRAD", arglist, 0, ierflg);
-  printf("MIGRAD error code %i \n", ierflg);
+  printf("\t\t ***** MIGRAD error code %i ******\n", ierflg);
   gMinuit->mnstat(amin, edm, errdef, nvpar, nparx, icstat);
+
+  double fval = 0;
+  gMinuit->mnprin(0, fval);
+  gMinuit->mnprin(1, fval);
 
   //  gMinuit->mnprin(3,amin);
 
