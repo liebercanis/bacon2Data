@@ -38,7 +38,7 @@ void minuitTest(double slope = 1, double intercept = 0)
   double xlow = -1.;
   double xhigh = 1.;
   double sigma = 0.1;
-  TNtuple *nt = new TNtuple("ntLine", "ntLine", "x:y");
+  TNtuple *nt = new TNtuple("ntLine", "ntLine", "x:y:ymean");
 
   ran = new TRandom3();
   TF1 *f1 = new TF1("myLine", "[0]*x+[1]", xlow, xhigh);
@@ -60,7 +60,7 @@ void minuitTest(double slope = 1, double intercept = 0)
     xval.push_back(x);
     yval.push_back(y);
     yerr.push_back(sigma);
-    nt->Fill(x, y);
+    nt->Fill(x, y, ymean);
   }
   TGraphErrors *gr = new TGraphErrors(ngen, &xval[0], &yval[0], nullptr, &yerr[0]);
   gr->SetName("ranLine");
