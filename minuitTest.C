@@ -112,6 +112,22 @@ void minuitTest(double slope = 1, double intercept = 0)
   gMinuit->mnprin(0, fval);
   gMinuit->mnprin(1, fval);
 
+  gMinuit->SetGraphicsMode(kTRUE);
+  gMinuit->mncomd("scan 0", ierflg);
+  TGraph *gplot0 = (TGraph *)gMinuit->GetPlot();
+  gplot0->SetName("scan0");
+  gplot0->SetTitle("scan of slope parameter");
+  gplot0->Draw("al");
+
+  gMinuit->mncomd("scan 1", ierflg);
+  TGraph *gplot1 = (TGraph *)gMinuit->GetPlot();
+  gplot1->SetName("scan1");
+  gplot1->SetTitle("scan of intercept parameter");
+  gplot1->Draw("al");
+
+  fout->Add(gplot0);
+  fout->Add(gplot1);
+
   //  gMinuit->mnprin(3,amin);
 
   fout->Add(f1);
