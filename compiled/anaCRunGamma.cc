@@ -253,10 +253,11 @@ public:
   //
   int MaxSPEShape = 4;
   unsigned trigStart = 600;
-  int nominalTrigger = 753; // was 729;
-  double nominalTriggerGain = 700.0;
-  double nominalGain = 167.;     // was 160.0; set Nov 13 2024
-  double nominalGainTrig = 700.; // was 160.0; set Nov 13 2024
+  int nominalTrigger = 753; // was 729; this is nominal trigger sample
+  // double nominalTriggerGain = 700.0;
+  double nominalGain = 167.;                  // was 160.0; set Nov 13 2024
+  double nominalTrigGain = 1.4 * nominalGain; // relative to non trigger
+  double nominalAreaGain = 9151.0;            // from fit
   double qsumGain[CHANNELS];
   double nominalQsumGain = 7050;
   double nominalQsumTrigGain = 3.7E4;
@@ -272,9 +273,8 @@ public:
   ULong_t triggerStart = 730; // 740;
   ULong_t timeVeryLateCut = 3500;
   /* need to tune these cuts on data */
-  double trigSumCut = 0.5;                  // units of nominalQsumTrigGain;
-  double trigRatioCutLow = 0.5;             // qsum ratio cut
-  double trigRatioCutHigh = 1.75;           // qsum ratio cut
+  double trigRatioCutLow = 0.2;             // qsum fraction
+  double trigRatioCutHigh = 0.8;            // qsum fraction
   double preSumCut = 4. * nominalGain;      ///
   double totCosmicCut = 50. * nominalGain;  //
   double lateGammaCut = 100. * nominalGain; //
@@ -576,20 +576,19 @@ void anaCRun::clear()
   // fill channel sigma in order of branches
   chanThreshold.resize(CHANNELS);
   channelSigmaValue.resize(CHANNELS);
-  // based on step 3 for SIPMs and 1 for PMT Oct 16,2024
+  // updated June 11 2025 file run-05_19_2025-file.root
+  // set to 2  times digi sigma
   for (unsigned long j = 0; j < channelSigmaValue.size(); ++j)
   {
     // chanThreshold[j] = 2. * 36.4; from bad data
-    chanThreshold[j] = 3. * 9.; // from sim
+    chanThreshold[j] = 2. * 60.; //
   }
-  // special threshold values from bad data
-  /*
-  chanThreshold[9] = 2. * 21.6;
-  chanThreshold[10] = 2. * 21.6;
-  chanThreshold[11] = 2. * 21.6;
-  chanThreshold[12] = 2. * 2.1;  // based on histogram sigma, had been 5.3;
-  chanThreshold[13] = 2. * 36.4; // should be same as trigger sipm
-  */
+  // special threshold values
+  chanThreshold[9] = 2. * 33.;
+  chanThreshold[10] = 2. * 33.;
+  chanThreshold[11] = 2. * 33.;
+  chanThreshold[12] = 2. * 2.4; // based on histogram sigma, had been 5.3;
+  chanThreshold[13] = 2. * 33.; // should be same as trigger sipm
   nSpeSum.resize(CHANNELS);
 }
 
@@ -1063,27 +1062,30 @@ int anaCRun::anaEvent(Long64_t entry)
   }
   double trigSum = idet9->totSum + idet10->totSum + idet11->totSum;
   hTrigSumNoCut->Fill(trigSum);
-  double trigRatio[3];
-  trigRatio[0] = idet9->totSum / idet10->totSum;
-  trigRatio[1] = idet9->totSum / idet11->totSum;
-  trigRatio[2] = idet10->totSum / idet11->totSum;
-  for (unsigned iratio = 0; iratio < hTrigSumCutRatio.size(); ++iratio)
-    hTrigSumCutRatio[iratio]->Fill(trigRatio[iratio]);
 
   /******   trigger cut ********/
+  /* try a cut like TUM */
+  double triggerSum = idet9->totSum + idet10->totSum + idet11->totSum;
+  double qFraction[3];
+  qFraction[0] = idet9->totSum / triggerSum;
+  qFraction[1] = idet9->totSum / triggerSum;
+  qFraction[2] = idet9->totSum / triggerSum;
+  for (unsigned iratio = 0; iratio < hTrigSumCutRatio.size(); ++iratio)
+    hTrigSumCutRatio[iratio]->Fill(qFraction[iratio]);
+
   int failsTrigger = 0;
-  if (idet9->totSum < trigSumCut || idet10->totSum < trigSumCut || idet11->totSum < trigSumCut)
+  if (qFraction[0] < trigRatioCutLow || qFraction[0] > trigRatioCutHigh)
     failsTrigger |= 0x2;
-  if (trigRatio[0] > trigRatioCutHigh || trigRatio[1] > trigRatioCutHigh || trigRatio[2] > trigRatioCutHigh)
+  if (qFraction[1] < trigRatioCutLow || qFraction[1] > trigRatioCutHigh)
     failsTrigger |= 0x4;
-  if (trigRatio[0] < trigRatioCutLow || trigRatio[1] < trigRatioCutLow || trigRatio[2] < trigRatioCutLow)
+  if (qFraction[2] < trigRatioCutLow || qFraction[2] > trigRatioCutHigh)
     failsTrigger |= 0x8;
 
-  ntTrig->Fill(double(entry), idet9->totSum, idet10->totSum, idet11->totSum, tdet13->totSum, trigRatio[0], trigRatio[1], trigRatio[2], failsTrigger);
+  ntTrig->Fill(double(entry), idet9->totSum, idet10->totSum, idet11->totSum, tdet13->totSum, qFraction[0], qFraction[1], qFraction[2], failsTrigger);
   if (failsTrigger != 0)
   {
     passBit |= TRIGFAIL;
-    printf("line1054 TRIGFAIL %lld cut %f chan 9 %f chan 10 %f chan 11 %f ratio 9-10 %f ratio 9-11 %f ratio 10-11 %f \n", entry, trigSumCut, idet9->totSum, idet10->totSum, idet11->totSum, trigRatio[0], trigRatio[1], trigRatio[2]);
+    printf("line1054 TRIGFAIL %lld cut %f chan 9 %f,%f chan 10 %f chan 11 %f ratio 9-10 %f ratio 9-11 %f ratio 10-11 %f \n", entry, trigRatioCutLow, trigRatioCutHigh, idet9->totSum, idet10->totSum, idet11->totSum, qFraction[0], qFraction[1], qFraction[2]);
   }
   if (failsTrigger == 0)
     hTrigSumCut->Fill(trigSum);
@@ -1609,8 +1611,9 @@ int anaCRun::anaEvent(Long64_t entry)
       TDetHit thit = tdet->hits[ihit];
       if (thit.qpeak < 1)
         printf("line822 chan %i ihit %i startTime %i  peak %f\n", tdet->channel, ihit, int(thit.startTime), thit.qpeak);
-      hQSum[idet]->Fill(thit.qsum / nominalGain);
-      hQPeak[idet]->Fill(thit.qpeak / nominalGain);
+      // do not scale these June 11 2025
+      hQSum[idet]->Fill(thit.qsum);
+      hQPeak[idet]->Fill(thit.qpeak);
       unsigned hitTime = unsigned(thit.startTime);
       // do peak sums
       tdet->totPeakSum += thit.qpeak;
@@ -2103,8 +2106,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
       plimit = 1.E3;
     }
 
-    hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 1000, 0, 500.));
-    hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 700, 0, 7.));
+    hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 700, 0, 7. * nominalTrigGain));
+    hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 1000, 0, 7. * nominalAreaGain));
     hQSpe.push_back(new TH1D(Form("QSpeChan%i", ichan), Form("QSpeChan%i", ichan), 9, 0, 9.));
     sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), rawBr[0]->rdigi.size(), 0, 2 * rawBr[0]->rdigi.size()));
     sumWaveA.push_back(new TH1D(Form("sumWaveAll%i", ichan), Form("sumWaveAll%i", ichan), rawBr[0]->rdigi.size(), 0, 2 * rawBr[0]->rdigi.size()));
@@ -2400,7 +2403,7 @@ anaCRun::anaCRun(TString theTag)
   for (unsigned ic = 0; ic < FAILBITS; ++ic)
     printf("bit %i hex %x %s\n", ic, failCode[ic], bitNames[ic].Data());
 
-  printf("TRIGSUMCUT %f nominalGain %f\n", trigSumCut, nominalGain);
+  printf("TRIGSUMCUT %f,%f nominalGain %f\n", trigRatioCutLow, trigRatioCutHigh, nominalGain);
 
   tag = theTag;
   // tbrun = new TBRun(tag);
