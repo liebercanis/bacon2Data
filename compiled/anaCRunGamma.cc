@@ -254,14 +254,16 @@ public:
   int MaxSPEShape = 4;
   unsigned trigStart = 600;
   int nominalTrigger = 753; // was 729; this is nominal trigger sample
-  // double nominalTriggerGain = 700.0;
-  double nominalGain = 167.;                  // was 160.0; set Nov 13 2024
-  double nominalTrigGain = 1.4 * nominalGain; // relative to non trigger
-  double nominalAreaGain = 9151.0;            // from fit
-  double qsumGain[CHANNELS];
+
+  /**************** define nominal gains ***************/
+  double nominalGain = 170.;     // was 160.0; set Jue 13 2025
+  double nominalTrigGain = 700.; //
   double nominalQsumGain = 7050;
-  double nominalQsumTrigGain = 3.7E4;
+  double nominalQsumTrigGain = 2.9E4;
+  double nominalPmtGain = 502.;
+  double nominalQsumPmtGain = 1713;
   double landauMax = 1.0; // 0.018063;
+  double qsumGain[CHANNELS];
   //  227.4; // average
   //   double nominalGain = 160.0; // average
   unsigned firstTime;       // corrected trigger time for event
@@ -421,7 +423,7 @@ void anaCRun::doTimeShiftAndNorm()
     {
       double val = double(rawBr[ib]->rdigi[j]) - idet->base;
       // scale all channels by nominal gain
-      val *= nominalGain / sipmGain[ib];
+      // val *= nominalGain / sipmGain[ib];
       if (timeShift > 0)
         fDigi[j + ULong_t(absShift)] = val;
       else
@@ -583,12 +585,12 @@ void anaCRun::clear()
     // chanThreshold[j] = 2. * 36.4; from bad data
     chanThreshold[j] = 2. * 60.; //
   }
-  // special threshold values
-  chanThreshold[9] = 2. * 33.;
-  chanThreshold[10] = 2. * 33.;
-  chanThreshold[11] = 2. * 33.;
-  chanThreshold[12] = 2. * 2.4; // based on histogram sigma, had been 5.3;
-  chanThreshold[13] = 2. * 33.; // should be same as trigger sipm
+  // trigger SIPMs do three sigma
+  chanThreshold[9] = 3. * 33.;
+  chanThreshold[10] = 3. * 33.;
+  chanThreshold[11] = 3. * 33.;
+  chanThreshold[12] = 3. * 2.4; // based on histogram sigma, had been 5.3;
+  chanThreshold[13] = 3. * 33.; // should be same as trigger sipm
   nSpeSum.resize(CHANNELS);
 }
 
@@ -1245,8 +1247,10 @@ int anaCRun::anaEvent(Long64_t entry)
 
     evCount->Fill(ib);                       // chan 0 from GetBinContent(0)
     double hitThreshold = 0.5 * nominalGain; // 500.0;
+    if (trig)
+      hitThreshold = 0.5 * nominalTrigGain;
     if (ib == 12)
-      hitThreshold = hitThresholdPmt; // this is 5*(6 sigma noise)
+      hitThreshold = 0.5 * nominalPmtGain; // this is 5*(6 sigma noise)
     double theStep = diffStepSipm;
     if (ib == 12)
     {
@@ -2086,28 +2090,28 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   threshHist = new TH1D("threshHist", " threshold crossings trig channels ", 20, 0, 20);
   crossHist = new TH1D("crossHist", "  negative crossings non trigger channels", 100, 0, 100);
   sumDir->cd();
-  double limit;
-  double plimit;
+  double qpeakLimit;
+  double qsumLimit;
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
     unsigned ichan = i;
-    limit = 100000;
-    plimit = 2000;
+    qpeakLimit = 5. * nominalGain;
+    qsumLimit = 5. * nominalQsumGain;
 
     bool trigger = ichan == 9 || ichan == 10 || ichan == 11;
     if (trigger)
     {
-      limit = 200000;
-      plimit = 10000;
+      qpeakLimit = 5. * nominalTrigGain;
+      qsumLimit = 5. * nominalQsumTrigGain;
     }
     if (ichan == 12)
     {
-      limit = 5.E3;
-      plimit = 1.E3;
+      qpeakLimit = 5. * nominalPmtGain;
+      qsumLimit = 5. * nominalQsumPmtGain;
     }
 
-    hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 700, 0, 7. * nominalTrigGain));
-    hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 1000, 0, 7. * nominalAreaGain));
+    hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 700, 0, qpeakLimit));
+    hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 1000, 0, nominalQsumTrigGain));
     hQSpe.push_back(new TH1D(Form("QSpeChan%i", ichan), Form("QSpeChan%i", ichan), 9, 0, 9.));
     sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), rawBr[0]->rdigi.size(), 0, 2 * rawBr[0]->rdigi.size()));
     sumWaveA.push_back(new TH1D(Form("sumWaveAll%i", ichan), Form("sumWaveAll%i", ichan), rawBr[0]->rdigi.size(), 0, 2 * rawBr[0]->rdigi.size()));
