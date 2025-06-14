@@ -645,7 +645,7 @@ void fileLoop()
     }
     else
     {
-      fout->GetObject("TrigSumNoCut", hTrigSumCut);
+      fout->GetObject("TrigSumCut", hTrigSumCut);
       hRunTrigSumCut->Add(hTrigSumCut);
     }
 
