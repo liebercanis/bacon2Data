@@ -643,10 +643,12 @@ void fileLoop()
     {
       hRunTrigSumCut = (TH1D *)hTrigSumCut->Clone("RunTrigSumCut");
       fout->Add(hRunTrigSumCut);
+      printf("hRunTrigSumCut IN FILE %s %s\n", fin->GetName(), hRunTrigSumCut->GetName());
     }
     else
     {
       fout->GetObject("TrigSumCut", hTrigSumCut);
+      printf("hRunTrigSumCut IN FILE %s %s\n", fin->GetName(), hRunTrigSumCut->GetName());
       hRunTrigSumCut->Add(hTrigSumCut);
     }
 
