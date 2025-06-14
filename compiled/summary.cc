@@ -265,6 +265,16 @@ bool readGains(TString fileName)
     std::cout << "Error opening file" << fileName << " will use default nonminalGain " << nominalGain << std::endl;
     return false;
   }
+
+  // check that file was closed properly
+  TTree *tree = nullptr;
+  fin->GetObject("RunTree", tree);
+  if (tree == nullptr)
+  {
+    printf(" file not closed properly %s skip it\n", fileName.Data());
+    return false;
+  }
+
   cout << " opened sipm gain file " << fileName << endl;
   TGraphErrors *gGain = NULL;
   fin->GetObject("gGain", gGain);
@@ -743,6 +753,7 @@ void fileLoop()
     TIter next(sumList);
     TKey *key;
     printf("line714 in fileLoop addsumDirHistos %u \n", sumList->GetEntries());
+    // sumDir->GetListOfKeys()->ls();
     while (TKey *key = (TKey *)next())
     {
       TKey *keyprev = NULL;
@@ -755,11 +766,12 @@ void fileLoop()
         continue;
       TH1D *h = (TH1D *)key->ReadObj();
       std::string name = string(h->GetName());
+      // cout << " name " << name << "  " << name.find("sumWave") << " " << name.find("Bad") << " npos " << std::string::npos << endl;
 
       /****** get run sum ****/
       TH1D *hClone;
       TH1D *hRunClone;
-      if (name.find("sumWave") != std::string::npos && name.find("Bad") == std::string::npos)
+      if (name.find("sumWave") != std::string::npos && name.find("Bad") == std::string::npos && name.find("All") == std::string::npos && name.find("Fail") == std::string::npos)
       {
         // waveSumDir->cd();
         // cout << "line700  sumWave clone " << name << " file " << ifile << endl;
@@ -1430,6 +1442,7 @@ int main(int argc, char *argv[])
     runSumNames[chanNumber].push_back(h->GetName());
   }
 
+  /*
   printf("line1440 filenum %lu runSums 0 %lu  make graphs from integrals \n", filenum.size(), runSums[0].size());
   gInte.resize(runSums.size());
   for (int ichan = 0; ichan < runSums.size(); ++ichan)
@@ -1446,6 +1459,7 @@ int main(int argc, char *argv[])
     gInte[ichan]->SetMarkerStyle(21);
     fout->Add(gInte[ichan]);
   }
+    */
 
   // calculate mean hits from waveforms
   printf("line1461 calculate mean hits from hRunPeakWave %lu from runSumDir \n", hRunPeakWave.size());
