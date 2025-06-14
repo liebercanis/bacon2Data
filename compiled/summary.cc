@@ -629,6 +629,11 @@ void fileLoop()
     else
     {
       fout->GetObject("TrigSumNoCut", hTrigSumNoCut);
+      if (!hTrigSumNoCut)
+      {
+        printf("NO hTrigSumNoCut IN FILE %s\n", fin->GetName());
+        continue;
+      }
       hRunTrigSumNoCut->Add(hTrigSumNoCut);
     }
     // TrigSumCut
@@ -648,7 +653,11 @@ void fileLoop()
     else
     {
       fout->GetObject("TrigSumCut", hTrigSumCut);
-      printf("hRunTrigSumCut IN FILE %s %s\n", fin->GetName(), hRunTrigSumCut->GetName());
+      if (!hTrigSumCut)
+      {
+        printf("NO hTrigSumCut IN FILE %s\n", fin->GetName());
+        continue;
+      }
       hRunTrigSumCut->Add(hTrigSumCut);
     }
 
