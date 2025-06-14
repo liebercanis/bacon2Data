@@ -231,6 +231,7 @@ public:
   {
     tbrun = theTBRun;
   }
+  void makeTernary(double a, double b, double c, double &x, double &y);
   std::vector<std::vector<double>> fixedDigi; // all the fixed waveforms
   std::vector<unsigned> trigTimes;
   std::vector<unsigned> sTrigTimes; // after correction
@@ -289,6 +290,14 @@ public:
   double qpeakCosmicCut = 3. * nominalGain; // 3*SPE
   double hitThresholdPmt = 30.;             // set Nov 13 2024
 };
+
+//// https://mathworld.wolfram.com/TernaryDiagram.html
+void anaCRun::makeTernary(double a, double b, double c, double &x, double &y)
+{
+  double s = a + b + c;
+  x = 0.5 * (a + 2. * b) / s;
+  y = sqrt(3.) / 2. * a / s;
+}
 
 void anaCRun::getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample)
 {
@@ -1070,8 +1079,8 @@ int anaCRun::anaEvent(Long64_t entry)
   double triggerSum = idet9->totSum + idet10->totSum + idet11->totSum;
   double qFraction[3];
   qFraction[0] = idet9->totSum / triggerSum;
-  qFraction[1] = idet9->totSum / triggerSum;
-  qFraction[2] = idet9->totSum / triggerSum;
+  qFraction[1] = idet10->totSum / triggerSum;
+  qFraction[2] = idet11->totSum / triggerSum;
   for (unsigned iratio = 0; iratio < hTrigSumCutRatio.size(); ++iratio)
     hTrigSumCutRatio[iratio]->Fill(qFraction[iratio]);
 
@@ -1083,7 +1092,10 @@ int anaCRun::anaEvent(Long64_t entry)
   if (qFraction[2] < trigRatioCutLow || qFraction[2] > trigRatioCutHigh)
     failsTrigger |= 0x8;
 
-  ntTrig->Fill(double(entry), idet9->totSum, idet10->totSum, idet11->totSum, tdet13->totSum, qFraction[0], qFraction[1], qFraction[2], failsTrigger);
+  double xternQ, yternQ;
+  makeTernary(qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
+  // printf("line1097 %f %f %f %f %f \n", qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
+  ntTrig->Fill(double(entry), idet9->totSum, idet10->totSum, idet11->totSum, tdet13->totSum, qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ, failsTrigger);
   if (failsTrigger != 0)
   {
     passBit |= TRIGFAIL;
@@ -1981,7 +1993,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   // histograms for event cuts
   ntBase = new TNtuple("ntBase", " baseline ntuple ", "event:chan:base0:base1:fitMean:sigma:status"); // Fill(entry, ib, ave, sigma, fitStatus);;
   ntAdc = new TNtuple("ntAdc", " ADC ntuple ", "event:chan:sample:digi");
-  ntTrig = new TNtuple("ntTrig", " trigger cut  ntuple ", "event:qsum9:qsum10:qsum11:qsum13:ratio910:ratio911:ratio1011:fails");
+  ntTrig = new TNtuple("ntTrig", " trigger cut  ntuple ", "event:qsum9:qsum10:qsum11:qsum13:ratio910:ratio911:ratio1011:xternQ:yternQ:fails");
   ntNonTrig = new TNtuple("ntNonTrig", " non trigger ntuple ", "event:chan:qsum");
   hTriggerTime = new TH1D("TriggerTime", " ave of trigger Sipm times ", 1000, 0, 1000);
   hPreSumCut = new TH1D("PreSumCut", " pre trigger sum /nominal gain ", 100, 0, 2 * preSumCut);
