@@ -632,13 +632,13 @@ void fileLoop()
       hRunTrigSumNoCut->Add(hTrigSumNoCut);
     }
     // TrigSumCut
-    fin->GetObject("TrigSumNoCut", hTrigSumCut);
+    fin->GetObject("TrigSumCut", hTrigSumCut);
     if (!hTrigSumCut)
     {
       printf("NO hTrigSumCut IN FILE %s\n", fin->GetName());
       continue;
     }
-    printf("GOT hTrigSumCut IN FILE %s\n", fin->GetName());
+    // printf("GOT hTrigSumCut IN FILE %s\n", fin->GetName());
     if (ifile == 0)
     {
       hRunTrigSumCut = (TH1D *)hTrigSumCut->Clone("RunTrigSumCut");
