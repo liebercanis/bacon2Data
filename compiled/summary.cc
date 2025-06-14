@@ -89,6 +89,10 @@ TH1D *hThreshHist;
 TH1D *hCrossHist;
 TH1D *hCosmicCut1;
 TH1D *hCosmicCut2;
+TH1D *hTrigSumNoCut;
+TH1D *hTrigSumCut;
+TH1D *hRunTrigSumNoCut;
+TH1D *hRunTrigSumCut;
 TH1D *hRunEventPass;
 TH1D *hRunThreshHist;
 TH1D *hRunCrossHist;
@@ -609,6 +613,42 @@ void fileLoop()
       fout->GetObject("RunEventPass", hRunEventPass);
       hRunEventPass->Add(hEventPass);
     }
+
+    // TrigSumNoCut
+    fin->GetObject("TrigSumNoCut", hTrigSumNoCut);
+    if (!hTrigSumNoCut)
+    {
+      printf("NO hTrigSumNoCut IN FILE %s\n", fin->GetName());
+      continue;
+    }
+    if (ifile == 0)
+    {
+      hRunTrigSumNoCut = (TH1D *)hTrigSumNoCut->Clone("RunTrigSumNoCut");
+      fout->Add(hRunTrigSumNoCut);
+    }
+    else
+    {
+      fout->GetObject("TrigSumNoCut", hTrigSumNoCut);
+      hRunTrigSumNoCut->Add(hTrigSumNoCut);
+    }
+    // TrigSumCut
+    fin->GetObject("TrigSumNoCut", hTrigSumCut);
+    if (!hTrigSumCut)
+    {
+      printf("NO hTrigSumCut IN FILE %s\n", fin->GetName());
+      continue;
+    }
+    if (ifile == 0)
+    {
+      hRunTrigSumCut = (TH1D *)hTrigSumCut->Clone("RunTrigSumCut");
+      fout->Add(hRunTrigSumCut);
+    }
+    else
+    {
+      fout->GetObject("TrigSumNoCut", hTrigSumCut);
+      hRunTrigSumCut->Add(hTrigSumCut);
+    }
+
     // thresh
     anaDir->GetObject("threshHist", hThreshHist);
     if (!hThreshHist)
