@@ -632,7 +632,7 @@ void fileLoop()
       if (!hTrigSumNoCut)
       {
         printf("NO hTrigSumNoCut IN FILE %s\n", fin->GetName());
-        continue;
+        continuel;
       }
       hRunTrigSumNoCut->Add(hTrigSumNoCut);
     }
@@ -1531,7 +1531,7 @@ int main(int argc, char *argv[])
   fout->Close();
 
   cout << "line1474 summary finished "
-       << " total pass " << totalPass << " maxFiles  " << maxFiles << " files written to " << fout->GetName() << endl;
+       << " total pass " << totalPass << " maxFiles  " << maxFiles << " good file " << nfiles << " files written to " << fout->GetName() << endl;
 
   exit(0);
 }
