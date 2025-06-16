@@ -632,7 +632,7 @@ void fileLoop()
       if (!hTrigSumNoCut)
       {
         printf("NO hTrigSumNoCut IN FILE %s\n", fin->GetName());
-        continuel;
+        continue;
       }
       hRunTrigSumNoCut->Add(hTrigSumNoCut);
     }
