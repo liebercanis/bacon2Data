@@ -2059,6 +2059,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   hCountLateTimeQpeak->GetYaxis()->SetTitle("qpeak [SPE]");
 
   printf("line1724 rawBr.size %lu \n", rawBr.size());
+  double qpeakLimit;
+  double qsumLimit;
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
     unsigned ichan = i;
@@ -2088,12 +2090,25 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
       hEvGaus[ih]->SetDirectory(nullptr);
 
     // for summary //
-    double limit = 2000.;
-    int nbins = 1000.;
-    hTotSum.push_back(new TH1D(Form("TotPeakSumChan%i", i), Form("tot peak sum chan %i", i), nbins, 0, limit));
-    hPreSum.push_back(new TH1D(Form("PrePeakSumChan%i", i), Form("pre peak sum chan %i", i), nbins, 0, limit));
-    hTrigSum.push_back(new TH1D(Form("TrigPeakSumChan%i", i), Form("trig peak sum chan %i", i), nbins, 0, limit));
-    hLateSum.push_back(new TH1D(Form("LatePeakSumChan%i", i), Form("late peak sum chan %i", i), nbins, 0, limit));
+    qpeakLimit = 5. * nominalGain;
+    qsumLimit = 5. * nominalQsumGain;
+
+    bool trigger = ichan == 9 || ichan == 10 || ichan == 11;
+    if (trigger)
+    {
+      qpeakLimit = 5. * nominalTrigGain;
+      qsumLimit = 5. * nominalQsumTrigGain;
+    }
+    if (ichan == 12)
+    {
+      qpeakLimit = 5. * nominalPmtGain;
+      qsumLimit = 5. * nominalQsumPmtGain;
+    }
+    int nbins = 700.;
+    hTotSum.push_back(new TH1D(Form("TotPeakSumChan%i", i), Form("tot peak sum chan %i", i), nbins, 0, qpeakLimit));
+    hPreSum.push_back(new TH1D(Form("PrePeakSumChan%i", i), Form("pre peak sum chan %i", i), nbins, 0, qpeakLimit));
+    hTrigSum.push_back(new TH1D(Form("TrigPeakSumChan%i", i), Form("trig peak sum chan %i", i), nbins, 0, qpeakLimit));
+    hLateSum.push_back(new TH1D(Form("LatePeakSumChan%i", i), Form("late peak sum chan %i", i), nbins, 0, qpeakLimit));
   }
   // one more for summed channel 13
   // hEvRawWave.push_back(new TH1D(Form("evRawWave%i", 13), Form("evRawWave%i", 13), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
@@ -2102,8 +2117,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   threshHist = new TH1D("threshHist", " threshold crossings trig channels ", 20, 0, 20);
   crossHist = new TH1D("crossHist", "  negative crossings non trigger channels", 100, 0, 100);
   sumDir->cd();
-  double qpeakLimit;
-  double qsumLimit;
+
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
     unsigned ichan = i;
@@ -2335,9 +2349,9 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
 
   // hEventPass->Print("all");
-  printf("pass fractions total = %.0f fail cosmic %i fail gamma %i \n", hEventPass->GetEntries(), failCosmic, failGamma);
+  printf("pass fractio/ns total = %.0f fail cosmic %i fail gamma %i \n", hEventPass->GetEntries(), failCosmic, failGamma);
   for (int ibin = 0; ibin < hEventPass->GetNbinsX(); ++ibin)
-  { // include error on poisson probability
+  { // inc/lude error on poisson probability
     double nbin = hEventPass->GetBinContent(ibin);
     double ntot = hEventPass->GetEntries();
     double prob = nbin / ntot;
