@@ -554,9 +554,9 @@ void fileLoop()
       continue;
     }
     /* add gains */
-    TDirectory *anaDir = NULL;
-    fin->GetObject("anadir", anaDir); // typeO in directory name
-    if (!anaDir)
+    TDirectory *sumDir = NULL;
+    fin->GetObject("sumDir", sumDir); // typeO in directory name
+    if (!sumDir)
     {
       // printf("line489 anaDir not found in file %s \n", fin->GetName());
       continue;
@@ -570,9 +570,9 @@ void fileLoop()
       for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
       {
         gainOutName.Form("GainSumChan%i", ichan);
-        gainInName.Form("TotPeakSumChan%i", ichan);
+        gainInName.Form("QPeakChan%i", ichan);
         TH1D *hIn = NULL;
-        anaDir->GetObject(gainInName, hIn);
+        sumDir->GetObject(gainInName, hIn);
         if (hIn)
         {
           TH1D *hOut = NULL;
@@ -662,6 +662,14 @@ void fileLoop()
     }
 
     // thresh
+    /* add gains */
+    TDirectory *anaDir = NULL;
+    fin->GetObject("anadir", anaDir); // typeO in directory name
+    if (!anaDir)
+    {
+      // printf("line489 anaDir not found in file %s \n", fin->GetName());
+      continue;
+    }
     anaDir->GetObject("threshHist", hThreshHist);
     if (!hThreshHist)
       cout << "  thresh" << endl;
