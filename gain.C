@@ -244,11 +244,14 @@ void gain(int theChan = 13) // default all
     {
       TH1D *h = hlist[i];
       double width = 30.; // set by eye
-      theNominalGain = nominalGain;
-      if (vchan[i] > 8 && vchan[i] < 12)
-      { // trigger
-        width = 100.0;
-        theNominalGain = nominalTrigGain;
+      if (j == 0)
+      {
+        theNominalGain = nominalGain;
+        if (vchan[i] > 8 && vchan[i] < 12)
+        { // trigger
+          width = 100.0;
+          theNominalGain = nominalTrigGain;
+        }
       }
 
       // peak search region
@@ -285,8 +288,10 @@ void gain(int theChan = 13) // default all
         fFitADCError.push_back(meanError);
         fSpeNumber.push_back(j + 1);
         fSpeNumberError.push_back(0);
-        printf("\t result of fit to hist %i point %u  bin %i x %f xadc %f  \n", i, j, bin,
-               fFitADC[j], fFitADCY[j]);
+        printf("\t result of fit to hist %i point %u  bin %i x %f xadc %f  \n", i, j, bin, fFitADC[j], fFitADCY[j]);
+        // update nomainl gain from first peak
+        if (j == 0)
+          theNominalGain = mean;
       }
       else
       {
@@ -355,7 +360,7 @@ void gain(int theChan = 13) // default all
     gFit->Draw("same");
     gPad->SetGrid();
     gcan->Print(".pdf");
-    // fout->Add(g);
+    fout->Add(g);
     //  if (gFit->GetParameter(1) < 0)
     //    continue;
     printf("LINEFIT %i slope %f error %f \n", int(vchan[i]), gFit->GetParameter(1), gFit->GetParError(1));
