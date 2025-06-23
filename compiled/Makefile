@@ -22,7 +22,7 @@ BOBJ=../bobj
 
 CXXFLAGS     :=  $(ROOTCFLAGS) -fPIC  -I$(LOCAL) 
 CXXFLAGS     += -I$(LOCAL) -I/$/usr/include -I/usr/local/include -I$(BOBJ)
-LIBS         := -L$(BOBJ) -lBaconAna $(ROOTLIBS)  
+LIBS         := -L$(BOBJ) -lBaconAna $(ROOTLIBS) -L/usr/local/Cellar/root/6.34.08_1/lib/root -lMinuit  
 ## remove CXXFLAGS += -fPIC  -fsanitize=address 
 
 ifeq ($(ARCH),macosx64)
@@ -48,7 +48,7 @@ all: sis build summary anaca anacg btbSim
 sis: sis.cc
 	$(CPP) $< $(LIBS)  -o $@
 
-btbSim: btbSim.cc
+btbSim: btbSim.cc triggerPeakFit.hh
 	$(CPP) $< $(LIBS)  -o $@
 
 
