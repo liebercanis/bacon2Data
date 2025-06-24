@@ -22,7 +22,7 @@ BOBJ=../bobj
 
 CXXFLAGS     :=  $(ROOTCFLAGS) -fPIC  -I$(LOCAL) 
 CXXFLAGS     += -I$(LOCAL) -I/$/usr/include -I/usr/local/include -I$(BOBJ)
-LIBS         := -L$(BOBJ) -lBaconAna $(ROOTLIBS) -L/usr/local/Cellar/root/6.34.08_1/lib/root -lMinuit  
+LIBS         := -L$(BOBJ) -lBaconAna $(ROOTLIBS) -L$(ROOTSYS)/lib/root -lMinuit  
 ## remove CXXFLAGS += -fPIC  -fsanitize=address 
 
 ifeq ($(ARCH),macosx64)
@@ -101,6 +101,7 @@ clean:
 	rm -f summary
 	rm -rf summary.dSYM
 show:
+	@echo ROOTSYS = $(ROOTSYS)
 	@echo LD =$(LD)
 	@echo sys =$(SYS)
 	@echo arch =$(ARCH)
