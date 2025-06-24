@@ -33,6 +33,7 @@ static double peakFit(double *par)
     double eff = effGeo * SiPMQE128Ham * fillFac; // total efficiency
 
     // sipm position vectors
+    /*   could simplify with ROOT::Math::Polar3DVector class */
     ROOT::Math::XYZVector rsipm[3];
     // construct XYZ coordinates
     double cost = cos(trigTheta);
@@ -60,8 +61,16 @@ static double peakFit(double *par)
 
     double totalPhotonYield = par[0]; // total expected photons
     // printf("xxxxxxx par 0 %f  %f\n", par[0], totalPhotonYield);
-    //  interaction point
-    ROOT::Math::XYZVector ipVector = ROOT::Math::XYZVector(par[1], par[2], par[3]);
+
+    //  interaction point XYZVector parameters are spherical coordinates
+    cost = cos(par[2]);
+    sint = sin(par[2]);
+    cosp = cos(par[3]);
+    sinp = sin(par[3]);
+    x = par[1] * sint * cosp;
+    y = par[1] * sint * sinp;
+    z = par[1] * cost;
+    ROOT::Math::XYZVector ipVector = ROOT::Math::XYZVector(x, y, z);
 
     // compute mean values
     for (int i = 0; i < nTriggerSipms; ++i)
@@ -72,24 +81,41 @@ static double peakFit(double *par)
         ROOT::Math::XYZVector runit = rsipm[i].Unit();
         ROOT::Math::XYZVector ounit = relative.Unit();
         double cos = runit.Dot(ounit);
-        if (cos < 0)
-            cos = 0;
+        // if (cos < 0)  !! do not do as negative means excluded from sum
+        //     cos = 0;
         peakMeanQsum[i] = totalPhotonYield * cos * SiPMQE128Ham * fillFac * area / (4. * TMath::Pi() * relative.Mag2());
         if (triggerPeakFitShow)
             printf("triggerPeakFit:: trig %i cos %f total eff %E peakMeanQsum %f \n", i, cos, eff, peakMeanQsum[i]);
     }
+
+    // normalize to total
+    double sum = abs(peakMeanQsum[0]) + abs(peakMeanQsum[1]) + abs(peakMeanQsum[2]);
+    for (int i = 0; i < nTriggerSipms; ++i)
+        peakMeanQsum[i] /= sum;
+
+    // printf("triggerPeakFit::  sum %f 9 %f 10 %f 11 %f \n", sum, peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2]);
 
     /* compute NLL see TH1F reference
         NLL = sum ( f_i+y_i log(y_i/f_i) -y_i )
         f_i = observed
         y_i = epected
     */
-    double nLL = 0; // negative log lilelihood value
-    for (int i = 0; i < nTriggerSipms; ++i)
+    double nLL = 0; // negative log lilelihood value some large value
+    // must have 3 valid means
+    if (peakMeanQsum[0] > 0 && peakMeanQsum[1] > 0 && peakMeanQsum[2] > 0)
     {
-        if (peakFitQsum[i] > 0)
-            nLL += peakFitQsum[i] + peakMeanQsum[i] * log(peakMeanQsum[i] / peakFitQsum[i]) - peakMeanQsum[i];
+        for (int i = 0; i < nTriggerSipms; ++i)
+        {
+            if (peakFitQsum[i] > 0 && peakMeanQsum[i] > 0)
+                nLL += peakFitQsum[i] + peakMeanQsum[i] * log(peakMeanQsum[i] / peakFitQsum[i]) - peakMeanQsum[i];
+            // else
+            //     printf(" !!!!!!!! bad peakFitQsum %f mean %f  ", peakFitQsum[i], peakMeanQsum[i]);
+        }
     }
+
+    // return large value if unable to calculate
+    if (nLL == 0)
+        nLL = 1000;
 
     if (triggerPeakFitShow)
     {
@@ -108,4 +134,11 @@ static double peakFit(double *par)
     }
     return nLL;
 }
+
+// function to minimize
+void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
+{
+    f = peakFit(par);
+}
+
 #endif
