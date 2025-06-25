@@ -17,9 +17,9 @@ on branch RunTwo:
 > git pull
 cd to bobj
 
-// you need to make a softlike to root makefile.arch as for example 
+// you need to make a softlike to root Makefile.arch as for example 
 
-> ln -s /usr/local/Cellar/root/6.34.08_1/etc/root/makefile.arch
+> ln -s /usr/local/Cellar/root/6.34.08_1/etc/root/Makefile.arch
 
 >rm *.o;
 > make clean; make
