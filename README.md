@@ -10,7 +10,9 @@ on branch RunTwo:
 //on new branch so do
 
 > git checkout -b runTwo
+
     Switched to a new branch 'runTwo'
+
 >git branch --set-upstream-to=origin/runTwo runTwo
 > git pull
 cd to bobj
