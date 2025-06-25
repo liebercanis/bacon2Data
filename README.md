@@ -11,9 +11,9 @@ on branch RunTwo:
 
 > git checkout -b runTwo
 
-    says "Switched to a new branch 'runTwo'"
+//    ... says "Switched to a new branch 'runTwo'"
 
->git branch --set-upstream-to=origin/runTwo runTwo
+> git branch --set-upstream-to=origin/runTwo runTwo
 > git pull
 cd to bobj
 
