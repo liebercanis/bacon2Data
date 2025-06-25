@@ -105,7 +105,7 @@ TF1 *speLandau;
 double eventTrigger()
 {
   // printf("line104 %0.f %0.f %0.f \n", hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries());
-  double tdiff = 1000.0;
+  double tdiff = double(2 * 7500);
   // all must have at least 1 photon
   if (hPhoton[9]->GetEntries() < 1)
     return tdiff;
@@ -115,7 +115,7 @@ double eventTrigger()
     return tdiff;
 
   // min time between 9,10
-  double tdiff910 = 1000.0;
+  double tdiff910 = double(2 * 7500);
   for (int ibin9 = 1; ibin9 < hPhoton[9]->GetNbinsX(); ++ibin9)
   {
     if (hPhoton[9]->GetBinContent(ibin9) == 0)
@@ -132,7 +132,7 @@ double eventTrigger()
   }
 
   // min time between 9,11
-  double tdiff911 = 1000.0;
+  double tdiff911 = double(2 * 7500);
   for (int ibin9 = 1; ibin9 < hPhoton[9]->GetNbinsX(); ++ibin9)
   {
     if (hPhoton[9]->GetBinContent(ibin9) == 0)
@@ -150,7 +150,7 @@ double eventTrigger()
   }
 
   // min time between 10,11
-  double tdiff1011 = 1000.0;
+  double tdiff1011 = double(2 * 7500);
   for (int ibin10 = 1; ibin10 < hPhoton[10]->GetNbinsX(); ++ibin10)
   {
     if (hPhoton[10]->GetBinContent(ibin10) == 0)
@@ -594,6 +594,7 @@ void btb(int ngen = 10000000)
 
     // ensure the event triggers
     double maxTriggerDiff = eventTrigger();
+    hTrigDiffTime->Fill(maxTriggerDiff);
     if (maxTriggerDiff > maxTriggerTimeDiffernce)
       continue;
     hEventPass->SetBinContent(3, hEventPass->GetBinContent(3) + 1);
