@@ -241,7 +241,6 @@ public:
   TDirectory *earlyPeakDir;
   TDirectory *rawSumDir;
   TDirectory *exampleDir;
-  TDirectory *badTrigDir;
   TDirectory *sumDir;
   TDirectory *anaDir;
   TDirectory *badEventDir;
@@ -281,6 +280,7 @@ public:
   double preSumCut = 4. * nominalGain;      ///
   double totCosmicCut = 50. * nominalGain;  //
   double lateGammaCut = 100. * nominalGain; //
+  double trigSumCut = 3.0;
 
   double prePeakCut = 0.5;
   double latePeakCut = 3.5;                 // march 18 2024 2.5;
@@ -492,18 +492,18 @@ bool anaCRun::readGains(TString fileName)
   {
     if (j < 9)
     {
-      sipmGain[j] = 107.;
-      sipmGainError[j] = sqrt(107.);
+      sipmGain[j] = nominalGain;
+      sipmGainError[j] = sqrt(nominalGain);
     }
     else if (j < 12)
     {
-      sipmGain[j] = 509.;
-      sipmGainError[j] = sqrt(509.);
+      sipmGain[j] = nominalTrigGain;
+      sipmGainError[j] = sqrt(nominalTrigGain);
     }
     else
     {
-      sipmGain[j] = 395.;
-      sipmGainError[j] = sqrt(395.);
+      sipmGain[j] = nominalPmtGain;
+      sipmGainError[j] = sqrt(nominalPmtGain);
     }
   }
   /* look for gain file */
@@ -841,21 +841,12 @@ int anaCRun::anaEvent(Long64_t entry)
       if (badEventDir->GetList()->GetEntries() < badEventDirMax)
       {
         badEventDir->cd();
-        TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawBaselineEvent%lld-Ch%i", entry, ib));
-        EvRawWave->SetTitle(Form("EvRawBaselineEvent%lld-Ch%i", entry, ib));
-        TH1D *EvGaussEvent = (TH1D *)hEvGaus[ib]->Clone(Form("EvGaussEvent%lld-Ch%iStatus%i", entry, ib, fitStatus));
+        TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawBaseFailEvent%lld-Ch%i", entry, ib));
+        EvRawWave->SetTitle(Form("EvRawBaseFailEvent%lld-Ch%i", entry, ib));
+        TH1D *hEvGausClone = (TH1D *)hEvGaus[ib]->Clone(Form("EvGausEv%lldchan%imean%.2fsigma%.2fstatus%i", entry, ib, fitMean, sigma, fitStatus));
       }
       passBit |= BASEFAIL;
     }
-
-    /*
-    if (badEventDir->GetList()->GetEntries() < badEventDirMax)
-    {
-      badEventDir->cd();
-      TH1D *EvGaussEvent = (TH1D *)hEvGaus[ib]->Clone(Form("EvGaussEvent%lld-Ch%iStatus%i", entry, ib, fitStatus));
-    }
-      */
-
     ntBase->Fill(entry, ib, base, base + fitMean, fitMean, sigma, fitStatus);
 
     // printf("@line652 baseline %lld chan %u base %f ave %f  \n", entry, ib, base, ave);
@@ -943,6 +934,12 @@ int anaCRun::anaEvent(Long64_t entry)
   if (preSum > preSumCut)
   {
     printf("line919 fail EARLYCUT cut %f val %f \n", preSumCut, preSum);
+    if (badEventDir->GetList()->GetEntries() < badEventDirMax)
+    {
+      badEventDir->cd();
+      TH1D *EvRawWave = (TH1D *)hEvRawWave[13]->Clone(Form("EvRawEarlyCutFailEvent%lld-Ch%i", entry, 13));
+      EvRawWave->SetTitle(Form("EvRawBaselineEvent%lld-Ch%i", entry, 13));
+    }
     passBit |= EARLYCUT;
   }
 
@@ -1018,13 +1015,14 @@ int anaCRun::anaEvent(Long64_t entry)
   {
     if (reportFailures)
       printf("@line893 failed triggerEnd event %llu cut %lu time %u \n", entry, triggerEnd, firstTime);
-    passBit |= FIRSTTIME;
+
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
       badEventDir->cd();
-      TH1D *EvRawWave = (TH1D *)hEvRawWave[chanBad]->Clone(Form("EvRawFirstTimeEvent%lld-Ch%i", entry, chanBad));
-      EvRawWave->SetTitle(Form("EvRawFirstTimeEvent%lld-Ch%i", entry, chanBad));
+      TH1D *EvRawWave = (TH1D *)hEvRawWave[13]->Clone(Form("EvRawFirstTimelEvent%lld-Ch%i", entry, 13));
+      EvRawWave->SetTitle(Form("EvRawFirstTimeEvent%lld-Ch%i", entry, 13));
     }
+    passBit |= FIRSTTIME;
   }
 
   /******  cosmic cut based on light in PMT *********/
@@ -1033,15 +1031,15 @@ int anaCRun::anaEvent(Long64_t entry)
   if (tdetPmt->totSum > totCosmicCut)
   {
     passBit |= COSMIC;
-    ++failCosmic;
-    if (reportFailures)
-      printf("@line1077 failed cosmic event %llu bit %i cut %E totSum %E  \n", entry, passBit, cosmicCut, tdetPmt->totSum);
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
       badEventDir->cd();
-      TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawCosmicEvent%lldTotSum%.0E-Ch%i", entry, tdetPmt->totSum, 12));
-      EvRawWave->SetTitle(Form("EvRawCosmicEvent%lldTotSum%.3E-Ch%i", entry, tbrun->getDet(12)->totSum, 12));
+      TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawCosmicEvent%lld-Ch%i", entry, 12));
+      EvRawWave->SetTitle(Form("EvRawCosmicEvent%lld-Ch%i", entry, 12));
     }
+    ++failCosmic;
+    if (reportFailures)
+      printf("@line1077 failed cosmic event %llu bit %i cut %E totSum %E  \n", entry, passBit, cosmicCut, tdetPmt->totSum);
   }
 
   /********** gamma cut *********/
@@ -1051,18 +1049,18 @@ int anaCRun::anaEvent(Long64_t entry)
   hGammaCut->Fill(tbrun->getDet(13)->lateSum);
   if (tbrun->getDet(13)->lateSum > lateGammaCut)
   {
+    if (badEventDir->GetList()->GetEntries() < badEventDirMax)
+    {
+      badEventDir->cd();
+      TH1D *EvRawWave = (TH1D *)hEvRawWave[13]->Clone(Form("EvRawGammaEvent%lld-Ch%i", entry, 13));
+      EvRawWave->SetTitle(Form("EvRawGammaEvent%lld-Ch%i", entry, 13));
+    }
     passBit |= GAMMA;
     ++failGamma;
     if (reportFailures)
     {
       printf("@line1090 failed gamma event %llu bit %i cut %E lateSum %E \n", entry, passBit, lateGammaCut, tbrun->getDet(13)->lateSum);
       printf("@line1091  %f %f %f sum %E \n", idet9->lateSum, idet10->lateSum, idet11->lateSum, idet9->lateSum + idet10->lateSum + idet11->lateSum);
-    }
-    if (badEventDir->GetList()->GetEntries() < badEventDirMax)
-    {
-      badEventDir->cd();
-      TH1D *EvRawWave = (TH1D *)hEvRawWave[NONSUMCHANNELS]->Clone(Form("EvRawGammaEvent%lldVal%.0E-Ch%i", entry, tbrun->getDet(13)->lateSum, 13));
-      EvRawWave->SetTitle(Form("EvRawGammaEvent%lldVal%.3E-Ch%i", entry, tbrun->getDet(13)->lateSum, 13));
     }
   }
 
@@ -1098,9 +1096,17 @@ int anaCRun::anaEvent(Long64_t entry)
   ntTrig->Fill(double(entry), idet9->totSum, idet10->totSum, idet11->totSum, tdet13->totSum, qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ, failsTrigger);
   if (failsTrigger != 0)
   {
-    passBit |= TRIGFAIL;
-    printf("line1054 TRIGFAIL %lld cut %f chan 9 %f,%f chan 10 %f chan 11 %f ratio 9-10 %f ratio 9-11 %f ratio 10-11 %f \n", entry, trigRatioCutLow, trigRatioCutHigh, idet9->totSum, idet10->totSum, idet11->totSum, qFraction[0], qFraction[1], qFraction[2]);
+    if (badEventDir->GetList()->GetEntries() < badEventDirMax)
+    {
+      badEventDir->cd();
+      TH1D *EvRawWave = (TH1D *)hEvRawWave[13]->Clone(Form("EvRawTrigFailEvent%lld-Ch%i", entry, 13));
+      EvRawWave->SetTitle(Form("EvRawTrigFailineEvent%lld-Ch%i", entry, 13));
+    }
   }
+  // softer trig cut
+  if (triggerSum < trigSumCut)
+    passBit |= TRIGFAIL;
+  // printf("line1054 TRIGFAIL %lld cut %f chan 9 %f,%f chan 10 %f chan 11 %f ratio 9-10 %f ratio 9-11 %f ratio 10-11 %f \n", entry, trigRatioCutLow, trigRatioCutHigh, idet9->totSum, idet10->totSum, idet11->totSum, qFraction[0], qFraction[1], qFraction[2]);
   if (failsTrigger == 0)
     hTrigSumCut->Fill(trigSum);
 
@@ -1519,6 +1525,7 @@ int anaCRun::anaEvent(Long64_t entry)
   // printf("line818  event %lld passbit %i \n",entry,passBit);
   if (passBit != 0)
   {
+    /* collect example of failing evnets */
     // printf("@line913 event %lld passBit %i det %i nhits %u \n",
     //        entry, int(passBit), NONSUMCHANNELS, tbrun->detList[NONSUMCHANNELS]->nhits());
     return passBit;
@@ -1917,7 +1924,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   badEventDir = fout->mkdir("badEventDir");
   pmtDir = fout->mkdir("pmtDir");
   exampleDir = fout->mkdir("exampleDir");
-  badTrigDir = fout->mkdir("badTrigDir");
   threshDir = fout->mkdir("threshDir");
   earlyPeakDir = fout->mkdir("earlyPeakDir");
   anaDir = fout->mkdir("anadir");
@@ -1940,7 +1946,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
 
   // new gain file
-  TString gainFileName = TString(getenv("BOBJ")) + TString("/gains-2024-02-15-17-26-save.root");
+  TString gainFileName = TString(getenv("BOBJ")) + TString("/gains-2025-06-18-18-48.root");
   cout << "read gains from file " << gainFileName << endl;
   readGains(gainFileName);
 

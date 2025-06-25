@@ -38,7 +38,7 @@
 static int theBinWidth = 2;
 static double Wionization = 25.6;      // eV Tadayoshi Doke et al 2002 Jpn. J. Appl. Phys. 41 1538
 static double nPhotons = 60.E3 / 25.6; // 60 keV gamma
-static double fillFactor = 0.7;        // sipm data sheet
+static double fillFactor = 1.0;        // Doug clarified june 23 2025 ! sipm data sheet
 static double nominalGain = 100;       //  was 227.4;
 static double nonZeroFraction = 1. - 0.61;
 static double tTriplet0 = 1600.0; // 2100.0;
@@ -178,7 +178,8 @@ double effGeoFunc(int ichan)
     distance2[il] = pow(distanceLevel[il], 2.);
 
   e = a / b / distance2[ilevel];
-  // printf("effGeoFunc ichan  %i level %i  dist %f area %f eff %f \n", ichan, ilevel, distanceLevel[ilevel], a, e);
+  // printf("modelFitGamma: effGeoFunc ichan  %i level %i  dist %f area %f eff %f \n", ichan, ilevel, distanceLevel[ilevel], a, e);
+
   return e;
 }
 
@@ -541,7 +542,7 @@ modelFit::modelFit(int theFit, int ichan, double ppm)
   }
 
   fp = new TF1(Form("ModelFit-%.2f-type-%s-chan-%i", ab, modelNames[theFit].Data(), ichan), lightModel, fitStart, fitEnd, NPARS);
-  printf(" modelFit: set %i fit range %f to %f  \n", theFit, fitStart, fitEnd);
+  // printf(" modelFit: set %i fit range %f to %f  \n", theFit, fitStart, fitEnd);
 
   for (int ipar = 0; ipar < NPARS; ++ipar)
     fp->SetParName(ipar, vparNames[ipar].Data());

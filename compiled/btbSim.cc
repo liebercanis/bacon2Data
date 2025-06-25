@@ -37,6 +37,7 @@ bool writeRawData = true;
 modelFit *models[NCHAN];
 TNtuple *ntOrigin;
 TNtuple *ntTrigCh;
+TNtuple *ntTDiff;
 TNtuple *ntTrig;
 TNtuple *ntTern;
 TNtuple *ntMean;
@@ -47,9 +48,11 @@ TH1D *hConvolve[NCHAN];
 TH1D *hSignal[NCHAN];
 Long64_t totalPhotons;
 Long64_t ncount[NCHAN];
+TH1D *hEventPass;
 TH1D *hCount;
 TH1D *hResponse;
 TH1D *hTime;
+TH1D *hTrigDiffTime;
 uint16_t maxAdc = pow(2, 14);
 double gain = nominalGain;
 double landauMax = 0.018063;
@@ -65,6 +68,10 @@ double noiseToSignal = 0.04;
 double baseline = 1100.; // 1100; // ADC
 double thePPM = 0.0;
 double meanFreePath = 1.5; // guess for 60kev gamma in cm
+double totalEventEffiency;
+double triggerTimes[3];
+double cosMin = 0.851 / sqrt(pow(0.4, 2) + pow(0.851, 2));
+double maxTriggerTimeDiffernce = 30.;
 
 ROOT::Math::XYZVector eventOrigin(0, 0, 0);
 TMinuit *gMinuit;
@@ -72,6 +79,7 @@ Double_t arglist[1];
 int ierflg;
 TGraph *gplot1 = NULL;
 bool show = false;
+bool doMinuit = false;
 
 enum
 {
@@ -92,6 +100,82 @@ int triggerStart = 2 * 700; // 730; sipm rise time
 double speMPV = double(triggerStart);
 double speSigma = 20.; // ns from single PI data fit
 TF1 *speLandau;
+
+// trigger condition return maximum time betweed trigger photons
+double eventTrigger()
+{
+  // printf("line104 %0.f %0.f %0.f \n", hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries());
+  double tdiff = 1000.0;
+  // all must have at least 1 photon
+  if (hPhoton[9]->GetEntries() < 1)
+    return tdiff;
+  if (hPhoton[10]->GetEntries() < 1)
+    return tdiff;
+  if (hPhoton[11]->GetEntries() < 1)
+    return tdiff;
+
+  // min time between 9,10
+  double tdiff910 = 1000.0;
+  for (int ibin9 = 1; ibin9 < hPhoton[9]->GetNbinsX(); ++ibin9)
+  {
+    if (hPhoton[9]->GetBinContent(ibin9) == 0)
+      continue;
+    double time9 = hPhoton[9]->GetBinCenter(ibin9);
+    for (int ibin10 = 1; ibin10 < hPhoton[10]->GetNbinsX(); ++ibin10)
+    {
+      if (hPhoton[10]->GetBinContent(ibin10) == 0)
+        continue;
+      double time10 = hPhoton[10]->GetBinCenter(ibin10);
+      if (abs(time9 - time10) < tdiff910)
+        tdiff910 = abs(time9 - time10);
+    }
+  }
+
+  // min time between 9,11
+  double tdiff911 = 1000.0;
+  for (int ibin9 = 1; ibin9 < hPhoton[9]->GetNbinsX(); ++ibin9)
+  {
+    if (hPhoton[9]->GetBinContent(ibin9) == 0)
+      continue;
+    double time9 = hPhoton[9]->GetBinCenter(ibin9);
+
+    for (int ibin11 = 1; ibin11 < hPhoton[11]->GetNbinsX(); ++ibin11)
+    {
+      if (hPhoton[11]->GetBinContent(ibin11) == 0)
+        continue;
+      double time11 = hPhoton[11]->GetBinCenter(ibin11);
+      if (abs(time9 - time11) < tdiff911)
+        tdiff911 = abs(time9 - time11);
+    }
+  }
+
+  // min time between 10,11
+  double tdiff1011 = 1000.0;
+  for (int ibin10 = 1; ibin10 < hPhoton[10]->GetNbinsX(); ++ibin10)
+  {
+    if (hPhoton[10]->GetBinContent(ibin10) == 0)
+      continue;
+    double time10 = hPhoton[10]->GetBinCenter(ibin10);
+    for (int ibin11 = 1; ibin11 < hPhoton[11]->GetNbinsX(); ++ibin11)
+    {
+      if (hPhoton[11]->GetBinContent(ibin11) == 0)
+        continue;
+      double time11 = hPhoton[11]->GetBinCenter(ibin11);
+      if (abs(time10 - time11) < tdiff1011)
+        tdiff1011 = abs(time10 - time11);
+    }
+  }
+
+  // return the maximum time
+  tdiff = TMath::Max(tdiff910, tdiff911);
+  tdiff = TMath::Max(tdiff, tdiff1011);
+
+  ntTDiff->Fill(tdiff910, tdiff911, tdiff1011, tdiff);
+
+  // printf("line169 tdiff 9 10 %f tdiff 9 11 %f tdiff 10 %f tdiff %f \n", tdiff910, tdiff911, tdiff1011, tdiff);
+
+  return tdiff;
+}
 
 //// https://mathworld.wolfram.com/TernaryDiagram.html
 void makeTernary(double a, double b, double c, double &x, double &y)
@@ -265,8 +349,11 @@ void btb(int ngen = 10000000)
     // rawRun->print();
   }
 
+  /* define ntuples amd histograms here */
+  hEventPass = new TH1D("hEventPass", "event pass", 3, 0, 3);
   ntOrigin = new TNtuple("ntOrigin", " event origin ", "ev:r:cos:theta:phi:x:y:z");
   ntTrigCh = new TNtuple("ntTrigCh", " trigger info by channel ", "ev:ch:qsum:psum:nph:r:theta:phi:x:y:z");
+  ntTDiff = new TNtuple("ntTDiff", "trig time differences", "tdiff910:tdiff911:tdiff1011:tdiff");
   ntTrig = new TNtuple("ntTrig", " trigger info by event  ", "ev:nph9:nph10:nph11:r:theta:phi:x:y:z");
   ntTern = new TNtuple("nTern", " trigger sipm", "eventR:eventCos:eventPhi:qsum9:qsum10:qsum11:mean9:mean10:mean11:xmean:ymean:xq:yq");
   ntMean = new TNtuple("ntMean", "trigger means ", "ev:numPhotons:eventR:eventCos:eventPhi:qsum9:qsum10:qsum11:mean9:mean10:mean11:xternq:yternq");
@@ -274,6 +361,7 @@ void btb(int ngen = 10000000)
   ntScan = new TNtuple("ntScan", "scan", "nll:mean9:mean10:mean11:qsum9:qsum10:qsum11:r:theta:phi");
   hCount = new TH1D("Count", "hit count", 13, 0, 13);
   hTime = new TH1D("Time", "photon time ", 7500, 0, 2 * 7500);
+  hTrigDiffTime = new TH1D("TrigDiffTime", " time difference ", 7500, 0, 2 * 7500);
   // landau response function
   speLandau = new TF1("myLandau", myLandau, 0, totalBins * theBinWidth, 3);
   // set SPE response parameters
@@ -296,6 +384,7 @@ void btb(int ngen = 10000000)
 
   double sigmaNoise = gain * noiseToSignal;
   TH1D *hNoise = new TH1D("Noise", "Noise", 200, -10 * sigmaNoise, 10 * sigmaNoise);
+  TH1D *hPhotonAll = new TH1D("PhotonAll", "all photons ", 200, 0.5 * numPhotons, 1.5 * numPhotons);
   TH1D *hPhotonSum = new TH1D("PhotonSum", "photon sum", 200, 0., 40.);
   TH1D *hPhotonSumCut = new TH1D("PhotonSumCut", "photon sum cut", 200, 0., 40.);
 
@@ -325,6 +414,7 @@ void btb(int ngen = 10000000)
     hSignal[ih]->GetYaxis()->SetTitle("photons/2ns");
     hSignal[ih]->SetDirectory(nullptr);
   }
+  /* end of define ntuples amd histograms here */
 
   // print info for channel
   printf("\n******* efficienies ****\n ");
@@ -364,12 +454,20 @@ void btb(int ngen = 10000000)
   for (int iev = 0; iev < ngen; ++iev)
   {
 
+    hEventPass->SetBinContent(1, hEventPass->GetBinContent(1) + 1);
+
+    // zero trigger times array
+    for (int i = 0; i < 3; ++i)
+      triggerTimes[i] = 0.;
+
     int nPhotonsEvent = (int)ran->Gaus(numPhotons, sqrt(numPhotons));
     totalPhotons += nPhotonsEvent;
+    hPhotonAll->Fill(nPhotonsEvent);
 
     /********  generate gamma position  *********/
     double gammaR = abs(ran->Exp(meanFreePath));
-    double gammaCosTheta = 2. * ran->Rndm() - 1.;   // cos flat from 1 to -1
+    double gammaCosTheta = 2. * ran->Rndm() - 1.; // cos flat from 1 to -1
+    // double gammaCosTheta = 1. - (1. - cosMin) * ran->Rndm();
     double gammaPhi = TMath::TwoPi() * ran->Rndm(); // phi flat from 0 to 2pi
     eventOrigin = getXYZVector(gammaR, acos(gammaCosTheta), gammaPhi);
     double localPhi = eventOrigin.Phi() * 360. / TMath::TwoPi();
@@ -377,13 +475,14 @@ void btb(int ngen = 10000000)
       localPhi += 360.;
 
     /* cut out the events blocked by the source holder */
-    eventOrigin.SetZ(abs(eventOrigin.Z()));
-
-    /* cut large R events  */
-    if (gammaR > 2.)
+    if (gammaCosTheta < cosMin)
       continue;
 
-    ntOrigin->Fill(iev, eventOrigin.R(), cos(eventOrigin.Theta()), eventOrigin.Theta() * 360. / TMath::TwoPi(), localPhi), eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z();
+    hEventPass->SetBinContent(2, hEventPass->GetBinContent(2) + 1);
+    // eventOrigin.SetZ(abs(eventOrigin.Z()));
+
+    ntOrigin->Fill(iev, eventOrigin.R(), cos(eventOrigin.Theta()), eventOrigin.Theta() * 360. / TMath::TwoPi(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
+    // printf(" event origin x %f y %f z %f \n", eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
 
     if (iev / 1000 * 1000 == iev)
       printf("... event %i total photon %0.f (r,cosTheta,phi) = (%f, %f, %f) (r,theta,Phi) = (%f , %f ,%f ) \n", iev, double(totalPhotons), gammaR, gammaCosTheta, gammaPhi, eventOrigin.R(), eventOrigin.Theta() * 360. / TMath::TwoPi(), localPhi);
@@ -492,7 +591,12 @@ void btb(int ngen = 10000000)
       // if (iev / 1 * 1 == iev && ich < 12 && ich > 8)
 
     } // end channel loop
-    ntTrig->Fill(iev, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries(), eventOrigin.R(), eventOrigin.Theta() * 360. / TMath::TwoPi(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
+
+    // ensure the event triggers
+    double maxTriggerDiff = eventTrigger();
+    if (maxTriggerDiff > maxTriggerTimeDiffernce)
+      continue;
+    hEventPass->SetBinContent(3, hEventPass->GetBinContent(3) + 1);
 
     if (show)
       printf("xxx event %i nph %.0f %.0f %.0f\n", iev, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries());
@@ -506,52 +610,60 @@ void btb(int ngen = 10000000)
     peakFitQsum[1] = hPhoton[10]->GetEntries() / photonSum;
     peakFitQsum[2] = hPhoton[11]->GetEntries() / photonSum;
 
-    // ensure the event triggers
-    if (hPhoton[9]->GetEntries() < 1 || hPhoton[10]->GetEntries() < 1 || hPhoton[11]->GetEntries() < 1)
-      continue;
+    ntTrig->Fill(iev, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries(), eventOrigin.R(), eventOrigin.Theta() * 360. / TMath::TwoPi(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
 
     hPhotonSumCut->Fill(photonSum);
     // Now ready for minimization step with MIGRAD
     // set starting param values
-
-    // Set starting values and step sizes for parameters
-    double step = 0.0001;
-    gMinuit->mnparm(0, "yield", numPhotons, step, 0., 10. * numPhotons, ierflg);
-    gMinuit->mnparm(1, "fitR", 0.1, step, 0., 2., ierflg);
-    gMinuit->mnparm(2, "fitTheta", 0, step, 0., TMath::Pi(), ierflg);
-    gMinuit->mnparm(3, "fitPhi", 0, step, -TMath::Pi(), TMath::Pi(), ierflg);
-    // gMinuit->FixParameter(0);
-
-    // minimize
-    gMinuit->mnexcm("MIGRAD", arglist, 0, ierflg);
-    if (ierflg != 0)
-      printf("\t\t ***** MIGRAD event %i error code %i ******\n", iev, ierflg);
-
-    /* get results */
-    double amin, edm, errdef;
-    int nvpar, nparx, icstat;
-    gMinuit->mnstat(amin, edm, errdef, nvpar, nparx, icstat);
     double fitVal[NPAR];
     double fitErr[NPAR];
-    for (int ipar = 0; ipar < NPAR; ++ipar)
+    for (unsigned i = 0; i < 3; ++i)
     {
-      gMinuit->GetParameter(ipar, fitVal[ipar], fitErr[ipar]);
-      if (show)
-        printf("\t\t       event %i par %i fit %E err %E \n", iev, ipar, fitVal[ipar], fitErr[ipar]);
+      fitVal[i] = 0;
+      fitErr[i] = 0;
     }
-
-    if (scanDir->GetList()->GetEntries() < MAXSCANPLOTS && ierflg == 0)
+    double amin = 0;
+    if (doMinuit)
     {
-      printf("scan perameter event %i\n", iev);
-      gMinuit->SetGraphicsMode(kTRUE);
-      gplot1 = myScan(1, 0, 2.);
-      // gMinuit->mncomd("scan 1", ierflg);
-      // gplot1 = (TGraph *)gMinuit->GetPlot();
-      TGraph *gsave = (TGraph *)gplot1->Clone(Form("scan1Ev%i", iev));
-      // gplot1->SetPoint(0, gplot1->GetPointX(0), gplot1->GetPointY(1)); // first point is NAN
-      gsave->SetTitle(Form("scan of parameter 1 ev %i min nLL %.3E rmin = %.3f", iev, amin, fitVal[1]));
-      // gplot1->Draw("al");
-      scanDir->Add(gsave);
+
+      // Set starting values and step sizes for parameters
+      double step = 0.0001;
+      gMinuit->mnparm(0, "yield", numPhotons, step, 0., 10. * numPhotons, ierflg);
+      gMinuit->mnparm(1, "fitR", 0.1, step, 0., 2., ierflg);
+      gMinuit->mnparm(2, "fitTheta", 0, step, 0., TMath::Pi(), ierflg);
+      gMinuit->mnparm(3, "fitPhi", 0, step, -TMath::Pi(), TMath::Pi(), ierflg);
+      // gMinuit->FixParameter(0);
+
+      // minimize
+      gMinuit->mnexcm("MIGRAD", arglist, 0, ierflg);
+      if (ierflg != 0)
+        printf("\t\t ***** MIGRAD event %i error code %i ******\n", iev, ierflg);
+
+      /* get results */
+      double edm, errdef;
+      int nvpar, nparx, icstat;
+      gMinuit->mnstat(amin, edm, errdef, nvpar, nparx, icstat);
+
+      for (int ipar = 0; ipar < NPAR; ++ipar)
+      {
+        gMinuit->GetParameter(ipar, fitVal[ipar], fitErr[ipar]);
+        if (show)
+          printf("\t\t       event %i par %i fit %E err %E \n", iev, ipar, fitVal[ipar], fitErr[ipar]);
+      }
+
+      if (scanDir->GetList()->GetEntries() < MAXSCANPLOTS && ierflg == 0)
+      {
+        printf("scan perameter event %i\n", iev);
+        gMinuit->SetGraphicsMode(kTRUE);
+        gplot1 = myScan(1, 0, 2.);
+        // gMinuit->mncomd("scan 1", ierflg);
+        // gplot1 = (TGraph *)gMinuit->GetPlot();
+        TGraph *gsave = (TGraph *)gplot1->Clone(Form("scan1Ev%i", iev));
+        // gplot1->SetPoint(0, gplot1->GetPointX(0), gplot1->GetPointY(1)); // first point is NAN
+        gsave->SetTitle(Form("scan of parameter 1 ev %i min nLL %.3E rmin = %.3f", iev, amin, fitVal[1]));
+        // gplot1->Draw("al");
+        scanDir->Add(gsave);
+      }
     }
 
     // fill fit ntuple
@@ -596,6 +708,7 @@ void btb(int ngen = 10000000)
     if (rawRun)
       rawRun->fill();
     simRun->fill();
+    totalEventEffiency = hPhotonSumCut->Integral() / hPhotonAll->Integral();
   } // end of event loop
 
   for (int ich = 0; ich < NCHAN; ++ich)
@@ -607,6 +720,7 @@ void btb(int ngen = 10000000)
     printf(" chan %i photons %i\n", ih, (int)hCount->GetBinContent(ih));
   }
   // fout->ls();
+  hEventPass->Print("all");
   printf("end of btb with ngen %i \n", ngen);
   simRun->print();
 }
@@ -645,7 +759,7 @@ int main(int argc, char *argv[])
 
   printf("***** START of btb ngen = %i *****\n", ngen);
   btb(ngen);
-  printf("... %s ngen %i passed %lld file %s exit\n", argv[0], ngen, ntFit->GetEntries(), fout->GetName());
+  printf("... %s ngen %i passed %lld total efficiency %.3f  file %s exit\n", argv[0], ngen, ntFit->GetEntries(), totalEventEffiency, fout->GetName());
   // fout->ls();
   fout->Write();
   fout->Close();
