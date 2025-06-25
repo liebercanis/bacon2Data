@@ -10,6 +10,11 @@ on branch RunTwo:
 >git branch --set-upstream-to=origin/runTwo runTwo
 > git pull
 cd to bobj
+
+you need to make a softlike to root makefile.arch as for example
+
+    ln -s  /usr/local/Cellar/root/6.34.08_1/etc/root/makefile.arch
+
 >rm *.o;
 > make clean; make
 cd to compiled
