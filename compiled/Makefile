@@ -48,7 +48,7 @@ all: sis build summary anaca anacg btbSim
 sis: sis.cc
 	$(CPP) $< $(LIBS)  -o $@
 
-btbSim: btbSim.cc triggerPeakFit.hh
+btbSim: btbSim.cc triggerPeakFit.hh modelFitGamma.hh
 	$(CPP) $< $(LIBS)  -o $@
 
 

@@ -463,11 +463,22 @@ std::vector<double> anaCRun::sumDigi()
 
 void anaCRun::printGains()
 {
-  printf("got %lu gains \n", sipmGain.size());
+  // get new nominal gains
+  double newNominalGain = 0;
+  double newNominalTrigGain = 0;
+
+  printf("line466 got %lu gains \n", sipmGain.size());
   for (unsigned long j = 0; j < sipmGain.size(); ++j)
   {
     printf(" %lu  gain %.4f error %.4f   \n", j, sipmGain[j], sipmGainError[j]);
+    if (j < 9)
+      newNominalGain += sipmGain[j];
+    if (j > 8 && j < 12)
+      newNominalTrigGain += sipmGain[j];
   }
+  newNominalGain /= double(9);
+  newNominalTrigGain /= double(3);
+  printf(" GGGGGGGG nominal gains %f trig %f  GGGGGGGGGG\n", newNominalGain, newNominalTrigGain);
 }
 
 bool anaCRun::readGains(TString fileName)
@@ -513,12 +524,12 @@ bool anaCRun::readGains(TString fileName)
   if (aFile)
   {
     fclose(aFile);
-    exists = false;
+    exists = true;
   }
 
   if (!exists)
   {
-    printf(" couldnt open template file %s\n", fileName.Data());
+    printf(" fopen couldnt open template file %s\n", fileName.Data());
     return false;
   }
 
@@ -530,7 +541,7 @@ bool anaCRun::readGains(TString fileName)
   }
   cout << " opened sipm gain file " << fileName << endl;
   TGraphErrors *gGain = NULL;
-  fin->GetObject("gGain", gGain);
+  fin->GetObject("gains-05_19_2025-05_19_2025", gGain);
   if (gGain == NULL)
   {
     cout << "no gGain in file " << endl;
@@ -544,6 +555,7 @@ bool anaCRun::readGains(TString fileName)
     sipmGain[index] = gGain->GetPointY(i);
     sipmGainError[index] = gGain->GetErrorY(i);
   }
+
   return true;
 }
 

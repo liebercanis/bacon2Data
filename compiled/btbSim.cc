@@ -54,7 +54,8 @@ TH1D *hResponse;
 TH1D *hTime;
 TH1D *hTrigDiffTime;
 uint16_t maxAdc = pow(2, 14);
-double gain = nominalGain;
+double gain;
+double sigmaNoise;
 double landauMax = 0.018063;
 // 2*14         // ns
 /* parameters quoted in talk  "A new optical model for LEGEND-200
@@ -303,7 +304,7 @@ double effGeoSim(int ichan) // uses PositionVector3D eventOrigin;
 
 void btb(int ngen = 10000000)
 {
-  printf(" btb sim generate ngen =  %i LY %.1f photons/kev * 60 = %.1f \n", ngen, LY, numPhotons);
+  printf(" btb sim generate ngen =  %i LY %.1f photons/kev * 60 = %.1f nominalGain %f nominalTrigGain %f \n", ngen, LY, numPhotons, nominalGain, nominalTrigGain);
 
   for (int ichan = 0; ichan < NCHAN; ++ichan)
     models[ichan] = new modelFit(4, ichan, thePPM);
@@ -382,7 +383,7 @@ void btb(int ngen = 10000000)
   double landauMax = hResponse->GetBinContent(hResponse->GetMaximumBin());
   printf(" landau response integral %E  gain %f  landauMax %f SPE %E \n", hResponse->Integral(), gain, landauMax, gain / landauMax);
 
-  double sigmaNoise = gain * noiseToSignal;
+  sigmaNoise = gain * noiseToSignal;
   TH1D *hNoise = new TH1D("Noise", "Noise", 200, -10 * sigmaNoise, 10 * sigmaNoise);
   TH1D *hPhotonAll = new TH1D("PhotonAll", "all photons ", 200, 0.5 * numPhotons, 1.5 * numPhotons);
   TH1D *hPhotonSum = new TH1D("PhotonSum", "photon sum", 200, 0., 40.);
@@ -491,6 +492,12 @@ void btb(int ngen = 10000000)
     // loop over channels
     for (int ich = 0; ich < NCHAN; ++ich)
     {
+      // set the nominal gain from file modelFitGamma.hh
+      gain = nominalGain;
+      if (ich > 8)
+        gain = nominalTrigGain;
+      //
+      sigmaNoise = gain * noiseToSignal;
       bool invert = ich > 8; // invert trigger 9,10,11 and PMT
       // histogram reset
       hPhoton[ich]->Reset("ICESM");
