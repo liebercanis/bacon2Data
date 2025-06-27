@@ -553,7 +553,7 @@ void fileLoop()
       printf("NO EVENT COUNT IN FILE %i  %s\n", ifile, fin->GetName());
       continue;
     }
-    /* add gains */
+    /* add peak and sum gains */
     TDirectory *sumDir = NULL;
     fin->GetObject("sumDir", sumDir); // typeO in directory name
     if (!sumDir)
@@ -563,13 +563,13 @@ void fileLoop()
     }
     else
     {
-      // printf("line502  anaDir is found in file %s \n", fin->GetName());
+      /**************** add peak ****************/
       //  loop over channels
       TString gainInName;
       TString gainOutName;
       for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
       {
-        gainOutName.Form("GainSumChan%i", ichan);
+        gainOutName.Form("GainPeakChan%i", ichan);
         gainInName.Form("QPeakChan%i", ichan);
         TH1D *hIn = NULL;
         sumDir->GetObject(gainInName, hIn);
@@ -582,7 +582,7 @@ void fileLoop()
             hOut = (TH1D *)hIn->Clone(gainOutName);
             hOut->SetTitle(gainOutName);
             cout << "line516 ... adding  " << hIn->GetName() << " file "
-                 << fin->GetName() << " summed entries " << hOut->GetEntries() << endl;
+                 << fin->GetName() << " hit QPeak " << hOut->GetEntries() << endl;
             gainSumDir->Add(hOut);
           }
           else
@@ -590,11 +590,41 @@ void fileLoop()
             gainSumDir->GetObject(gainOutName, hOut);
             hOut->Add(hIn);
             cout << "line526 ... found for " << gainOutName
-                 << " in entries " << hIn->GetEntries() << " summed entries " << hOut->GetEntries() << endl;
+                 << " in entries " << hIn->GetEntries() << " hit QPeak " << hOut->GetEntries() << endl;
           }
         } // if hIn
       } // channel loop
-    } // if anaDir
+      /***************** add qsum ****************/
+      //  loop over channels
+      for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
+      {
+        gainOutName.Form("GainSumChan%i", ichan);
+        gainInName.Form("QSumChan%i", ichan);
+        TH1D *hIn = NULL;
+        sumDir->GetObject(gainInName, hIn);
+        if (hIn)
+        {
+          TH1D *hOut = NULL;
+          gainSumDir->GetObject(gainOutName, hOut);
+          if (hOut == NULL)
+          {
+            hOut = (TH1D *)hIn->Clone(gainOutName);
+            hOut->SetTitle(gainOutName);
+            cout << "line613 ... adding  " << hIn->GetName() << " file "
+                 << fin->GetName() << " hit QSum " << hOut->GetEntries() << endl;
+            gainSumDir->Add(hOut);
+          }
+          else
+          {
+            gainSumDir->GetObject(gainOutName, hOut);
+            hOut->Add(hIn);
+            cout << "line621 ... found for " << gainOutName
+                 << " in entries " << hIn->GetEntries() << " hit QSum " << hOut->GetEntries() << endl;
+          }
+        } // if hIn
+      } // channel loop
+
+    } // if sumDir
 
     // get hist of cleanup cut pass bit
     fin->GetObject("EventPass", hEventPass);
