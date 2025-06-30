@@ -604,12 +604,12 @@ void anaCRun::clear()
   for (unsigned long j = 0; j < channelSigmaValue.size(); ++j)
   {
     // chanThreshold[j] = 2. * 36.4; from bad data
-    chanThreshold[j] = 2. * 60.; //
+    chanThreshold[j] = 4. * 36.; //
   }
   // trigger SIPMs do three sigma
-  chanThreshold[9] = 3. * 33.;
-  chanThreshold[10] = 3. * 33.;
-  chanThreshold[11] = 3. * 33.;
+  chanThreshold[9] = 4. * 99.;
+  chanThreshold[10] = 4. * 99.;
+  chanThreshold[11] = 4. * 99.;
   chanThreshold[12] = 3. * 2.4; // based on histogram sigma, had been 5.3;
   chanThreshold[13] = 3. * 33.; // should be same as trigger sipm
   nSpeSum.resize(CHANNELS);
