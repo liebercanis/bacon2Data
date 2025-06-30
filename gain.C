@@ -57,6 +57,25 @@ enum
 std::vector<TH1D *> hlist;
 int colors[11] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 30, 40};
 
+void calcMean(int np, double *g, double &mean, double &rms)
+{
+  mean = 0;
+  rms = 0;
+  if (np < 1)
+    return;
+
+  //
+  double sum = 0;
+  double sum2 = 0;
+  for (int i = 0; i < np; ++i)
+  {
+    sum += g[i];
+    sum2 += g[i] * g[i];
+  }
+  mean = sum / double(np);
+  rms = sqrt(sum2 / double(np) - mean * mean);
+}
+
 int findPeakBin(TH1D *h, double fitStart, double fitEnd)
 {
   int ilow = h->FindBin(fitStart);
@@ -277,7 +296,7 @@ void gain(int theChan = 13) // default all
 
   // open output file
   std::string sdate = currentDate();
-  fout = new TFile(Form("gains--%s-%s.root", tag.Data(), sdate.c_str()), "recreate");
+  fout = new TFile(Form("gainPeak-%s-%s.root", tag.Data(), sdate.c_str()), "recreate");
 
   // function to fit line
   TF1 *line = new TF1("myLine", fline, 0, 2.E5, 2);
@@ -395,6 +414,12 @@ void gain(int theChan = 13) // default all
   {
     printf("chan %i gain %f err %f \n", int(vchan[is]), sipmGain[is], sipmGainError[is]);
   }
+
+  double gainMean, gainRms;
+  calcMean(9, &sipmGain[0], gainMean, gainRms);
+  printf("line422 calcMean non trigger gain averages %f +/- %f \n", gainMean, gainRms);
+  calcMean(3, &sipmGain[9], gainMean, gainRms);
+  printf("line422 calcMean     trigger gain averages %f +/- %f \n", gainMean, gainRms);
   printf("*********\n");
 
   // plot
@@ -488,7 +513,7 @@ void gain(int theChan = 13) // default all
 
   TGraphErrors *absGain = new TGraphErrors(absoluteGain.size(), &sipmNumber[0], &absoluteGain[0], &sipmNumberError[0], &absoluteGainError[0]);
   TString absoluteName;
-  absoluteName = Form("gains-%s", tag.Data());
+  absoluteName = Form("gainPeak");
   TString absoluteTitle;
   absoluteTitle = Form("absolute gain  %s", tag.Data());
   absGain->SetName(absoluteName);
