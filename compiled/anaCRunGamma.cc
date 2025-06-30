@@ -256,10 +256,10 @@ public:
   int nominalTrigger = 753; // was 729; this is nominal trigger sample
 
   /**************** define nominal gains ***************/
-  double nominalGain = 170.;     // was 160.0; set Jue 13 2025
-  double nominalTrigGain = 700.; //
-  double nominalQsumGain = 7050;
-  double nominalQsumTrigGain = 2.9E4;
+  double nominalGain = 134.786401;     // 170.;     // was 160.0; set Jue 13 2025
+  double nominalTrigGain = 735.688747; //
+  double nominalQsumGain = 4940.503519;
+  double nominalQsumTrigGain = 32056.789775;
   double nominalPmtGain = 502.;
   double nominalQsumPmtGain = 1713;
   double landauMax = 1.0; // 0.018063;
@@ -1275,12 +1275,12 @@ int anaCRun::anaEvent(Long64_t entry)
     digi.clear();
     digi = fixedDigi[ib];
 
-    evCount->Fill(ib);                       // chan 0 from GetBinContent(0)
-    double hitThreshold = 0.5 * nominalGain; // 500.0;
+    evCount->Fill(ib);                        // chan 0 from GetBinContent(0)
+    double hitThreshold = 0.75 * nominalGain; // 500.0;
     if (trig)
-      hitThreshold = 0.5 * nominalTrigGain;
+      hitThreshold = 0.75 * nominalTrigGain;
     if (ib == 12)
-      hitThreshold = 0.5 * nominalPmtGain; // this is 5*(6 sigma noise)
+      hitThreshold = 0.75 * nominalPmtGain; // this is 5*(6 sigma noise)
     double theStep = diffStepSipm;
     if (ib == 12)
     {
