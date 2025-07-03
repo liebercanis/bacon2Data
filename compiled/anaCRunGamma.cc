@@ -163,6 +163,7 @@ public:
   TH1D *hCountLate;
   TH1D *hCountLateTime;
   TH2D *hCountLateTimeQpeak;
+  TH2D *hTriangle;
   TH1D *evCount;
   TH1D *histQSum;
   TH1D *hEventPass;
@@ -1122,6 +1123,10 @@ int anaCRun::anaEvent(Long64_t entry)
   if (failsTrigger == 0)
     hTrigSumCut->Fill(trigSum);
 
+  // fill triangle plot
+  if (passBit == 0)
+    hTriangle->Fill(xternQ, yternQ);
+
   /********************************************************
    * now that we have the firstTime
         align to nominalTrigger
@@ -1398,6 +1403,8 @@ int anaCRun::anaEvent(Long64_t entry)
   TDet *tdet11 = tbrun->getDet(11);
   /* refill */
   // baseline correction from fitted Gaussian
+
+  /*
   if (exampleDir->GetList()->GetEntries() < exampleDirMax)
   {
     exampleDir->cd();
@@ -1411,6 +1418,7 @@ int anaCRun::anaEvent(Long64_t entry)
     // finder->plotEvent(exampleDir, tdet9->channel, entry);
     //  printf("@line1192 print event %llu start %i printed %i \n", entry, startLast, exampleDir->GetList()->GetEntries());
   }
+    */
 
   // printf("line975 chan 13 has %lu hits \n", tdet13->hits.size());
 
@@ -1516,19 +1524,17 @@ int anaCRun::anaEvent(Long64_t entry)
     //{
 
     /* just collect some events */
-    /*
-    if (passBit == 0 && totHits > 0 && (ib == 0 || ib == 1))
+    if (passBit == 0 && totHits > 0 && ib < 9)
     {
       if (exampleDir->GetList()->GetEntries() < exampleDirMax)
       {
         exampleDir->cd();
-        TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lld-Ch%i-Start%i", entry, ib, tbrun->getDet(ib)->hits[0].firstBin));
+        TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lld-Ch%i-qpeak%0.f", entry, ib, tbrun->getDet(ib)->hits[0].qpeak));
         EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, ib));
         finder->plotEvent(exampleDir, tbrun->getDet(ib)->channel, entry);
         // printf("@line1192 print event %llu start %i printed %i \n", entry, startLast, exampleDir->GetList()->GetEntries());
       }
     }
-      */
 
     //}
   }
@@ -2019,6 +2025,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 /nominal gain ", 1000, 0, 2. * lateGammaCut);
   hTrigSumNoCut = new TH1D("TrigSumNoCut", " before cut qsum9+qsum10+qsum11  in units nominal PE ", 160, 0, 40.);
   hTrigSumCut = new TH1D("TrigSumCut", " qsum9+qsum10+qsum11  in units nominal PE ", 160, 0, 40.);
+  hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
 
   TString hName;
   hName.Form("TrigRatio%i-9-10", 0);
