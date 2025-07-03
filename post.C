@@ -1,9 +1,13 @@
+/*
+    macro to analyze RunTree chain from date tag
+*/
 using namespace TMath;
 TChain *RunTree;
 TFile *fout;
 TString tag;
 TNtuple *ntSum;
 TNtuple *ntHit;
+TNtuple *ntTDiff;
 int passBit;
 enum
 {
@@ -25,6 +29,7 @@ TH2D *hTrigHitPeakTime;
 TH2D *hTrigHitPeakTimeCoarse;
 TH2D *hAllHitPeakTimeCoarse;
 TH2D *hAllHitPeakTime;
+TH1D *hHitTimeDiff;
 
 TH1D *hTrigLatePeaks;
 TH1D *hSipmLatePeaks;
@@ -131,6 +136,23 @@ void loop(Long64_t maxEntry)
           */
       }
 
+      // look at time difference between hits.
+      if (id < 9)
+      {
+        for (unsigned ihit = 0; ihit < det->hits.size(); ++ihit)
+        {
+          TDetHit hiti = det->hits[ihit];
+          for (unsigned jhit = ihit + 1; jhit < det->hits.size(); ++jhit)
+          {
+            TDetHit hitj = det->hits[ihit];
+            double tdiff = double(det->hits[jhit].startTime) - double(det->hits[ihit].startTime);
+            // printf("%i %i %f\n", ihit, jhit, tdiff);
+            hHitTimeDiff->Fill(tdiff);
+            ntTDiff->Fill(double(det->hits[ihit].startTime), double(det->hits[jhit].startTime), det->hits[ihit].qpeak, det->hits[jhit].qpeak); //= new TNtuple("ntTDiff","time diff","startTime1:startTime2:qpeak1:qpeak2");
+          }
+        }
+      }
+
       // pre cut
       int npreHits = 0;
       int nlateHits = 0;
@@ -139,12 +161,14 @@ void loop(Long64_t maxEntry)
         for (unsigned ihit = 0; ihit < det->hits.size(); ++ihit)
         {
           TDetHit hiti = det->hits[ihit];
-          if (det->hits[ihit].startTime<600){
+          if (det->hits[ihit].startTime < 600)
+          {
             ++npreHits;
             ++nPre;
           }
           hCountLateTimeQpeak->Fill(det->hits[ihit].startTime, det->hits[ihit].qpeak / nominalGain);
-          if (det->hits[ihit].startTime > 1000&&det->hits[ihit].qpeak/nominalGain>peakCut) {
+          if (det->hits[ihit].startTime > 1000 && det->hits[ihit].qpeak / nominalGain > peakCut)
+          {
             ++nlateHits;
             ++nLate;
             hCountLateTime->Fill(det->hits[ihit].startTime);
@@ -165,13 +189,15 @@ void loop(Long64_t maxEntry)
       ++trigCut;
     if (sipmIsCut)
       ++sipmCut;
-    if(nPre>0) passBit |= 0x1;
-    if(nLate>0) passBit |= 0x2;
+    if (nPre > 0)
+      passBit |= 0x1;
+    if (nLate > 0)
+      passBit |= 0x2;
     hPassBit->Fill(passBit);
   }
 }
 
-void post(TString tag = TString("12_28_2023"), Long64_t maxEntry = 0)
+void post(TString tag = TString("05_19_2025"), Long64_t maxEntry = 0)
 {
   peakCut = 6.5;
   /*gains-2024-02-01-17-06.root*/
@@ -191,7 +217,7 @@ void post(TString tag = TString("12_28_2023"), Long64_t maxEntry = 0)
   for (int k = 0; k < 9; ++k)
     nominalGain += y[k];
   nominalGain /= 9.;
-  printf(" the tag is %s nominal gain = %f ",tag.Data(), nominalGain);
+  printf(" the tag is %s nominal gain = %f ", tag.Data(), nominalGain);
   gStyle->SetOptStat(1001101);
   /* get RunTree */
   RunTree = new TChain("RunTree");
@@ -212,6 +238,39 @@ void post(TString tag = TString("12_28_2023"), Long64_t maxEntry = 0)
   sentries.Form("-%llu", maxEntry);
   fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "recreate");
 
+  hHitTimeDiff = new TH1D("HitTimeDiff", "samples between hits ", 3000, 0, 3000);
+  hTrigEventSumArea = new TH1D("TrigEventSumArea", "trig sipm trigger window sum area ", 600, 0, 6.E5);
+  hTrigEventSumPeak = new TH1D("TrigEventSumPeak", "trig sipm trigger window sum peak ", 400, 0, 40);
+  hTrigHitPeakTime = new TH2D("TrigHitPeakTime", "trig summed trig peak versus time ", 7500, 0, 7500, 400, 0, 40);
+  hAllHitPeakTime = new TH2D("AllHitPeakTime", "trig summed trig peak versus time ", 7500, 0, 7500, 400, 0, 40);
+  hTrigHitPeakTimeCoarse = new TH2D("TrigHitPeakTimeCoarse", "trig summed trig peak versus time ", 75, 0, 7500, 400, 0, 40);
+  hAllHitPeakTimeCoarse = new TH2D("AllHitPeakTimeCoarse", "trig summed trig peak versus time ", 75, 0, 7500, 400, 0, 40);
+
+  //
+  TString htitle;
+  hCountPre = new TH1D("CountPre", " hits sample<600 in sum", 20, 0, 20);
+  htitle.Form("hits qpeak>%.2f SPE sample>1000 in sum", peakCut);
+  hCountLate = new TH1D("CountLate", htitle, 20, 0, 20);
+  htitle.Form("umber of late time hits with qpeak>%.2f", peakCut);
+  hCountLate->GetXaxis()->SetTitle(htitle);
+  htitle.Form("hits qpeak>%.2f SPE sample>1000 in sum", peakCut);
+  hCountLateTime = new TH1D("CountLateTime ", htitle, 30, 0, 7500);
+  hCountLateTime->GetXaxis()->SetTitle("sample time");
+  hCountLateTime->Sumw2();
+  hCountLateTimeQpeak = new TH2D("CountLateTimeQpeak", " sample>1000 in sum qpeak vs time ", 30, 0, 7500, 20, 0, 20);
+  hCountLateTimeQpeak->GetXaxis()->SetTitle("sample time");
+  hCountLateTimeQpeak->GetYaxis()->SetTitle("qpeak [SPE]");
+
+  ntTDiff = new TNtuple("ntTDiff", "time diff", "startTime1:startTime2:qpeak1:qpeak2");
+  ntSum = new TNtuple("ntSum", " ADC sums ", "trigSumArea:trigSumPeak:trigTotPeak:trigPre:trigTrig:trigLate:sipmPre:sipmTrig:sipmLate");
+  ntHit = new TNtuple("ntHit", " hits ", "event:chan:time:qpeak");
+
+  hTrigLatePeaks = new TH1D("TrigEventSumLatePeak", "trig sipm trigger late peaks ", 1000, 0, 100);
+  hTrigLatePeaksFit = new TH1D("TrigEventSumPeakFit", "trig sipm trigger late peaks ", 1000, 0, 100);
+  hSipmLatePeaks = new TH1D("SipmEventSumPeak", "non-trig sipm late peaks ", 1000, 0, 100);
+  hSipmLatePeaksFit = new TH1D("SipmEventSumPeakFit", "non-trig sipm late peaks ", 1000, 0, 100);
+  hPassBit = new TH1D("PassBit", "pass bit", 4, 0, 4);
+
   // make hSipmLatePeaksFitos
   for (unsigned i = 0; i < NCHAN; ++i)
   {
@@ -223,35 +282,6 @@ void post(TString tag = TString("12_28_2023"), Long64_t maxEntry = 0)
     hTrigSum.push_back(new TH1D(Form("TrigPeakSumChan%i", i), Form("trig peak sum chan %i", i), nbins, 0, limit));
     hLateSum.push_back(new TH1D(Form("LatePeakSumChan%i", i), Form("late peak sum chan %i", i), nbins, 0, limit));
   }
-  hTrigEventSumArea = new TH1D("TrigEventSumArea", "trig sipm trigger window sum area ", 600, 0, 6.E5);
-  hTrigEventSumPeak = new TH1D("TrigEventSumPeak", "trig sipm trigger window sum peak ", 400, 0, 40);
-  hTrigHitPeakTime = new TH2D("TrigHitPeakTime", "trig summed trig peak versus time ", 7500, 0, 7500, 400, 0, 40);
-  hAllHitPeakTime = new TH2D("AllHitPeakTime", "trig summed trig peak versus time ", 7500, 0, 7500, 400, 0, 40);
-  hTrigHitPeakTimeCoarse = new TH2D("TrigHitPeakTimeCoarse", "trig summed trig peak versus time ", 75, 0, 7500, 400, 0, 40);
-  hAllHitPeakTimeCoarse = new TH2D("AllHitPeakTimeCoarse", "trig summed trig peak versus time ", 75, 0, 7500, 400, 0, 40);
-  //
-  TString htitle;
-  hCountPre = new TH1D("CountPre"," hits sample<600 in sum",20,0,20);
-  htitle.Form("hits qpeak>%.2f SPE sample>1000 in sum",peakCut);
-  hCountLate = new TH1D("CountLate",htitle, 20, 0, 20);
-  htitle.Form("umber of late time hits with qpeak>%.2f", peakCut);
-  hCountLate->GetXaxis()->SetTitle(htitle);
-  htitle.Form("hits qpeak>%.2f SPE sample>1000 in sum",peakCut);
-  hCountLateTime= new TH1D("CountLateTime ",htitle,30,0,7500);
-  hCountLateTime->GetXaxis()->SetTitle("sample time");
-  hCountLateTime->Sumw2();
-  hCountLateTimeQpeak= new TH2D("CountLateTimeQpeak"," sample>1000 in sum qpeak vs time ",30,0,7500,20,0,20);
-  hCountLateTimeQpeak->GetXaxis()->SetTitle("sample time");
-  hCountLateTimeQpeak->GetYaxis()->SetTitle("qpeak [SPE]");
-
-  ntSum = new TNtuple("ntSum", " ADC sums ", "trigSumArea:trigSumPeak:trigTotPeak:trigPre:trigTrig:trigLate:sipmPre:sipmTrig:sipmLate");
-  ntHit = new TNtuple("ntHit", " hits ", "event:chan:time:qpeak");
-
-  hTrigLatePeaks = new TH1D("TrigEventSumPeak", "trig sipm trigger late peaks ", 1000, 0, 100);
-  hTrigLatePeaksFit = new TH1D("TrigEventSumPeakFit", "trig sipm trigger late peaks ", 1000, 0, 100);
-  hSipmLatePeaks = new TH1D("SipmEventSumPeak", "non-trig sipm late peaks ", 1000, 0, 100);
-  hSipmLatePeaksFit = new TH1D("SipmEventSumPeakFit", "non-trig sipm late peaks ", 1000, 0, 100);
-  hPassBit = new TH1D("PassBit","pass bit", 4, 0, 4);
 
   //
   loop(maxEntry);
