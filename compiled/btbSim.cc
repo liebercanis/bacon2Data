@@ -6,6 +6,7 @@
 #include "TMath.h"
 #include "TF1.h"
 #include "TH1D.h"
+#include "TH2D.h"
 #include "TCanvas.h"
 #include "TGraph.h"
 #include "TGraphErrors.h"
@@ -53,6 +54,8 @@ TH1D *hCount;
 TH1D *hResponse;
 TH1D *hTime;
 TH1D *hTrigDiffTime;
+TH2D *geant4CosRadius; // input from file
+TH2D *cosRadiusMap;    // filled random
 uint16_t maxAdc = pow(2, 14);
 double gain;
 double sigmaNoise;
@@ -102,10 +105,28 @@ double speMPV = double(triggerStart);
 double speSigma = 20.; // ns from single PI data fit
 TF1 *speLandau;
 
+// get geant4 map in dir bobj
+bool getMap()
+{
+  bool rc = false;
+  geant4CosRadius = NULL;
+  TString mapFileName = TString(getenv("BOBJ")) + TString("/geant4CosRadiusMap.root");
+  TFile *fmap = new TFile(mapFileName, "readonly");
+  fmap->GetObject("cosRadius", geant4CosRadius);
+  if (geant4CosRadius)
+  {
+    printf("getMap found histogram %s \n", geant4CosRadius->GetName());
+    rc = true;
+  }
+
+  return rc;
+}
+
 // trigger condition return maximum time betweed trigger photons
 double eventTrigger()
 {
   // printf("line104 %0.f %0.f %0.f \n", hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries());
+  // number of samples is 7500 each bin is 2 ns
   double tdiff = double(2 * 7500);
   // all must have at least 1 photon
   if (hPhoton[9]->GetEntries() < 1)
@@ -305,7 +326,11 @@ double effGeoSim(int ichan) // uses PositionVector3D eventOrigin;
 void btb(int ngen = 10000000)
 {
   printf(" btb sim generate ngen =  %i LY %.1f photons/kev * 60 = %.1f nominalGain %f nominalTrigGain %f \n", ngen, LY, numPhotons, nominalGain, nominalTrigGain);
-
+  if (!getMap())
+  {
+    printf("no geant4 map\n");
+    exit(0);
+  }
   for (int ichan = 0; ichan < NCHAN; ++ichan)
     models[ichan] = new modelFit(4, ichan, thePPM);
 
@@ -351,12 +376,13 @@ void btb(int ngen = 10000000)
   }
 
   /* define ntuples amd histograms here */
+  cosRadiusMap = new TH2D("cosRadius", "geant cos vs rad", 100, 0, 2, 100, 0, 1);
   hEventPass = new TH1D("hEventPass", "event pass", 3, 0, 3);
   ntOrigin = new TNtuple("ntOrigin", " event origin ", "ev:r:cos:theta:phi:x:y:z");
   ntTrigCh = new TNtuple("ntTrigCh", " trigger info by channel ", "ev:ch:qsum:psum:nph:r:theta:phi:x:y:z");
   ntTDiff = new TNtuple("ntTDiff", "trig time differences", "tdiff910:tdiff911:tdiff1011:tdiff");
   ntTrig = new TNtuple("ntTrig", " trigger info by event  ", "ev:nph9:nph10:nph11:r:theta:phi:x:y:z");
-  ntTern = new TNtuple("nTern", " trigger sipm", "eventR:eventCos:eventPhi:qsum9:qsum10:qsum11:mean9:mean10:mean11:xmean:ymean:xq:yq");
+  ntTern = new TNtuple("ntTern", " trigger sipm", "eventR:eventCos:eventPhi:qsum9:qsum10:qsum11:mean9:mean10:mean11:xmean:ymean:xq:yq");
   ntMean = new TNtuple("ntMean", "trigger means ", "ev:numPhotons:eventR:eventCos:eventPhi:qsum9:qsum10:qsum11:mean9:mean10:mean11:xternq:yternq");
   ntFit = new TNtuple("ntFit", "trigger peak fit ", "ev:numPhotons:eventR:eventCos:eventPhi:qsum9:qsum10:qsum11:fitR:fitCos:fitPhi:errR:errTheta:ierr");
   ntScan = new TNtuple("ntScan", "scan", "nll:mean9:mean10:mean11:qsum9:qsum10:qsum11:r:theta:phi");
@@ -466,18 +492,28 @@ void btb(int ngen = 10000000)
     hPhotonAll->Fill(nPhotonsEvent);
 
     /********  generate gamma position  *********/
-    double gammaR = abs(ran->Exp(meanFreePath));
-    double gammaCosTheta = 2. * ran->Rndm() - 1.; // cos flat from 1 to -1
+    // double gammaCosTheta = 2. * ran->Rndm() - 1.; // cos flat from 1 to -1
+    /* cut out the events blocked by the source holder
+    if (gammaCosTheta < cosMin)
+      continue;
+    */
+
+    // generate r,cosTheta from geant4 map;
+
+    // double gammaR = abs(ran->Exp(meanFreePath));
     // double gammaCosTheta = 1. - (1. - cosMin) * ran->Rndm();
+    double gammaR = 0;
+    double gammaCosTheta = -1;
+    /********  generate gamma position  from geant4 map  *********/
+    geant4CosRadius->GetRandom2(gammaR, gammaCosTheta, ran);
     double gammaPhi = TMath::TwoPi() * ran->Rndm(); // phi flat from 0 to 2pi
     eventOrigin = getXYZVector(gammaR, acos(gammaCosTheta), gammaPhi);
     double localPhi = eventOrigin.Phi() * 360. / TMath::TwoPi();
     if (localPhi < 0)
       localPhi += 360.;
 
-    /* cut out the events blocked by the source holder */
-    if (gammaCosTheta < cosMin)
-      continue;
+    // plot the map
+    cosRadiusMap->Fill(gammaR, gammaCosTheta);
 
     hEventPass->SetBinContent(2, hEventPass->GetBinContent(2) + 1);
     // eventOrigin.SetZ(abs(eventOrigin.Z()));
@@ -746,7 +782,7 @@ int main(int argc, char *argv[])
   arglist[0] = 0.5; // UP for likelihood
   gMinuit->mnexcm("SET ERR", arglist, 1, ierflg);
 
-  int ngen = 1000000;
+  int ngen = 100000;
 
   std::cout << "  usage: btbSim <ngen> default 1000000  " << argv[0] << std::endl;
   printf("\n ");
@@ -765,7 +801,7 @@ int main(int argc, char *argv[])
   triggerPeakFitShow = false;
   */
 
-  printf("***** START of btb ngen = %i *****\n", ngen);
+  printf("***** START of btb ngen = %.0E *****\n", double(ngen));
   btb(ngen);
   printf("... %s ngen %i passed %lld total efficiency %.3f  file %s exit\n", argv[0], ngen, ntFit->GetEntries(), totalEventEffiency, fout->GetName());
   // fout->ls();

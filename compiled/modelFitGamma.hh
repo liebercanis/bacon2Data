@@ -39,8 +39,15 @@ static int theBinWidth = 2;
 static double Wionization = 25.6;      // eV Tadayoshi Doke et al 2002 Jpn. J. Appl. Phys. 41 1538
 static double nPhotons = 60.E3 / 25.6; // 60 keV gamma
 static double fillFactor = 1.0;        // Doug clarified june 23 2025 ! sipm data sheet
-static double nominalGain = 134.5;     // june 26 2025 file gains-2025-06-18-18-48.root
-static double nominalTrigGain = 741.6; // ibid
+
+// July 4 2025
+static double nominalGain = 134.786401;     // 170.;     // was 160.0; set Jue 13 2025
+static double nominalTrigGain = 735.688747; //
+static double nominalQsumGain = 4940.503519;
+static double nominalQsumTrigGain = 32056.789775;
+
+// static double nominalGain = 134.5;     // june 26 2025 file gains-2025-06-18-18-48.root
+// static double nominalTrigGain = 741.6; // ibid
 static double nonZeroFraction = 1. - 0.61;
 static double tTriplet0 = 1600.0; // 2100.0;
 static double tSinglet0 = 7.0;
