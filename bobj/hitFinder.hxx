@@ -39,6 +39,7 @@
 #include "TBWave.hxx"
 #include "TDetHit.hxx"
 #include "TBRun.hxx"
+#include "SGFilter.hh"
 
 using namespace std;
 
@@ -66,6 +67,7 @@ public:
   {
     CAENLENGTH = 7500
   };
+  SavitzkyGolay *sgfilt;
   TFile *fout;
   TBRun *tbrun;
   TString tag;

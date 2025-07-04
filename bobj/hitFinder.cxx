@@ -68,7 +68,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   if (verbose)
     cout << "INSTANCE OF HITFINDER using only PUP and NUP type crossings "
          << " vchan.size " << vchan.size() << endl;
-  smoothing = false;
+  smoothing = true;
   fout = theFile;
 
   finderDir = (TDirectory *)fout->FindObject("finderDir");
@@ -424,10 +424,19 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     // sum all waves for this event
   }
   // smooth and fill vector
-  hEvSmooth[idet]->Smooth(1); // one time
   sdigi.resize(digi.size());
+  /* Based on algorithm 353QH twice presented by J. Friedman in Proc. of the 1974 CERN School of Computing, Norway, 11-24 August, 1974.
+   See also Section 4.2 in J. Friedman, Data Analysis Techniques for High Energy Physics.
+  hEvSmooth[idet]->Smooth(1); // one time
   for (unsigned ibin = 1; ibin < hEvSmooth[idet]->GetNbinsX(); ibin++)
     sdigi[ibin - 1] = hEvSmooth[idet]->GetBinContent(ibin);
+   */
+
+  // SGFitler smoothing
+  //  smooth
+  int nwindowSG = 10;
+  int npoly = 3;
+  sdigi = sgfilt->SavGolFilter(digi, nwindowSG, npoly);
 
   // use smooth wave if smoothing
   if (verbose)
@@ -456,8 +465,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   Int_t windowSize = 10;
   unsigned maxWidth = 100000;
   unsigned minWidth = 10;
-  findDerivativeCrossings(idet);
-  // findThresholdCrossings(idet, threshold);
+  // findDerivativeCrossings(idet);
+  findThresholdCrossings(idet, hitThreshold);
   makePeaks(idet, digi);
   /*
      if (peakList.size() > 0)
@@ -863,7 +872,7 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
       if (verbose)
         printf("line786  hitFinder::makePeaks add det %i  imax %i val %f icross %u from (%u,%u) \n", idet, imax, maxVal, crossingBin[icross], ilow, ihigh);
       peakList.push_back(std::make_pair(ilow, ihigh));
-      peakKind.push_back(0);
+      peakKind.push_back(crossings[icross]);
       hCrossingBinC[idet]->Fill(ilow);
       if (imax - ilow > 30)
         printf("line830 ilow Diff! in makePeaks %lli add det %i  imax %i val %f icross %u from (%u,%u) %i\n", theEvent, idet, imax, maxVal, crossingBin[icross], ilow, ihigh, icross);
@@ -967,6 +976,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     // this is N= q/qnorm and delta q = root(n)*qnorm;
     dhit.qerr = sqrt(pow(sigma * Double_t(dhit.peakWidth), 2) + qnorm * qsum);
     dhit.kind = peakKind[ip];
+    // printf("line854 hitFinder::makeHits hit chan %i (%i,%i) size %lu kind %i \n ", vChannel[idet], klow, khigh, dhit.digi.size(), dhit.kind);
 
     // just use the biggest pulse
     if (qsum > qmax)

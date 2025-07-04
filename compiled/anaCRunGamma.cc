@@ -36,6 +36,7 @@
 #include "TBRawEvent.hxx"
 #include "hitFinder.hxx"
 #include "TBFile.hxx"
+#include "SGFilter.hh"
 
 class anaCRun
 {
@@ -1524,7 +1525,8 @@ int anaCRun::anaEvent(Long64_t entry)
     //{
 
     /* just collect some events */
-    if (passBit == 0 && totHits > 0 && ib < 9)
+    if (passBit == 0 && tbrun->getDet(ib)->hits.size() > 0 && ib < 9)
+    //&& (tbrun->getDet(ib)->hits[0].qpeak > 200 && tbrun->getDet(ib)->hits[0].qpeak < 250)
     {
       if (exampleDir->GetList()->GetEntries() < exampleDirMax)
       {
