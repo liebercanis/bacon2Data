@@ -36,7 +36,6 @@
 #include "TBRawEvent.hxx"
 #include "hitFinder.hxx"
 #include "TBFile.hxx"
-#include "SGFilter.hh"
 
 class anaCRun
 {
@@ -90,6 +89,8 @@ public:
   bool doNotOverWrite = true;
   bool theFirstFile = true;
   bool isSim = false;
+  std::vector<TDet *> simDet;
+  TH1D *hSimFoundTimeDiff;
   int badEventDirMax = 1000;
   int exampleDirMax = 1000;
   bool reportFailures = true;
@@ -98,6 +99,7 @@ public:
   TFile *fout;
   TFile *fin;
   TTree *rawTree;
+  TTree *simTree;
   // ntuples to check cuts
   TNtuple *ntBase;
   TNtuple *ntTrig;
@@ -184,6 +186,13 @@ public:
   TH1D *hTriggerHitTimeAll;
   TH1D *hTriggerTime;
   TH1D *hTriggerShift;
+
+  // sim comparison histos by channel
+  std::vector<TH1D *> hWaveHitFound;
+  std::vector<TH1D *> hWaveHitMissed;
+  std::vector<TH1D *> hWaveHitNoise;
+
+  //
   vector<double> channelSigmaValue;
   vector<double> channelSigma;
   vector<double> channelSigmaErr;
@@ -229,10 +238,12 @@ public:
   unsigned fixedTriggerTime(int ichan, double &adc);
   void doTimeShiftAndNorm();
   void getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample);
+  /*
   void setTBRun(TBRun *theTBRun)
   {
     tbrun = theTBRun;
   }
+  */
   void makeTernary(double a, double b, double c, double &x, double &y);
   std::vector<std::vector<double>> fixedDigi; // all the fixed waveforms
   std::vector<unsigned> trigTimes;
@@ -249,6 +260,7 @@ public:
   TDirectory *pmtDir;
   TDirectory *fftDir;
   TDirectory *templateDir;
+  TDirectory *simDir;
 
   Long64_t nentries;
   double QPEPeak;
@@ -667,7 +679,7 @@ bool anaCRun::openFile(TString theFile)
 
   fin = new TFile(fileName, "readonly");
   printf(" opened file %s\n", fileName.Data());
-  rawTree = NULL;
+  rawTree = nullptr;
   fin->ls();
   fin->GetObject("RawTree", rawTree);
   if (!rawTree)
@@ -686,6 +698,15 @@ bool anaCRun::openFile(TString theFile)
   printf(" rawTree has %u channels stored in rawBr \n", getBranches());
   for (unsigned i = 0; i < rawBr.size(); ++i)
     printf(" branch %s chan %i \n", rawBr[i]->GetName(), i);
+
+  simTree = nullptr;
+  isSim = false;
+  fin->GetObject("SimTree", simTree);
+  if (simTree)
+  {
+    isSim = true;
+    printf("line 696  anaEvent file %s THIS IS SIMULATION\n", fileName.Data());
+  }
 
   return true;
 }
@@ -745,6 +766,27 @@ int anaCRun::anaEvent(Long64_t entry)
   {
     printf("line 531 ERROR!! anaEvent no tree event %lld \n", entry);
     fout->ls();
+  }
+  // get sim branches
+  simDet.clear();
+  if (simTree)
+  {
+    simTree->GetEntry(entry); // have to load the entry
+    // simTree->GetListOfBranches()->ls();
+    //    get branch pointers and save in detList
+    TIter next(simTree->GetListOfBranches());
+    TBranchElement *aBranch = NULL;
+    while ((aBranch = (TBranchElement *)next()))
+    {
+      simDet.push_back((TDet *)aBranch->GetObject());
+    }
+    // print out sim branches for fist entry
+    if (entry == 0)
+    {
+      printf("getting simDet branches %lu \n", simDet.size());
+      for (unsigned idet = 0; idet < simDet.size(); ++idet)
+        printf("GOTSIM det %i %s \n", idet, simDet[idet]->GetName());
+    }
   }
   tbrun->clear(); // clear detList
   speCount.clear();
@@ -1632,7 +1674,6 @@ int anaCRun::anaEvent(Long64_t entry)
       }
     }
 
-    // loop over hits
     // if (tdet->hits.size() > 0 && idet == 12) // PMT
     //  printf("@line978 event %llu  det %u nhits %lu \n", entry, idet, tdet->hits.size());
     // add peak sums
@@ -1649,9 +1690,12 @@ int anaCRun::anaEvent(Long64_t entry)
     }
 
     // printf("@line1065 event %llu  det %u nhits %lu \n", entry, idet, tdet->hits.size());
+
+    /* loop over all hits for this detector */
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
     {
       TDetHit thit = tdet->hits[ihit];
+
       if (thit.qpeak < 1)
         printf("line822 chan %i ihit %i startTime %i  peak %f\n", tdet->channel, ihit, int(thit.startTime), thit.qpeak);
       // do not scale these June 11 2025
@@ -1740,6 +1784,55 @@ int anaCRun::anaEvent(Long64_t entry)
         }
       }
     } // hit loop
+
+    /* if simulation double loop for sim comparison*/
+    if (simTree && idet < 13) // no summed det in simulation
+    {
+      // printf("line 1789 simTree simDet %i \n", idet);
+      TDet *sdet = simDet[idet];                                // get sim det
+      for (unsigned isim = 0; isim < sdet->hits.size(); ++isim) // loop over sim hits
+      {
+        TDetHit simHit = sdet->hits[isim];
+        bool hitMatch = false;
+        for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit) // loop over hitFinder hits
+        {
+          TDetHit finderHit = tdet->hits[ihit];
+          int foundTimeBim = hWaveHitNoise[0]->FindBin(finderHit.startTime);
+
+          // is hitFinder hit a sim hit?
+          double timeDiff = abs(finderHit.startTime - simHit.startTime) - 317;
+          hSimFoundTimeDiff->Fill(timeDiff);
+          /* have to find reason for this offset */
+          if (abs(timeDiff) < 5) // look for match in time
+          {
+            hitMatch = true;
+          }
+        } // loop over finder hits
+        int simTimeBin = hWaveHitFound[0]->FindBin(simHit.startTime);
+        if (hitMatch)
+          hWaveHitFound[idet]->SetBinContent(simTimeBin, hWaveHitFound[idet]->GetBinContent(simTimeBin) + 1);
+        else
+          hWaveHitMissed[idet]->SetBinContent(simTimeBin, hWaveHitMissed[idet]->GetBinContent(simTimeBin) + 1);
+      } // end loop over sim hits
+
+      // reverse order for noise hits
+      for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit) // loop over hitFinder hits
+      {
+        bool hitMatch = false;
+        TDetHit finderHit = tdet->hits[ihit];
+        for (unsigned isim = 0; isim < sdet->hits.size(); ++isim) // loop over sim hits
+        {
+          TDetHit simHit = sdet->hits[isim];
+          if (abs(finderHit.startTime - simHit.startTime) < 5) // look for match in time
+          {
+            hitMatch = true;
+          }
+        }
+        int foundTimeBin = hWaveHitNoise[0]->FindBin(finderHit.startTime);
+        if (!hitMatch)
+          hWaveHitNoise[idet]->SetBinContent(foundTimeBin, hWaveHitNoise[idet]->GetBinContent(foundTimeBin + 1));
+      }
+    } // simTree in file
 
     /* cross check on SPE */
     // double sumAfter = sumPeakWave[idet]->Integral();
@@ -1917,10 +2010,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   string sfilename(theFile.Data());
   string shortName = sfilename.substr(0, sfilename.find_last_of("."));
 
-  if (shortName.find(string("btbSim")) != string::npos)
-    isSim = true;
-
-  cout << " anaCRunFile  with shortName= " << shortName << " isSim? " << isSim << endl;
+  cout << " anaCRunFile  with shortName= " << shortName << endl;
   // open outout file
   TString outFileName;
   outFileName.Form("caenData/anaCRun-%s-%llu.root", shortName.c_str(), maxEntries);
@@ -1930,14 +2020,9 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
       printf(" do not recreate %s file \n", outFileName.Data());
       return 0;
     }
-  /* check if is simulation */
 
   fout = new TFile(outFileName, "recreate");
   cout << " opened output file " << fout->GetName() << endl;
-
-  /* check if is simulation */
-  if (shortName.find("btbSim"))
-    isSim = true;
 
   templateDir = fout->mkdir("templateDir");
   rawSumDir = fout->mkdir("rawSumDir");
@@ -1953,6 +2038,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   // TDirectory *fitSingletDir = fout->mkdir("fitSingletDir");
   TDirectory *sumWaveDir = fout->mkdir("sumWaveDir");
   TDirectory *fftDir = fout->mkdir("fftDir");
+  TDirectory *simDir = fout->mkdir("simDir");
   fout->ls();
 
   currentBuffer = -1;
@@ -2137,6 +2223,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     hTrigSum.push_back(new TH1D(Form("TrigPeakSumChan%i", i), Form("trig peak sum chan %i", i), nbins, 0, qpeakLimit));
     hLateSum.push_back(new TH1D(Form("LatePeakSumChan%i", i), Form("late peak sum chan %i", i), nbins, 0, qpeakLimit));
   }
+
   // one more for summed channel 13
   // hEvRawWave.push_back(new TH1D(Form("evRawWave%i", 13), Form("evRawWave%i", 13), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
 
@@ -2203,6 +2290,17 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
       hSPEShape[jspe].push_back(new TH1D(Form("SPE%iShapeChan%i", jspe + 1, ichan), Form("SPE%iShapeChan%i", jspe + 1, ichan), 1000, 0, 1000));
       hSPEShape[jspe][hSPEShape[jspe].size() - 1]->SetMarkerStyle(20);
     }
+  }
+
+  // maks simulation histogrms
+  simDir->cd();
+  hSimFoundTimeDiff = new TH1D("SimFoundTimeDiff", "SimFoundTimeDiff", 2000, -1000, 1000);
+  for (unsigned i = 0; i < rawBr.size(); ++i)
+  {
+    unsigned ichan = i;
+    hWaveHitFound.push_back(new TH1D(Form("waveHitFoundChan%i", ichan), Form("WaveHitFoundChan%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+    hWaveHitMissed.push_back(new TH1D(Form("waveHitMissedChan%i", ichan), Form("WaveHiMissedChan%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+    hWaveHitNoise.push_back(new TH1D(Form("waveHitNoiseChan%i", ichan), Form("WaveHiNoiseChan%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
   }
 
   fout->cd();

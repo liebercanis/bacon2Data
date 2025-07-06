@@ -56,6 +56,7 @@ TH1D *hTime;
 TH1D *hTrigDiffTime;
 TH2D *geant4CosRadius; // input from file
 TH2D *cosRadiusMap;    // filled random
+TH2D *hTriangle;
 uint16_t maxAdc = pow(2, 14);
 double gain;
 double sigmaNoise;
@@ -100,7 +101,7 @@ efficiencies  PMTQE175 = 0.38;
 static double QEff128(double ppm, double dist)
 */
 double eff[NCHAN];
-int triggerStart = 2 * 700; // 730; sipm rise time
+int triggerStart = theBinWidth * 730; // 730; sipm rise time convert to ns
 double speMPV = double(triggerStart);
 double speSigma = 20.; // ns from single PI data fit
 TF1 *speLandau;
@@ -378,6 +379,7 @@ void btb(int ngen = 10000000)
   /* define ntuples amd histograms here */
   cosRadiusMap = new TH2D("cosRadius", "geant cos vs rad", 100, 0, 2, 100, 0, 1);
   hEventPass = new TH1D("hEventPass", "event pass", 3, 0, 3);
+  hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   ntOrigin = new TNtuple("ntOrigin", " event origin ", "ev:r:cos:theta:phi:x:y:z");
   ntTrigCh = new TNtuple("ntTrigCh", " trigger info by channel ", "ev:ch:qsum:psum:nph:r:theta:phi:x:y:z");
   ntTDiff = new TNtuple("ntTDiff", "trig time differences", "tdiff910:tdiff911:tdiff1011:tdiff");
@@ -722,6 +724,8 @@ void btb(int ngen = 10000000)
     makeTernary(peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], xternQ, yternQ);
 
     ntTern->Fill(eventOrigin.R(), cos(eventOrigin.Theta()), eventOrigin.Phi(), peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2], xternMean, yternMean, xternQ, yternQ);
+
+    hTriangle->Fill(xternQ, yternQ);
 
     ntMean->Fill(iev, photonSum, eventOrigin.R(), cos(eventOrigin.Theta()), eventOrigin.Phi(),
                  peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2], xternQ, yternQ);
