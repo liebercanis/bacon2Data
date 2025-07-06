@@ -575,7 +575,7 @@ void btb(int ngen = 10000000)
         hTime->Fill(time);
         // make a TDetHit for photon
         TDetHit hit;
-        hit.startTime = (UInt_t)hTime->FindBin(time);
+        hit.startTime = (UInt_t)(hTime->FindBin(time) / 2); // convert to samples
         hit.qpeak = gain;
         det->hits.push_back(hit);
       }
