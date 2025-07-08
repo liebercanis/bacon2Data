@@ -32,7 +32,10 @@ int main(int argc, char *argv[])
   printf(" starting anaCRunGamma %s maxEntries %lld firstEntry %lld \n", tag.Data(), maxEntries, firstEntry);
   anaCRun *r = new anaCRun(tag);
   // r->setTBRun(theTBRun);
-  r->anaCRunFile(tag, maxEntries, firstEntry);
-  printf("... %s exit\n", argv[0]);
-  exit(0);
+  int rc = r->anaCRunFile(tag, maxEntries, firstEntry);
+  printf("... %s return code %i exit\n", argv[0], rc);
+  if (rc == 0)
+    exit(0);
+  else
+    exit(1);
 }

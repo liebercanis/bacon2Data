@@ -47,6 +47,7 @@ TNtuple *ntScan;
 TH1D *hPhoton[NCHAN];
 TH1D *hConvolve[NCHAN];
 TH1D *hSignal[NCHAN];
+TH1D *hSignalSum[NCHAN];
 Long64_t totalPhotons;
 Long64_t ncount[NCHAN];
 TH1D *hEventPass;
@@ -77,6 +78,7 @@ double totalEventEffiency;
 double triggerTimes[3];
 double cosMin = 0.851 / sqrt(pow(0.4, 2) + pow(0.851, 2));
 double maxTriggerTimeDiffernce = 30.;
+unsigned timeOffset = 13; // changed from 17 may 13, 2024
 
 ROOT::Math::XYZVector eventOrigin(0, 0, 0);
 TMinuit *gMinuit;
@@ -251,7 +253,7 @@ static double myLandau(Double_t *xx, Double_t *par)
 
 void convolve(TH1D *hist, double time) // time is when photon arrives
 {
-  int offsetBin = hist->FindBin(640.); // read offf of Response histogram
+  int offsetBin = 728; // max bin of hResponse read offf of Response histogram
   int startBin = hist->FindBin(time);
   // printf("convolve: %s time %f startBin %i offsetBin %i\n", hist->GetName(), time, startBin, offsetBin);
   for (int ib = startBin; ib < hist->GetNbinsX(); ++ib)
@@ -442,6 +444,11 @@ void btb(int ngen = 10000000)
     hSignal[ih]->GetXaxis()->SetTitle("time [ns]");
     hSignal[ih]->GetYaxis()->SetTitle("photons/2ns");
     hSignal[ih]->SetDirectory(nullptr);
+
+    //
+    hSignalSum[ih] = new TH1D(Form("SignalSum%i", ih), Form("SignalSum%i-level%i", ih, level(ih)), totalBins, 0, totalBins * (theBinWidth));
+    hSignalSum[ih]->GetXaxis()->SetTitle("time [ns]");
+    hSignalSum[ih]->GetYaxis()->SetTitle("photons/2ns");
   }
   /* end of define ntuples amd histograms here */
 
@@ -532,8 +539,12 @@ void btb(int ngen = 10000000)
     {
       // set the nominal gain from file modelFitGamma.hh
       gain = nominalGain;
-      if (ich > 8)
+      double timeShift = 0;
+      if (ich > 8 && ich < 12)
+      {
         gain = nominalTrigGain;
+        timeShift = timeOffset; // trig amp delay
+      }
       //
       sigmaNoise = gain * noiseToSignal;
       bool invert = ich > 8; // invert trigger 9,10,11 and PMT
@@ -567,7 +578,7 @@ void btb(int ngen = 10000000)
       // singlet times
       for (int it = 0; it < nsinglet; ++it)
       {
-        double time = triggerStart + ran->Exp(tSinglet0);
+        double time = timeShift + triggerStart + ran->Exp(tSinglet0);
         hPhoton[ich]->Fill(time, gain);
         convolve(hConvolve[ich], time);
         TH1D *hist = hConvolve[ich];
@@ -575,19 +586,20 @@ void btb(int ngen = 10000000)
         hTime->Fill(time);
         // make a TDetHit for photon
         TDetHit hit;
-        hit.startTime = (UInt_t)(hTime->FindBin(time) / 2); // convert to samples
+        hit.startTime = double(hTime->FindBin(time)); // convert to samples
+        // printf("line579 time %f %f bin %i  \n", time, hit.startTime, hPhoton[ich]->FindBin(time));
         hit.qpeak = gain;
         det->hits.push_back(hit);
       }
       // triplet times
       for (int it = 0; it < ntriplet; ++it)
       {
-        double time = triggerStart + ran->Exp(tTriplet0);
+        double time = timeShift + triggerStart + ran->Exp(tTriplet0);
         hPhoton[ich]->Fill(time, gain);
         convolve(hConvolve[ich], time);
         hTime->Fill(time);
         TDetHit hit;
-        hit.startTime = (UInt_t)hTime->FindBin(time);
+        hit.startTime = double(hTime->FindBin(time)); // convert to samples
         hit.qpeak = gain;
         det->hits.push_back(hit);
         // printf(" \t\t after triplets %iev %ch %lu \n", iev, ich, det->hits.size());
@@ -598,6 +610,8 @@ void btb(int ngen = 10000000)
         double binNoise = ran->Gaus(0.0, sigmaNoise);
         hNoise->Fill(binNoise);
         hSignal[ich]->SetBinContent(ibin, baseline + binNoise + hConvolve[ich]->GetBinContent(ibin));
+        hSignalSum[ich]->SetBinContent(ibin, baseline + binNoise +
+                                                 hConvolve[ich]->GetBinContent(ibin) + hSignalSum[ich]->GetBinContent(ibin));
       }
 
       // file wave for this channel
