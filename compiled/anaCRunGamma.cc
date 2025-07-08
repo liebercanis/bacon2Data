@@ -109,7 +109,8 @@ public:
   TH1D *hCosmicCut;
   TH1D *hGammaCut;
   TNtuple *ntHit;
-  TNtuple *ntSim;
+  TNtuple *ntSimFound;
+  TNtuple *ntSimMissed;
   unsigned orderFraction = 10;
   // vectors for gains
   std::vector<double> sipmGain;
@@ -1799,9 +1800,13 @@ int anaCRun::anaEvent(Long64_t entry)
     if (simTree && idet < 13) // no summed det in simulation
     {
       TDet *sdet = simDet[idet]; // get sim det
-      int missedHit = -1;
+      std::vector<double> missedTimeDiff;
+      std::vector<int> missedHit;
+      double timeDiffMin = 75000;
       for (unsigned isim = 0; isim < sdet->hits.size(); ++isim) // loop over sim hits
       {
+        missedTimeDiff.clear();
+        missedHit.clear();
         TDetHit simHit = sdet->hits[isim];
         // printf(" simHit %i time %f \n", isim, simHit.startTime);
         bool hitMatch = false;
@@ -1818,33 +1823,49 @@ int anaCRun::anaEvent(Long64_t entry)
           // is hitFinder hit a sim hit?
           timeDiff = simHit.startTime - finderHit.startTime;
           hSimFoundTimeDiff->Fill(simHit.startTime - finderHit.startTime);
-          if (timeDiff > 45 && timeDiff < 70) // look for match in time
+          if (timeDiff < timeDiffMin)
+            timeDiffMin = timeDiff;
+          if (timeDiff > 30 && timeDiff < 70) // look for match in time
           {
             ihitMatch = ihit;
           }
         } // loop over finder hits
         int simTimeBin = hWaveHitFound[0]->FindBin(simHit.startTime);
-        if (hitMatch)
+        if (ihitMatch != -1) // match
         {
           hWaveHitFound[idet]->SetBinContent(simTimeBin, hWaveHitFound[idet]->GetBinContent(simTimeBin) + 1);
-          ntSim->Fill(double(entry), double(sdet->channel), double(isim), double(ihitMatch),
-                      timeDiff, simHit.startTime, tdet->hits[ihitMatch].startTime, simHit.qpeak, tdet->hits[ihitMatch].qpeak);
+          ntSimFound->Fill(double(entry), double(sdet->channel), double(isim), double(ihitMatch),
+                           timeDiff, simDet[idet]->hits[isim].startTime, tdet->hits[ihitMatch].startTime,
+                           simDet[idet]->hits[isim].qpeak, tdet->hits[ihitMatch].qpeak);
         }
-        else
+        else // no match
         {
           hWaveHitMissed[idet]->SetBinContent(simTimeBin, hWaveHitMissed[idet]->GetBinContent(simTimeBin) + 1);
-          missedHit = isim;
+          missedHit.push_back(isim);
+          missedTimeDiff.push_back(timeDiffMin);
         }
 
       } // end loop over sim hits
 
-      if (missedHit >= 0 && missedDir->GetList()->GetEntries() < missedDirMax)
+      if (missedHit.size() > 0 && missedDir->GetList()->GetEntries() < missedDirMax)
       {
         missedDir->cd();
-        TH1D *EvRawWave = (TH1D *)hEvRawWave[idet]->Clone(Form("EvRawEvent%lld-Ch%i-timeBin%i", entry, idet, int(sdet->hits[missedHit].startTime)));
+        TH1D *EvRawWave = (TH1D *)hEvRawWave[idet]->Clone(Form("EvRawEvent%lld-Ch%i-timeBin%i", entry, idet,
+                                                               int(sdet->hits[missedHit[0]].startTime)));
         EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, idet));
         finder->plotEvent(missedDir, tbrun->getDet(idet)->channel, entry);
         // printf("@line1192 print event %llu start %i printed %i \n", entry, startLast, missedDir->GetList()->GetEntries());
+      }
+
+      if (missedHit.size() > 0)
+      {
+        for (unsigned isim = 0; isim < missedHit.size(); ++isim) // loop over missed sim
+        {
+          for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit) // loop over found hits
+            ntSimMissed->Fill(double(entry), double(sdet->channel), double(missedHit[isim]), double(ihit),
+                              missedTimeDiff[isim], simDet[idet]->hits[isim].startTime, tdet->hits[ihit].startTime,
+                              simDet[idet]->hits[isim].qpeak, tdet->hits[ihit].qpeak);
+        }
       }
 
       // reverse order for noise hits
@@ -2138,7 +2159,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     tbrun->addDet(it);
   }
 
-  ntSim = new TNtuple("ntSim", "sim comparison ntuple", "event:chan:shit:fhit:tdiff:stime:ftime:qpeaks:qpeakf");
+  ntSimFound = new TNtuple("ntSimFound", "sim found comparison ntuple", "event:chan:shit:fhit:tdiff:stime:ftime:qpeaks:qpeakf");
+  ntSimMissed = new TNtuple("ntSimMissed", "sim missed bntuple", "event:chan:shit:fhit:tdiff:stime:ftime:qpeaks:qpeakf");
   // histograms for event cuts
   ntBase = new TNtuple("ntBase", " baseline ntuple ", "event:chan:base0:base1:fitMean:sigma:status"); // Fill(entry, ib, ave, sigma, fitStatus);;
   ntAdc = new TNtuple("ntAdc", " ADC ntuple ", "event:chan:sample:digi");
@@ -2336,8 +2358,9 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   {
     unsigned ichan = i;
     hWaveHitFound.push_back(new TH1D(Form("waveHitFoundChan%i", ichan), Form("WaveHitFoundChan%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
-    hWaveHitMissed.push_back(new TH1D(Form("waveHitMissedChan%i", ichan), Form("WaveHiMissedChan%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
-    hWaveHitNoise.push_back(new TH1D(Form("waveHitNoiseChan%i", ichan), Form("WaveHiNoiseChan%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+    hWaveHitMissed.push_back(new TH1D(Form("waveHitMissedChan%i", ichan), Form("WaveHitMissedChan%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+
+    hWaveHitNoise.push_back(new TH1D(Form("waveHitNoiseChan%i", ichan), Form("WaveHitNoiseChan%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
   }
 
   fout->cd();

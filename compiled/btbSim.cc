@@ -563,6 +563,7 @@ void btb(int ngen = 10000000)
       det->clear();
       det->event = iev;
       det->trigger = iev;
+      det->nspe = nsinglet + ntriplet;
       // simRun->btree->GetListOfBranches()->ls();
       // printf(" simRun ev %i  channel %i \n", iev, ich);
 
