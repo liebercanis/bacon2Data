@@ -1835,7 +1835,7 @@ int anaCRun::anaEvent(Long64_t entry)
             ihitMatch = ihit;
             foundHitUsed[ihit] = 1;
           }
-          printf("ev %lld channel %i sim hit %i time %f found %i time %f isused %i \n", entry, sdet->channel, isim, simHit.startTime, ihit, finderHit.startTime, foundHitUsed[ihit]);
+          // printf("ev %lld channel %i sim hit %i time %f found %i time %f isused %i \n", entry, sdet->channel, isim, simHit.startTime, ihit, finderHit.startTime, foundHitUsed[ihit]);
         } // loop over finder hits
         int simTimeBin = hWaveHitFound[0]->FindBin(simHit.startTime);
         if (ihitMatch != -1) // match
