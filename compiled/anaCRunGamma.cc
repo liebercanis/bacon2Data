@@ -241,6 +241,7 @@ public:
   void doTimeShiftAndNorm();
   void getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample);
   bool simTimeMatch(double stime, double ftime);
+  void calcError(double pass, double fail, double &fraction, double &error);
 
   /*
   void setTBRun(TBRun *theTBRun)
@@ -309,6 +310,19 @@ public:
   double qpeakCosmicCut = 3. * nominalGain; // 3*SPE
   double hitThresholdPmt = 30.;             // set Nov 13 2024
 };
+
+// simple mean rms from array g[]
+void anaCRun::calcError(double pass, double fail, double &passFraction, double &error)
+{
+  passFraction = 0;
+  error = 0;
+  double tot = pass + fail;
+  if (tot == 0)
+    return;
+  passFraction = pass / tot;
+  error = sqrt(passFraction * (1. - passFraction) / tot);
+}
+
 // I do this in two place, so I wanted to be sure to do it the same.
 // allow for stime later than ftime but within long response
 // btbSim has double speSigma = 20.; // ns from single PI data fit 40 samples
@@ -2585,11 +2599,10 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     for (unsigned ichan = 0; ichan < hWaveHitFound.size() - 1; ++ichan)
     {
       double foundFraction = 1.;
-      double tot = hWaveHitFound[ichan]->GetEntries() + hWaveHitMissed[ichan]->GetEntries();
-      if (tot > 0)
-        foundFraction = hWaveHitFound[ichan]->GetEntries() / tot;
-      printf(" \t chan %i found %.0f missed %.0f fake %.0f  found fraction %.3f \n", ichan, hWaveHitFound[ichan]->GetEntries(),
-             hWaveHitMissed[ichan]->GetEntries(), hWaveHitNoise[ichan]->GetEntries(), foundFraction);
+      double foundError = 0.;
+      calcError(hWaveHitFound[ichan]->GetEntries(), hWaveHitMissed[ichan]->GetEntries(), foundFraction, foundError);
+      printf(" \t chan %i found %.0f missed %.0f fake %.0f  found fraction %.3f +/- %.3f \n", ichan, hWaveHitFound[ichan]->GetEntries(),
+             hWaveHitMissed[ichan]->GetEntries(), hWaveHitNoise[ichan]->GetEntries(), foundFraction, foundError);
     }
   }
   // hCosmicMult->Print("all");
