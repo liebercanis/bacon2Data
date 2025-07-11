@@ -1,4 +1,4 @@
-// ***Ths is GAMMA version Sept 25 2024 * **
+/***Ths is GAMMA version Sept 25 2024 **/
 // revised Jan 15 2025
 /////////////////////////////////////////////////////////
 #include <sstream>
@@ -109,8 +109,7 @@ public:
   TH1D *hCosmicCut;
   TH1D *hGammaCut;
   TNtuple *ntHit;
-  TNtuple *ntSimFound;
-  TNtuple *ntSimMissed;
+  TNtuple *ntSimMatch;
   unsigned orderFraction = 10;
   // vectors for gains
   std::vector<double> sipmGain;
@@ -241,6 +240,8 @@ public:
   unsigned fixedTriggerTime(int ichan, double &adc);
   void doTimeShiftAndNorm();
   void getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample);
+  bool simTimeMatch(double stime, double ftime);
+
   /*
   void setTBRun(TBRun *theTBRun)
   {
@@ -308,6 +309,15 @@ public:
   double qpeakCosmicCut = 3. * nominalGain; // 3*SPE
   double hitThresholdPmt = 30.;             // set Nov 13 2024
 };
+// I do this in two place, so I wanted to be sure to do it the same.
+bool anaCRun::simTimeMatch(double stime, double ftime)
+{
+  bool rc = false;
+  double timeDiff = stime - ftime;
+  if (timeDiff > 20 && timeDiff < 80)
+    rc = true;
+  return rc;
+}
 
 //// https://mathworld.wolfram.com/TernaryDiagram.html
 void anaCRun::makeTernary(double a, double b, double c, double &x, double &y)
@@ -1799,54 +1809,51 @@ int anaCRun::anaEvent(Long64_t entry)
     */
     if (simTree && idet < 13) // no summed det in simulation
     {
-      TDet *sdet = simDet[idet]; // get sim det
-      std::vector<double> missedTimeDiff;
+      // each found hit is matched only once
+      std::vector<int> foundHitUsed;
+      foundHitUsed.resize(tdet->hits.size(), 0); // size and set to zero
+      TDet *sdet = simDet[idet];                 // get sim det
       std::vector<int> missedHit;
-      double timeDiffMin = 75000;
       for (unsigned isim = 0; isim < sdet->hits.size(); ++isim) // loop over sim hits
       {
-        missedTimeDiff.clear();
         missedHit.clear();
         TDetHit simHit = sdet->hits[isim];
-        // printf(" simHit %i time %f \n", isim, simHit.startTime);
         bool hitMatch = false;
         double timeDiff;
         int ihitMatch = -1;
         for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit) // loop over hitFinder hits
         {
           TDetHit finderHit = tdet->hits[ihit];
-          // printf(" finderHit %i time %f \n", ihit, finderHit.startTime);
-          if (tdet->channel != sdet->channel) // must be hit on  same channel
-            continue;
+          // printf(" fimder chan %i sim %i \n", tdet->channel, sdet->channel);
           int foundTimeBim = hWaveHitNoise[0]->FindBin(finderHit.startTime);
 
           // is hitFinder hit a sim hit?
           timeDiff = simHit.startTime - finderHit.startTime;
           hSimFoundTimeDiff->Fill(simHit.startTime - finderHit.startTime);
-          if (timeDiff < timeDiffMin)
-            timeDiffMin = timeDiff;
-          if (timeDiff > 30 && timeDiff < 70) // look for match in time
+          if (simTimeMatch(simHit.startTime, finderHit.startTime) && foundHitUsed[ihit] == 0)
           {
             ihitMatch = ihit;
+            foundHitUsed[ihit] = 1;
           }
+          printf("ev %lld channel %i sim hit %i time %f found %i time %f isused %i \n", entry, sdet->channel, isim, simHit.startTime, ihit, finderHit.startTime, foundHitUsed[ihit]);
         } // loop over finder hits
         int simTimeBin = hWaveHitFound[0]->FindBin(simHit.startTime);
         if (ihitMatch != -1) // match
         {
           hWaveHitFound[idet]->SetBinContent(simTimeBin, hWaveHitFound[idet]->GetBinContent(simTimeBin) + 1);
-          ntSimFound->Fill(double(entry), double(sdet->channel), double(isim), double(ihitMatch),
-                           timeDiff, simDet[idet]->hits[isim].startTime, tdet->hits[ihitMatch].startTime,
+          ntSimMatch->Fill(double(entry), 1, double(sdet->channel), double(isim), double(ihitMatch),
+                           simDet[idet]->hits[isim].startTime - tdet->hits[ihitMatch].startTime, simDet[idet]->hits[isim].startTime, tdet->hits[ihitMatch].startTime,
                            simDet[idet]->hits[isim].qpeak, tdet->hits[ihitMatch].qpeak);
         }
         else // no match
         {
-          hWaveHitMissed[idet]->SetBinContent(simTimeBin, hWaveHitMissed[idet]->GetBinContent(simTimeBin) + 1);
           missedHit.push_back(isim);
-          missedTimeDiff.push_back(timeDiffMin);
+          hWaveHitMissed[idet]->SetBinContent(simTimeBin, hWaveHitMissed[idet]->GetBinContent(simTimeBin) + 1);
         }
 
       } // end loop over sim hits
 
+      // print out events with missed hits
       if (missedHit.size() > 0 && missedDir->GetList()->GetEntries() < missedDirMax)
       {
         missedDir->cd();
@@ -1861,10 +1868,11 @@ int anaCRun::anaEvent(Long64_t entry)
       {
         for (unsigned isim = 0; isim < missedHit.size(); ++isim) // loop over missed sim
         {
+          int imissed = missedHit[isim];                            // index of missed hit
           for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit) // loop over found hits
-            ntSimMissed->Fill(double(entry), double(sdet->channel), double(missedHit[isim]), double(ihit),
-                              missedTimeDiff[isim], simDet[idet]->hits[isim].startTime, tdet->hits[ihit].startTime,
-                              simDet[idet]->hits[isim].qpeak, tdet->hits[ihit].qpeak);
+            ntSimMatch->Fill(double(entry), 0, double(sdet->channel), double(imissed), double(ihit),
+                             simDet[idet]->hits[imissed].startTime - tdet->hits[ihit].startTime, simDet[idet]->hits[imissed].startTime, tdet->hits[ihit].startTime,
+                             simDet[idet]->hits[imissed].qpeak, tdet->hits[ihit].qpeak);
         }
       }
 
@@ -1876,14 +1884,16 @@ int anaCRun::anaEvent(Long64_t entry)
         for (unsigned isim = 0; isim < sdet->hits.size(); ++isim) // loop over sim hits
         {
           TDetHit simHit = sdet->hits[isim];
-          if (abs(finderHit.startTime - simHit.startTime) < 5) // look for match in time
+          if (simTimeMatch(simHit.startTime, finderHit.startTime))
           {
             hitMatch = true;
           }
         }
         int foundTimeBin = hWaveHitNoise[0]->FindBin(finderHit.startTime);
         if (!hitMatch)
+        {
           hWaveHitNoise[idet]->SetBinContent(foundTimeBin, hWaveHitNoise[idet]->GetBinContent(foundTimeBin + 1));
+        }
       }
     } // simTree in file
 
@@ -2159,8 +2169,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     tbrun->addDet(it);
   }
 
-  ntSimFound = new TNtuple("ntSimFound", "sim found comparison ntuple", "event:chan:shit:fhit:tdiff:stime:ftime:qpeaks:qpeakf");
-  ntSimMissed = new TNtuple("ntSimMissed", "sim missed bntuple", "event:chan:shit:fhit:tdiff:stime:ftime:qpeaks:qpeakf");
+  ntSimMatch = new TNtuple("ntSimMatch", "sim found comparison ntuple", "event:match:chan:shit:fhit:tdiff:stime:ftime:qpeaks:qpeakf");
   // histograms for event cuts
   ntBase = new TNtuple("ntBase", " baseline ntuple ", "event:chan:base0:base1:fitMean:sigma:status"); // Fill(entry, ib, ave, sigma, fitStatus);;
   ntAdc = new TNtuple("ntAdc", " ADC ntuple ", "event:chan:sample:digi");
@@ -2578,6 +2587,20 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     printf("chan %i wave integral %.4E average hits per event %.4f \n ", idet, hitIntegral[idet], hitMean[idet]);
 
   printf("PMT HIT MULTIPLICITY cut %0.f \n", qpeakCosmicCut);
+  // print out pulse finding stats
+  if (isSim)
+  {
+    printf("pulse finding stats from simulation:\n");
+    for (unsigned ichan = 0; ichan < hWaveHitFound.size() - 1; ++ichan)
+    {
+      double foundFraction = 1.;
+      double tot = hWaveHitFound[ichan]->GetEntries() + hWaveHitMissed[ichan]->GetEntries();
+      if (tot > 0)
+        foundFraction = hWaveHitFound[ichan]->GetEntries() / tot;
+      printf(" \t chan %i found %.0f missed %.0f fake %.0f  found fraction %.3f \n", ichan, hWaveHitFound[ichan]->GetEntries(),
+             hWaveHitMissed[ichan]->GetEntries(), hWaveHitNoise[ichan]->GetEntries(), foundFraction);
+    }
+  }
   // hCosmicMult->Print("all");
   fout->Write();
   fout->Close();
@@ -2587,6 +2610,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
 anaCRun::anaCRun(TString theTag)
 {
+
   failCode[0] = PASS;
   failCode[1] = BASEFAIL;
   failCode[2] = EARLYCUT;
