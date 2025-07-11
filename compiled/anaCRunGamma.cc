@@ -310,6 +310,8 @@ public:
   double hitThresholdPmt = 30.;             // set Nov 13 2024
 };
 // I do this in two place, so I wanted to be sure to do it the same.
+// allow for stime later than ftime but within long response
+// btbSim has double speSigma = 20.; // ns from single PI data fit 40 samples
 bool anaCRun::simTimeMatch(double stime, double ftime)
 {
   bool rc = false;
@@ -1806,95 +1808,84 @@ int anaCRun::anaEvent(Long64_t entry)
 
     /*
     ********** if simulation double loop for sim comparison
+    **********  loop over all found hits , then all sim hits July 11, 2025
+    ********** no summed det in simulation chan 13 is summed waveform so skip PMT chan 12 not simulated
     */
-    if (simTree && idet < 13) // no summed det in simulation
+    if (simTree && idet < 12)
     {
-      // each found hit is matched only once
-      std::vector<int> foundHitUsed;
-      foundHitUsed.resize(tdet->hits.size(), 0); // size and set to zero
-      TDet *sdet = simDet[idet];                 // get sim det
-      std::vector<int> missedHit;
-      for (unsigned isim = 0; isim < sdet->hits.size(); ++isim) // loop over sim hits
-      {
-        missedHit.clear();
-        TDetHit simHit = sdet->hits[isim];
-        bool hitMatch = false;
-        double timeDiff;
-        int ihitMatch = -1;
-        for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit) // loop over hitFinder hits
-        {
-          TDetHit finderHit = tdet->hits[ihit];
-          // printf(" fimder chan %i sim %i \n", tdet->channel, sdet->channel);
-          int foundTimeBim = hWaveHitNoise[0]->FindBin(finderHit.startTime);
-
-          // is hitFinder hit a sim hit?
-          timeDiff = simHit.startTime - finderHit.startTime;
-          hSimFoundTimeDiff->Fill(simHit.startTime - finderHit.startTime);
-          if (simTimeMatch(simHit.startTime, finderHit.startTime) && foundHitUsed[ihit] == 0)
-          {
-            ihitMatch = ihit;
-            foundHitUsed[ihit] = 1;
-          }
-          // printf("ev %lld channel %i sim hit %i time %f found %i time %f isused %i \n", entry, sdet->channel, isim, simHit.startTime, ihit, finderHit.startTime, foundHitUsed[ihit]);
-        } // loop over finder hits
-        int simTimeBin = hWaveHitFound[0]->FindBin(simHit.startTime);
-        if (ihitMatch != -1) // match
-        {
-          hWaveHitFound[idet]->SetBinContent(simTimeBin, hWaveHitFound[idet]->GetBinContent(simTimeBin) + 1);
-          ntSimMatch->Fill(double(entry), 1, double(sdet->channel), double(isim), double(ihitMatch),
-                           simDet[idet]->hits[isim].startTime - tdet->hits[ihitMatch].startTime, simDet[idet]->hits[isim].startTime, tdet->hits[ihitMatch].startTime,
-                           simDet[idet]->hits[isim].qpeak, tdet->hits[ihitMatch].qpeak);
-        }
-        else // no match
-        {
-          missedHit.push_back(isim);
-          hWaveHitMissed[idet]->SetBinContent(simTimeBin, hWaveHitMissed[idet]->GetBinContent(simTimeBin) + 1);
-        }
-
-      } // end loop over sim hits
-
-      // print out events with missed hits
-      if (missedHit.size() > 0 && missedDir->GetList()->GetEntries() < missedDirMax)
-      {
-        missedDir->cd();
-        TH1D *EvRawWave = (TH1D *)hEvRawWave[idet]->Clone(Form("EvRawEvent%lld-Ch%i-timeBin%i", entry, idet,
-                                                               int(sdet->hits[missedHit[0]].startTime)));
-        EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, idet));
-        finder->plotEvent(missedDir, tbrun->getDet(idet)->channel, entry);
-        // printf("@line1192 print event %llu start %i printed %i \n", entry, startLast, missedDir->GetList()->GetEntries());
-      }
-
-      if (missedHit.size() > 0)
-      {
-        for (unsigned isim = 0; isim < missedHit.size(); ++isim) // loop over missed sim
-        {
-          int imissed = missedHit[isim];                            // index of missed hit
-          for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit) // loop over found hits
-            ntSimMatch->Fill(double(entry), 0, double(sdet->channel), double(imissed), double(ihit),
-                             simDet[idet]->hits[imissed].startTime - tdet->hits[ihit].startTime, simDet[idet]->hits[imissed].startTime, tdet->hits[ihit].startTime,
-                             simDet[idet]->hits[imissed].qpeak, tdet->hits[ihit].qpeak);
-        }
-      }
-
-      // reverse order for noise hits
+      std::vector<int> simMatchList;
+      TDet *sdet = simDet[idet];                                // get sim det for channel idet
       for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit) // loop over hitFinder hits
       {
-        bool hitMatch = false;
         TDetHit finderHit = tdet->hits[ihit];
+        double qpeakSum = 0;
+        simMatchList.clear();                                     // list of all matched sim hits
         for (unsigned isim = 0; isim < sdet->hits.size(); ++isim) // loop over sim hits
         {
-          TDetHit simHit = sdet->hits[isim];
-          if (simTimeMatch(simHit.startTime, finderHit.startTime))
+          TDetHit simHit = sdet->hits[isim];                               // get sim hit
+          hSimFoundTimeDiff->Fill(simHit.startTime - finderHit.startTime); // fill time diff histogram
+          if (simTimeMatch(simHit.startTime, finderHit.startTime))         // time match
           {
-            hitMatch = true;
+            simMatchList.push_back(isim); // sim hit matches to this found hit
+            qpeakSum += simHit.qpeak;
+          }
+        } // end loop over sim hits
+        /*
+          after looping over sim hits, fill histos and ntuple
+        */
+        if (simMatchList.size() > 0)
+        {
+          /*
+            fill ntuple for this found hit each matched hit appears labeled by match number
+          */
+          for (unsigned isim = 0; isim < simMatchList.size(); ++isim)
+          {
+            int simHitNumber = simMatchList[isim];
+            int ibin = hWaveHitFound[0]->FindBin(sdet->hits[simHitNumber].startTime);
+            hWaveHitFound[idet]->SetBinContent(ibin, hWaveHitFound[idet]->GetBinContent(ibin) + 1);
+            ntSimMatch->Fill(double(entry), double(simMatchList.size()), double(simDet[idet]->channel), double(simHitNumber), double(ihit),
+                             simDet[idet]->hits[simHitNumber].startTime - tdet->hits[ihit].startTime, simDet[idet]->hits[simHitNumber].startTime, tdet->hits[ihit].startTime,
+                             qpeakSum, tdet->hits[ihit].qpeak);
           }
         }
-        int foundTimeBin = hWaveHitNoise[0]->FindBin(finderHit.startTime);
-        if (!hitMatch)
+        else
+        /*
+          if no match fill ntuple, this is noise hit label ntSimMatch entry by match =0
+        */
         {
-          hWaveHitNoise[idet]->SetBinContent(foundTimeBin, hWaveHitNoise[idet]->GetBinContent(foundTimeBin + 1));
+          int ibin = hWaveHitNoise[0]->FindBin(finderHit.startTime);
+          hWaveHitNoise[idet]->SetBinContent(ibin, hWaveHitNoise[idet]->GetBinContent(ibin) + 1);
+          ntSimMatch->Fill(double(entry), double(simMatchList.size()), double(tdet->channel), -1., double(ihit),
+                           tdet->hits[ihit].startTime, 0., tdet->hits[ihit].startTime,
+                           0., tdet->hits[ihit].qpeak);
+        }
+      } // end loop over found hits
+
+      /*
+         reverse order to find missed sim hits
+      */
+      for (unsigned isim = 0; isim < sdet->hits.size(); ++isim) // loop over sim hits
+      {
+        TDet *sdet = simDet[idet]; // get sim det
+        TDetHit simHit = sdet->hits[isim];
+        bool isFound = false;
+        for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit) // loop over finder hits
+        {
+          TDetHit finderHit = tdet->hits[ihit];
+          if (simTimeMatch(simHit.startTime, finderHit.startTime))
+          {
+            isFound = true;
+          }
+        }
+        if (!isFound) // this hit is missed, label with match = -1
+        {
+          int simTimeBin = hWaveHitMissed[0]->FindBin(simHit.startTime);
+          hWaveHitMissed[idet]->SetBinContent(simTimeBin, hWaveHitMissed[idet]->GetBinContent(simTimeBin) + 1);
+          ntSimMatch->Fill(double(entry), -1., double(sdet->channel), isim, -1, simHit.startTime, simHit.startTime, 0.,
+                           simHit.qpeak, 0.);
         }
       }
+
     } // simTree in file
 
     /* cross check on SPE */
