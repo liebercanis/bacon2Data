@@ -16,7 +16,7 @@ static double peakFitQsum[nTriggerSipms];  // qsum input
 static double peakMeanQsum[nTriggerSipms]; // qsum input
 static bool triggerPeakFitShow = false;
 
-/* everthing must be in this one routing */
+/* everthing must be in this one routine */
 static double peakFit(double *par)
 {
     // geometry

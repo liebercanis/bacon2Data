@@ -283,7 +283,7 @@ public:
   double nominalPmtGain = 502.;
   double nominalQsumPmtGain = 1713;
   double landauMax = 1.0; // 0.018063;
-  double qsumGain[CHANNELS];
+  std::vector<double> qsumGain;
   //  227.4; // average
   //   double nominalGain = 160.0; // average
   unsigned firstTime;       // corrected trigger time for event
@@ -527,6 +527,7 @@ void anaCRun::printGains()
 
 bool anaCRun::readGains(TString fileName)
 {
+  qsumGain.resize(CHANNELS);
   for (int i = 0; i < CHANNELS; ++i)
     qsumGain[i] = nominalQsumGain;
   qsumGain[9] = nominalQsumTrigGain;
@@ -2386,7 +2387,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     chanList.push_back(ichan);
 
   finder = NULL;
-  finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList, channelSigmaValue, nominalGain);
+  finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList, channelSigmaValue, qsumGain);
   if (!finder)
   {
     printf(" failed to make finder ");
