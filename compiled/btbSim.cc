@@ -36,7 +36,7 @@ TDirectory *scanDir;
 
 bool writeRawData = true;
 bool useMap = false;
-int reportInterval = 100;
+int reportInterval = 1000;
 
 modelFit *models[NCHAN];
 TNtuple *ntOrigin;
@@ -56,6 +56,7 @@ TH1D *hRadiusMap;
 TH1D *hRhoMap;
 TH1D *hPhiMap;
 TH1D *hZMap;
+TH2D *hRhoZMap;
 TH3D *hRhoPhiZMap;
 TH1D *hEffGeo;
 
@@ -446,7 +447,14 @@ void btb(int ngen = 10000000)
   hRhoMap = new TH1D("RhoMap", "event cylindrical rho [cm] ", 100, 0., 4.);
   hZMap = new TH1D("ZMap", "event cylindrical Z [cm] ", 100, 0., 10.);
   hPhiMap = new TH1D("PhiMap", "event phi", 100, -TMath::Pi(), TMath::Pi());
+  hRhoZMap = new TH2D("RhoZMap", "cylindrical rho z  map ", 100, 0., 2., 100, 0., 4.);
+  hRhoZMap->GetXaxis()->SetTitle("cylindrical rho [cm]");
+  hRhoZMap->GetYaxis()->SetTitle("Z");
+
   hRhoPhiZMap = new TH3D("RhoZPhiMap", "cylindrical rho phi z  map ", 100, 0., 2., 100, -TMath::Pi(), TMath::Pi(), 100, 0., 4.);
+  hRhoPhiZMap->GetXaxis()->SetTitle("cylindrical rho [cm]");
+  hRhoPhiZMap->GetYaxis()->SetTitle("phi");
+  hRhoPhiZMap->GetZaxis()->SetTitle("Z");
   hEventPass = new TH1D("hEventPass", "event pass", 3, 0, 3);
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   ntOrigin = new TNtuple("ntOrigin", " event origin ", "ev:r:cos:theta:phi:x:y:z");
@@ -600,6 +608,7 @@ void btb(int ngen = 10000000)
     hZMap->Fill(eventOrigin.Z());
     hRadiusMap->Fill(eventOrigin.R());
     hRhoMap->Fill(eventOrigin.Rho());
+    hRhoZMap->Fill(eventOrigin.Rho(), eventOrigin.Z());
     hRhoPhiZMap->Fill(eventOrigin.Rho(), eventOrigin.Phi(), eventOrigin.Z());
     hPhiMap->Fill(eventOrigin.Phi());
 
@@ -618,7 +627,7 @@ void btb(int ngen = 10000000)
     // printf(" event origin x %f y %f z %f \n", eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
 
     if (iev / reportInterval * reportInterval == iev)
-      printf("... event %i total photon %0.f (r,cosTheta,phi) = (%f, %f, %f) (r,theta,Phi) = (%f , %f ,%f ) \n", iev, double(totalPhotons), gammaR, gammaCosTheta, gammaPhi, eventOrigin.R(), eventOrigin.Theta() * 360. / TMath::TwoPi(), localPhi);
+      printf("... event %i total photon %0.f (rho,z,phi) = (%f, %f, %f) (r,theta,Phi) = (%f , %f ,%f ) \n", iev, double(totalPhotons), eventOrigin.Rho(), eventOrigin.Z(), eventOrigin.Phi() * 360. / TMath::TwoPi(), eventOrigin.R(), eventOrigin.Theta() * 360. / TMath::TwoPi(), eventOrigin.Phi() * 360. / TMath::TwoPi());
     // get event position
 
     // loop over channels
