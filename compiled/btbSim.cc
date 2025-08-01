@@ -36,6 +36,7 @@ TDirectory *scanDir;
 
 bool writeRawData = true;
 bool useMap = false;
+int reportInterval = 100;
 
 modelFit *models[NCHAN];
 TNtuple *ntOrigin;
@@ -49,11 +50,13 @@ TNtuple *ntScan;
 /* geant maps */
 TH3D *originPDF;     // pdf of event origins
 TH3D *fluxMapChan9;  // geo efficiency values
-TH3D *fluxMapChan10; //
-TH3D *fluxMapChan11; ///
-TH2D *hCosRadiusMap;
+TH3D *fluxMapChan10; ///
+TH3D *fluxMapChan11; ////
 TH1D *hRadiusMap;
+TH1D *hRhoMap;
 TH1D *hPhiMap;
+TH1D *hZMap;
+TH3D *hRhoPhiZMap;
 TH1D *hEffGeo;
 
 TH1D *hPhoton[NCHAN];
@@ -440,8 +443,10 @@ void btb(int ngen = 10000000)
   hEffGeo = new TH1D("EffGeo", " geometric efficiency / nominal ", 150, 0, 1.5);
   /* define ntuples amd histograms here */
   hRadiusMap = new TH1D("RadiusMap", "event radius [cm] ", 100, 0., 10.);
+  hRhoMap = new TH1D("RhoMap", "event cylindrical rho [cm] ", 100, 0., 4.);
+  hZMap = new TH1D("ZMap", "event cylindrical Z [cm] ", 100, 0., 10.);
   hPhiMap = new TH1D("PhiMap", "event phi", 100, -TMath::Pi(), TMath::Pi());
-  hCosRadiusMap = new TH2D("CosRadiusMap", " cos vs radius ", 100, 0., 4., 100, -1, 1.);
+  hRhoPhiZMap = new TH3D("RhoZPhiMap", "cylindrical rho phi z  map ", 100, 0., 2., 100, -TMath::Pi(), TMath::Pi(), 100, 0., 4.);
   hEventPass = new TH1D("hEventPass", "event pass", 3, 0, 3);
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   ntOrigin = new TNtuple("ntOrigin", " event origin ", "ev:r:cos:theta:phi:x:y:z");
@@ -537,7 +542,7 @@ void btb(int ngen = 10000000)
   double effPmt = effGeoFunc(12);
   int ilevel = level(12);
   printf(" chan %i level %i distance %f eff %E \n", 12, ilevel, distanceLevel[ilevel], effPmt);
-  printf("***********\n ");
+  printf("***********\n\n\n ");
 
   /* static double tTriplet0 = 1600.0; ns
     static double tSinglet0 = 7.0; ns
@@ -549,6 +554,7 @@ void btb(int ngen = 10000000)
   totalPhotons = 0;
   int nsinglet;
   int ntriplet;
+  int nTrigger = 0;
   for (int iev = 0; iev < ngen; ++iev) // start of event loop
   {
 
@@ -583,20 +589,27 @@ void btb(int ngen = 10000000)
     else
     {
       gammaR = abs(ran->Exp(meanFreePath));
-      gammaCosTheta = 2 * ran->Rndm() - 1.;
+      // gammaCosTheta = 2 * ran->Rndm() - 1.;
+      gammaCosTheta = ran->Rndm();                      // use only positive z
       gammaPhi = (2. * ran->Rndm() - 1.) * TMath::Pi(); // -pi to pi
     }
     eventOrigin = getXYZVector(gammaR, acos(gammaCosTheta), gammaPhi);
     double localPhi = eventOrigin.Phi() * 360. / TMath::TwoPi();
     if (localPhi < 0)
       localPhi += 360.;
-    hRadiusMap->Fill(gammaR);
-    hCosRadiusMap->Fill(gammaR, gammaCosTheta);
-    hPhiMap->Fill(gammaPhi);
+    hZMap->Fill(eventOrigin.Z());
+    hRadiusMap->Fill(eventOrigin.R());
+    hRhoMap->Fill(eventOrigin.Rho());
+    hRhoPhiZMap->Fill(eventOrigin.Rho(), eventOrigin.Phi(), eventOrigin.Z());
+    hPhiMap->Fill(eventOrigin.Phi());
 
     // cut -Z (up going in btb) events
     if (gammaCosTheta < 0)
+    {
+      if (show)
+        printf(" skip event %i %f \n", iev, gammaCosTheta);
       continue;
+    }
 
     hEventPass->SetBinContent(2, hEventPass->GetBinContent(2) + 1);
     // eventOrigin.SetZ(abs(eventOrigin.Z()));
@@ -604,7 +617,7 @@ void btb(int ngen = 10000000)
     ntOrigin->Fill(iev, eventOrigin.R(), cos(eventOrigin.Theta()), eventOrigin.Theta() * 360. / TMath::TwoPi(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
     // printf(" event origin x %f y %f z %f \n", eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
 
-    if (iev / 1000 * 1000 == iev)
+    if (iev / reportInterval * reportInterval == iev)
       printf("... event %i total photon %0.f (r,cosTheta,phi) = (%f, %f, %f) (r,theta,Phi) = (%f , %f ,%f ) \n", iev, double(totalPhotons), gammaR, gammaCosTheta, gammaPhi, eventOrigin.R(), eventOrigin.Theta() * 360. / TMath::TwoPi(), localPhi);
     // get event position
 
@@ -737,7 +750,12 @@ void btb(int ngen = 10000000)
     double maxTriggerDiff = eventTrigger();
     hTrigDiffTime->Fill(maxTriggerDiff);
     if (maxTriggerDiff > maxTriggerTimeDiffernce)
+    {
+      if (show)
+        printf(" event %i does not trigger %f \n", iev, maxTriggerDiff);
       continue;
+    }
+    ++nTrigger;
     hEventPass->SetBinContent(3, hEventPass->GetBinContent(3) + 1);
 
     if (show)
@@ -767,15 +785,15 @@ void btb(int ngen = 10000000)
     }
     double amin = 0;
 
-    // Set starting values and step sizes for parameters
     double step = 0.0001;
-    gMinuit->mnparm(0, "yield", numPhotons, step, 0., 10. * numPhotons, ierflg);
-    gMinuit->mnparm(1, "fitR", 0.1, step, 0., 2., ierflg);
-    gMinuit->mnparm(2, "fitTheta", 0, step, 0., TMath::Pi(), ierflg);
-    gMinuit->mnparm(3, "fitPhi", 0, step, -TMath::Pi(), TMath::Pi(), ierflg);
-    // gMinuit->FixParameter(0);
     if (doMinuit)
     {
+      // Set starting values and step sizes for parameters
+      gMinuit->mnparm(0, "yield", numPhotons, step, 0., 10. * numPhotons, ierflg);
+      gMinuit->mnparm(1, "fitR", 0.1, step, 0., 2., ierflg);
+      gMinuit->mnparm(2, "fitTheta", 0, step, 0., TMath::Pi(), ierflg);
+      gMinuit->mnparm(3, "fitPhi", 0, step, -TMath::Pi(), TMath::Pi(), ierflg);
+      // gMinuit->FixParameter(0);
       // minimize
       gMinuit->mnexcm("MIGRAD", arglist, 0, ierflg);
       if (ierflg != 0)
@@ -807,22 +825,38 @@ void btb(int ngen = 10000000)
         scanDir->Add(gsave);
       }
     }
-    else
+    else // calculate peakMeanQsum for this eventaOrigin
     {
+      // set paramters
+      gMinuit->mnparm(0, "yield", numPhotons, step, 0., 10. * numPhotons, ierflg);
+      // eventOrigin
+      gMinuit->mnparm(1, "fitR", eventOrigin.R(), step, 0., 2., ierflg);
+      gMinuit->mnparm(2, "fitTheta", eventOrigin.Theta(), step, 0., TMath::Pi(), ierflg);
+      gMinuit->mnparm(3, "fitPhi", eventOrigin.Phi(), step, -TMath::Pi(), TMath::Pi(), ierflg);
+      // fill parameter array
       for (int ipar = 0; ipar < NPAR; ++ipar)
+        gMinuit->GetParameter(ipar, fitVal[ipar], fitErr[ipar]);
+
+      // calculate peakMeanQsum
+      peakFit(fitVal);
+
+      if (show)
       {
-        printf("\t\t       event %i par %i par peakFitQsum %E  \n", iev, ipar, peakFitQsum[ipar]);
+        printf("peakFit paramters: ");
+        for (int ipar = 0; ipar < NPAR; ++ipar)
+          printf("\t\t       event %i par %i fit %E err %E \n", iev, ipar, fitVal[ipar], fitErr[ipar]);
+        printf(" peakFitQsum %f %f %f \n", peakFitQsum[0], peakFitQsum[1], peakFitQsum[2]);
       }
-      peakFit(peakFitQsum);
     }
 
-    // fill fit ntuple
-    if (iev / 1 * 1 == iev)
+    // printf("event %i fill fit ntuple\n", iev);
+    //  fill fit ntuple
+    if (nTrigger / reportInterval * reportInterval == nTrigger)
     {
       if (doMinuit)
-        printf(".... event %i nLL %f nphotons %i  singlet %i triplet %i tot  %i qsum(%f,%f,%f) mean(%f,%f,%f) fit(%f,%f,%f)\n", iev, amin, nPhotonsEvent, nsinglet, ntriplet, nsinglet + ntriplet, peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2], fitVal[0], fitVal[1], fitVal[2]);
+        printf(".x.x.x report event %i nLL %f nphotons %i  singlet %i triplet %i tot  %i qsum(%f,%f,%f) mean(%f,%f,%f) fit(%f,%f,%f)\n", iev, amin, nPhotonsEvent, nsinglet, ntriplet, nsinglet + ntriplet, peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2], fitVal[0], fitVal[1], fitVal[2]);
       else
-        printf(".... event %i nLL %f nphotons %i  singlet %i triplet %i tot  %i qsum(%f,%f,%f) mean(%f,%f,%f) \n", iev, amin, nPhotonsEvent, nsinglet, ntriplet, nsinglet + ntriplet, peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2]);
+        printf(".x.x.x report event %i nLL %f nphotons %i  singlet %i triplet %i tot  %i  photons (%.0f, %.0f, %.0f sum %.0f )  qsum(%f,%f,%f) mean(%f,%f,%f) \n", iev, amin, nPhotonsEvent, nsinglet, ntriplet, nsinglet + ntriplet, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries(), photonSum, peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2]);
     }
 
     // printf("btbsim::  9 %f 10 %f 11 %f \n", peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2]);
@@ -878,8 +912,8 @@ void btb(int ngen = 10000000)
   }
   // fout->ls();
   hEventPass->Print("all");
-  printf("end of btb with ngen %i \n", ngen);
-  simRun->print();
+  printf("********* end of btb with ngen %i triggers %i ********\n", ngen, nTrigger);
+  // simRun->print();
 }
 
 // static TBRun *theTBRun;
