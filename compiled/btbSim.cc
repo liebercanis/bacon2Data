@@ -41,7 +41,6 @@ int reportInterval = 1000;
 modelFit *models[NCHAN];
 TNtuple *ntOrigin;
 TNtuple *ntTrigCh;
-TNtuple *ntTDiff;
 TNtuple *ntTrig;
 TNtuple *ntTern;
 TNtuple *ntMean;
@@ -59,9 +58,13 @@ TH1D *hZMap;
 TH2D *hRhoZMap;
 TH3D *hRhoPhiZMap;
 TH1D *hEffGeo;
+TH1D *hEffGeo9;
+TH1D *hEffGeo10;
+TH1D *hEffGeo11;
 
 TH1D *hPhoton[NCHAN];
 TH1D *hConvolve[NCHAN];
+TH1D *hSignalNb[NCHAN]; // no baseline
 TH1D *hSignal[NCHAN];
 TH1D *hSignalSum[NCHAN];
 Long64_t totalPhotons;
@@ -71,7 +74,10 @@ TH1D *hCount;
 TH1D *hResponse;
 TH1D *hTime;
 TH1D *hTrigDiffTime;
+TH1D *hTrigDiffTime30;
+TH1D *hTrigDiffTime1000;
 TH2D *hTriangle;
+TH2D *hTriangleMean;
 uint16_t maxAdc = pow(2, 14);
 double gain;
 double sigmaNoise;
@@ -92,13 +98,18 @@ double meanFreePath = 1.53; // from table in cm3frmom rtabtable in cm3frmom rtab
 double totalEventEffiency;
 double triggerTimes[3];
 double cosMin = 0.851 / sqrt(pow(0.4, 2) + pow(0.851, 2));
-double maxTriggerTimeDiffernce = 30.;
-unsigned timeOffset = 13; // changed from 17 may 13, 2024
+double maxTriggerTimeDiffernce = 1000.;
+unsigned timeOffset = 13;                     // changed from 17 may 13, 2024
+double nominalSimQsumTrigGain = 32056.789775; // rough estimate
+
+double peakQsum[3];
 
 ROOT::Math::XYZVector eventOrigin(0, 0, 0);
-ROOT::Math::XYZVector positionSipm9(1.052, -0.608, -0.851);
-ROOT::Math::XYZVector positionSipm10(-1.052, -0.608, -0.851);
-ROOT::Math::XYZVector positionSipm11(0.000, 1.216, -0.851);
+
+// z is positive into array!
+ROOT::Math::XYZVector positionSipm9(1.052, -0.608, 0.851);
+ROOT::Math::XYZVector positionSipm10(-1.052, -0.608, 0.851);
+ROOT::Math::XYZVector positionSipm11(0.000, 1.216, 0.851);
 
 TMinuit *gMinuit;
 Double_t arglist[1];
@@ -150,11 +161,12 @@ bool getMap()
   return rc;
 }
 
-// trigger condition return maximum time betweed trigger photons
+// trigger condition return maximum time between 3 SIPM first photons
 double eventTrigger()
 {
   // printf("line104 %0.f %0.f %0.f \n", hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries());
   // number of samples is 7500 each bin is 2 ns
+  // hPhoton x-axis is in ns
   double tdiff = double(2 * 7500);
   // all must have at least 1 photon
   if (hPhoton[9]->GetEntries() < 1)
@@ -164,65 +176,27 @@ double eventTrigger()
   if (hPhoton[11]->GetEntries() < 1)
     return tdiff;
 
-  // min time between 9,10
-  double tdiff910 = double(2 * 7500);
-  for (int ibin9 = 1; ibin9 < hPhoton[9]->GetNbinsX(); ++ibin9)
+  // collect first times hPhoton x-axis is in ns
+  std::vector<double> ftimes;
+  for (int isipm = 9; isipm < 12; ++isipm)
   {
-    if (hPhoton[9]->GetBinContent(ibin9) == 0)
-      continue;
-    double time9 = hPhoton[9]->GetBinCenter(ibin9);
-    for (int ibin10 = 1; ibin10 < hPhoton[10]->GetNbinsX(); ++ibin10)
+    for (int ibin = 1; ibin < hPhoton[isipm]->GetNbinsX(); ++ibin)
     {
-      if (hPhoton[10]->GetBinContent(ibin10) == 0)
-        continue;
-      double time10 = hPhoton[10]->GetBinCenter(ibin10);
-      if (abs(time9 - time10) < tdiff910)
-        tdiff910 = abs(time9 - time10);
+      if (hPhoton[isipm]->GetBinContent(ibin) > 0)
+      {
+        ftimes.push_back(hPhoton[isipm]->GetBinCenter(ibin));
+        break;
+      }
     }
   }
+  if (ftimes.size() < 3)
+    return tdiff;
 
-  // min time between 9,11
-  double tdiff911 = double(2 * 7500);
-  for (int ibin9 = 1; ibin9 < hPhoton[9]->GetNbinsX(); ++ibin9)
-  {
-    if (hPhoton[9]->GetBinContent(ibin9) == 0)
-      continue;
-    double time9 = hPhoton[9]->GetBinCenter(ibin9);
+  // Sort in ascending order (default)
+  std::sort(ftimes.begin(), ftimes.end());
+  tdiff = ftimes[2] - ftimes[0];
 
-    for (int ibin11 = 1; ibin11 < hPhoton[11]->GetNbinsX(); ++ibin11)
-    {
-      if (hPhoton[11]->GetBinContent(ibin11) == 0)
-        continue;
-      double time11 = hPhoton[11]->GetBinCenter(ibin11);
-      if (abs(time9 - time11) < tdiff911)
-        tdiff911 = abs(time9 - time11);
-    }
-  }
-
-  // min time between 10,11
-  double tdiff1011 = double(2 * 7500);
-  for (int ibin10 = 1; ibin10 < hPhoton[10]->GetNbinsX(); ++ibin10)
-  {
-    if (hPhoton[10]->GetBinContent(ibin10) == 0)
-      continue;
-    double time10 = hPhoton[10]->GetBinCenter(ibin10);
-    for (int ibin11 = 1; ibin11 < hPhoton[11]->GetNbinsX(); ++ibin11)
-    {
-      if (hPhoton[11]->GetBinContent(ibin11) == 0)
-        continue;
-      double time11 = hPhoton[11]->GetBinCenter(ibin11);
-      if (abs(time10 - time11) < tdiff1011)
-        tdiff1011 = abs(time10 - time11);
-    }
-  }
-
-  // return the maximum time
-  tdiff = TMath::Max(tdiff910, tdiff911);
-  tdiff = TMath::Max(tdiff, tdiff1011);
-
-  ntTDiff->Fill(tdiff910, tdiff911, tdiff1011, tdiff);
-
-  // printf("line169 tdiff 9 10 %f tdiff 9 11 %f tdiff 10 %f tdiff %f \n", tdiff910, tdiff911, tdiff1011, tdiff);
+  // printf("line189 (%f %f %f)  tdiff %f \n", ftimes[0], ftimes[1], ftimes[2], tdiff);
 
   return tdiff;
 }
@@ -379,9 +353,9 @@ void btb(int ngen = 10000000)
   printf(" btb sim NOMAP generate ngen =  %i LY %.1f photons/kev * 60 = %.1f nominalGain %f nominalTrigGain %f \n", ngen, LY, numPhotons, nominalGain, nominalTrigGain);
 
   printf(" trigger sipm positions :  \n");
-  printf(" \t sipm 9 : R %f Theta %f phi %f  \n", positionSipm9.R(), positionSipm9.Theta(), positionSipm9.Phi());
-  printf(" \t sipm 10 : R %f Theta %f phi %f \n", positionSipm10.R(), positionSipm10.Theta(), positionSipm10.Phi());
-  printf(" \t sipm 11 : R %f Theta %f phi %f  \n", positionSipm11.R(), positionSipm11.Theta(), positionSipm11.Phi());
+  printf(" \t sipm 9 : rho %f phi  %f Z %f  \n", positionSipm9.Rho(), positionSipm9.Phi() * 180 / TMath::Pi(), positionSipm9.Z());
+  printf(" \t sipm 10 : rho %f phi  %f Z %f  \n", positionSipm10.Rho(), positionSipm10.Phi() * 180 / TMath::Pi(), positionSipm10.Z());
+  printf(" \t sipm 11 : rho %f phi  %f Z %f  \n", positionSipm11.Rho(), positionSipm11.Phi() * 180 / TMath::Pi(), positionSipm11.Z());
 
   if (useMap)
   {
@@ -442,6 +416,9 @@ void btb(int ngen = 10000000)
     // rawRun->print();
   }
   hEffGeo = new TH1D("EffGeo", " geometric efficiency / nominal ", 150, 0, 1.5);
+  hEffGeo9 = new TH1D("EffGeo9", " ch 9 geometric efficiency / nominal ", 150, 0, 1.5);
+  hEffGeo10 = new TH1D("EffGeo10", " ch 10 geometric efficiency / nominal ", 150, 0, 1.5);
+  hEffGeo11 = new TH1D("EffGeo11", " ch 11 geometric efficiency / nominal ", 150, 0, 1.5);
   /* define ntuples amd histograms here */
   hRadiusMap = new TH1D("RadiusMap", "event radius [cm] ", 100, 0., 10.);
   hRhoMap = new TH1D("RhoMap", "event cylindrical rho [cm] ", 100, 0., 4.);
@@ -457,17 +434,23 @@ void btb(int ngen = 10000000)
   hRhoPhiZMap->GetZaxis()->SetTitle("Z");
   hEventPass = new TH1D("hEventPass", "event pass", 3, 0, 3);
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
+  hTriangleMean = new TH2D("TriangleMean", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   ntOrigin = new TNtuple("ntOrigin", " event origin ", "ev:r:cos:theta:phi:x:y:z");
-  ntTrigCh = new TNtuple("ntTrigCh", " trigger info by channel ", "ev:ch:qsum:psum:nph:r:theta:phi:x:y:z");
-  ntTDiff = new TNtuple("ntTDiff", "trig time differences", "tdiff910:tdiff911:tdiff1011:tdiff");
-  ntTrig = new TNtuple("ntTrig", " trigger info by event  ", "ev:nph9:nph10:nph11:r:theta:phi:x:y:z");
-  ntTern = new TNtuple("ntTern", " trigger sipm", "eventR:eventCos:eventPhi:qsum9:qsum10:qsum11:mean9:mean10:mean11:xmean:ymean:xq:yq");
-  ntMean = new TNtuple("ntMean", "trigger means ", "ev:numPhotons:eventR:eventCos:eventPhi:qsum9:qsum10:qsum11:mean9:mean10:mean11:xternq:yternq");
-  ntFit = new TNtuple("ntFit", "trigger peak fit ", "ev:numPhotons:eventR:eventCos:eventPhi:qsum9:qsum10:qsum11:fitR:fitCos:fitPhi:errR:errTheta:ierr");
+  ntTrig = new TNtuple("ntTrig", " trigger info by event  ", "ev:nph9:nph10:nph11:rho:phi:x:y:z:tdiff:pass");
+  ntTrigCh = new TNtuple("ntTrigCh", " trigger info by channel ", "ev:ch:qsum:psum:nph:rho:phi:x:y:z:effgeo");
+  ntTern = new TNtuple("ntTern", " trigger sipm", "eventRho:eventPhi:eventZ:nph9:nph10:nph11:qsum9:qsum10:qsum11:mean9:mean10:mean11:xq:yq");
+
+  ntMean = new TNtuple("ntMean", "trigger means ", "ev:eventRho:eventPhi:eventZ:qsum9:qsum10:qsum11:mean9:mean10:mean11:xternq:yternq");
+  ntFit = new TNtuple("ntFit", "trigger peak fit", "ev:numPhotons:eventR:eventCos:eventPhi:qsum9:qsum10:qsum11:fitR:fitCos:fitPhi:errR:errTheta:ierr");
   ntScan = new TNtuple("ntScan", "scan", "nll:mean9:mean10:mean11:qsum9:qsum10:qsum11:r:theta:phi");
   hCount = new TH1D("Count", "hit count", 13, 0, 13);
   hTime = new TH1D("Time", "photon time ", 7500, 0, 2 * 7500);
-  hTrigDiffTime = new TH1D("TrigDiffTime", " time difference ", 7500, 0, 2 * 7500);
+  hTrigDiffTime = new TH1D("TrigDiffTime", " time difference ", 7500, 0, 7500);
+  hTrigDiffTime->GetXaxis()->SetTitle("max time diff [samples]");
+  hTrigDiffTime30 = new TH1D("TrigDiffTime30", " time difference <30 ns", 7500, 0, 7500);
+  hTrigDiffTime30->GetXaxis()->SetTitle("max time diff [samples]");
+  hTrigDiffTime1000 = new TH1D("TrigDiffTime1000", " time difference <1000 ns", 7500, 0, 7500);
+  hTrigDiffTime1000->GetXaxis()->SetTitle("max time diff [samples]");
   // landau response function
   speLandau = new TF1("myLandau", myLandau, 0, totalBins * theBinWidth, 3);
   // set SPE response parameters
@@ -514,6 +497,12 @@ void btb(int ngen = 10000000)
     hConvolve[ih]->GetXaxis()->SetTitle("time [ns]");
     hConvolve[ih]->GetYaxis()->SetTitle("photons/2ns");
     hConvolve[ih]->SetDirectory(nullptr);
+
+    //
+    hSignalNb[ih] = new TH1D(Form("SignalNb%i", ih), Form("SignalNb%i-level%i", ih, level(ih)), totalBins, 0, totalBins * (theBinWidth));
+    hSignalNb[ih]->GetXaxis()->SetTitle("time [ns]");
+    hSignalNb[ih]->GetYaxis()->SetTitle("photons/2ns");
+    hSignalNb[ih]->SetDirectory(nullptr);
     //
     hSignal[ih] = new TH1D(Form("Signal%i", ih), Form("Signal%i-level%i", ih, level(ih)), totalBins, 0, totalBins * (theBinWidth));
     hSignal[ih]->GetXaxis()->SetTitle("time [ns]");
@@ -647,6 +636,7 @@ void btb(int ngen = 10000000)
       // histogram reset
       hPhoton[ich]->Reset("ICESM");
       hConvolve[ich]->Reset("ICESM");
+      hSignalNb[ich]->Reset("ICESM");
       hSignal[ich]->Reset("ICESM");
       if (rawRun)
       {
@@ -670,6 +660,12 @@ void btb(int ngen = 10000000)
       // printf("xxxxv event %i chan %i (r,cosTheta,phi) (%f,%f,%f) effGeo %E  \n", iev, ich, eventOrigin.R(), eventOrigin.Theta() * 360. / TMath::TwoPi(), localPhi, effGeoSimi);
       if (isTrig)
         hEffGeo->Fill(effGeoSimi / nominalGeo);
+      if (ich == 9)
+        hEffGeo9->Fill(effGeoSimi / nominalGeo);
+      if (ich == 10)
+        hEffGeo10->Fill(effGeoSimi / nominalGeo);
+      if (ich == 11)
+        hEffGeo11->Fill(effGeoSimi / nominalGeo);
 
       double eff = effGeoSimi * SiPMQE128Ham * fillFactor;
       double nsmean = double(nPhotonsEvent) * eff * singletFrac;
@@ -713,6 +709,7 @@ void btb(int ngen = 10000000)
       {
         double binNoise = ran->Gaus(0.0, sigmaNoise);
         hNoise->Fill(binNoise);
+        hSignalNb[ich]->SetBinContent(ibin, binNoise + hConvolve[ich]->GetBinContent(ibin));
         hSignal[ich]->SetBinContent(ibin, baseline + binNoise + hConvolve[ich]->GetBinContent(ibin));
         hSignalSum[ich]->SetBinContent(ibin, baseline + binNoise +
                                                  hConvolve[ich]->GetBinContent(ibin) + hSignalSum[ich]->GetBinContent(ibin));
@@ -747,7 +744,7 @@ void btb(int ngen = 10000000)
         for (int ibin = 1; ibin <= hPhoton[ich]->GetNbinsX(); ++ibin)
           psum += hPhoton[ich]->GetBinContent(ibin) / gain;
 
-        ntTrigCh->Fill(iev, ich, qsum, psum, hPhoton[ich]->GetEntries(), eventOrigin.R(), eventOrigin.Theta() * 360. / TMath::TwoPi(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
+        ntTrigCh->Fill(iev, ich, qsum, psum, hPhoton[ich]->GetEntries(), eventOrigin.Rho(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z(), effGeoSimi);
 
         // printf("line508 ch %i nPhotonsEvent %i eff %E nPhotonsEvent*eff %.0f nhotons %i %i \n", ich, nPhotonsEvent, eff, nPhotonsEvent * eff, nsinglet + ntriplet, int(hPhoton[ich]->GetEntries()));
       }
@@ -758,28 +755,43 @@ void btb(int ngen = 10000000)
     // ensure the event triggers
     double maxTriggerDiff = eventTrigger();
     hTrigDiffTime->Fill(maxTriggerDiff);
+    if (maxTriggerDiff < 30)
+      hTrigDiffTime30->Fill(maxTriggerDiff);
+    if (maxTriggerDiff < 1000)
+      hTrigDiffTime1000->Fill(maxTriggerDiff);
+    bool trigPass = true;
     if (maxTriggerDiff > maxTriggerTimeDiffernce)
+      trigPass = false;
+
+    ntTrig->Fill(iev, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries(), eventOrigin.Rho(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z(), maxTriggerDiff, trigPass);
+
+    double photonSum = hPhoton[9]->GetEntries() + hPhoton[10]->GetEntries() + hPhoton[11]->GetEntries();
+    hPhotonSum->Fill(photonSum);
+
+    if (!trigPass)
     {
       if (show)
         printf(" event %i does not trigger %f \n", iev, maxTriggerDiff);
       continue;
     }
     ++nTrigger;
+
     hEventPass->SetBinContent(3, hEventPass->GetBinContent(3) + 1);
 
     if (show)
       printf("xxx event %i nph %.0f %.0f %.0f\n", iev, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries());
 
-    double photonSum = hPhoton[9]->GetEntries() + hPhoton[10]->GetEntries() + hPhoton[11]->GetEntries();
-    hPhotonSum->Fill(photonSum);
     // cut on fitted radius
     // printf("line577 fitted radius %f\n", fitVal[1]);
     // tell triggerPeakFit the qsum normalize to the total photons
-    peakFitQsum[0] = hPhoton[9]->GetEntries() / photonSum;
-    peakFitQsum[1] = hPhoton[10]->GetEntries() / photonSum;
-    peakFitQsum[2] = hPhoton[11]->GetEntries() / photonSum;
+    peakFitQsum[0] = hPhoton[9]->GetEntries();
+    peakFitQsum[1] = hPhoton[10]->GetEntries();
+    peakFitQsum[2] = hPhoton[11]->GetEntries();
 
-    ntTrig->Fill(iev, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries(), eventOrigin.R(), eventOrigin.Theta() * 360. / TMath::TwoPi(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
+    // as in real data qsum
+    peakQsum[0] = hSignalNb[9]->Integral() / nominalSimQsumTrigGain;
+    peakQsum[1] = hSignalNb[10]->Integral() / nominalSimQsumTrigGain;
+    peakQsum[2] = hSignalNb[11]->Integral() / nominalSimQsumTrigGain;
 
     hPhotonSumCut->Fill(photonSum);
     // Now ready for minimization step with MIGRAD
@@ -868,20 +880,28 @@ void btb(int ngen = 10000000)
         printf(".x.x.x report event %i nLL %f nphotons %i  singlet %i triplet %i tot  %i  photons (%.0f, %.0f, %.0f sum %.0f )  qsum(%f,%f,%f) mean(%f,%f,%f) \n", iev, amin, nPhotonsEvent, nsinglet, ntriplet, nsinglet + ntriplet, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries(), photonSum, peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2]);
     }
 
-    // printf("btbsim::  9 %f 10 %f 11 %f \n", peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2]);
     double xternMean, yternMean;
     makeTernary(peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2], xternMean, yternMean);
+    hTriangleMean->Fill(xternMean, yternMean);
 
+    // use photon  number
+    double xternPh, yternPh;
+    makeTernary(peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], xternPh, yternPh);
+
+    // use hSignal integral
     double xternQ, yternQ;
-    makeTernary(peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], xternQ, yternQ);
-
-    ntTern->Fill(eventOrigin.R(), cos(eventOrigin.Theta()), eventOrigin.Phi(), peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2], xternMean, yternMean, xternQ, yternQ);
-
+    makeTernary(peakQsum[0], peakQsum[1], peakQsum[2], xternQ, yternQ);
     hTriangle->Fill(xternQ, yternQ);
 
-    ntMean->Fill(iev, photonSum, eventOrigin.R(), cos(eventOrigin.Theta()), eventOrigin.Phi(),
+    // printf("line892 nph  (%.0f  %.0f  %.0f)  qsum (%.3f   %.3f  %.3f) xtern (%.3f %.3f)  ytern (%.3f %.3f)  \n", peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], peakQsum[0], peakQsum[1], peakQsum[2], xternPh, xternQ, yternPh, yternQ);
+
+    ntTern->Fill(eventOrigin.Rho(), eventOrigin.Phi(), eventOrigin.Z(), peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], peakQsum[0], peakQsum[1], peakQsum[2], peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2], xternQ, yternQ);
+
+    // printf(" nTrigger %i %.0f %.0f %.0f (%f %f %f)  xtern %f ytern %f \n", nTrigger, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries(), peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], xternQ, yternQ);
+
+    ntMean->Fill(iev, photonSum, eventOrigin.Rho(), eventOrigin.Phi(), eventOrigin.Z(),
                  peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2], xternQ, yternQ);
-    ntFit->Fill(iev, fitVal[0], eventOrigin.R(), cos(eventOrigin.Theta()), eventOrigin.Phi(),
+    ntFit->Fill(iev, fitVal[0], eventOrigin.Rho(), eventOrigin.Phi(), eventOrigin.Z(),
                 peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], fitVal[1], cos(fitVal[2]), fitVal[3], fitErr[1], fitErr[2], ierflg);
 
     /* event histograms */
