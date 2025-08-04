@@ -84,8 +84,8 @@ public:
   bool splitVerbose;
   bool smoothing;
   const Double_t qnorm = 1.0;
-  double nominalGain; // average
-  hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan, vector<double> sigmaValue, double theNominalGain);
+  vector<double> detGains; // store gains here
+  hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan, vector<double> sigmaValue, vector<double> theGains);
   virtual ~hitFinder() { chanMap.clear(); }
   int nsamples;
   unsigned diffStep;
@@ -94,21 +94,19 @@ public:
   double derivativeThreshold;
   double peakThreshold;
   unsigned maxPeakLength;
-  double QPEPeak;
   std::map<int, int> chanMap;
   vector<int> vChannel;
   TNtuple *ntFinder;
   TNtuple *ntSplit;
   TNtuple *ntPeakFix;
-  std::vector<double> QPEnominal; // nominal QPE
-  std::vector<double> rdigi;      //
-  std::vector<double> digi;       // baseline subtracted
-  std::vector<double> ddigi;      // derivative
-  std::vector<double> sdigi;      // smoothed
-  std::vector<double> hdigi;      // hits
-  std::vector<double> pdigi;      // pulse derivative
-  std::vector<Double_t> fdigi;    // filtered
-  std::vector<Double_t> SPEdigi;  // filtered
+  std::vector<double> rdigi;     //
+  std::vector<double> digi;      // baseline subtracted
+  std::vector<double> ddigi;     // derivative
+  std::vector<double> sdigi;     // smoothed
+  std::vector<double> hdigi;     // hits
+  std::vector<double> pdigi;     // pulse derivative
+  std::vector<Double_t> fdigi;   // filtered
+  std::vector<Double_t> SPEdigi; // filtered
   std::vector<unsigned> crossings;
   std::vector<unsigned> crossingBin;
   std::vector<double> crossingTime;
@@ -128,6 +126,8 @@ public:
   UInt_t peakWidth = 60;
   int trigEnd = 800;
   int nominalTrigger = 729;
+  // number of samples between overlapping pulses
+  int minOverlap = 20;
   void event(int idet, Long64_t ievent, vector<double> rdigi, double theDerivativeThreshold, double theHitThreshold, unsigned step = 3);
   void differentiate();
   vector<double> differentiate(int step, vector<double> pdigi);

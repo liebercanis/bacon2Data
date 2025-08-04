@@ -36,33 +36,24 @@
 #include "TBRun.hxx"
 #include "hitFinder.hxx"
 
-hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan, vector<double> sigmaValue, double theNominalGain)
+hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan, vector<double> sigmaValue, vector<double> theGains)
 {
   tbrun = brun;
   isCAEN = false;
   doFFT = false;
   fFFT = NULL;
   fInverseFFT = NULL;
-  nominalGain = theNominalGain;
+  // store gains
+  for (unsigned ig = 0; ig < theGains.size(); ++ig)
+    detGains.push_back(theGains[ig]);
+
   if (nSamples == CAENLENGTH)
     isCAEN = true;
   channelSigmaValue = sigmaValue;
   verbose = false;
-  if (isCAEN)
-    QPEPeak = nominalGain;
-  else
-    QPEPeak = 50;
-  for (unsigned i = 0; i < vchan.size(); ++i)
-    QPEnominal.push_back(QPEPeak);
   TString templateDir = TString(getenv("BOBJ"));
   templateFileName = templateDir + TString("/templates-2023-05-01-15-06.root");
-  // CAEN casN
-  if (nSamples == CAENLENGTH)
-  {
-    templateFileName = templateDir + TString("/templatesCaen-2023-05-17-12-00.root");
-    for (unsigned i = 0; i < 13; ++i)
-      QPEnominal[i] = nominalGain;
-  }
+
   // save vchan
   vChannel = vchan;
   if (verbose)
@@ -237,11 +228,11 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     printf("index %i chan %i mapped to index  %i %s %s\n", index, vchan[index], id,
            hEvWave[id]->GetName(), hEvWave[id]->GetTitle());
   }
-  printf("QPE: \n");
-  for (unsigned ichan = 0; ichan < QPEnominal.size(); ++ichan)
-    printf("chan %i QPEnominal %f ; ", ichan, QPEnominal[ichan]);
+  printf("GAINS: \n");
+  for (unsigned ichan = 0; ichan < detGains.size(); ++ichan)
+    printf("chan %i gain %f ; ", ichan, detGains[ichan]);
   printf("\n");
-  printf("\t HHHHHHHH INSTANCE of hitFinder nominal gain %f verbose %i \n", nominalGain, verbose);
+  printf("\t HHHHHHHH INSTANCE of hitFinder verbose %i \n", verbose);
 }
 //
 void hitFinder::fillWFilter(int ichan)
@@ -347,7 +338,6 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
       */
   /////  copy to internal class vector////////
   digi = inputDigi;
-  QPEPeak = QPEnominal[ichan];
   bool trig = ichan == 9 || ichan == 10 || ichan == 11;
   theEvent = ievent;
   hitThreshold = theHitThreshold;
@@ -434,7 +424,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
 
   // SGFitler smoothing
   //  smooth
-  int nwindowSG = 10;
+  int nwindowSG = 10; // in samples
   int npoly = 3;
   sdigi = sgfilt->SavGolFilter(digi, nwindowSG, npoly);
 
@@ -465,14 +455,15 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   Int_t windowSize = 10;
   unsigned maxWidth = 100000;
   unsigned minWidth = 10;
-  // findDerivativeCrossings(idet);
-  findThresholdCrossings(idet, hitThreshold);
+  findDerivativeCrossings(idet);
+  // findThresholdCrossings(idet, hitThreshold);
   makePeaks(idet, digi);
   /*
      if (peakList.size() > 0)
        fitSinglet(idet, ievent);
-      splitPeaks(idet);
   */
+  // added back July 21 2025
+  splitPeaks(idet);
   makeHits(idet, triggerTime, firstCharge);
   hPeakCount->Fill(idet, peakList.size());
   // fill hits
@@ -568,7 +559,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
       cout << "HHHH  END hitFinder::event " << theEvent << " idet= " << idet << " " << tdet->channel << " hits.size " << tdet->hits.size() << endl;
       for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
       {
-        cout << " \t finder hit number  " << ihit << " peak bin " << tdet->hits[ihit].peakBin << endl;
+        cout << " \t finder hit number  " << ihit << " peak bin " << tdet->hits[ihit].peakBin << " qpeak " << tdet->hits[ihit].qpeak << endl;
       }
     }
   }
@@ -765,6 +756,7 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
   double sigma = tbrun->detList[idet]->sigma;
   peakList.clear();
   peakKind.clear();
+  double nominalGain = detGains[idet];
   hEvCross[idet]->Reset("ICESM");
   // loop over crossings using  PUP or NUP
   for (int icross = 0; icross < crossings.size(); ++icross)
@@ -885,6 +877,7 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
 
 void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
 {
+  double nominalGain = detGains[idet];
   double sigma = tbrun->detList[idet]->sigma;
   if (verbose)
     printf("line799 hitFinder::makeHits: AT event %lli det %i sigma %f peakList size %lu digi size %lu \n", theEvent, idet, sigma, peakList.size(), digi.size());
@@ -1070,38 +1063,78 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
 
   int nhit = 0;
   // this messes ip yaxis on chan13 EvWave??
-  /* do this differently with very short hits
-  if(idet!=13) for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
+  // do this differently with very short hits
+  /* do subraction for overlapping hits  only correct immediate preceeding hit*/
+  if (idet != 13)
   {
-    TDetHit hitj = hitIter1->second;
-    for (hitMapIter hitIter2 = detHits.begin(); hitIter2 != detHits.end(); ++hitIter2)
-    {
-      if (hitIter2 == hitIter1)
-        continue;
-      TDetHit hiti = hitIter2->second;
-      if (hiti.peakBin > hitj.firstBin && hiti.peakBin < hitj.firstBin + 150 && hiti.peakBin != hitj.peakBin)
-      {
-        splitCount[idet] += 1;
-        hEvWave[idet]->Fit("expo", "", "", hitj.peakBin, hitj.lastBin);
-        TF1 *expFit = (TF1 *)hEvWave[idet]->GetListOfFunctions()->FindObject("expo");
-        if(!expFit->IsValid())
-          continue;
-        double slope = expFit->GetParameter(1);
-        double offSet = expFit->Eval(hiti.peakBin);
-        if (offSet > 0. && offSet < nominalGain  ) { // this is hack for bad fit
-          double qpeakBefore = hiti.qpeak;
-        hitIter2->second.qpeak -= offSet;
-        printf("line919 hitFinder::makeHit event %llu det %i hit %i found overlap this hit (%i,%i,%i) last peak (%i,%i,%i) slope %f offset %f  peak was %f corrected %f \n", theEvent, idet, ++nhit, hiti.firstBin, hiti.peakBin, hiti.lastBin, hitj.firstBin, hitj.peakBin, hitj.lastBin, slope, offSet, qpeakBefore, hitIter2->second.qpeak);
-        }
-        // correct
-        // overlap fix hitj is the first
-        // fill histogram from hit
 
-        //
+    // make a list of pointers for this detector
+    std::vector<TDetHit> detHitList;
+    for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
+    {
+      detHitList.push_back(hitIter1->second);
+      printf(" line 1076 event %llu det %i uncorrected peak value peak bin %i qpeak %f \n", theEvent, idet, hitIter1->second.peakBin, hitIter1->second.qpeak);
+    }
+
+    if (detHitList.size() > 1)
+    {
+      // double loop over this list of hits
+      for (unsigned j = 0; j < detHitList.size() - 1; ++j)
+      {
+        TDetHit hitj = detHitList[j]; // earlier hit
+        for (unsigned i = i + 1; i < detHitList.size(); ++i)
+        {
+          TDetHit hiti = detHitList[i]; // later hit
+          int overLap = hitj.peakBin - hiti.peakBin;
+          // insure this peak is after previous, and separation is greater than minOverlap
+          printf("line1087  hitFinder::makeHit event CHECK  %llu det %i  this hit (%i,%i,%i) last peak (%i,%i,%i) overlap %i  this qpeak  %f last qpeak %f \n", theEvent, idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, hitj.firstBin, hitj.peakBin, hitj.lastBin, overLap, hiti.qpeak, hitj.qpeak);
+          if (overLap > minOverlap && overLap < 5. * minOverlap)
+          {
+            splitCount[idet] += 1;
+            // fit is in axis value
+            double fitStart = hEvWave[idet]->GetBinCenter(hitj.peakBin);
+            double fitEnd = hEvWave[idet]->GetBinCenter(hiti.lastBin);
+            hEvWave[idet]->Fit("expo", "", "", fitStart, fitEnd);
+            //  switch to landau ?? offset too small!
+            // TFitResultPtr fitptr = hEvWave[idet]->Fit("landau", "QS0", "", hitj.peakBin, hitj.lastBin); // was 20
+            TF1 *expFit = (TF1 *)hEvWave[idet]->GetListOfFunctions()->FindObject("expo");
+            // printf("line1092 expFit !!!!!!!!!!!!!!");
+            // expFit->Print("all");
+            if (!expFit->IsValid())
+            {
+              printf("line1092 fit to expo fails");
+              continue;
+            }
+            // double slope = expFit->GetParameter(1);
+            double slope = expFit->GetParameter(1);
+            double offSet = expFit->Eval(hiti.peakBin);
+            if (offSet > 0. && offSet < nominalGain)
+            { // this is hack for bad fit
+              double qpeakBefore = hiti.qpeak;
+              hiti.qpeak -= offSet;
+              printf("line1106  hitFinder::makeHit event %llu det %i hit %i found overlap this hit (%i,%i,%i) last peak (%i,%i,%i) fit range (%fi,%f) slope  %f offset %f  peak was %f corrected %f \n", theEvent, idet, ++nhit, hiti.firstBin, hiti.peakBin, hiti.lastBin, hitj.firstBin, hitj.peakBin, hitj.lastBin, fitStart, fitEnd, slope, offSet, qpeakBefore, hitj.qpeak);
+              //  having corrected this peak,
+            }
+            else
+            {
+              printf("line1109 hitFinder::makeHit event BAD OFFSET  %llu det %i  found overlap this hit (%i,%i,%i) last peak (%i,%i,%i) sigma %f offset %f nominalGain %f \n", theEvent, idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, hitj.firstBin, hitj.peakBin, hitj.lastBin, slope, offSet, nominalGain);
+            }
+            // correct
+            // overlap fix hitj is the first
+            // fill histogram from hit
+          }
+        }
+      }
+
+      // correct structure
+      unsigned hitNumber = 0;
+      for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
+      {
+        hitIter1->second.qpeak = detHitList[hitNumber++].qpeak;
+        printf(" line 1133 event %llu det %i corected peak value peak bin %i qpeak %f \n", theEvent, idet, hitIter1->second.peakBin, hitIter1->second.qpeak);
       }
     }
   }
-  */
   // first time, charge from map
   /*
   hitMapIter hitIter;
