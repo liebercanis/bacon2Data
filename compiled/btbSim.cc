@@ -50,7 +50,9 @@ TNtuple *ntScan;
 TH3D *originPDF;     // pdf of event origins
 TH3D *fluxMapChan9;  // geo efficiency values
 TH3D *fluxMapChan10; ///
-TH3D *fluxMapChan11; ////
+TH3D *fluxMapChan11; ///
+TH2D *hXYMap;
+TH3D *hXYZMap;
 TH1D *hRadiusMap;
 TH1D *hRhoMap;
 TH1D *hPhiMap;
@@ -107,9 +109,14 @@ double peakQsum[3];
 ROOT::Math::XYZVector eventOrigin(0, 0, 0);
 
 // z is positive into array!
-ROOT::Math::XYZVector positionSipm9(1.052, -0.608, 0.851);
-ROOT::Math::XYZVector positionSipm10(-1.052, -0.608, 0.851);
-ROOT::Math::XYZVector positionSipm11(0.000, 1.216, 0.851);
+// ROOT::Math::XYZVector positionSipm9(1.052, -0.608, 0.851);
+// ROOT::Math::XYZVector positionSipm10(-1.052, -0.608, 0.851);
+// ROOT::Math::XYZVector positionSipm11(0.000, 1.216, 0.851);
+
+// z is positive into array
+ROOT::Math::XYZVector positionSipm9(0.795, -0.459, 0.851);
+ROOT::Math::XYZVector positionSipm10(-0.795, -0.459, 0.851);
+ROOT::Math::XYZVector positionSipm11(0.000, 0.918, 0.851);
 
 TMinuit *gMinuit;
 Double_t arglist[1];
@@ -420,6 +427,15 @@ void btb(int ngen = 10000000)
   hEffGeo10 = new TH1D("EffGeo10", " ch 10 geometric efficiency / nominal ", 150, 0, 1.5);
   hEffGeo11 = new TH1D("EffGeo11", " ch 11 geometric efficiency / nominal ", 150, 0, 1.5);
   /* define ntuples amd histograms here */
+  hXYMap = new TH2D("XYMap", "event Y versus X  [cm] ", 100, -4., 4., 100, -4., 4.);
+  hXYMap->GetXaxis()->SetTitle("event X [cm]");
+  hXYMap->GetYaxis()->SetTitle("event Y [cm]");
+
+  hXYZMap = new TH3D("XYZMap", "event x y z  [cm] ", 100, -4., 4., 100, -4., 4., 50, 0, 4.);
+  hXYZMap->GetXaxis()->SetTitle("event X [cm]");
+  hXYZMap->GetYaxis()->SetTitle("event Y [cm]");
+  hXYZMap->GetZaxis()->SetTitle("event Z [cm]");
+
   hRadiusMap = new TH1D("RadiusMap", "event radius [cm] ", 100, 0., 10.);
   hRhoMap = new TH1D("RhoMap", "event cylindrical rho [cm] ", 100, 0., 4.);
   hZMap = new TH1D("ZMap", "event cylindrical Z [cm] ", 100, 0., 10.);
@@ -602,10 +618,35 @@ void btb(int ngen = 10000000)
     hPhiMap->Fill(eventOrigin.Phi());
 
     // cut -Z (up going in btb) events
+    /* this is how events were generated */
+    /*
     if (gammaCosTheta < 0)
     {
       if (show)
         printf(" skip event %i %f \n", iev, gammaCosTheta);
+      continue;
+    }
+    */
+
+    // fiducial cut
+    double effGeoSim9 = effGeoSim(9);
+    double effGeoSim10 = effGeoSim(10);
+    double effGeoSim11 = effGeoSim(11);
+    bool isFid = false;
+    if (eventOrigin.Z() < 1.7 && effGeoSim9 > 0 && effGeoSim10 > 0 && effGeoSim11)
+      isFid = true;
+    if (eventOrigin.Z() > 1.7)
+      isFid = true;
+
+    if (isFid && eventOrigin.Z() < 1.7)
+      hXYMap->Fill(eventOrigin.X(), eventOrigin.Y());
+    if (isFid)
+      hXYZMap->Fill(eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
+    // fiducial cut
+    if (!isFid)
+    {
+      if (show)
+        printf(" skip event %i XYZ %.3f %.3f %.3f \n", iev, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
       continue;
     }
 
@@ -617,7 +658,6 @@ void btb(int ngen = 10000000)
 
     if (iev / reportInterval * reportInterval == iev)
       printf("... event %i total photon %0.f (rho,z,phi) = (%f, %f, %f) (r,theta,Phi) = (%f , %f ,%f ) \n", iev, double(totalPhotons), eventOrigin.Rho(), eventOrigin.Z(), eventOrigin.Phi() * 360. / TMath::TwoPi(), eventOrigin.R(), eventOrigin.Theta() * 360. / TMath::TwoPi(), eventOrigin.Phi() * 360. / TMath::TwoPi());
-    // get event position
 
     // loop over channels
     for (int ich = 0; ich < NCHAN; ++ich)
@@ -744,7 +784,7 @@ void btb(int ngen = 10000000)
         for (int ibin = 1; ibin <= hPhoton[ich]->GetNbinsX(); ++ibin)
           psum += hPhoton[ich]->GetBinContent(ibin) / gain;
 
-        ntTrigCh->Fill(iev, ich, qsum, psum, hPhoton[ich]->GetEntries(), eventOrigin.Rho(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z(), effGeoSimi);
+        ntTrigCh->Fill(iev, ich, qsum, psum, hPhoton[ich]->GetEntries(), eventOrigin.Rho(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z(), effGeoSimi / nominalGeo);
 
         // printf("line508 ch %i nPhotonsEvent %i eff %E nPhotonsEvent*eff %.0f nhotons %i %i \n", ich, nPhotonsEvent, eff, nPhotonsEvent * eff, nsinglet + ntriplet, int(hPhoton[ich]->GetEntries()));
       }
@@ -765,9 +805,6 @@ void btb(int ngen = 10000000)
 
     ntTrig->Fill(iev, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries(), eventOrigin.Rho(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z(), maxTriggerDiff, trigPass);
 
-    double photonSum = hPhoton[9]->GetEntries() + hPhoton[10]->GetEntries() + hPhoton[11]->GetEntries();
-    hPhotonSum->Fill(photonSum);
-
     if (!trigPass)
     {
       if (show)
@@ -775,6 +812,9 @@ void btb(int ngen = 10000000)
       continue;
     }
     ++nTrigger;
+
+    double photonSum = hPhoton[9]->GetEntries() + hPhoton[10]->GetEntries() + hPhoton[11]->GetEntries();
+    hPhotonSum->Fill(photonSum);
 
     hEventPass->SetBinContent(3, hEventPass->GetBinContent(3) + 1);
 
@@ -793,7 +833,27 @@ void btb(int ngen = 10000000)
     peakQsum[1] = hSignalNb[10]->Integral() / nominalSimQsumTrigGain;
     peakQsum[2] = hSignalNb[11]->Integral() / nominalSimQsumTrigGain;
 
-    hPhotonSumCut->Fill(photonSum);
+    // make fraction cut
+    /* try a cut like TUM */
+    double qFraction[3];
+    double trigQSum = peakQsum[0] + peakQsum[1] + peakQsum[2];
+    qFraction[0] = peakQsum[0] / trigQSum;
+    qFraction[1] = peakQsum[1] / trigQSum;
+    qFraction[2] = peakQsum[2] / trigQSum;
+
+    double trigRatioCutLow = 0.2;  // qsum fraction
+    double trigRatioCutHigh = 0.8; // qsum fraction
+
+    int failsFractionCut = 0;
+    if (qFraction[0] < trigRatioCutLow || qFraction[0] > trigRatioCutHigh)
+      failsFractionCut |= 0x2;
+    if (qFraction[1] < trigRatioCutLow || qFraction[1] > trigRatioCutHigh)
+      failsFractionCut |= 0x4;
+    if (qFraction[2] < trigRatioCutLow || qFraction[2] > trigRatioCutHigh)
+      failsFractionCut |= 0x8;
+
+    if (failsFractionCut == 0)
+      hPhotonSumCut->Fill(photonSum);
     // Now ready for minimization step with MIGRAD
     // set starting param values
     double fitVal[NPAR];
