@@ -45,8 +45,8 @@ using namespace std;
 
 typedef std::vector<std::pair<unsigned, unsigned>> peakType;
 typedef std::vector<std::pair<unsigned, unsigned>>::iterator peakTypeIter;
-typedef std::map<Double_t, TDetHit, std::less<Double_t>> hitMap;
-typedef std::map<Double_t, TDetHit, std::less<Double_t>>::iterator hitMapIter;
+typedef std::map<unsigned, TDetHit, std::less<Double_t>> hitMap;
+typedef std::map<unsigned, TDetHit, std::less<Double_t>>::iterator hitMapIter;
 
 // const Double_t qnorm = 1.0;
 #ifndef HITFINDER_FILE_H
@@ -140,7 +140,7 @@ public:
   void plot1Wave(TDirectory *dir, int idet, Long64_t jentry);
   void plotEvent(TDirectory *dir, unsigned ichan, Long64_t ievent);
   // careful with indicies ichan and idet!
-  void printPeakList();
+  void printPeakList(std::string mess);
   void fitSinglet(int idet, Long64_t ievent);
   void trimPeaks(int idet, std::vector<Double_t> v);
   void splitPeaks(int idet);

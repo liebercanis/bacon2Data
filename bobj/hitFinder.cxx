@@ -1,5 +1,4 @@
-//  M.Gold June 2022
-// revised Jan 27 2023 -- simplified finding
+// revised Jan 27 2023 -- simplified findiang
 // derivative paak finding
 // class to make hits from vector data
 // P. ugec et al. Pulse processing routines for neutron time-of-flight data. Nucl. Instrum. Meth., A812:134–144, 2016.
@@ -139,9 +138,8 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     hCrossingBinA.push_back(new TH1D(Form("CrossingBinA%i", id), Form("Crossing Bin chan  %i ", id), nsamples / 2, 0, nsamples / 2));
     hCrossingBinB.push_back(new TH1D(Form("CrossingBinB%i", id), Form("Crossing Bin chan  %i ", id), nsamples / 2, 0, nsamples / 2));
     hCrossingBinC.push_back(new TH1D(Form("CrossingBinC%i", id), Form("Crossing Bin chan  %i ", id), nsamples / 2, 0, nsamples / 2));
-
     hCrossingMaxBin.push_back(new TH1D(Form("CrossingMaxBin%i", id), Form("Crossing max bin chan  %i ", id), nsamples / 2, 0, nsamples / 2));
-    hMaxBinVal.push_back(new TH1D(Form("MaxBinVal%i", id), Form(" max bin val/gain chan  %i ", id), 210, -1, 20));
+    hMaxBinVal.push_back(new TH1D(Form("MaxBinVal%i", id), Form(" max bin val/gain chan  %i ", id), 1000, 0., 10.));
   }
 
   fout->cd();
@@ -315,9 +313,9 @@ bool hitFinder::getTemplate(int ichan)
   return true;
 }
 
-void hitFinder::printPeakList()
+void hitFinder::printPeakList(std::string message)
 {
-  cout << "peakList size " << peakList.size() << endl;
+  cout << message << " peakList size " << peakList.size() << endl;
   if (peakList.size() < 1)
     return;
   for (unsigned ip = 0; ip < peakList.size(); ++ip)
@@ -331,11 +329,11 @@ void hitFinder::printPeakList()
 void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, double theDerivativeThreshold, double theHitThreshold, unsigned step)
 {
   fSinglet = NULL;
-  /*if(ichan == 7 && ievent==0 )
+  /*if (ichan == 9 && ievent == 14)
     verbose = true;
-    else
-      verbose = false;
-      */
+  else
+    verbose = false;
+    */
   /////  copy to internal class vector////////
   digi = inputDigi;
   bool trig = ichan == 9 || ichan == 10 || ichan == 11;
@@ -462,8 +460,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
      if (peakList.size() > 0)
        fitSinglet(idet, ievent);
   */
-  // added back July 21 2025
-  splitPeaks(idet);
+  // added back July 21 2025 removed aug 6
+  // splitPeaks(idet);
   makeHits(idet, triggerTime, firstCharge);
   hPeakCount->Fill(idet, peakList.size());
   // fill hits
@@ -511,7 +509,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     // fill hit peak wave first bin is number one!
     hEvHitPeakWave[idet]->SetBinContent(hiti.peakBin + 1, hiti.qpeak);
     if (verbose)
-      printf("line461 size %lu hit%i idet %i time %f peakBin %i qpeak  %f \n", detHits.size(), hitNumber++, idet, hitIter->first, hiti.peakBin, hiti.qpeak);
+      printf("line461 size %lu hit%i idet %i time %u peakBin %i qpeak  %f \n", detHits.size(), hitNumber++, idet, hitIter->first, hiti.peakBin, hiti.qpeak);
     // make sums with cut
     if (hiti.qsum > hitThreshold)
     {
@@ -551,16 +549,13 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   }
 
   //
-  if (1)
+  if (tbrun->detList[idet]->hits.size() > 1 && verbose)
   {
     TDet *tdet = tbrun->detList[idet];
-    if (tdet->hits.size() > 1 && verbose)
+    cout << "HHHH  END hitFinder::event " << theEvent << " idet= " << idet << " " << tdet->channel << " hits.size " << tdet->hits.size() << endl;
+    for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
     {
-      cout << "HHHH  END hitFinder::event " << theEvent << " idet= " << idet << " " << tdet->channel << " hits.size " << tdet->hits.size() << endl;
-      for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
-      {
-        cout << " \t finder hit number  " << ihit << " peak bin " << tdet->hits[ihit].peakBin << " qpeak " << tdet->hits[ihit].qpeak << endl;
-      }
+      cout << " \t finder hit number  " << ihit << " peak bin " << tdet->hits[ihit].peakBin << " qpeak " << tdet->hits[ihit].qpeak << endl;
     }
   }
   if (verbose)
@@ -790,8 +785,10 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
         maxVal = v[ibin];
       }
     }
-    // too small is garbage
     hMaxBinVal[idet]->Fill(maxVal / nominalGain);
+    hCrossingMaxBin[idet]->Fill(imax);
+
+    // too small is garbage
     if (maxVal < hitThreshold)
       continue;
 
@@ -799,10 +796,8 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     if (imax < 50)
       continue;
 
-    hCrossingMaxBin[idet]->Fill(imax);
-
     if (verbose)
-      printf("line740 hitFinder::makePeaks cross det %i icross %i maxVal %f  \n", idet, icross, maxVal);
+      printf("line740 hitFinder::makePeaks cross det %i icross %i cross bin %i  maxVal/nominal %f  \n", idet, icross, crossingBin[icross], maxVal / nominalGain);
     // find limits of peak
     /*
     just use a fixed window around the maximum so look for peak  in peak -40  to peak +50*/
@@ -836,7 +831,7 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
       if (v[ibin] < nominalLowCut)  // fixed may 2 2024
         break;
       ilow = ibin;
-    }
+    }:
     */
 
     hCrossingBinB[idet]->Fill(ilow);
@@ -853,11 +848,15 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     bool found = false;
     for (unsigned ip = 0; ip < peakList.size(); ++ip)
     {
-      // trim first peak
       unsigned peakStart = std::get<0>(peakList[ip]);
       unsigned peakEnd = std::get<1>(peakList[ip]);
+      // if ((peakStart > ilow && peakStart < ihigh) || (peakEnd > ilow && peakEnd < ihigh))
       if (peakStart == ilow && peakEnd == ihigh)
+      {
+        if (verbose)
+          printf("line852  hitFinder::makePeaks REMOVE OVERLAP event %lld det %i ilow,ihigh (%i %i) # %i ( %i %i )\n", theEvent, idet, ilow, ihigh, ip, peakStart, peakEnd);
         found = true;
+      }
     }
     if (!found)
     {
@@ -978,9 +977,10 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
       triggerTime = dhit.startTime * timeUnit * microSec;
       firstCharge = qsum;
     }
-    Double_t hitTime = dhit.startTime * timeUnit * microSec;
+    // make  map key just startTime
+    // Double_t hitTime = dhit.startTime * timeUnit * microSec;
 
-    if (dhit.startTime > 7500)
+    if (dhit.startTime > CAENLENGTH)
     {
       printf("line959 hitFinder::makeHits !!!LATE HIT TIME!!! %llu insert hit idet %i  time %f (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, dhit.startTime, dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
     }
@@ -988,16 +988,18 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     // if (idet == 12)
     //   printf("line951HitFinderMakeHits ihit %i time %f qpeak %f \n ", int(detHits.size()), double(dhit.startTime), dhit.qpeak);
 
-    // ensure new hit it does not have same peak bin and check
+    // ensure new hit it does not have peak bin too close to another hit
     bool used = false;
     for (hitMapIter hitIter = detHits.begin(); hitIter != detHits.end(); ++hitIter)
     {
       TDetHit hiti = hitIter->second;
-      if (hiti.peakBin == dhit.peakBin)
+      // if (hiti.peakBin == dhit.peakBin)
+      //  check in 5 sample range
+      if (hiti.peakBin > dhit.peakBin - 5 && hiti.peakBin < dhit.peakBin + 5)
       {
         used = true;
         if (verbose)
-          printf("line963 hitFinder::makeHit found multiple hits det %i this (%i,%i,%i)  last peak (%i,%i,%i) dethit size %lu \n", idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, dhit.firstBin, dhit.peakBin, dhit.lastBin, detHits.size());
+          printf("line963 hitFinder::makeHit REMOVE CLOSE HIT det %i this (%i,%i,%i)  last peak (%i,%i,%i) dethit size %lu \n", idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, dhit.firstBin, dhit.peakBin, dhit.lastBin, detHits.size());
       }
     }
 
@@ -1035,15 +1037,15 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     if (dhit.qpeak < hitThreshold)
       continue;
 
-    detHits.insert(std::pair<Double_t, TDetHit>(hitTime, dhit));
+    detHits.insert(std::pair<Double_t, TDetHit>(dhit.peakt, dhit));
     hPeakNWidth->Fill(dhit.lastBin - dhit.firstBin + 1);
     if (verbose)
     {
-      printf("line941 hitFinder::makeHits %llu insert hit idet %i  time %f (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, hitTime, dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
+      printf("line941 hitFinder::makeHits %llu insert hit idet %i  time %u (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, dhit.peakt, dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
     }
 
     /* debugging but should never print */
-    if (dhit.startTime > 7500)
+    if (dhit.startTime > CAENLENGTH)
     {
       printf("line1035 hitFinder::makeHits !!!LATE HIT TIME!!! %llu insert hit idet %i  time %i (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, int(dhit.startTime), dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
     }
@@ -1073,23 +1075,27 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
     {
       detHitList.push_back(hitIter1->second);
-      printf(" line 1076 event %llu det %i uncorrected peak value peak bin %i qpeak %f \n", theEvent, idet, hitIter1->second.peakBin, hitIter1->second.qpeak);
+      // printf(" line 1076 event %llu det %i uncorrected peak value peak bin %i qpeak %f \n", theEvent, idet, hitIter1->second.peakBin, hitIter1->second.qpeak);
     }
 
     if (detHitList.size() > 1)
     {
+      vector<unsigned> peakTimeList;
+      vector<unsigned> indexList;
       // double loop over this list of hits
       for (unsigned j = 0; j < detHitList.size() - 1; ++j)
       {
         TDetHit hitj = detHitList[j]; // earlier hit
-        for (unsigned i = i + 1; i < detHitList.size(); ++i)
+        for (unsigned i = j + 1; i < detHitList.size(); ++i)
         {
           TDetHit hiti = detHitList[i]; // later hit
           int overLap = hitj.peakBin - hiti.peakBin;
           // insure this peak is after previous, and separation is greater than minOverlap
-          printf("line1087  hitFinder::makeHit event CHECK  %llu det %i  this hit (%i,%i,%i) last peak (%i,%i,%i) overlap %i  this qpeak  %f last qpeak %f \n", theEvent, idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, hitj.firstBin, hitj.peakBin, hitj.lastBin, overLap, hiti.qpeak, hitj.qpeak);
+          // printf("line1087  hitFinder::makeHit event CHECK  %llu det %i  this hit (%i,%i,%i) last peak (%i,%i,%i) overlap %i  this qpeak  %f last qpeak %f \n", theEvent, idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, hitj.firstBin, hitj.peakBin, hitj.lastBin, overLap, hiti.qpeak, hitj.qpeak);
           if (overLap > minOverlap && overLap < 5. * minOverlap)
           {
+            peakTimeList.push_back(hitj.peakt);
+            indexList.push_back(i);
             splitCount[idet] += 1;
             // fit is in axis value
             double fitStart = hEvWave[idet]->GetBinCenter(hitj.peakBin);
@@ -1127,12 +1133,22 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
       }
 
       // correct structure
-      unsigned hitNumber = 0;
-      for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
+      for (unsigned j = 0; j < peakTimeList.size(); ++j)
       {
-        hitIter1->second.qpeak = detHitList[hitNumber++].qpeak;
-        printf(" line 1133 event %llu det %i corected peak value peak bin %i qpeak %f \n", theEvent, idet, hitIter1->second.peakBin, hitIter1->second.qpeak);
+        // new peak
+        double newPeak = detHitList[indexList[j]].qpeak;
+        // get hit from map
+        TDetHit jDetHit = detHits.at(peakTimeList[j]);
+        double oldPeak = jDetHit.qpeak;
+        jDetHit.qpeak = newPeak;
+        printf(" line 1137 event %llu det %i corected peak value peak bin %i time %u qpeak %f to %f  \n", theEvent, idet, jDetHit.peakBin, peakTimeList[j], oldPeak, jDetHit.qpeak);
       }
+      /*
+        for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
+        {
+          hitIter1->second.qpeak = detHitList[hitNumber++].qpeak;
+        }
+        */
     }
   }
   // first time, charge from map
@@ -1148,6 +1164,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
   return;
 }
 
+//
 void hitFinder::findPeakCrossings(Int_t idet, unsigned peakStart, unsigned peakEnd)
 {
   peakCrossings.clear();
@@ -1279,7 +1296,7 @@ void hitFinder::splitPeaks(int idet)
   addPeak.clear();
   addKind.clear();
   erasePeak.clear();
-  splitVerbose = false;
+  splitVerbose = true;
   vector<int> splitAt; // list of peaks to be split
   if (peakList.size() < 1 || digi.size() < 1 || ddigi.size() < 1)
     return;
@@ -1337,64 +1354,66 @@ void hitFinder::splitPeaks(int idet)
           if (splitVerbose)
             printf("line1092 sssssssssss splitting peak number %u nsplits %lu \n", ip, isplit.size());
         }
+        /*
         hPeakCrossingBin->Fill(peakCrossingBin[ipc] - peakStart);
         hEvPeakCross[idet]->SetBinContent(peakCrossingBin[ipc], digi[peakCrossingBin[ipc]]);
         hPeakCrossingRatio->Fill(digi[peakCrossingBin[ipc]] / peakMax);
+        */
         ntSplit->Fill(theEvent, float(vChannel[idet]), float(ipc), float(indexSplit.size()), float(peakCrossingBin[ipc] - peakStart), float(ratio), float(binAtr), float(peakEnd - peakStart));
       }
     } // peak crossing loop
 
-    for (unsigned index = 0; index < indexSplit.size(); ++index)
+    if (indexSplit.size() > 0)
     {
-      erasePeak.push_back(indexSplit[index]);
-      addPeak.push_back(std::make_pair(peakStart, isplit[index]));
-      addKind.push_back(0);
-      addPeak.push_back(std::make_pair(isplit[index], peakEnd));
-      addKind.push_back(0);
+      printPeakList("before");
+      for (unsigned index = 0; index < indexSplit.size(); ++index)
+      {
+        erasePeak.push_back(indexSplit[index]);
+        addPeak.push_back(std::make_pair(peakStart, isplit[index]));
+        addKind.push_back(0);
+        addPeak.push_back(std::make_pair(isplit[index], peakEnd));
+        addKind.push_back(0);
+      }
+      printPeakList("after");
     }
 
     splitCount[idet] += indexSplit.size();
   } // peakList loop
 
   // remove old
-  if (splitVerbose && addPeak.size() > 0)
+  if (addPeak.size() > 0)
   {
     printf(" event %llu idet %i  npeaks = %lu peakThreshold %.2f \n", theEvent, vChannel[idet], peakList.size(), peakThreshold);
-    printf(" before %lu erase %lu \n", peakList.size(), erasePeak.size());
-  }
-  for (unsigned jp = 0; jp < min(erasePeak.size(), peakList.size()); ++jp)
-  {
-    if (peakList.begin() + erasePeak[jp] < peakList.end())
+    printf(" before %lu erase %lu  starting peak list \n", peakList.size(), erasePeak.size());
+    printPeakList("before");
+    //
+    for (unsigned jp = 0; jp < min(erasePeak.size(), peakList.size()); ++jp)
     {
-      peakList.erase(peakList.begin() + erasePeak[jp]);
-      peakKind.erase(peakKind.begin() + erasePeak[jp]);
+      if (peakList.begin() + erasePeak[jp] < peakList.end())
+      {
+        printf("PEAK ERASE peak index %u  at %u  \n", jp, erasePeak[jp]);
+        peakList.erase(peakList.begin() + erasePeak[jp]);
+      }
+      else
+        printf("line1389 BAD PEAK ERASE POSITION  sizze %lu index %u at %u !!!! \n", peakList.size(), jp, erasePeak[jp]);
     }
-    else
-      printf("BAD PEAK ERASE POSITION  %u !!!! \n", erasePeak[jp]);
-  }
 
-  if (splitVerbose && addPeak.size() > 0)
-  {
-    printPeakList();
-    printf(" ADD PEAKS event %llu chan %i %lu \n ", theEvent, vChannel[idet], addPeak.size());
+    if (splitVerbose && addPeak.size() > 0)
+    {
+      printf(" ADD PEAKS event %llu chan %i add %lu \n ", theEvent, vChannel[idet], addPeak.size());
+      for (unsigned jp = 0; jp < addPeak.size(); ++jp)
+      {
+        printf("line 1398 add peak %i (%i,%i) \n", jp, std::get<0>(addPeak[jp]), std::get<1>(addPeak[jp]));
+      }
+    }
+
+    // I dont think the order matters so put them at the end
     for (unsigned jp = 0; jp < addPeak.size(); ++jp)
     {
-      printf("\t peak %i (%i,%i) \n", jp, std::get<0>(addPeak[jp]), std::get<1>(addPeak[jp]));
+      peakList.push_back(addPeak[jp]);
+      peakKind.push_back(addKind[jp]);
     }
-  }
-
-  // I dont think the order matters so put them at the end
-  for (unsigned jp = 0; jp < addPeak.size(); ++jp)
-  {
-    peakList.push_back(addPeak[jp]);
-    peakKind.push_back(addKind[jp]);
-  }
-
-  if (splitVerbose && addPeak.size() > 0)
-  {
-    printf("------------------------\n");
-    printf(" after %lu  \n", peakList.size());
-    printPeakList();
+    printPeakList("after");
   }
 }
 

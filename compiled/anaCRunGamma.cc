@@ -1598,7 +1598,7 @@ int anaCRun::anaEvent(Long64_t entry)
     //{
 
     /* just collect some events */
-    if (passBit == 0 && tbrun->getDet(ib)->hits.size() > 0 && ib < 9)
+    if (passBit == 0 && tbrun->getDet(ib)->hits.size() > 0)
     //&& (tbrun->getDet(ib)->hits[0].qpeak > 200 && tbrun->getDet(ib)->hits[0].qpeak < 250)
     {
       if (exampleDir->GetList()->GetEntries() < exampleDirMax)
