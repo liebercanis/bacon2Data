@@ -1169,19 +1169,19 @@ int anaCRun::anaEvent(Long64_t entry)
   for (unsigned iratio = 0; iratio < hTrigSumCutRatio.size(); ++iratio)
     hTrigSumCutRatio[iratio]->Fill(qFraction[iratio]);
 
-  int failsTrigger = 0;
+  int failsTriangle = 0;
   if (qFraction[0] < trigRatioCutLow || qFraction[0] > trigRatioCutHigh)
-    failsTrigger |= 0x2;
+    failsTriangle |= 0x2;
   if (qFraction[1] < trigRatioCutLow || qFraction[1] > trigRatioCutHigh)
-    failsTrigger |= 0x4;
+    failsTriangle |= 0x4;
   if (qFraction[2] < trigRatioCutLow || qFraction[2] > trigRatioCutHigh)
-    failsTrigger |= 0x8;
+    failsTriangle |= 0x8;
 
   double xternQ, yternQ;
   makeTernary(qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
   // printf("line1097 %f %f %f %f %f \n", qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
-  ntTrig->Fill(double(entry), idet9->totSum, idet10->totSum, idet11->totSum, tdet13->totSum, qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ, failsTrigger);
-  if (failsTrigger != 0)
+  ntTrig->Fill(double(entry), idet9->totSum, idet10->totSum, idet11->totSum, tdet13->totSum, qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ, failsTriangle);
+  if (failsTriangle != 0)
   {
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
@@ -1194,7 +1194,7 @@ int anaCRun::anaEvent(Long64_t entry)
   if (triggerSum < trigSumCut)
     passBit |= TRIGFAIL;
   // printf("line1054 TRIGFAIL %lld cut %f chan 9 %f,%f chan 10 %f chan 11 %f ratio 9-10 %f ratio 9-11 %f ratio 10-11 %f \n", entry, trigRatioCutLow, trigRatioCutHigh, idet9->totSum, idet10->totSum, idet11->totSum, qFraction[0], qFraction[1], qFraction[2]);
-  if (failsTrigger == 0)
+  if (failsTriangle == 0)
     hTrigSumCut->Fill(trigSum);
 
   // fill triangle plot
@@ -1733,7 +1733,7 @@ int anaCRun::anaEvent(Long64_t entry)
       TDetHit thit = tdet->hits[ihit];
 
       if (thit.qpeak < 1)
-        printf("line822 chan %i ihit %i startTime %i  peak %f\n", tdet->channel, ihit, int(thit.startTime), thit.qpeak);
+        printf("line822 event %llu chan %i ihit %i startTime %i  peak %f\n", entry, tdet->channel, ihit, int(thit.startTime), thit.qpeak);
       // do not scale these June 11 2025
       hQSum[idet]->Fill(thit.qsum);
       hQPeak[idet]->Fill(thit.qpeak);

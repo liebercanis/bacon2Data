@@ -78,6 +78,7 @@ public:
   TDirectory *sumWaveDir;
   TDirectory *fitSingletDir;
   Long64_t theEvent;
+  bool doPeakCorrection;
   bool doFFT;
   bool isCAEN;
   bool verbose;
