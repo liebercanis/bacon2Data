@@ -100,6 +100,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   hPeakValue = new TH1D("PeakValue", "Peak value (not trigger)", 1000, 0, 5000);
   hPeakCrossingBin = new TH1D("PeakCrossingBin", "peak Crossing Bin", 100, 0, 100);
   hPeakCrossingRatio = new TH1D("PeakCrossingRatio", "peak Crossing Ratio", 100, 0., 1.);
+  hOverlap = new TH1D("Overlap", "peak overlap (sampples ) ", 300, 0., 300.);
 
   if (doFFT)
   {
@@ -508,7 +509,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
 
     // fill hit peak wave first bin is number one!
     hEvHitPeakWave[idet]->SetBinContent(hiti.peakBin + 1, hiti.qpeak);
-    if (verbose)
+    if (idet == 9)
       printf("line461 size %lu hit%i idet %i time %u peakBin %i qpeak  %f \n", detHits.size(), hitNumber++, idet, hitIter->first, hiti.peakBin, hiti.qpeak);
     // make sums with cut
     if (hiti.qsum > hitThreshold)
@@ -1064,6 +1065,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
   }
 
   int nhit = 0;
+
   // this messes ip yaxis on chan13 EvWave??
   // do this differently with very short hits
   /* do subraction for overlapping hits  only correct immediate preceeding hit*/
@@ -1089,18 +1091,19 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
         for (unsigned i = j + 1; i < detHitList.size(); ++i)
         {
           TDetHit hiti = detHitList[i]; // later hit
-          int overLap = hitj.peakBin - hiti.peakBin;
+          int overLap = hiti.peakBin - hitj.peakBin;
+          hOverlap->Fill(overLap);
           // insure this peak is after previous, and separation is greater than minOverlap
-          // printf("line1087  hitFinder::makeHit event CHECK  %llu det %i  this hit (%i,%i,%i) last peak (%i,%i,%i) overlap %i  this qpeak  %f last qpeak %f \n", theEvent, idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, hitj.firstBin, hitj.peakBin, hitj.lastBin, overLap, hiti.qpeak, hitj.qpeak);
-          if (overLap > minOverlap && overLap < 5. * minOverlap)
+          if (overLap < minOverlap)
           {
-            peakTimeList.push_back(hitj.peakt);
+            // printf("line1094  hitFinder::makeHit event hit OVERLAP  %llu det %i  this hit (%i,%i,%i) last peak (%i,%i,%i) overlap %i  this qpeak  %f last qpeak %f \n", theEvent, idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, hitj.firstBin, hitj.peakBin, hitj.lastBin, overLap, hiti.qpeak, hitj.qpeak);
+            peakTimeList.push_back(hiti.peakt);
             indexList.push_back(i);
             splitCount[idet] += 1;
             // fit is in axis value
             double fitStart = hEvWave[idet]->GetBinCenter(hitj.peakBin);
             double fitEnd = hEvWave[idet]->GetBinCenter(hiti.lastBin);
-            hEvWave[idet]->Fit("expo", "", "", fitStart, fitEnd);
+            hEvWave[idet]->Fit("expo", "Q", "", fitStart, fitEnd);
             //  switch to landau ?? offset too small!
             // TFitResultPtr fitptr = hEvWave[idet]->Fit("landau", "QS0", "", hitj.peakBin, hitj.lastBin); // was 20
             TF1 *expFit = (TF1 *)hEvWave[idet]->GetListOfFunctions()->FindObject("expo");
@@ -1114,16 +1117,17 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
             // double slope = expFit->GetParameter(1);
             double slope = expFit->GetParameter(1);
             double offSet = expFit->Eval(hiti.peakBin);
+
             if (offSet > 0. && offSet < nominalGain)
             { // this is hack for bad fit
               double qpeakBefore = hiti.qpeak;
-              hiti.qpeak -= offSet;
-              printf("line1106  hitFinder::makeHit event %llu det %i hit %i found overlap this hit (%i,%i,%i) last peak (%i,%i,%i) fit range (%fi,%f) slope  %f offset %f  peak was %f corrected %f \n", theEvent, idet, ++nhit, hiti.firstBin, hiti.peakBin, hiti.lastBin, hitj.firstBin, hitj.peakBin, hitj.lastBin, fitStart, fitEnd, slope, offSet, qpeakBefore, hitj.qpeak);
-              //  having corrected this peak,
+              detHitList[i].qpeak -= offSet;
+              printf("line1121  hitFinder::makeHit event %llu det %i hit %i found overlap this hit (%i,%i,%i) last peak (%i,%i,%i) fit range (%fi,%f) slope  %f offset %f  peak was %f corrected %f \n", theEvent, idet, ++nhit, hiti.firstBin, hiti.peakBin, hiti.lastBin, hitj.firstBin, hitj.peakBin, hitj.lastBin, fitStart, fitEnd, slope, offSet, qpeakBefore, detHitList[i].qpeak);
+              //   having corrected this peak,
             }
             else
             {
-              printf("line1109 hitFinder::makeHit event BAD OFFSET  %llu det %i  found overlap this hit (%i,%i,%i) last peak (%i,%i,%i) sigma %f offset %f nominalGain %f \n", theEvent, idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, hitj.firstBin, hitj.peakBin, hitj.lastBin, slope, offSet, nominalGain);
+              printf("line1126 hitFinder::makeHit event BAD OFFSET  %llu det %i  found overlap this hit (%i,%i,%i) last peak (%i,%i,%i) sigma %f offset %f nominalGain %f \n", theEvent, idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, hitj.firstBin, hiti.peakBin, hiti.lastBin, slope, offSet, nominalGain);
             }
             // correct
             // overlap fix hitj is the first
@@ -1138,16 +1142,22 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
         // new peak
         double newPeak = detHitList[indexList[j]].qpeak;
         // get hit from map
-        TDetHit jDetHit = detHits.at(peakTimeList[j]);
-        double oldPeak = jDetHit.qpeak;
-        jDetHit.qpeak = newPeak;
-        printf(" line 1137 event %llu det %i corected peak value peak bin %i time %u qpeak %f to %f  \n", theEvent, idet, jDetHit.peakBin, peakTimeList[j], oldPeak, jDetHit.qpeak);
+        detHits.erase(peakTimeList[j]);
+        detHits.insert(std::pair<Double_t, TDetHit>(detHitList[indexList[j]].peakt, detHitList[indexList[j]]));
+        /*
+        double oldPeak = iter->second().qpeak;
+        iter->second().qpeak = newPeak;
+        printf(" line1144 event %llu det %i corected peak value peak bin %i time %u qpeak %f to %f  \n", theEvent, idet, iter->second().peakBin, peakTimeList[j], oldPeak, iter->second().qpeak);
+        */
       }
+
       /*
-        for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
-        {
-          hitIter1->second.qpeak = detHitList[hitNumber++].qpeak;
-        }
+      int iterNumber = 0;
+      for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
+      {
+        printf(" line1151  event %llu det %i corected peak %i value %f  \n", theEvent, idet, ++iterNumber, hitIter1->second.qpeak);
+        // hitIter1->second.qpeak = detHitList[hitNumber++].qpeak;
+      }
         */
     }
   }

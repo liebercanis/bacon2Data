@@ -127,7 +127,7 @@ public:
   int trigEnd = 800;
   int nominalTrigger = 729;
   // number of samples between overlapping pulses
-  int minOverlap = 20;
+  int minOverlap = 100; // based on SIPM response Aug 6.
   void event(int idet, Long64_t ievent, vector<double> rdigi, double theDerivativeThreshold, double theHitThreshold, unsigned step = 3);
   void differentiate();
   vector<double> differentiate(int step, vector<double> pdigi);
@@ -171,6 +171,8 @@ public:
   std::vector<std::complex<double>> forwardFFT(std::vector<double> rdigi);
   std::vector<Double_t> backwardFFT(std::vector<std::complex<double>> VectorComplex);
   std::vector<std::complex<double>> templateTransform;
+
+  TH1D *hOverlap;
 
   TH1D *hWFilter;
   TH1D *hDeriv8;
