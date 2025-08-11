@@ -161,7 +161,7 @@ public:
 
   TH1D *hTrigSumNoCut;
   TH1D *hTrigSumCut;
-  std::vector<TH1D *> hTrigSumCutRatio;
+  std::vector<TH1D *> hQFracRatio;
   TH1D *hPreQpeak;
   TH1D *hLateQpeak;
   TH1D *hCountPre;
@@ -169,6 +169,7 @@ public:
   TH1D *hCountLateTime;
   TH2D *hCountLateTimeQpeak;
   TH2D *hTriangle;
+  TH2D *hTriangleCut;
   TH1D *evCount;
   TH1D *histQSum;
   TH1D *hEventPass;
@@ -1156,32 +1157,46 @@ int anaCRun::anaEvent(Long64_t entry)
   {
     ntNonTrig->Fill(double(entry), double(ib), tbrun->getDet(ib)->totSum);
   }
-  double trigSum = idet9->totSum + idet10->totSum + idet11->totSum;
-  hTrigSumNoCut->Fill(trigSum);
-
-  /******   trigger cut ********/
-  /* try a cut like TUM */
   double triggerSum = idet9->totSum + idet10->totSum + idet11->totSum;
+  hTrigSumNoCut->Fill(triggerSum);
+
+  // softer trig cut
+  if (triggerSum < trigSumCut)
+    passBit |= TRIGFAIL;
+
+  // TUM cuts on fractions
   double qFraction[3];
   qFraction[0] = idet9->totSum / triggerSum;
   qFraction[1] = idet10->totSum / triggerSum;
   qFraction[2] = idet11->totSum / triggerSum;
-  for (unsigned iratio = 0; iratio < hTrigSumCutRatio.size(); ++iratio)
-    hTrigSumCutRatio[iratio]->Fill(qFraction[iratio]);
-
-  int failsTriangle = 0;
-  if (qFraction[0] < trigRatioCutLow || qFraction[0] > trigRatioCutHigh)
-    failsTriangle |= 0x2;
-  if (qFraction[1] < trigRatioCutLow || qFraction[1] > trigRatioCutHigh)
-    failsTriangle |= 0x4;
-  if (qFraction[2] < trigRatioCutLow || qFraction[2] > trigRatioCutHigh)
-    failsTriangle |= 0x8;
+  for (unsigned iratio = 0; iratio < hQFracRatio.size(); ++iratio)
+    hQFracRatio[iratio]->Fill(qFraction[iratio]);
 
   double xternQ, yternQ;
   makeTernary(qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
+
+  /******   triangle cut ********/
+  /* try a cut like TUM */
+  bool passTriangle = false;
+  if (xternQ > 0.2 && xternQ < 0.8 && yternQ < 0.6)
+    passTriangle = true;
+
+  if (passTriangle)
+    hTriangleCut->Fill(xternQ, yternQ);
+
   // printf("line1097 %f %f %f %f %f \n", qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
-  ntTrig->Fill(double(entry), idet9->totSum, idet10->totSum, idet11->totSum, tdet13->totSum, qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ, failsTriangle);
-  if (failsTriangle != 0)
+  ntTrig->Fill(double(entry), idet9->totSum, idet10->totSum, idet11->totSum, tdet13->totSum, qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ, passTriangle);
+
+  // printf("line1054 TRIGFAIL %lld cut %f chan 9 %f,%f chan 10 %f chan 11 %f ratio 9-10 %f ratio 9-11 %f ratio 10-11 %f \n", entry, trigRatioCutLow, trigRatioCutHigh, idet9->totSum, idet10->totSum, idet11->totSum, qFraction[0], qFraction[1], qFraction[2]);
+
+  // fill triangle plot
+  if (passBit == 0)
+    hTriangle->Fill(xternQ, yternQ);
+
+  if (passTriangle && passBit == 0)
+    hTrigSumCut->Fill(xternQ, yternQ);
+
+  if (passBit != 0)
   {
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
@@ -1190,16 +1205,6 @@ int anaCRun::anaEvent(Long64_t entry)
       EvRawWave->SetTitle(Form("EvRawTrigFailineEvent%lld-Ch%i", entry, 13));
     }
   }
-  // softer trig cut
-  if (triggerSum < trigSumCut)
-    passBit |= TRIGFAIL;
-  // printf("line1054 TRIGFAIL %lld cut %f chan 9 %f,%f chan 10 %f chan 11 %f ratio 9-10 %f ratio 9-11 %f ratio 10-11 %f \n", entry, trigRatioCutLow, trigRatioCutHigh, idet9->totSum, idet10->totSum, idet11->totSum, qFraction[0], qFraction[1], qFraction[2]);
-  if (failsTriangle == 0)
-    hTrigSumCut->Fill(trigSum);
-
-  // fill triangle plot
-  if (passBit == 0)
-    hTriangle->Fill(xternQ, yternQ);
 
   /********************************************************
    * now that we have the firstTime
@@ -2186,16 +2191,16 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   hCosmicCut = new TH1D("CosmicCut", " PMT sum /nominal gain", 1000, 0, 2. * totCosmicCut);
   hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 /nominal gain ", 1000, 0, 2. * lateGammaCut);
   hTrigSumNoCut = new TH1D("TrigSumNoCut", " before cut qsum9+qsum10+qsum11  in units nominal PE ", 160, 0, 40.);
-  hTrigSumCut = new TH1D("TrigSumCut", " qsum9+qsum10+qsum11  in units nominal PE ", 160, 0, 40.);
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
+  hTrigSumCut = new TH1D("TrigSumCut", " ytern vs xtern ", 160, 0, 40.);
 
   TString hName;
-  hName.Form("TrigRatio%i-9-10", 0);
-  hTrigSumCutRatio.push_back(new TH1D(hName, hName, 50, 0., 10.));
-  hName.Form("TrigRatio%i-9-11", 1);
-  hTrigSumCutRatio.push_back(new TH1D(hName, hName, 50, 0., 10.));
-  hName.Form("TrigRatio%i-10-11", 2);
-  hTrigSumCutRatio.push_back(new TH1D(hName, hName, 50, 0., 10.));
+  hName.Form("QFracRatio%i-9-10", 0);
+  hQFracRatio.push_back(new TH1D(hName, hName, 50, 0., 10.));
+  hName.Form("QFracRatio%i-9-11", 1);
+  hQFracRatio.push_back(new TH1D(hName, hName, 50, 0., 10.));
+  hName.Form("QFracRatio%i-10-11", 2);
+  hQFracRatio.push_back(new TH1D(hName, hName, 50, 0., 10.));
 
   // Fill(entry, ib, ave, sigma, fitStatus);;
   ntFailures = new TNtuple("ntFailures", " failures ntuple ", "event:chan:totHits:pass");

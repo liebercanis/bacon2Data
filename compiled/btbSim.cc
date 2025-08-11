@@ -801,12 +801,11 @@ void btb(int ngen = 10000000)
       hTrigDiffTime10->Fill(maxTriggerDiff);
     if (maxTriggerDiff < 30)
       hTrigDiffTime30->Fill(maxTriggerDiff);
+
     // event passes trigger
     bool trigPass = true;
     if (maxTriggerDiff > maxTriggerTimeDiffernce)
       trigPass = false;
-
-    ntTrig->Fill(iev, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries(), eventOrigin.Rho(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z(), maxTriggerDiff, trigPass);
 
     if (!trigPass)
     {
@@ -815,11 +814,12 @@ void btb(int ngen = 10000000)
       continue;
     }
     ++nTrigger;
+    hEventPass->SetBinContent(3, hEventPass->GetBinContent(3) + 1);
+
+    ntTrig->Fill(iev, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries(), eventOrigin.Rho(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z(), maxTriggerDiff, trigPass);
 
     double photonSum = hPhoton[9]->GetEntries() + hPhoton[10]->GetEntries() + hPhoton[11]->GetEntries();
     hPhotonSum->Fill(photonSum);
-
-    hEventPass->SetBinContent(3, hEventPass->GetBinContent(3) + 1);
 
     if (show)
       printf("xxx event %i nph %.0f %.0f %.0f\n", iev, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries());
@@ -844,19 +844,6 @@ void btb(int ngen = 10000000)
     qFraction[1] = peakQsum[1] / trigQSum;
     qFraction[2] = peakQsum[2] / trigQSum;
 
-    double trigRatioCutLow = 0.2;  // qsum fraction
-    double trigRatioCutHigh = 0.8; // qsum fraction
-
-    int failsFractionCut = 0;
-    if (qFraction[0] < trigRatioCutLow || qFraction[0] > trigRatioCutHigh)
-      failsFractionCut |= 0x2;
-    if (qFraction[1] < trigRatioCutLow || qFraction[1] > trigRatioCutHigh)
-      failsFractionCut |= 0x4;
-    if (qFraction[2] < trigRatioCutLow || qFraction[2] > trigRatioCutHigh)
-      failsFractionCut |= 0x8;
-
-    if (failsFractionCut == 0)
-      hPhotonSumCut->Fill(photonSum);
     // Now ready for minimization step with MIGRAD
     // set starting param values
     double fitVal[NPAR];
@@ -955,8 +942,19 @@ void btb(int ngen = 10000000)
     double xternQ, yternQ;
     makeTernary(peakQsum[0], peakQsum[1], peakQsum[2], xternQ, yternQ);
     hTriangle->Fill(xternQ, yternQ);
-    if (failsFractionCut == 0)
+
+    bool passTriangle = false;
+    if (xternQ > 0.2 && xternQ < 0.8 && yternQ < 0.6)
+      passTriangle = true;
+
+    if (passTriangle)
+    {
       hTriangleCut->Fill(xternQ, yternQ);
+      hPhotonSumCut->Fill(photonSum);
+    }
+
+    // if (!passTriangle)
+    //   printf("line959 event %i !passTriangle %f %f \n", iev, xternQ, yternQ);
 
     // printf("line892 nph  (%.0f  %.0f  %.0f)  qsum (%.3f   %.3f  %.3f) xtern (%.3f %.3f)  ytern (%.3f %.3f)  \n", peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], peakQsum[0], peakQsum[1], peakQsum[2], xternPh, xternQ, yternPh, yternQ);
 
