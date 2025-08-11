@@ -77,8 +77,9 @@ TH1D *hResponse;
 TH1D *hTime;
 TH1D *hTrigDiffTime;
 TH1D *hTrigDiffTime30;
-TH1D *hTrigDiffTime1000;
+TH1D *hTrigDiffTime10;
 TH2D *hTriangle;
+TH2D *hTriangleCut;
 TH2D *hTriangleMean;
 uint16_t maxAdc = pow(2, 14);
 double gain;
@@ -89,7 +90,7 @@ double nominalGeo;
 /* parameters quoted in talk  "A new optical model for LEGEND-200
 with remage" Manuel Huber <ge38nap@mytum.de>, Luigi Pertoldi
 LEGEND collaboration meeting · March 25, 2025 */
-double LY = 25.6; //  photone/kev Doke
+double LY = 25.6; //  photons/kev Doke
 double numPhotons = 60 * LY;
 double singletFrac = 0.20;
 int binWidth = 2;
@@ -100,7 +101,7 @@ double meanFreePath = 1.53; // from table in cm3frmom rtabtable in cm3frmom rtab
 double totalEventEffiency;
 double triggerTimes[3];
 double cosMin = 0.851 / sqrt(pow(0.4, 2) + pow(0.851, 2));
-double maxTriggerTimeDiffernce = 1000.;
+double maxTriggerTimeDiffernce = 30.;         // Aug 9
 unsigned timeOffset = 13;                     // changed from 17 may 13, 2024
 double nominalSimQsumTrigGain = 32056.789775; // rough estimate
 
@@ -450,6 +451,7 @@ void btb(int ngen = 10000000)
   hRhoPhiZMap->GetZaxis()->SetTitle("Z");
   hEventPass = new TH1D("hEventPass", "event pass", 3, 0, 3);
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
+  hTriangleCut = new TH2D("TriangleCut", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hTriangleMean = new TH2D("TriangleMean", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   ntOrigin = new TNtuple("ntOrigin", " event origin ", "ev:r:cos:theta:phi:x:y:z");
   ntTrig = new TNtuple("ntTrig", " trigger info by event  ", "ev:nph9:nph10:nph11:rho:phi:x:y:z:tdiff:pass");
@@ -464,9 +466,9 @@ void btb(int ngen = 10000000)
   hTrigDiffTime = new TH1D("TrigDiffTime", " time difference ", 7500, 0, 7500);
   hTrigDiffTime->GetXaxis()->SetTitle("max time diff [samples]");
   hTrigDiffTime30 = new TH1D("TrigDiffTime30", " time difference <30 ns", 7500, 0, 7500);
-  hTrigDiffTime30->GetXaxis()->SetTitle("max time diff [samples]");
-  hTrigDiffTime1000 = new TH1D("TrigDiffTime1000", " time difference <1000 ns", 7500, 0, 7500);
-  hTrigDiffTime1000->GetXaxis()->SetTitle("max time diff [samples]");
+  hTrigDiffTime30->GetXaxis()->SetTitle("max time diff [ns]");
+  hTrigDiffTime10 = new TH1D("TrigDiffTime10", " time difference <1000 ns", 7500, 0, 7500);
+  hTrigDiffTime10->GetXaxis()->SetTitle("max time diff [ns]");
   // landau response function
   speLandau = new TF1("myLandau", myLandau, 0, totalBins * theBinWidth, 3);
   // set SPE response parameters
@@ -571,7 +573,7 @@ void btb(int ngen = 10000000)
   for (int iev = 0; iev < ngen; ++iev) // start of event loop
   {
 
-    hEventPass->SetBinContent(1, hEventPass->GetBinContent(1) + 1);
+    hEventPass->SetBinContent(1, hEventPass->GetBinContent(1) + 2); // for full 4pi events
 
     // zero trigger times array
     for (int i = 0; i < 3; ++i)
@@ -795,10 +797,11 @@ void btb(int ngen = 10000000)
     // ensure the event triggers
     double maxTriggerDiff = eventTrigger();
     hTrigDiffTime->Fill(maxTriggerDiff);
+    if (maxTriggerDiff < 10)
+      hTrigDiffTime10->Fill(maxTriggerDiff);
     if (maxTriggerDiff < 30)
       hTrigDiffTime30->Fill(maxTriggerDiff);
-    if (maxTriggerDiff < 1000)
-      hTrigDiffTime1000->Fill(maxTriggerDiff);
+    // event passes trigger
     bool trigPass = true;
     if (maxTriggerDiff > maxTriggerTimeDiffernce)
       trigPass = false;
@@ -952,6 +955,8 @@ void btb(int ngen = 10000000)
     double xternQ, yternQ;
     makeTernary(peakQsum[0], peakQsum[1], peakQsum[2], xternQ, yternQ);
     hTriangle->Fill(xternQ, yternQ);
+    if (failsFractionCut == 0)
+      hTriangleCut->Fill(xternQ, yternQ);
 
     // printf("line892 nph  (%.0f  %.0f  %.0f)  qsum (%.3f   %.3f  %.3f) xtern (%.3f %.3f)  ytern (%.3f %.3f)  \n", peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], peakQsum[0], peakQsum[1], peakQsum[2], xternPh, xternQ, yternPh, yternQ);
 
@@ -995,12 +1000,20 @@ void btb(int ngen = 10000000)
     hCount->SetBinContent(ich + 1, ncount[ich]);
   // summary
   printf("****** generated %i events.\nphoton count:\n", ngen);
-  for (int ih = 1; ih < NCHAN; ++ih)
+  for (int ih = 0; ih < NCHAN; ++ih)
   {
-    printf(" chan %i photons %i\n", ih, (int)hCount->GetBinContent(ih));
+    printf(" chan %i photons %i\n", ih, (int)hCount->GetBinContent(ih + 1));
   }
   // fout->ls();
-  hEventPass->Print("all");
+  // hEventPass->Print("all");
+  std::vector<TString> passLabel;
+  passLabel.resize(hEventPass->GetNbinsX());
+  passLabel[0] = TString("all");
+  passLabel[1] = TString("fid");
+  passLabel[2] = TString("triggered");
+  for (int ibin = 1; ibin <= hEventPass->GetNbinsX(); ++ibin)
+    printf(" cut %i pass %.0f \n", ibin, hEventPass->GetBinContent(ibin));
+
   printf("********* end of btb with ngen %i triggers %i ********\n", ngen, nTrigger);
   // simRun->print();
 }

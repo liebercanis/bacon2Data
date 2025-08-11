@@ -1732,9 +1732,9 @@ int anaCRun::anaEvent(Long64_t entry)
     {
       TDetHit thit = tdet->hits[ihit];
 
-      if (thit.qpeak < 1)
-        printf("line822 event %llu chan %i ihit %i startTime %i  peak %f\n", entry, tdet->channel, ihit, int(thit.startTime), thit.qpeak);
-      // do not scale these June 11 2025
+      // if (thit.qpeak < 1)
+      //   printf("line822 event %llu chan %i ihit %i startTime %i  peak %f\n", entry, tdet->channel, ihit, int(thit.startTime), thit.qpeak);
+      //  do not scale these June 11 2025
       hQSum[idet]->Fill(thit.qsum);
       hQPeak[idet]->Fill(thit.qpeak);
       unsigned hitTime = unsigned(thit.startTime);
@@ -2542,7 +2542,12 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   std::vector<double> hitIntegral;
   for (int idet = 0; idet < sumHitWave.size(); ++idet)
   {
-    double inte = sumPeakWave[idet]->Integral() / nominalGain;
+    double gain = nominalGain;
+    if (idet > 8 && idet < 12)
+      gain = nominalTrigGain;
+    if (idet == 12)
+      gain = nominalPmtGain;
+    double inte = sumPeakWave[idet]->Integral() / gain;
     double mean = inte / double(npass);
     hitMean.push_back(mean);
     hitIntegral.push_back(inte);
@@ -2602,7 +2607,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
       double foundFraction = 1.;
       double foundError = 0.;
       calcError(hWaveHitFound[ichan]->GetEntries(), hWaveHitMissed[ichan]->GetEntries(), foundFraction, foundError);
-      printf(" \t chan %i found %.0f missed %.0f fake %.0f  found fraction %.3f +/- %.3f \n", ichan, hWaveHitFound[ichan]->GetEntries(),
+      printf(" \t chan %i found %.0f missed %.0f fake %.0f  found fraction %.5f +/- %.5f \n", ichan, hWaveHitFound[ichan]->GetEntries(),
              hWaveHitMissed[ichan]->GetEntries(), hWaveHitNoise[ichan]->GetEntries(), foundFraction, foundError);
     }
   }
