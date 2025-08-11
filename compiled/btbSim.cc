@@ -944,7 +944,7 @@ void btb(int ngen = 10000000)
     hTriangle->Fill(xternQ, yternQ);
 
     bool passTriangle = false;
-    if (xternQ > 0.2 && xternQ < 0.8 && yternQ < 0.6)
+    if ((xternQ > 0.3 && xternQ < 0.65) && (xternQ > 0.1 && yternQ < 0.5))
       passTriangle = true;
 
     if (passTriangle)
@@ -958,7 +958,7 @@ void btb(int ngen = 10000000)
 
     // printf("line892 nph  (%.0f  %.0f  %.0f)  qsum (%.3f   %.3f  %.3f) xtern (%.3f %.3f)  ytern (%.3f %.3f)  \n", peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], peakQsum[0], peakQsum[1], peakQsum[2], xternPh, xternQ, yternPh, yternQ);
 
-    ntTern->Fill(eventOrigin.Rho(), eventOrigin.Phi(), eventOrigin.Z(), peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], peakQsum[0], peakQsum[1], peakQsum[2], peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2], xternQ, yternQ);
+    ntTern->Fill(eventOrigin.Rho(), eventOrigin.Phi(), eventOrigin.Z(), peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], qFraction[0], qFraction[1], qFraction[2], peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2], xternQ, yternQ);
 
     // printf(" nTrigger %i %.0f %.0f %.0f (%f %f %f)  xtern %f ytern %f \n", nTrigger, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries(), peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], xternQ, yternQ);
 
