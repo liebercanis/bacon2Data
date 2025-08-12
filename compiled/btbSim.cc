@@ -1000,7 +1000,7 @@ void btb(int ngen = 10000000)
   printf("****** generated %i events.\nphoton count:\n", ngen);
   for (int ih = 0; ih < NCHAN; ++ih)
   {
-    printf(" chan %i photons %i\n", ih, (int)hCount->GetBinContent(ih + 1));
+    printf(" chan %i photons %i photons/triggered %.3f \n", ih, (int)hCount->GetBinContent(ih + 1), hCount->GetBinContent(ih + 1) / double(nTrigger));
   }
   // fout->ls();
   // hEventPass->Print("all");
