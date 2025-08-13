@@ -71,6 +71,7 @@ TH1D *hSignal[NCHAN];
 TH1D *hSignalSum[NCHAN];
 Long64_t totalPhotons;
 Long64_t ncount[NCHAN];
+Long64_t ncountSinglet[NCHAN];
 TH1D *hEventPass;
 TH1D *hCount;
 TH1D *hResponse;
@@ -716,6 +717,7 @@ void btb(int ngen = 10000000)
       ntriplet = ran->Poisson(ntmean);
 
       ncount[ich] += nsinglet + ntriplet;
+      ncountSinglet[ich] += nsinglet;
 
       // singlet times
       for (int it = 0; it < nsinglet; ++it)
@@ -1000,7 +1002,8 @@ void btb(int ngen = 10000000)
   printf("****** generated %i events.\nphoton count:\n", ngen);
   for (int ih = 0; ih < NCHAN; ++ih)
   {
-    printf(" chan %i photons %i photons/triggered %.3f \n", ih, (int)hCount->GetBinContent(ih + 1), hCount->GetBinContent(ih + 1) / double(nTrigger));
+    printf(" chan %i (singlet,total) photons (%i, %i)  (singlet,total) photons/triggered (%.3f, %.3f)  \n",
+           ih, (int)ncountSinglet[ih], (int)ncount[ih], double(ncountSinglet[ih]) / double(nTrigger), double(ncount[ih]) / double(nTrigger));
   }
   // fout->ls();
   // hEventPass->Print("all");

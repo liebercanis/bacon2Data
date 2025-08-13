@@ -169,7 +169,6 @@ public:
   TH1D *hCountLateTime;
   TH2D *hCountLateTimeQpeak;
   TH2D *hTriangle;
-  TH2D *hTriangleCut;
   TH1D *evCount;
   TH1D *histQSum;
   TH1D *hEventPass;
@@ -1181,11 +1180,8 @@ int anaCRun::anaEvent(Long64_t entry)
   if (xternQ > 0.2 && xternQ < 0.8 && yternQ < 0.6)
     passTriangle = true;
 
-  if (passTriangle)
-    hTriangleCut->Fill(xternQ, yternQ);
-
   // printf("line1097 %f %f %f %f %f \n", qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
-  ntTrig->Fill(double(entry), idet9->totSum, idet10->totSum, idet11->totSum, tdet13->totSum, qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ, passTriangle);
+  ntTrig->Fill(double(entry), idet9->totSum, idet9->totSum, idet10->totSum, idet11->totSum, qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ, passTriangle);
 
   // printf("line1054 TRIGFAIL %lld cut %f chan 9 %f,%f chan 10 %f chan 11 %f ratio 9-10 %f ratio 9-11 %f ratio 10-11 %f \n", entry, trigRatioCutLow, trigRatioCutHigh, idet9->totSum, idet10->totSum, idet11->totSum, qFraction[0], qFraction[1], qFraction[2]);
 
@@ -2190,8 +2186,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   hPreSumCut = new TH1D("PreSumCut", " pre trigger sum /nominal gain ", 100, 0, 2 * preSumCut);
   hCosmicCut = new TH1D("CosmicCut", " PMT sum /nominal gain", 1000, 0, 2. * totCosmicCut);
   hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 /nominal gain ", 1000, 0, 2. * lateGammaCut);
-  hTrigSumNoCut = new TH1D("TrigSumNoCut", " before cut qsum9+qsum10+qsum11  in units nominal PE ", 160, 0, 40.);
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
+  hTrigSumNoCut = new TH1D("TrigSumNoCut", " before cut qsum9+qsum10+qsum11  in units nominal PE ", 160, 0, 40.);
   hTrigSumCut = new TH1D("TrigSumCut", " ytern vs xtern ", 160, 0, 40.);
 
   TString hName;
