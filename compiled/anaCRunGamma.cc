@@ -36,6 +36,7 @@
 #include "TBRawEvent.hxx"
 #include "hitFinder.hxx"
 #include "TBFile.hxx"
+#include "TReadGains.hxx"
 
 class anaCRun
 {
@@ -77,6 +78,9 @@ public:
     FAILBITS = 7
   };
 
+  // class to read and store gains
+  TReadGains *readGains;
+
   std::vector<TString> bitNames;
   int failCode[FAILBITS];
 
@@ -112,8 +116,6 @@ public:
   TNtuple *ntSimMatch;
   unsigned orderFraction = 10;
   // vectors for gains
-  std::vector<double> sipmGain;
-  std::vector<double> sipmGainError;
   //
   std::map<int, int> chanMap;
   vector<int> nSpeSum;
@@ -230,8 +232,7 @@ public:
   bool openFile(TString fileName);
   bool outFileCheck(TString outFileName);
   unsigned getListOfFiles(TString dir);
-  void printGains();
-  bool readGains(TString fileName);
+
   void getSummedHists();
   unsigned getBranches();
   int anaEvent(Long64_t entry);                   // return passBit
@@ -279,16 +280,15 @@ public:
   int MaxSPEShape = 4;
   unsigned trigStart = 600;
   int nominalTrigger = 753; // was 729; this is nominal trigger sample
+  double nominalGain;
+  double nominalTrigGain;
+  double nominalPmtGain;
+  double nominalQsumGain;
+  double nominalQsumTrigGain;
+  double nominalQsumPmtGain;
 
-  /**************** define nominal gains ***************/
-  double nominalGain = 134.786401;     // 170.;     // was 160.0; set Jue 13 2025
-  double nominalTrigGain = 735.688747; //
-  double nominalQsumGain = 4940.503519;
-  double nominalQsumTrigGain = 32056.789775;
-  double nominalPmtGain = 502.;
-  double nominalQsumPmtGain = 1713;
-  double landauMax = 1.0; // 0.018063;
-  std::vector<double> qsumGain;
+  double landauMax = 1.0;       // 0.018063;
+  std::vector<double> qsumGain; // read from class TReadGain
   //  227.4; // average
   //   double nominalGain = 160.0; // average
   unsigned firstTime;       // corrected trigger time for event
@@ -300,21 +300,119 @@ public:
   ULong_t triggerStart = 730; // 740;
   ULong_t timeVeryLateCut = 3500;
   /* need to tune these cuts on data */
-  double trigRatioCutLow = 0.2;             // qsum fraction
-  double trigRatioCutHigh = 0.8;            // qsum fraction
-  double preSumCut = 4. * nominalGain;      ///
-  double totCosmicCut = 50. * nominalGain;  //
-  double lateGammaCut = 100. * nominalGain; //
-  double trigSumCut = 3.0;
+  double trigRatioCutLow = 0.2;  // qsum fraction
+  double trigRatioCutHigh = 0.8; // qsum fraction
+  double preSumCut;
+  double totCosmicCut;
+  double lateGammaCut;
+  double trigSumCut;
+  double qpeakCosmicCut;
 
   double prePeakCut = 0.5;
-  double latePeakCut = 3.5;                 // march 18 2024 2.5;
-  double diffStepSipm = 3.;                 // 6 ns steps for SIPM
-  double diffStepPmt = 1.;                  // back to one on Oct 15 2024
-  double cosmicCut = 3.E3;                  // set Nov 3 2024
-  double qpeakCosmicCut = 3. * nominalGain; // 3*SPE
-  double hitThresholdPmt = 30.;             // set Nov 13 2024
+  double latePeakCut = 3.5;     // march 18 2024 2.5;
+  double diffStepSipm = 3.;     // 6 ns steps for SIPM
+  double diffStepPmt = 1.;      // back to one on Oct 15 2024
+  double cosmicCut = 3.E3;      // set Nov 3 2024
+  double hitThresholdPmt = 30.; // set Nov 13 2024
 };
+
+/* get rawBr */
+unsigned anaCRun::getBranches()
+{
+  TObjArray *brList = rawTree->GetListOfBranches();
+  TString cname;
+  TIter next(brList);
+  TBranch *aBranch = NULL;
+  while ((aBranch = (TBranch *)next()))
+  {
+    TString s(aBranch->GetName());
+    if (s != TString("eventData"))
+    {
+      int ichan = TString(s(s.Last('n') + 1, s.Length())).Atoi();
+      // rawTree->GetBranch(aBranch->GetName())->SetAutoDelete(kTRUE);
+      cout << s << "  " << aBranch->GetName() << " return val =  " << rawTree->SetBranchAddress(aBranch->GetName(), &rawBr[ichan]) << endl;
+    }
+  }
+  return rawBr.size();
+}
+bool anaCRun::openFile(TString theFile)
+{
+  // open input file and make some histograms
+  TString fileName;
+  fileName.Form("rootData/%s", theFile.Data());
+  printf(" looking for file %s\n", fileName.Data());
+
+  bool exists = false;
+  FILE *aFile;
+  aFile = fopen(fileName.Data(), "r");
+  if (aFile)
+  {
+    fclose(aFile);
+    exists = true;
+  }
+  if (!exists)
+  {
+    printf(" couldnt open file %s\n", fileName.Data());
+    return false;
+  }
+
+  fin = new TFile(fileName, "readonly");
+  printf(" opened file %s\n", fileName.Data());
+  rawTree = nullptr;
+  fin->ls();
+  fin->GetObject("RawTree", rawTree);
+  if (!rawTree)
+  {
+    printf(" no RawTree in file %s\n", fileName.Data());
+    return false;
+  }
+  cout << "  RawTree has " << rawTree->GetEntries() << " entries " << endl;
+  rawEventData = new TBEventData();
+  rawTree->SetBranchAddress("eventData", &rawEventData);
+  if (!rawEventData)
+  {
+    printf(" eventData not found in file  %s\n", fileName.Data());
+    return false;
+  }
+  printf(" rawTree has %u channels stored in rawBr \n", getBranches());
+  for (unsigned i = 0; i < rawBr.size(); ++i)
+    printf(" branch %s chan %i \n", rawBr[i]->GetName(), i);
+
+  simTree = nullptr;
+  isSim = false;
+  fin->GetObject("SimTree", simTree);
+  if (simTree)
+  {
+    isSim = true;
+    printf("line 696  anaEvent file %s THIS IS SIMULATION\n", fileName.Data());
+  }
+
+  return true;
+}
+
+// get summed histos
+void anaCRun::getSummedHists()
+{
+  rawSumDir->cd();
+  TIter next(fin->GetListOfKeys());
+  printf(" getSummedHists ........ list of fin \n");
+  fin->GetListOfKeys()->ls();
+  TKey *key;
+  while (TKey *key = (TKey *)next())
+  {
+    TClass *cl = gROOT->GetClass(key->GetClassName());
+    if (!cl->InheritsFrom("TH1D"))
+      continue;
+    TH1D *h = (TH1D *)key->ReadObj();
+    TString name;
+    name.Form("SumWave-%s-%s", h->GetName(), tag.Data());
+    TH1D *hsave = (TH1D *)h->Clone(name);
+    // rawSumDir->Add(hsave);
+  }
+  cout << " found " << rawSumDir->GetList()->GetEntries() << " summed histos " << endl;
+  fout->cd();
+  return;
+}
 
 // simple mean rms from array g[]
 void anaCRun::calcError(double pass, double fail, double &passFraction, double &error)
@@ -510,105 +608,6 @@ std::vector<double> anaCRun::sumDigi()
   return digiSum;
 }
 
-void anaCRun::printGains()
-{
-  // get new nominal gains
-  double newNominalGain = 0;
-  double newNominalTrigGain = 0;
-
-  printf("line466 got %lu gains \n", sipmGain.size());
-  for (unsigned long j = 0; j < sipmGain.size(); ++j)
-  {
-    printf(" %lu  gain %.4f error %.4f   \n", j, sipmGain[j], sipmGainError[j]);
-    if (j < 9)
-      newNominalGain += sipmGain[j];
-    if (j > 8 && j < 12)
-      newNominalTrigGain += sipmGain[j];
-  }
-  newNominalGain /= double(9);
-  newNominalTrigGain /= double(3);
-  printf(" GGGGGGGG nominal gains %f trig %f  GGGGGGGGGG\n", newNominalGain, newNominalTrigGain);
-}
-
-bool anaCRun::readGains(TString fileName)
-{
-  qsumGain.resize(CHANNELS);
-  for (int i = 0; i < CHANNELS; ++i)
-    qsumGain[i] = nominalQsumGain;
-  qsumGain[9] = nominalQsumTrigGain;
-  qsumGain[10] = nominalQsumTrigGain;
-  qsumGain[11] = nominalQsumTrigGain;
-
-  /* define nominal */
-  sipmGain.clear();
-  sipmGainError.clear();
-  sipmGain.resize(NONSUMCHANNELS);
-  sipmGainError.resize(NONSUMCHANNELS);
-  /*    preliminaru gains
-        no trig 107
-        trig 509
-        PMT 395
-  */
-  for (unsigned long j = 0; j < sipmGain.size(); ++j)
-  {
-    if (j < 9)
-    {
-      sipmGain[j] = nominalGain;
-      sipmGainError[j] = sqrt(nominalGain);
-    }
-    else if (j < 12)
-    {
-      sipmGain[j] = nominalTrigGain;
-      sipmGainError[j] = sqrt(nominalTrigGain);
-    }
-    else
-    {
-      sipmGain[j] = nominalPmtGain;
-      sipmGainError[j] = sqrt(nominalPmtGain);
-    }
-  }
-  /* look for gain file */
-  bool exists = false;
-  FILE *aFile;
-  aFile = fopen(fileName.Data(), "r");
-  if (aFile)
-  {
-    fclose(aFile);
-    exists = true;
-  }
-
-  if (!exists)
-  {
-    printf(" fopen couldnt open template file %s\n", fileName.Data());
-    return false;
-  }
-
-  TFile *fin = new TFile(fileName, "readonly");
-  if (fin->IsZombie())
-  {
-    std::cout << "Error opening file" << fileName << std::endl;
-    return false;
-  }
-  cout << " opened sipm gain file " << fileName << endl;
-  TGraphErrors *gGain = NULL;
-  fin->GetObject("gains-05_19_2025-05_19_2025", gGain);
-  if (gGain == NULL)
-  {
-    cout << "no gGain in file " << endl;
-    return false;
-  }
-  cout << "found graph named " << gGain->GetName() << " in file " << fileName << endl;
-
-  for (int i = 0; i < gGain->GetN(); ++i)
-  {
-    int index = int(gGain->GetPointX(i));
-    sipmGain[index] = gGain->GetPointY(i);
-    sipmGainError[index] = gGain->GetErrorY(i);
-  }
-
-  return true;
-}
-
 void anaCRun::clear()
 {
   nSpeSum.clear();
@@ -644,8 +643,6 @@ void anaCRun::clear()
   eslope.clear();
   chan.clear();
   echan.clear();
-  sipmGain.clear();
-  sipmGainError.clear();
   // fill channel sigma in order of branches
   chanThreshold.resize(CHANNELS);
   channelSigmaValue.resize(CHANNELS);
@@ -690,105 +687,6 @@ bool anaCRun::outFileCheck(TString outFileName)
   }
   printf(" outFileCheck of %s returns true  \n", outFileName.Data());
   return true;
-}
-
-bool anaCRun::openFile(TString theFile)
-{
-  // open input file and make some histograms
-  TString fileName;
-  fileName.Form("rootData/%s", theFile.Data());
-  printf(" looking for file %s\n", fileName.Data());
-
-  bool exists = false;
-  FILE *aFile;
-  aFile = fopen(fileName.Data(), "r");
-  if (aFile)
-  {
-    fclose(aFile);
-    exists = true;
-  }
-  if (!exists)
-  {
-    printf(" couldnt open file %s\n", fileName.Data());
-    return false;
-  }
-
-  fin = new TFile(fileName, "readonly");
-  printf(" opened file %s\n", fileName.Data());
-  rawTree = nullptr;
-  fin->ls();
-  fin->GetObject("RawTree", rawTree);
-  if (!rawTree)
-  {
-    printf(" no RawTree in file %s\n", fileName.Data());
-    return false;
-  }
-  cout << "  RawTree has " << rawTree->GetEntries() << " entries " << endl;
-  rawEventData = new TBEventData();
-  rawTree->SetBranchAddress("eventData", &rawEventData);
-  if (!rawEventData)
-  {
-    printf(" eventData not found in file  %s\n", fileName.Data());
-    return false;
-  }
-  printf(" rawTree has %u channels stored in rawBr \n", getBranches());
-  for (unsigned i = 0; i < rawBr.size(); ++i)
-    printf(" branch %s chan %i \n", rawBr[i]->GetName(), i);
-
-  simTree = nullptr;
-  isSim = false;
-  fin->GetObject("SimTree", simTree);
-  if (simTree)
-  {
-    isSim = true;
-    printf("line 696  anaEvent file %s THIS IS SIMULATION\n", fileName.Data());
-  }
-
-  return true;
-}
-
-/* get rawBr */
-unsigned anaCRun::getBranches()
-{
-  TObjArray *brList = rawTree->GetListOfBranches();
-  TString cname;
-  TIter next(brList);
-  TBranch *aBranch = NULL;
-  while ((aBranch = (TBranch *)next()))
-  {
-    TString s(aBranch->GetName());
-    if (s != TString("eventData"))
-    {
-      int ichan = TString(s(s.Last('n') + 1, s.Length())).Atoi();
-      // rawTree->GetBranch(aBranch->GetName())->SetAutoDelete(kTRUE);
-      cout << s << "  " << aBranch->GetName() << " return val =  " << rawTree->SetBranchAddress(aBranch->GetName(), &rawBr[ichan]) << endl;
-    }
-  }
-  return rawBr.size();
-}
-
-// get summed histos
-void anaCRun::getSummedHists()
-{
-  rawSumDir->cd();
-  TIter next(fin->GetListOfKeys());
-  printf(" getSummedHists ........ list of fin \n");
-  fin->GetListOfKeys()->ls();
-  TKey *key;
-  while (TKey *key = (TKey *)next())
-  {
-    TClass *cl = gROOT->GetClass(key->GetClassName());
-    if (!cl->InheritsFrom("TH1D"))
-      continue;
-    TH1D *h = (TH1D *)key->ReadObj();
-    TString name;
-    name.Form("SumWave-%s-%s", h->GetName(), tag.Data());
-    TH1D *hsave = (TH1D *)h->Clone(name);
-    // rawSumDir->Add(hsave);
-  }
-  cout << " found " << rawSumDir->GetList()->GetEntries() << " summed histos " << endl;
-  fout->cd();
-  return;
 }
 
 /* analyze rawBr */
@@ -2131,9 +2029,15 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
          theFile.Data(), maxEntries, firstEntry);
 
   // new gain file
-  TString gainFileName = TString(getenv("BOBJ")) + TString("/gains-2025-06-18-18-48.root");
-  cout << "read gains from file " << gainFileName << endl;
-  readGains(gainFileName);
+  TString gainFilePeakName = TString(getenv("BOBJ")) + TString("/gainPeak-05_19_2025-05_19_2025-2025-06-30-14-07.root");
+  TString gainFileSumName = TString(getenv("BOBJ")) + TString("/gainSum-05_19_2025-05_19_2025-2025-06-30-14-10.root");
+  cout << "read gains from file " << gainFilePeakName << "" << gainFileSumName << endl;
+  readGains->readPeakGains(gainFilePeakName);
+  readGains->readSumGains(gainFileSumName);
+
+  // store qsumGain[ib];
+  for (unsigned ch = 0; ch < readGains->sipmSumGain.size(); ++ch)
+    qsumGain.push_back(readGains->sipmSumGain[ch]);
 
   if (theFirstFile)
   {
@@ -2141,7 +2045,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     printf("chanThreshold values \n");
     for (unsigned j = 0; j < chanThreshold.size(); ++j)
       printf("chan %u chanThreshold %.3f \n", j, chanThreshold[j]);
-    printGains();
+    readGains->printGains();
   }
 
   // need to fill rawBr[0]->rdigi.size()
@@ -2626,6 +2530,20 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
 anaCRun::anaCRun(TString theTag)
 {
+
+  readGains = new TReadGains();
+  nominalGain = readGains->nominalGain;
+  nominalTrigGain = readGains->nominalTrigGain;
+  nominalPmtGain = readGains->nominalPmtGain;
+  nominalQsumGain = readGains->nominalQsumGain;
+  nominalQsumTrigGain = readGains->nominalQsumTrigGain;
+  nominalQsumPmtGain = readGains->nominalQsumPmtGain;
+
+  preSumCut = 4. * nominalGain;      ///
+  totCosmicCut = 50. * nominalGain;  //
+  lateGammaCut = 100. * nominalGain; //
+  trigSumCut = 3.0;
+  qpeakCosmicCut = 3. * nominalGain; // 3*SPE
 
   failCode[0] = PASS;
   failCode[1] = BASEFAIL;

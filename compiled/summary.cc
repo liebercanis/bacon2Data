@@ -45,6 +45,7 @@
 #include "hitFinder.hxx"
 #include "TBFile.hxx"
 #include "TBEventData.hxx"
+#include "TReadGains.hxx"
 
 //
 enum
@@ -52,6 +53,8 @@ enum
   CHANNELS = 14,
   NONSUMCHANNELS = CHANNELS - 1
 };
+
+TReadGains *readGains;
 
 static int waveBins = 7500.;
 int nFiles;
@@ -74,7 +77,13 @@ vector<double> effOther;
 vector<double> sumHits;
 static double startTime = 660.; // hWave->GetBinLowEdge(maxBin) + hWave->GetBinWidth(maxBin) / 2.;
 static double endTime = 75000.0;
-static double nominalGain = 227.4;
+
+double nominalGain = 134.786401;     // 170.;     // was 160.0; set Jue 13 2025
+double nominalTrigGain = 735.688747; //
+double nominalQsumGain = 4940.503519;
+double nominalQsumTrigGain = 32056.789775;
+double nominalPmtGain = 502.;
+double nominalQsumPmtGain = 1713;
 
 std::vector<TString> fileList;
 std::vector<double> filenum;
@@ -162,6 +171,8 @@ TString endDate;
 // vectors for gains
 std::vector<double> sipmGain;
 std::vector<double> sipmGainError;
+std::vector<double> sipmSumGain;
+std::vector<double> sipmSumGainError;
 double xWaveLow = 0;
 double xWaveHigh = 7500; // max sample
 
@@ -231,76 +242,6 @@ void normalizeTotalPass(TString histSet)
            << " normed  " << hSave->GetName() << " integral " << hSave->Integral(startTime, endTime) << endl;
     }
   }
-}
-
-bool readGains(TString fileName)
-{
-  // set default
-  sipmGain.clear();
-  sipmGainError.clear();
-  sipmGain.resize(NONSUMCHANNELS);
-  sipmGainError.resize(NONSUMCHANNELS);
-  for (unsigned long j = 0; j < sipmGain.size(); ++j)
-  {
-    sipmGain[j] = nominalGain;
-    sipmGainError[j] = sqrt(nominalGain);
-  }
-
-  /* look for gain file */
-  bool exists = false;
-  FILE *aFile;
-  aFile = fopen(fileName.Data(), "r");
-  if (aFile)
-  {
-    fclose(aFile);
-    exists = false;
-  }
-
-  if (!exists)
-  {
-    printf(" couldnt open template file %s\n", fileName.Data());
-    return false;
-  }
-
-  // open stored file
-  TFile *fin = new TFile(fileName, "readonly");
-  if (fin->IsZombie())
-  {
-    std::cout << "Error opening file" << fileName << " will use default nonminalGain " << nominalGain << std::endl;
-    return false;
-  }
-
-  // check that file was closed properly
-  TTree *tree = nullptr;
-  fin->GetObject("RunTree", tree);
-  if (tree == nullptr)
-  {
-    printf(" file not closed properly %s skip it\n", fileName.Data());
-    return false;
-  }
-
-  cout << " opened sipm gain file " << fileName << endl;
-  TGraphErrors *gGain = NULL;
-  fin->GetObject("gGain", gGain);
-  if (gGain == NULL)
-  {
-    cout << "no gGain in file " << endl;
-    return false;
-  }
-  cout << "found graph named " << gGain->GetName() << " in file " << fileName << endl;
-  for (int i = 0; i < gGain->GetN(); ++i)
-  {
-    int index = int(gGain->GetPointX(i));
-    sipmGain[index] = gGain->GetPointY(i);
-    sipmGainError[index] = gGain->GetErrorY(i);
-  }
-
-  printf("\t\t\t stored gains %lu \n", sipmGain.size());
-  for (unsigned long j = 0; j < sipmGain.size(); ++j)
-  {
-    printf(" %lu  gain %.4f error %.4f   \n", j, sipmGain[j], sipmGainError[j]);
-  }
-  return true;
 }
 
 double effGeo(int ichan)
@@ -1265,6 +1206,7 @@ unsigned long countFiles()
 
 int main(int argc, char *argv[])
 {
+  readGains = new TReadGains();
   cout << "executing " << argv[0] << " make summary plots  " << endl;
   printf(" usage: summary start date string <stag> end date string <etag> max files <default all> \n ");
   if (argc < 2)
@@ -1414,10 +1356,13 @@ int main(int argc, char *argv[])
   effOther[12] = 2.779E-01;
   */
 
-  // read old gain file
-  TString gainFileName = TString(getenv("BOBJ")) + TString("/gains-2024-02-15-17-26-save.root");
-  cout << "read gains from file " << gainFileName << endl;
-  readGains(gainFileName);
+  // new gain file
+  TString gainFilePeakName = TString(getenv("BOBJ")) + TString("/gainPeak-05_19_2025-05_19_2025-2025-06-30-14-07.root");
+  TString gainFileSumName = TString(getenv("BOBJ")) + TString("/gainSum-05_19_2025-05_19_2025-2025-06-30-14-10.root");
+  cout << "read gains from file " << gainFilePeakName << "" << gainFileSumName << endl;
+  readGains->readPeakGains(gainFilePeakName);
+  readGains->readPeakGains(gainFileSumName);
+  readGains->printGains();
 
   // use a relative normalization
   /*

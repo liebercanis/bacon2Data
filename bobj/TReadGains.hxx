@@ -1,0 +1,49 @@
+/**
+** MG, August 18 2025
+**/
+#ifndef TREADGAINS_DEFINED
+#define TREADGAINS_DEFINED
+#include <iostream>
+#include <string>
+#include <TFile.h>
+#include <TGraphErrors.h>
+#include <TNamed.h>
+#include <vector>
+
+using namespace std;
+
+// class to store pmt hit
+
+class TReadGains : public TNamed
+{
+public:
+  enum
+  {
+    NUMCHANNELS = 13
+  };
+
+  TReadGains();
+  virtual ~TReadGains()
+  {
+  }
+
+  bool readPeakGains(TString fileName);
+  bool readSumGains(TString fileName);
+  void printGains();
+  void clear();
+
+  // data elements
+  std::vector<double> sipmPeakGain;
+  std::vector<double> sipmPeakGainError;
+  std::vector<double> sipmSumGain;
+  std::vector<double> sipmSumGainError;
+  double nominalGain;     // 170.;     // was 160.0; set Jue 13 2025
+  double nominalTrigGain; //
+  double nominalQsumGain;
+  double nominalQsumTrigGain;
+  double nominalPmtGain;
+  double nominalQsumPmtGain;
+
+  ClassDef(TReadGains, 1)
+};
+#endif

@@ -63,6 +63,7 @@ TH1D *hEffGeo;
 TH1D *hEffGeo9;
 TH1D *hEffGeo10;
 TH1D *hEffGeo11;
+TH1D *hPoisson;
 
 TH1D *hPhoton[NCHAN];
 TH1D *hConvolve[NCHAN];
@@ -422,8 +423,9 @@ void btb(int ngen = 10000000)
     rawRun = new TBRawRun(tdateTag);
     rawRun->updateTime(rawtime);
     rawRun->btree->SetTitle("simulation");
-    // rawRun->print();
+    // rawRun->print();a
   }
+  hPoisson = new TH1D("Poisson", " total photons in event  ", 200, 0, 200.);
   hEffGeo = new TH1D("EffGeo", " geometric efficiency / nominal ", 150, 0, 1.5);
   hEffGeo9 = new TH1D("EffGeo9", " ch 9 geometric efficiency / nominal ", 150, 0, 1.5);
   hEffGeo10 = new TH1D("EffGeo10", " ch 10 geometric efficiency / nominal ", 150, 0, 1.5);
@@ -716,6 +718,8 @@ void btb(int ngen = 10000000)
       nsinglet = ran->Poisson(nsmean);
       ntriplet = ran->Poisson(ntmean);
 
+      hPoisson->Fill(nsinglet + ntriplet);
+
       ncount[ich] += nsinglet + ntriplet;
       ncountSinglet[ich] += nsinglet;
 
@@ -990,6 +994,28 @@ void btb(int ngen = 10000000)
         TH1D *hSignalEvent = (TH1D *)hSignal[ih]->Clone(histName);
         hSignalEvent->SetTitle(histName);
       }
+
+    for (int ih = 0; ih < NCHAN; ++ih)
+    {
+      if (hPhoton[ih]->GetEntries() < 40)
+        continue;
+
+      printf("BIG EVENT %i chan %i nphoton%i \n", iev, ih, (int)hPhoton[ih]->GetEntries());
+
+      histDir->cd();
+      histName.Form("hPhotonCh%iEv%i", ih, iev);
+      TH1D *hPhotonEvent = (TH1D *)hPhoton[ih]->Clone(histName);
+      hPhotonEvent->SetTitle(histName);
+      //
+      histName.Form("hConvolCh%iEv%i", ih, iev);
+      TH1D *hConvolveEvent = (TH1D *)hConvolve[ih]->Clone(histName);
+      hConvolveEvent->SetTitle(histName);
+      //
+      histName.Form("hSignalCh%iEv%i", ih, iev);
+      TH1D *hSignalEvent = (TH1D *)hSignal[ih]->Clone(histName);
+      hSignalEvent->SetTitle(histName);
+    }
+
     if (rawRun)
       rawRun->fill();
     simRun->fill();
