@@ -205,6 +205,11 @@ public:
   std::vector<unsigned> crossings;
   std::vector<unsigned> crossingBin;
   std::vector<double> crossingTime;
+
+  // to calculate means
+  std::vector<double> hitMean;
+  std::vector<double> hitIntegral;
+  //
   vector<double> slope;
   vector<double> eslope;
   vector<double> chan;
@@ -2539,8 +2544,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   printf(" \n \t sums by channel with entries %.0f \n", hTotSum[0]->GetEntries());
 
   // calculate mean hits from waveforms
-  std::vector<double> hitMean;
-  std::vector<double> hitIntegral;
+  hitMean.clear();
+  hitIntegral.clear();
   for (int idet = 0; idet < sumHitWave.size(); ++idet)
   {
     double gain = nominalGain;
@@ -2596,7 +2601,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
 
   for (int idet = 0; idet < hitMean.size(); ++idet)
-    printf("chan %i wave integral %.4E average hits per event %.4f \n ", idet, hitIntegral[idet], hitMean[idet]);
+    printf("chan %i integral %.4f integral/gain  %.4E average hits per event %.4f \n ", idet, sumPeakWave[idet]->Integral(), hitIntegral[idet], hitMean[idet]);
 
   printf("PMT HIT MULTIPLICITY cut %0.f \n", qpeakCosmicCut);
   // print out pulse finding stats
