@@ -208,10 +208,6 @@ public:
   std::vector<unsigned> crossingBin;
   std::vector<double> crossingTime;
 
-  // to calculate means
-  std::vector<double> hitMean;
-  std::vector<double> hitIntegral;
-  //
   vector<double> slope;
   vector<double> eslope;
   vector<double> chan;
@@ -2488,7 +2484,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
            hLateSum[idet]->GetMean());
   }
 
-  for (int idet = 0; idet < hitMean.size(); ++idet)
+  for (int idet = 0; idet < sumPeakWave.size(); ++idet)
     printf("AVERAGE HITS chan %i gain %.4f integral/gain  %.4E average hits per event %.4f \n ",
            idet, readGains->sipmSumGain[idet], sumPeakWave[idet]->Integral() / readGains->sipmSumGain[idet], sumPeakWave[idet]->Integral() / readGains->sipmSumGain[idet] / double(npass));
 
