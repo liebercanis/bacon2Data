@@ -1181,10 +1181,11 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
   firstCharge = dhit0.qsum;
   */
   /* bug fix */
+  printf("line1184  hitFinder::makeHits return event %lld det %i with %lu made \n", theEvent, idet, detHits.size());
   jhit = 0;
   for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
   {
-    printf("line1180 hitFinder  channel %i hit %u bin %i qpeak  %E \n", idet, jhit++, hitIter1->second.firstBin, hitIter1->second.qpeak);
+    printf("line1188 hitFinder  channel %i hit %u bin %i qpeak  %E \n", idet, jhit++, hitIter1->second.firstBin, hitIter1->second.qpeak);
   }
 
   if (verbose)
