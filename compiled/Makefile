@@ -34,7 +34,7 @@ else ifeq ($(ARCH),macosxarm64)
 				CXX := clang++ -ggdb 
 				CPP= $(CXX) $(CXXFLAGS)
 else
-				CXX := g++ -glldb 
+				CXX := g++ -g 
 				CXXFLAGS += -O -Wall -fPIC 
 				CPP= $(CXX) $(CXXFLAGS) 
 				
