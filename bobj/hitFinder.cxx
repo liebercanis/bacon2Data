@@ -988,9 +988,9 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     // make  map key just startTime
     // Double_t hitTime = dhit.startTime * timeUnit * microSec;
 
-    if (dhit.startTime > CAENLENGTH)
+    if (dhit.startTime >= CAENLENGTH || dhit.lastBin >= CAENLENGTH)
     {
-      printf("line959 hitFinder::makeHits !!!LATE HIT TIME!!! %llu insert hit idet %i  time %f (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, dhit.startTime, dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
+      printf("line993 hitFinder::makeHits !!!LATE HIT TIME!!! %llu insert hit idet %i  time %f (%u,%u) peak bin %i kind %i length %u qpeak %f detHit size %lu  \n", theEvent, idet, dhit.startTime, dhit.firstBin, dhit.lastBin, dhit.peakBin, peakKind[ip], khigh - klow + 1, qpeak, detHits.size());
     }
 
     // if (idet == 12)
@@ -1190,7 +1190,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
   for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
   {
     if (hitIter1->second.qpeak > 1.E5)
-      printf("line1188 hitFinder  channel %i hit %u bin %i last bin %i  qpeak  %E \n", idet, jhit++, hitIter1->second.firstBin, hitIter1->second.lastBin, hitIter1->second.qpeak);
+      printf("line1188 BUG very large qpeak hitFinder  channel %i hit %u bin %i last bin %i  qpeak  %E \n", idet, jhit++, hitIter1->second.firstBin, hitIter1->second.lastBin, hitIter1->second.qpeak);
   }
 
   if (verbose)
