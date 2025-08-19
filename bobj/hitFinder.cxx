@@ -1072,12 +1072,14 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
 
   int nhit = 0;
 
+  /*
   unsigned jhit = 0;
   for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
   {
     if (hitIter1->second.qpeak > 1.E5)
       printf("line1078 hitFinder  channel %i hit %u bin %i qpeak  %E \n", idet, jhit++, hitIter1->second.firstBin, hitIter1->second.qpeak);
   }
+      */
 
   // this messes ip yaxis on chan13 EvWave??
   // do this differently with very short hits
@@ -1182,12 +1184,12 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
   firstCharge = dhit0.qsum;
   */
   /* bug fix */
-  printf("line1184  hitFinder::makeHits return event %lld det %i with %lu made \n", theEvent, idet, detHits.size());
-  jhit = 0;
+  printf("line1184  hitFinder::makeHits return event %lld det %i with %lu hits \n", theEvent, idet, detHits.size());
+  unsigned jhit = 0;
   for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
   {
     if (hitIter1->second.qpeak > 1.E5)
-      printf("line1188 hitFinder  channel %i hit %u bin %i qpeak  %E \n", idet, jhit++, hitIter1->second.firstBin, hitIter1->second.qpeak);
+      printf("line1188 hitFinder  channel %i hit %u bin %i last bin %i  qpeak  %E \n", idet, jhit++, hitIter1->second.firstBin, hitIter1->second.lastBin, hitIter1->second.qpeak);
   }
 
   if (verbose)
