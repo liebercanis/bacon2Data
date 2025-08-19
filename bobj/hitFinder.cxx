@@ -1075,7 +1075,8 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
   unsigned jhit = 0;
   for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
   {
-    printf("line1078 hitFinder  channel %i hit %u bin %i qpeak  %E \n", idet, jhit++, hitIter1->second.firstBin, hitIter1->second.qpeak);
+    if (hitIter1->second.qpeak > 1.E5)
+      printf("line1078 hitFinder  channel %i hit %u bin %i qpeak  %E \n", idet, jhit++, hitIter1->second.firstBin, hitIter1->second.qpeak);
   }
 
   // this messes ip yaxis on chan13 EvWave??
@@ -1185,7 +1186,8 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
   jhit = 0;
   for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
   {
-    printf("line1188 hitFinder  channel %i hit %u bin %i qpeak  %E \n", idet, jhit++, hitIter1->second.firstBin, hitIter1->second.qpeak);
+    if (hitIter1->second.qpeak > 1.E5)
+      printf("line1188 hitFinder  channel %i hit %u bin %i qpeak  %E \n", idet, jhit++, hitIter1->second.firstBin, hitIter1->second.qpeak);
   }
 
   if (verbose)
