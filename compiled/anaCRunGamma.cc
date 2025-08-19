@@ -2447,22 +2447,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   printf(" \n \t sums by channel with entries %.0f \n", hTotSum[0]->GetEntries());
 
-  // calculate mean hits from waveforms
-  hitMean.clear();
-  hitIntegral.clear();
-  for (int idet = 0; idet < sumHitWave.size(); ++idet)
-  {
-    double gain = nominalGain;
-    if (idet > 8 && idet < 12)
-      gain = nominalTrigGain;
-    if (idet == 12)
-      gain = nominalPmtGain;
-    double inte = sumPeakWave[idet]->Integral() / gain;
-    double mean = inte / double(npass);
-    hitMean.push_back(mean);
-    hitIntegral.push_back(inte);
-  }
-
   // hEventPass->Print("all");
   printf("pass fractio/ns total = %.0f fail cosmic %i fail gamma %i \n", hEventPass->GetEntries(), failCosmic, failGamma);
   for (int ibin = 0; ibin < hEventPass->GetNbinsX(); ++ibin)
@@ -2505,7 +2489,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
 
   for (int idet = 0; idet < hitMean.size(); ++idet)
-    printf("chan %i integral %.4f integral/gain  %.4E average hits per event %.4f \n ", idet, sumPeakWave[idet]->Integral(), hitIntegral[idet], hitMean[idet]);
+    printf("AVERAGE HITS chan %i gain %.4f integral/gain  %.4E average hits per event %.4f \n ",
+           idet, readGains->sipmSumGain[idet], sumPeakWave[idet]->Integral() / readGains->sipmSumGain[idet], sumPeakWave[idet]->Integral() / readGains->sipmSumGain[idet] / double(npass));
 
   printf("PMT HIT MULTIPLICITY cut %0.f \n", qpeakCosmicCut);
   // print out pulse finding stats
