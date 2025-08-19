@@ -1676,7 +1676,7 @@ int anaCRun::anaEvent(Long64_t entry)
       histHitCount->SetBinContent(tdet->channel + 1, histHitCount->GetBinContent(tdet->channel + 1) + 1);
 
       /* bug fix */
-      if (thit.qpeak > 1.E3)
+      if (thit.qpeak > 1.E5)
         printf("line1682 BUG very large qpeak ch %i bin %i val %E sum %E \n", idet, thit.firstBin + 1, thit.qpeak, sumPeakWave[idet]->GetBinContent(thit.firstBin + 1));
 
       ntHit->Fill(double(entry), double(passBit), double(idet), thit.startTime, thit.peakt, thit.qpeak);
