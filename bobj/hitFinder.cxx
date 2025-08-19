@@ -670,7 +670,7 @@ void hitFinder::findDerivativeCrossings(Int_t idet)
   Double_t cut = derivativeThreshold;
   if (verbose)
     printf(" line617 findDerivativeCrossings  det = %i ddigi size %lu step %u cut %f \n", idet, ddigi.size(), step, cut);
-  crossings.clear();
+  crossings.clear(); // crossing type
   crossingBin.clear();
   crossingTime.clear();
   unsigned vsize = ddigi.size();
@@ -768,9 +768,9 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
     double maxVal = -99999.;
     if (crossings[icross] == PUP) // case PUP
     {
-      for (unsigned ibin = crossingBin[icross]; ibin < v.size(); ++ibin)
+      for (unsigned ibin = crossingBin[icross]; ibin < v.size(); ++ibin) //
       {
-        if (v[ibin] < maxVal)
+        if (v[ibin] < maxVal) // passed the peak
           break;
         imax = ibin;
         maxVal = v[ibin];
@@ -802,7 +802,8 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
       printf("line740 hitFinder::makePeaks cross det %i icross %i cross bin %i  maxVal/nominal %f  \n", idet, icross, crossingBin[icross], maxVal / nominalGain);
     // find limits of peak
     /*
-    just use a fixed window around the maximum so look for peak  in peak -40  to peak +50*/
+        just use a fixed window around the maximum
+    */
 
     unsigned ilow = imax - 20;
     unsigned ihigh = imax + 50;
@@ -958,6 +959,10 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     if (verbose)
       printf("line854 hitFinder::makeHits hit chan %i (%i,%i) size %lu \n ", vChannel[idet], klow, khigh, dhit.digi.size());
 
+    /* bug fix */
+    if (dhit.qpeak > 1.E5)
+      printf("line964 hitFinder BUG very large qpeak ch %i klow %i khigh %i firstbin %i val %E \n", vChannel[idet], klow, khigh, dhit.firstBin, dhit.qpeak);
+
     dhit.peakBin = Int_t(peakt);
     dhit.qsum = qsum;
     dhit.qpeak = qpeak;
@@ -1081,6 +1086,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
       // printf(" line 1076 event %llu det %i uncorrected peak value peak bin %i qpeak %f \n", theEvent, idet, hitIter1->second.peakBin, hitIter1->second.qpeak);
     }
 
+    /* correct qoeak for hit overlap */
     if (detHitList.size() > 1)
     {
       vector<unsigned> peakTimeList;
@@ -1104,7 +1110,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
           // fit is in axis value fit to previous peak
           double fitStart = hEvWave[idet]->GetBinCenter(hitj.peakBin);
           double fitEnd = hEvWave[idet]->GetBinCenter(hitj.lastBin);
-          hEvWave[idet]->Fit("landau", "Q", "", fitStart, fitEnd);
+          hEvWave[idet]->Fit("landau", "Q", "", fitStart, fitEnd); // Q for quiet
           //  switch to landau ?? offset too small!
           // TFitResultPtr fitptr = hEvWave[idet]->Fit("landau", "QS0", "", hitj.peakBin, hitj.lastBin); // was 20
           TF1 *expFit = (TF1 *)hEvWave[idet]->GetListOfFunctions()->FindObject("landau");
