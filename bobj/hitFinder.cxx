@@ -900,7 +900,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
   {
     unsigned klow = std::get<0>(peakList[ip]);
     unsigned khigh = std::get<1>(peakList[ip]);
-    if (klow > 7500 || khigh > 7500)
+    if (klow >= 7500 || khigh >= 7500)
       printf("line891 hitFinder::makeHit WARNING!!! LATE (%u,%u) ip %u \n", klow, khigh, ip);
     // if (idet == 12)
     //   printf("line881 hitFinder::makeHits event %lli det %i hit  %u (%u,%u) kind %i length %u \n", theEvent, idet, ip, klow, khigh, peakKind[ip], khigh - klow);
