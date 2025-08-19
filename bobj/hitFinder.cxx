@@ -1162,8 +1162,8 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
         // detHits.at(peakTimeList[j]).qpeak = detHits.at(peakTimeList[j]).qpeak;
         detHits.erase(peakTimeList[j]);
         detHits.insert(std::pair<Double_t, TDetHit>(detHitList[indexList[j]].peakt, detHitList[indexList[j]]));
-        if (verbose)
-          printf(" line1144 event %llu det %i corected peak value peak bin %i time %u qpeak %f to %f  \n", theEvent, idet, detHits.at(peakTimeList[j]).peakBin, peakTimeList[j], oldPeak, detHits.at(peakTimeList[j]).qpeak);
+        // if (verbose)
+        printf(" line1144 event %llu det %i corected peak value peak bin %i time %u qpeak %f to %f  \n", theEvent, idet, detHits.at(peakTimeList[j]).peakBin, peakTimeList[j], oldPeak, detHits.at(peakTimeList[j]).qpeak);
       }
 
       /*
