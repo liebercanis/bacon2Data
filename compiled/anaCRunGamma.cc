@@ -1672,10 +1672,12 @@ int anaCRun::anaEvent(Long64_t entry)
       // if(int(thit.peakt)-thit.firstBin > 30)
       //  printf("line980 in anaCRun event %lli  det %i  peak %u start %i \n",entry, idet, thit.peakt, thit.firstBin);
 
-      // if(thit.qpeak > 7.5* nominalGain)  printf("line1008 idet %i qpeak %f \n",idet,thit.qpeak/nominalGain );
-      // sumHitWave[idet]->SetBinContent(thit.firstBin + 1, sumHitWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qsum);
       sumPeakWave[idet]->SetBinContent(thit.firstBin + 1, sumPeakWave[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
       histHitCount->SetBinContent(tdet->channel + 1, histHitCount->GetBinContent(tdet->channel + 1) + 1);
+
+      /* bug fix */
+      if (thit.qpeak > 1.E3)
+        printf("line1682 BUG very large qpeak ch %i bin %i val %E sum %E \n", idet, thit.firstBin + 1, thit.qpeak, sumPeakWave[idet]->GetBinContent(thit.firstBin + 1));
 
       ntHit->Fill(double(entry), double(passBit), double(idet), thit.startTime, thit.peakt, thit.qpeak);
       // sum of photons in SPE for this channel
