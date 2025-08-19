@@ -2485,14 +2485,14 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
 
   printf("\n AVERAGE HITS \n");
-  for (int idet = 0; idet < sumPeakWave.size(); ++idet)
+  for (int idet = 0; idet < NONSUMCHANNELS; ++idet)
   {
     // printf("\t chan %i gain %.4f integral/gain  %.4E average hits per event %.4f \n ",
     //        idet, readGains->sipmSumGain[idet], sumPeakWave[idet]->Integral() / readGains->sipmSumGain[idet], sumPeakWave[idet]->Integral() / readGains->sipmSumGain[idet] / double(npass));
 
     for (int idet = 0; idet < sumPeakWave.size(); ++idet)
       printf("\t chan %i gain %.4f integral %.4E \n ",
-             idet, readGains->sipmSumGain[idet], sumPeakWave[idet]->Integral());
+             idet, readGains->sipmPeakGain[idet], sumPeakWave[idet]->Integral());
   }
 
   printf("PMT HIT MULTIPLICITY cut %0.f \n", qpeakCosmicCut);
