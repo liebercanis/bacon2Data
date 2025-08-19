@@ -2487,11 +2487,11 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
            hLateSum[idet]->GetMean());
   }
 
-  printf("\n AVERAGE HITS %i \n", npass);
+  printf("\n AVERAGE HITS passing = %i \n", npass);
   for (int idet = 0; idet < NONSUMCHANNELS; ++idet)
   {
     printf("\t chan %i gain %.4f integral/gain  %.4E average hits per event %.4f \n ",
-           idet, readGains->sipmPeakGain[idet], sumPeakWave[idet]->Integral() / readGains->sipmPeakGain[idet], sumPeakWave[idet]->Integral() / readGains->sipmPeakGain[idet] / double(npass));
+           idet, readGains->sipmPeakGain[idet], sumPeakWave[idet]->Integral(), sumPeakWave[idet]->Integral() / readGains->sipmPeakGain[idet] / double(npass));
 
     // printf("\t chan %i gain %.4f integral %.4E \n ",
     //        idet, readGains->sipmPeakGain[idet], sumPeakWave[idet]->Integral());
