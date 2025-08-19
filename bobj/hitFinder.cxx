@@ -900,8 +900,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
   {
     unsigned klow = std::get<0>(peakList[ip]);
     unsigned khigh = std::get<1>(peakList[ip]);
-    if (klow >= 7500 || khigh >= 7500)
-      printf("line904 hitFinder::makeHit WARNING!!! LATE (%u,%u) ip %u \n", klow, khigh, ip);
+
     // protect against end of array MG Aug. 19 2025
     // if (idet == 12)
     //   printf("line881 hitFinder::makeHits event %lli det %i hit  %u (%u,%u) kind %i length %u \n", theEvent, idet, ip, klow, khigh, peakKind[ip], khigh - klow);
@@ -936,10 +935,11 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     unsigned kstart = 0;
     if (diff > 0)
       kstart = unsigned(diff);
-    unsigned kend = TMath::Min(unsigned(digi.size()), peakt + peakWidth);
+    // BUG FIX MG August 19, 2025 cannot past end of digi!
+    unsigned kend = TMath::Min(unsigned(digi.size() - 1), peakt + peakWidth);
 
-    if (kstart > 7500 || kend > 7500)
-      printf("line915 hitFinder::makeHit LATE %u width %u (start %u,end %u) ip %u \n", peakt, peakWidth, kstart, kend, ip);
+    if (kstart >= 7500 || kend >= 7500)
+      printf("line941 hitFinder::makeHit LATE %u width %u (start %u,end %u) ip %u \n", peakt, peakWidth, kstart, kend, ip);
     // cut small peaks below hitThreshold
     hPeakCut[idet]->Fill(qpeak);
     hPeakCutAndTime[idet]->Fill(peakt, qpeak);
