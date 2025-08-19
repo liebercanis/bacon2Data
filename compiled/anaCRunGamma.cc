@@ -86,6 +86,9 @@ public:
 
   std::vector<TString> codeNames;
 
+  int npass;
+  int nfail;
+
   int badEvent = 5671;
   int failGamma = 0;
   int failCosmic = 0;
@@ -2301,8 +2304,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     return 0;
   }
 
-  int npass = 0;
-  int nfail = 0;
+  npass = 0;
+  nfail = 0;
   Long64_t lastEntry = firstEntry + nentries;
   printf("... total entries  %llu looping over %llu firstEntry %llu last %lld \n ", rawTree->GetEntries(), nentries, firstEntry, lastEntry);
   for (Long64_t entry = firstEntry; entry < lastEntry; ++entry)
