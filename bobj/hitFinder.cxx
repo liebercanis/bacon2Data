@@ -901,7 +901,8 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     unsigned klow = std::get<0>(peakList[ip]);
     unsigned khigh = std::get<1>(peakList[ip]);
     if (klow >= 7500 || khigh >= 7500)
-      printf("line891 hitFinder::makeHit WARNING!!! LATE (%u,%u) ip %u \n", klow, khigh, ip);
+      printf("line904 hitFinder::makeHit WARNING!!! LATE (%u,%u) ip %u \n", klow, khigh, ip);
+    // protect against end of array MG Aug. 19 2025
     // if (idet == 12)
     //   printf("line881 hitFinder::makeHits event %lli det %i hit  %u (%u,%u) kind %i length %u \n", theEvent, idet, ip, klow, khigh, peakKind[ip], khigh - klow);
     if (verbose)
@@ -1184,7 +1185,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
   firstCharge = dhit0.qsum;
   */
   /* bug fix */
-  printf("line1184  hitFinder::makeHits return event %lld det %i with %lu hits \n", theEvent, idet, detHits.size());
+  // printf("line1184  hitFinder::makeHits return event %lld det %i with %lu hits \n", theEvent, idet, detHits.size());
   unsigned jhit = 0;
   for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
   {
