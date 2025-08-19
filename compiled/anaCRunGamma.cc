@@ -1677,7 +1677,11 @@ int anaCRun::anaEvent(Long64_t entry)
 
       /* bug fix */
       if (thit.qpeak > 1.E5)
+      {
         printf("line1682 BUG very large qpeak ch %i bin %i val %E sum %E \n", idet, thit.firstBin + 1, thit.qpeak, sumPeakWave[idet]->GetBinContent(thit.firstBin + 1));
+        for (unsigned jhit = 0; jhit < tdet->hits.size(); ++jhit)
+          printf("\t\t hit %u bin %i val  %E \n", jhit, tdet->hits[jhit].firstBin, tdet->hits[jhit].qpeak);
+      }
 
       ntHit->Fill(double(entry), double(passBit), double(idet), thit.startTime, thit.peakt, thit.qpeak);
       // sum of photons in SPE for this channel
