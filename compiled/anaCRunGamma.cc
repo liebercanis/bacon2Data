@@ -2487,7 +2487,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
            hLateSum[idet]->GetMean());
   }
 
-  printf("\n AVERAGE HITS \n");
+  printf("\n AVERAGE HITS %i \n", npass);
   for (int idet = 0; idet < NONSUMCHANNELS; ++idet)
   {
     printf("\t chan %i gain %.4f integral/gain  %.4E average hits per event %.4f \n ",
