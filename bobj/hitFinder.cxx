@@ -872,7 +872,7 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
         printf("line830 ilow Diff! in makePeaks %lli add det %i  imax %i val %f icross %u from (%u,%u) %i\n", theEvent, idet, imax, maxVal, crossingBin[icross], ilow, ihigh, icross);
     }
 
-    if (ilow > 7500 && ihigh > 7500)
+    if (ilow >= 7500 && ihigh >= 7500)
       printf("line855 makePeaks ERROR!! LATE %lli add det %i  imax %i val %f icross %u from (%u,%u) %i\n", theEvent, idet, imax, maxVal, crossingBin[icross], ilow, ihigh, icross);
   }
 }
