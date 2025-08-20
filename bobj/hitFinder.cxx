@@ -49,7 +49,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   if (nSamples == CAENLENGTH)
     isCAEN = true;
   channelSigmaValue = sigmaValue;
-  verbose = true;
+  verbose = false;
   doPeakCorrection = true;
   TString templateDir = TString(getenv("BOBJ"));
   templateFileName = templateDir + TString("/templates-2023-05-01-15-06.root");
@@ -338,6 +338,11 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     */
   /////  copy to internal class vector////////
   digi = inputDigi;
+  if (digi.size() != CAENLENGTH)
+  {
+    printf("line442 hitFinder BAD DIGI SIZE %lu \n", digi.size());
+    return;
+  }
   bool trig = ichan == 9 || ichan == 10 || ichan == 11;
   theEvent = ievent;
   hitThreshold = theHitThreshold;
