@@ -592,16 +592,20 @@ void hitFinder::differentiate(int ichan, Long64_t ievent)
     sump = 0;
     for (unsigned j = 0; j < maxSum; ++j)
     {
+      if (i + 1 + j > 7480)
+        printf("line596 hitFinder::differentiate event %lld ichan %i i %i j%i i+1+j %i digi %E  \n", ievent, ichan, i, j, i + 1 + j, digi[i + 1 + j]);
       sump += digi[i + 1 + j];
     }
     summ = 0;
     for (unsigned j = 0; j < maxSum; ++j)
     {
+      if (j > 7480)
+        printf("line603 hitFinder::differentiate event %lld ichan %i i %i j%i i+1+j %i digi %E  \n", ievent, ichan, i, j, i - 1 - j, digi[i - 1 - j]);
       summ += digi[i - 1 - j];
     }
     ddigi[i] = sump - summ;
     if (i > 7480)
-      printf("line604 hitFinder::differentiate event %lld ichan %i step %i bin %i maxSum %u sump %E summ %E ddigi %E \n", ievent, ichan, diffStep, i, maxSum, sump, summ, ddigi[i]);
+      printf("line608 hitFinder::differentiate event %lld ichan %i step %i bin %i maxSum %u sump %E summ %E ddigi %E \n", ievent, ichan, diffStep, i, maxSum, sump, summ, ddigi[i]);
   }
 }
 
