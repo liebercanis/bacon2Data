@@ -586,6 +586,21 @@ void hitFinder::differentiate(int ichan, Long64_t ievent)
 {
   if (verbose)
     printf("line516 hitFinder::differentiate nsamples %lu step %u\n", digi.size(), diffStep);
+
+  // check validity of digi
+  bool validDigi = true;
+  unsigned badi = 0;
+  for (unsigned idigi = 0; idigi < digi.size(); ++idigi)
+    if (digi[idigi] > 1.E9)
+    {
+      validDigi = false;
+      badi = idigi;
+    }
+  if (!validDigi)
+  {
+    printf("line601 hitFinder INVALID DIGI chan %i event %lld bad %u \n", ichan, ievent, badi);
+  }
+
   ddigi.clear();
   ddigi.resize(digi.size());
   Double_t sump = 0;
