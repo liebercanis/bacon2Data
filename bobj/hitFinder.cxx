@@ -693,7 +693,7 @@ void hitFinder::findDerivativeCrossings(Int_t idet)
         printf("line633 PUP det %i  bin %i vi %f vj %f  \n", idet, ibin, vi, vj);
 
       if (ibin > 7488)
-        printf("line698 PUP det %i  bin %i vi %f vj %f  \n", idet, ibin, vi, vj);
+        printf("line698 PUP ddigi size %lu det %i  bin %i vi %f vj %f  \n", ddigi.size(), idet, ibin, vi, vj);
       // if(idet==13&& ibin>1040&&ibin<1070)
       //   printf("line635  PUP det %i  bin %i %f %f  \n", idet, ibin, digi[ibin], digi[ibin + 1]);
       crossings.push_back(PUP);
