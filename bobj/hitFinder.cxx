@@ -467,12 +467,12 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   }
 
   ddigi.clear();
-  // check validity of digi
+  // check validity of sdigi
   validDigi = true;
   badi = 0;
-  for (unsigned idigi = 0; idigi < digi.size(); ++idigi)
+  for (unsigned idigi = 0; idigi < sdigi.size(); ++idigi)
   {
-    if (digi[idigi] > 1.E9)
+    if (sdigi[idigi] > 1.E9)
     {
       validDigi = false;
       badi = idigi;
@@ -481,7 +481,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   }
   if (!validDigi)
   {
-    printf("line466 hitFinder after smoothing INVALID DIGI chan %i event %lld badi %u  \n", ichan, ievent, badi);
+    printf("line466 hitFinder after smoothing INVALID DIGI chan %i event %lld badi %u  sdigi %E %E \n", ichan, ievent, badi,
+           sdigi[badi - 1], sdigi[badi]);
     return;
   }
 
