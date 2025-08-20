@@ -130,7 +130,8 @@ public:
   // number of samples between overlapping pulses
   int minOverlap = 100; // based on SIPM response Aug 6.
   void event(int idet, Long64_t ievent, vector<double> rdigi, double theDerivativeThreshold, double theHitThreshold, unsigned step = 3);
-  void differentiate();
+  // void differentiate();
+  void differentiate(int ichan, Long64_t ievent);
   vector<double> differentiate(int step, vector<double> pdigi);
   void findThresholdCrossings(Int_t idet, double thresh);
   void findDerivativeCrossings(Int_t idet);
