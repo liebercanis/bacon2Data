@@ -599,8 +599,9 @@ void hitFinder::differentiate()
     {
       summ += digi[i - 1 - j];
     }
-    printf(" hitFinder::differentiate step %i bin %i maxSum %u sump %E summ %E \n", diffStep, i, maxSum, sump, summ);
     ddigi[i] = sump - summ;
+    if (i > 7488)
+      printf(" hitFinder::differentiate step %i bin %i maxSum %u sump %E summ %E ddigi %E \n", diffStep, i, maxSum, sump, summ, ddigi[i]);
   }
 }
 
