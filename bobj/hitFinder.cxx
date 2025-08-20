@@ -600,7 +600,7 @@ void hitFinder::differentiate(int ichan, Long64_t ievent)
       summ += digi[i - 1 - j];
     }
     ddigi[i] = sump - summ;
-    if (i > 7488)
+    if (i > 7480)
       printf("line604 hitFinder::differentiate event %lld ichan %i step %i bin %i maxSum %u sump %E summ %E ddigi %E \n", ievent, ichan, diffStep, i, maxSum, sump, summ, ddigi[i]);
   }
 }
