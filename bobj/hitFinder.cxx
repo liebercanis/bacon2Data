@@ -447,7 +447,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   }
 
   ddigi.clear();
-  differentiate();
+  differentiate(ichan, ievent);
   for (unsigned isample = 0; isample < ddigi.size(); isample++)
   {
     hDerivativeVal[idet]->Fill(ddigi[isample]);
@@ -570,7 +570,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
 }
 
 // revised derivative Jan 27 2023 MG
-void hitFinder::differentiate()
+void hitFinder::differentiate(int ichan, Long64_t ievent)
 {
   if (verbose)
     printf("line516 hitFinder::differentiate nsamples %lu step %u\n", digi.size(), diffStep);
@@ -601,7 +601,7 @@ void hitFinder::differentiate()
     }
     ddigi[i] = sump - summ;
     if (i > 7488)
-      printf(" hitFinder::differentiate step %i bin %i maxSum %u sump %E summ %E ddigi %E \n", diffStep, i, maxSum, sump, summ, ddigi[i]);
+      printf("line604 hitFinder::differentiate event %lld ichan %i step %i bin %i maxSum %u sump %E summ %E ddigi %E \n", ievent, ichan, diffStep, i, maxSum, sump, summ, ddigi[i]);
   }
 }
 
