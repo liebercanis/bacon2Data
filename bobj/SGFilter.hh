@@ -116,7 +116,7 @@ public:
                 if (ibin > vect.size())
                     continue;
                 yfilt[i] += vect[ibin] * weight[0][kk];
-                if (ibin / 100 * 100 == ibin)
+                if (i / 100 * 100 == i)
                     printf("line120 SGSUM bin=%i kk=%i weight %f val %f  \n", ibin, kk, weight[0][kk], yfilt[i]);
             }
         }
