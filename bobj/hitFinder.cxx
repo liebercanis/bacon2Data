@@ -599,7 +599,7 @@ void hitFinder::differentiate()
     {
       summ += digi[i - 1 - j];
     }
-    // if(verbose) printf(" hitFinder::differentiate bin %i maxSum %u sump %E summ %E \n",i,maxSum,sump,summ);
+    printf(" hitFinder::differentiate step %i bin %i maxSum %u sump %E summ %E \n", diffStep, i, maxSum, sump, summ);
     ddigi[i] = sump - summ;
   }
 }
