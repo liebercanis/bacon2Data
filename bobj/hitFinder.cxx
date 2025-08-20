@@ -344,17 +344,6 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     return;
   }
 
-  // check validity of digi
-  bool validDigi = true;
-  for (unsigned idigi = 0; idigi < digi.size(); ++idigi)
-    if (digi[idigi] > 1.E9)
-      validDigi = false;
-  if (!validDigi)
-  {
-    printf("line353 hitFinder INVALID DIGI chan %i event %lld \n", ichan, ievent);
-    return;
-  }
-
   bool trig = ichan == 9 || ichan == 10 || ichan == 11;
   theEvent = ievent;
   hitThreshold = theHitThreshold;
@@ -411,6 +400,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   } // if doFFT
   else
     fdigi = digi;
+
   // use filtered waveforms
   // for (unsigned isample = 0; isample < 20; isample++)
   // printf(" wfilter ??? %i %f %f ?? %f \n", isample, wfilter[isample], digi[isample], fdigi[isample]);
@@ -459,6 +449,24 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   }
 
   ddigi.clear();
+  // check validity of digi
+  bool validDigi = true;
+  unsigned badi = 0;
+  for (unsigned idigi = 0; idigi < digi.size(); ++idigi)
+  {
+    if (digi[idigi] > 1.E9)
+    {
+      validDigi = false;
+      badi = idigi;
+      break;
+    }
+  }
+  if (!validDigi)
+  {
+    printf("line466 hitFinder INVALID DIGI chan %i event %lld badi %u  \n", ichan, ievent, badi);
+    return;
+  }
+
   differentiate(ichan, ievent);
   for (unsigned isample = 0; isample < ddigi.size(); isample++)
   {
