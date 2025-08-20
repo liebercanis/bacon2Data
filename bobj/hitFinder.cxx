@@ -340,9 +340,21 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   digi = inputDigi;
   if (digi.size() != CAENLENGTH)
   {
-    printf("line442 hitFinder BAD DIGI SIZE %lu \n", digi.size());
+    printf("line343 hitFinder BAD DIGI SIZE %lu \n", digi.size());
     return;
   }
+
+  // check validity of digi
+  bool validDigi = true;
+  for (unsigned idigi = 0; idigi < digi.size(); ++idigi)
+    if (digi[idigi] > 1.E9)
+      validDigi = false;
+  if (!validDigi)
+  {
+    printf("line353 hitFinder INVALID DIGI chan %i event %lld \n", ichan, ievent);
+    return;
+  }
+
   bool trig = ichan == 9 || ichan == 10 || ichan == 11;
   theEvent = ievent;
   hitThreshold = theHitThreshold;
