@@ -49,7 +49,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   if (nSamples == CAENLENGTH)
     isCAEN = true;
   channelSigmaValue = sigmaValue;
-  verbose = false;
+  verbose = true;
   doPeakCorrection = true;
   TString templateDir = TString(getenv("BOBJ"));
   templateFileName = templateDir + TString("/templates-2023-05-01-15-06.root");
