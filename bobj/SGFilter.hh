@@ -116,8 +116,8 @@ public:
                 if (ibin > vect.size())
                     continue;
                 yfilt[i] += vect[ibin] * weight[0][kk];
-                // if (kk == filterLength - 1 && ibin / 100 * 100 == ibin)
-                //     printf("SGSUM bin=%i kk=%i weight %f bin %f weighted sum %f \n", ibin, kk, weight[0][kk], hist->GetBinContent(i), yfilt[i]);
+                if (kk == filterLength - 1 && ibin / 100 * 100 == ibin)
+                    printf("SGSUM bin=%i kk=%i weight %f val %f  \n", ibin, kk, weight[0][kk], yfilt[i]);
             }
         }
         return yfilt;
