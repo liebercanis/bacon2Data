@@ -113,7 +113,7 @@ public:
                 int ibin = i + kk - mwindow;
                 if (ibin < 0)
                     continue;
-                if (ibin > vect.size())
+                if (ibin >= vect.size())
                     continue;
                 yfilt[i] += vect[ibin] * weight[0][kk];
                 if (i > 7492)
