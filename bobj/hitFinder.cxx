@@ -344,6 +344,24 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     return;
   }
 
+  // check validity of digi
+  bool validDigi = true;
+  unsigned badi = 0;
+  for (unsigned idigi = 0; idigi < digi.size(); ++idigi)
+  {
+    if (digi[idigi] > 1.E9)
+    {
+      validDigi = false;
+      badi = idigi;
+      break;
+    }
+  }
+  if (!validDigi)
+  {
+    printf("line361 hitFinder INVALID DIGI chan %i event %lld badi %u  \n", ichan, ievent, badi);
+    return;
+  }
+
   bool trig = ichan == 9 || ichan == 10 || ichan == 11;
   theEvent = ievent;
   hitThreshold = theHitThreshold;
@@ -450,8 +468,8 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
 
   ddigi.clear();
   // check validity of digi
-  bool validDigi = true;
-  unsigned badi = 0;
+  validDigi = true;
+  badi = 0;
   for (unsigned idigi = 0; idigi < digi.size(); ++idigi)
   {
     if (digi[idigi] > 1.E9)
@@ -463,7 +481,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   }
   if (!validDigi)
   {
-    printf("line466 hitFinder INVALID DIGI chan %i event %lld badi %u  \n", ichan, ievent, badi);
+    printf("line466 hitFinder after smoothing INVALID DIGI chan %i event %lld badi %u  \n", ichan, ievent, badi);
     return;
   }
 
