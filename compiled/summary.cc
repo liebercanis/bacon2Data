@@ -581,6 +581,8 @@ void fileLoop()
     }
     else
     {
+      printf("line584 \n");
+      printf("line585 %s \n", hRunEventPass->GetName());
       fout->GetObject("RunEventPass", hRunEventPass);
       hRunEventPass->Add(hEventPass);
     }
