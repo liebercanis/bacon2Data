@@ -1144,11 +1144,13 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     */
   }
 
+  /* debugging
   unsigned jjhit = 0;
   for (hitMapIter hitIter1 = detHits.begin(); hitIter1 != detHits.end(); ++hitIter1)
   {
     printf("line1078 ALL HITS hitFinder  channel %i hit %u bin %i last bin %i  qpeak  %E \n", idet, jjhit++, hitIter1->second.firstBin, hitIter1->second.lastBin, hitIter1->second.qpeak);
   }
+  */
 
   int nhit = 0;
 
