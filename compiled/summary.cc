@@ -207,7 +207,7 @@ void setTime(TString startTag, TString endTag)
 // normalize to total pass
 void normalizeTotalPass(TString histSet)
 {
-  printf("line195 \n\n \t  in normalizeTotalPass runSumDir has %d \n", runSumDir->GetList()->GetEntries());
+  printf("line195  \t  in normalizeTotalPass runSumDir has %d \n", runSumDir->GetList()->GetEntries());
   TString histName;
   for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
   {
@@ -590,6 +590,7 @@ void fileLoop()
     }
     else
     {
+      // why do I need this check?
       if (!hEventPass)
       {
         printf("NO EVENT PASS IN FILE %i \n", ifile);
