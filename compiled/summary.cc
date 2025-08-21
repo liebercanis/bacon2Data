@@ -593,12 +593,12 @@ void fileLoop()
       // why do I need this check?
       if (!hEventPass)
       {
-        printf("NO EVENT PASS IN FILE %i \n", ifile);
+        printf("line596 NO EVENT PASS IN FILE %i \n", ifile);
         continue;
       }
       else
       {
-        printf("line600 file %i name  %s \n", ifile, hRunEventPass->GetName());
+        printf("line600 file %i SUM  %s \n", ifile, hRunEventPass->GetName());
         fout->GetObject("RunEventPass", hRunEventPass);
         hRunEventPass->Add(hEventPass);
       }
