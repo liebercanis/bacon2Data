@@ -473,6 +473,12 @@ void fileLoop()
     TString fullName = dirNameSlash + fileList[ifile];
     fin = new TFile(fullName, "readonly");
 
+    if (fin.IsZombie())
+    {
+      printf(" \n *****  skip zomgie file %i  %s  *******\n", ifile, fin->GetName());
+      continue;
+    }
+
     printf(" \n ***** starting file %i  %s  *******\n", ifile, fin->GetName());
 
     eventCount = NULL;
