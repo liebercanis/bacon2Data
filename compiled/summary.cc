@@ -595,9 +595,12 @@ void fileLoop()
         printf("NO EVENT PASS IN FILE %i \n", ifile);
         continue;
       }
-      printf("line593 %s \n", hRunEventPass->GetName());
-      fout->GetObject("RunEventPass", hRunEventPass);
-      hRunEventPass->Add(hEventPass);
+      else
+      {
+        printf("line600 %s \n", hRunEventPass->GetName());
+        fout->GetObject("RunEventPass", hRunEventPass);
+        hRunEventPass->Add(hEventPass);
+      }
     }
 
     // TrigSumNoCut
