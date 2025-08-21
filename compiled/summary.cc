@@ -597,7 +597,7 @@ void fileLoop()
       }
       else
       {
-        printf("line600 %s \n", hRunEventPass->GetName());
+        printf("line600 file %i name  %s \n", ifile, hRunEventPass->GetName());
         fout->GetObject("RunEventPass", hRunEventPass);
         hRunEventPass->Add(hEventPass);
       }
