@@ -591,7 +591,10 @@ void fileLoop()
     else
     {
       if (!hEventPass)
+      {
+        printf("NO EVENT PASS IN FILE %i name %s\n", ifile, fin->GetName());
         continue;
+      }
       printf("line593 %s \n", hRunEventPass->GetName());
       fout->GetObject("RunEventPass", hRunEventPass);
       hRunEventPass->Add(hEventPass);
