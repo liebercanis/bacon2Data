@@ -101,8 +101,8 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   hPeakValue = new TH1D("PeakValue", "Peak value (not trigger)", 1000, 0, 5000);
   hPeakCrossingBin = new TH1D("PeakCrossingBin", "peak Crossing Bin", 100, 0, 100);
   hPeakCrossingRatio = new TH1D("PeakCrossingRatio", "peak Crossing Ratio", 100, 0., 1.);
-  hOverlap = new TH1D("Overlap", "peak overlap (sampples ) ", 300, 0., 300.);
-
+  hOverlap = new TH1D("Overlap", "peak overlap (samples ) ", 300, 0., 300.);
+  hPeakCorrectionOffset = new TH1D("PeakCorrectionOffset", "PeakCorrectionOffset", 1100, -100., 10000.);
   if (doFFT)
   {
     if (verbose)
@@ -1220,6 +1220,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
           { // this is hack for bad fit
             double qpeakBefore = hitNext.qpeak;
             detHitList[nextIndex].qpeak -= offSet;
+            hPeakCorrectionOffset->Fill(offSet);
             if (verbose)
               printf("line1121  hitFinder::makeHit event %llu det %i hit %i found overlap this hit (%i,%i,%i) last peak (%i,%i,%i) fit range (%fi,%f) slope  %f offset %f  peak was %f corrected %f \n", theEvent, idet, ++nhit, hitNext.firstBin, hitNext.peakBin, hitNext.lastBin, hitj.firstBin, hitj.peakBin, hitj.lastBin, fitStart, fitEnd, slope, offSet, qpeakBefore, detHitList[nextIndex].qpeak);
             //   having corrected this peak,
@@ -1243,8 +1244,8 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
         // detHits.at(peakTimeList[j]).qpeak = detHits.at(peakTimeList[j]).qpeak;
         detHits.erase(peakTimeList[j]);
         detHits.insert(std::pair<Double_t, TDetHit>(detHitList[indexList[j]].peakt, detHitList[indexList[j]]));
-        // if (verbose)
-        printf(" line1144 event %llu det %i corected peak value peak bin %i time %u qpeak %f to %f  \n", theEvent, idet, detHits.at(peakTimeList[j]).peakBin, peakTimeList[j], oldPeak, detHits.at(peakTimeList[j]).qpeak);
+        if (verbose)
+          printf(" line1144 event %llu det %i corected peak value peak bin %i time %u qpeak %f to %f  \n", theEvent, idet, detHits.at(peakTimeList[j]).peakBin, peakTimeList[j], oldPeak, detHits.at(peakTimeList[j]).qpeak);
       }
 
       /*
