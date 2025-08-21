@@ -345,6 +345,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   }
 
   // check validity of digi
+  /*
   bool validDigi = true;
   unsigned badi = 0;
   for (unsigned idigi = 0; idigi < digi.size(); ++idigi)
@@ -361,6 +362,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     printf("line361 hitFinder INVALID DIGI chan %i event %lld badi %u  \n", ichan, ievent, badi);
     return;
   }
+  */
 
   bool trig = ichan == 9 || ichan == 10 || ichan == 11;
   theEvent = ievent;
@@ -468,6 +470,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
 
   ddigi.clear();
   // check validity of sdigi
+  /*
   validDigi = true;
   badi = 0;
   for (unsigned idigi = 0; idigi < sdigi.size(); ++idigi)
@@ -485,6 +488,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
            sdigi[badi - 1], sdigi[badi]);
     return;
   }
+    */
 
   differentiate(ichan, ievent);
   for (unsigned isample = 0; isample < ddigi.size(); isample++)
@@ -615,6 +619,7 @@ void hitFinder::differentiate(int ichan, Long64_t ievent)
     printf("line516 hitFinder::differentiate nsamples %lu step %u\n", digi.size(), diffStep);
 
   // check validity of digi
+  /*
   bool validDigi = true;
   unsigned badi = 0;
   for (unsigned idigi = 0; idigi < digi.size(); ++idigi)
@@ -627,6 +632,7 @@ void hitFinder::differentiate(int ichan, Long64_t ievent)
   {
     printf("line601 hitFinder INVALID DIGI chan %i event %lld bad %u \n", ichan, ievent, badi);
   }
+    */
 
   ddigi.clear();
   ddigi.resize(digi.size());
@@ -646,20 +652,20 @@ void hitFinder::differentiate(int ichan, Long64_t ievent)
     sump = 0;
     for (unsigned j = 0; j < maxSum; ++j)
     {
-      if (i + 1 + j > 7480)
-        printf("line596 hitFinder::differentiate event %lld ichan %i i %i j%i i+1+j %i digi %E  \n", ievent, ichan, i, j, i + 1 + j, digi[i + 1 + j]);
+      // f (i + 1 + j > 7480)
+      //   printf("line596 hitFinder::differentiate event %lld ichan %i i %i j%i i+1+j %i digi %E  \n", ievent, ichan, i, j, i + 1 + j, digi[i + 1 + j]);
       sump += digi[i + 1 + j];
     }
     summ = 0;
     for (unsigned j = 0; j < maxSum; ++j)
     {
-      if (j > 7480)
-        printf("line603 hitFinder::differentiate event %lld ichan %i i %i j%i i+1+j %i digi %E  \n", ievent, ichan, i, j, i - 1 - j, digi[i - 1 - j]);
+      // if (j > 7480)
+      //   printf("line603 hitFinder::differentiate event %lld ichan %i i %i j%i i+1+j %i digi %E  \n", ievent, ichan, i, j, i - 1 - j, digi[i - 1 - j]);
       summ += digi[i - 1 - j];
     }
     ddigi[i] = sump - summ;
-    if (i > 7480)
-      printf("line608 hitFinder::differentiate event %lld ichan %i step %i bin %i maxSum %u sump %E summ %E ddigi %E \n", ievent, ichan, diffStep, i, maxSum, sump, summ, ddigi[i]);
+    // if (i > 7480)
+    // printf("line608 hitFinder::differentiate event %lld ichan %i step %i bin %i maxSum %u sump %E summ %E ddigi %E \n", ievent, ichan, diffStep, i, maxSum, sump, summ, ddigi[i]);
   }
 }
 
