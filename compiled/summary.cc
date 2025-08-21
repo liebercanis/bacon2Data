@@ -575,7 +575,7 @@ void fileLoop()
 
     // get hist of cleanup cut pass bit
     hEventPass = nullptr;
-    printf("line572 collect EventPass \n");
+    printf("line572 collect EventPass ifile %i  \n", ifile);
     fin->GetObject("EventPass", hEventPass);
     if (!hEventPass)
     {
