@@ -164,6 +164,7 @@ public:
   TH1I *hPeakNWidth;
   TH1D *hPeakCrossingBin;
   TH1D *hPeakCrossingRatio;
+  TH1D *hPeakCorrectionOffset;
 
   /// The fft class to take the fourier transform.
   TVirtualFFT *fFFT;
