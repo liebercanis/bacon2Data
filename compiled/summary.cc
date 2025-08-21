@@ -234,8 +234,8 @@ void normalizeTotalPass(TString histSet)
         // if (xbin < 0)
         // cout << " at line212 " << hist->GetName() << " ibin " << ibin << " xbin " << xbin << " ebin " << ebin << " tot " << totalPass << endl;
         // divide by nominal gain july 22 2024
-        hSave->SetBinContent(ibin, xbin / double(totalPass) / nominalGain);
-        hSave->SetBinError(ibin, ebin / double(totalPass) / nominalGain);
+        hSave->SetBinContent(ibin, xbin / double(totalPass) / readGains->sipmPeakGain[ichan]);
+        hSave->SetBinError(ibin, ebin / double(totalPass) / readGains->sipmSumGain[ichan]);
       }
       cout << "at line171"
            << " totalPass " << totalPass << "  " << hist->GetName() << " integral " << hist->Integral(startTime, endTime)
@@ -1355,14 +1355,6 @@ int main(int argc, char *argv[])
   effOther[8] = 8.533E-02;
   effOther[12] = 2.779E-01;
   */
-
-  // new gain file
-  TString gainFilePeakName = TString(getenv("BOBJ")) + TString("/gainPeak-05_19_2025-05_19_2025-2025-06-30-14-07.root");
-  TString gainFileSumName = TString(getenv("BOBJ")) + TString("/gainSum-05_19_2025-05_19_2025-2025-06-30-14-10.root");
-  cout << "read gains from file " << gainFilePeakName << "" << gainFileSumName << endl;
-  readGains->readPeakGains(gainFilePeakName);
-  readGains->readPeakGains(gainFileSumName);
-  readGains->printGains();
 
   // use a relative normalization
   /*

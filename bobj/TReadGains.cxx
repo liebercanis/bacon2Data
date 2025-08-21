@@ -11,6 +11,14 @@ ClassImp(TReadGains)
     nominalPmtGain = 502.;
     nominalQsumPmtGain = 1713;
     clear();
+
+    // new gain file
+    gainFilePeakName = TString(getenv("BOBJ")) + TString("/gainPeakCurrent.root");
+    gainFileSumName = TString(getenv("BOBJ")) + TString("/gainSumCurrent.root");
+    cout << "read gains from file " << gainFilePeakName << "" << gainFileSumName << endl;
+    readPeakGains(gainFilePeakName);
+    readSumGains(gainFileSumName);
+    printGains();
 }
 
 void TReadGains::clear()

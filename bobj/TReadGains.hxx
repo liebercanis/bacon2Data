@@ -33,6 +33,8 @@ public:
   void clear();
 
   // data elements
+  TString gainFilePeakName;
+  TString gainFileSumName;
   std::vector<double> sipmPeakGain;
   std::vector<double> sipmPeakGainError;
   std::vector<double> sipmSumGain;

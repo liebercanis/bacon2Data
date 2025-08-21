@@ -2033,13 +2033,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   printf(" anaCRun::anaCRunFile starting anaCRun file %s maxEntries %llu firstEntry %llu \n",
          theFile.Data(), maxEntries, firstEntry);
 
-  // new gain file
-  TString gainFilePeakName = TString(getenv("BOBJ")) + TString("/gainPeak-05_19_2025-05_19_2025-2025-06-30-14-07.root");
-  TString gainFileSumName = TString(getenv("BOBJ")) + TString("/gainSum-05_19_2025-05_19_2025-2025-06-30-14-10.root");
-  cout << "read gains from file " << gainFilePeakName << "" << gainFileSumName << endl;
-  readGains->readPeakGains(gainFilePeakName);
-  readGains->readSumGains(gainFileSumName);
-
   // store qsumGain[ib];
   for (unsigned ch = 0; ch < readGains->sipmSumGain.size(); ++ch)
     qsumGain.push_back(readGains->sipmSumGain[ch]);
