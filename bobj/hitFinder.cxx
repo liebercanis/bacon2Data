@@ -1227,7 +1227,8 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
           }
           else
           {
-            printf("line1126 hitFinder::makeHit event BAD OFFSET  %llu det %i  found overlap this hit (%i,%i,%i) last peak (%i,%i,%i) sigma %f offset %f nominalGain %f \n", theEvent, idet, hitNext.firstBin, hitNext.peakBin, hitNext.lastBin, hitj.firstBin, hitNext.peakBin, hitNext.lastBin, slope, offSet, nominalGain);
+            if (verbose)
+              printf("line1126 hitFinder::makeHit event BAD OFFSET  %llu det %i  found overlap this hit (%i,%i,%i) last peak (%i,%i,%i) sigma %f offset %f nominalGain %f \n", theEvent, idet, hitNext.firstBin, hitNext.peakBin, hitNext.lastBin, hitj.firstBin, hitNext.peakBin, hitNext.lastBin, slope, offSet, nominalGain);
           }
           // correct
           // overlap fix hitj is the first
