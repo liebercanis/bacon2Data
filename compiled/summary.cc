@@ -584,6 +584,7 @@ void fileLoop()
     }
     if (ifile == 0)
     {
+      fin->ls();
       printf("line579 ADD  %s \n", hRunEventPass->GetName());
       hRunEventPass = (TH1D *)hEventPass->Clone("RunEventPass");
       fout->Add(hRunEventPass);
