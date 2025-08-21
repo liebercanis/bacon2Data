@@ -576,14 +576,20 @@ void fileLoop()
     }
     if (ifile == 0)
     {
+      printf("line579 ADD  %s \n", hRunEventPass->GetName());
       hRunEventPass = (TH1D *)hEventPass->Clone("RunEventPass");
       fout->Add(hRunEventPass);
     }
     else
     {
       printf("line584 \n");
+      if (!hEventPass)
+      {
+        printf("NO EVENT PASS \n");
+        continue;
+      }
       if (hEventPass)
-        printf("line585 %s \n", hRunEventPass->GetName());
+        printf("line592 %s \n", hRunEventPass->GetName());
       fout->GetObject("RunEventPass", hRunEventPass);
       hRunEventPass->Add(hEventPass);
     }
