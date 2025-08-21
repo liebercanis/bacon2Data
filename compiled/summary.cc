@@ -568,6 +568,8 @@ void fileLoop()
     } // if sumDir
 
     // get hist of cleanup cut pass bit
+    hEventPass = nullptr;
+    printf("line572 collect EventPass \n");
     fin->GetObject("EventPass", hEventPass);
     if (!hEventPass)
     {
@@ -589,7 +591,7 @@ void fileLoop()
         continue;
       }
       if (hEventPass)
-        printf("line592 %s \n", hRunEventPass->GetName());
+        printf("line5 %s \n", hRunEventPass->GetName());
       fout->GetObject("RunEventPass", hRunEventPass);
       hRunEventPass->Add(hEventPass);
     }
