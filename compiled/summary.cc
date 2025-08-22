@@ -64,7 +64,7 @@ TString theEndTag;
 std::string sdate;
 vector<double> normQsum;
 vector<double> normQPE;
-TDatime dopeTime;
+TDatime dateTime;
 time_t time0;
 time_t time1;
 struct tm tmStruct;
@@ -466,6 +466,8 @@ void fileLoop()
 {
   totalPass = 0;
   nFiles = 0;
+  filenum.clear();
+  efilenum.clear();
   printf("\n \n \n +++++++ fileLoop over %lld files +++++ \n", maxFiles);
   // DEF would be nice to put in a way to look at the last maxFiles files
   for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
@@ -770,14 +772,8 @@ void fileLoop()
       peakSumDir->Add(hp);
     }
 
-    filenum.push_back(double(ifile));
-    efilenum.push_back(0);
-    TDatime datetime = getTime(ifile);
-    fileDatime.push_back(datetime);
-    fileTime.push_back(datetime.Convert());
-
     cout << " TIME FILE  " << ifile << " " << fileList[ifile] << " modified "
-         << " TDatime " << datetime.AsString() << " as int " << datetime.Convert() << endl;
+         << " TDatime " << dateTime.AsString() << " as int " << dateTime.Convert() << endl;
 
     if (hqsum && hqprompt)
     {
@@ -915,6 +911,12 @@ void fileLoop()
     // waveSumDir->Write();
     totalPass += int(npass);
     ++nFiles;
+    filenum.push_back(double(ifile));
+    efilenum.push_back(0);
+    TDatime dateTime = getTime(ifile);
+    fileDatime.push_back(dateTime);
+    fileTime.push_back(dateTime.Convert());
+
     fin->Close();
     printf("line812 end loop over sumDir keys file %i of %i named %s file pass %i totalPass %i WaveSumDir keys %i \n", ifile, nFiles, fin->GetName(), int(npass), totalPass, waveSumDir->GetNkeys());
   } // end loop over files
@@ -1250,7 +1252,7 @@ int main(int argc, char *argv[])
 
   setTime(theStartTag, theEndTag);
 
-  dopeTime = TDatime(2023, 3, 9, 22, 0, 0);
+  dateTime = TDatime(2023, 3, 9, 22, 0, 0);
 
   printf("count files from %s to %s \n", theStartTag.Data(), theEndTag.Data());
   unsigned nfiles = countFiles();
@@ -1532,7 +1534,7 @@ int main(int argc, char *argv[])
 
 // report
 /*for (unsigned it = 0; it < fileTime.size(); ++it)
-  if (fileDatime[it].Convert() < dopeTime.Convert())
+  if (fileDatime[it].Convert() < dateTime.Convert())
     cout << " before " << fileDatime[it].AsString() << "  " << fileList[it] << endl;
   else
     cout << " after  " << fileDatime[it].AsString() << "  " << fileList[it] << endl;
@@ -1631,7 +1633,7 @@ void makeGraphs()
       {
         for (unsigned jt = 0; jt < 20; ++jt)
         {
-          if (!isinf(vecQsum[ic][jt]) && vecQsum[ic][jt] > 0 && fileDatime[jt].Convert() < dopeTime.Convert())
+          if (!isinf(vecQsum[ic][jt]) && vecQsum[ic][jt] > 0 && fileDatime[jt].Convert() < dateTime.Convert())
           {
             beforeSum += vecQsum[ic][jt];
             ++normCount;
