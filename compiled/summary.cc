@@ -237,9 +237,11 @@ void normalizeTotalPass(TString histSet)
         hSave->SetBinContent(ibin, xbin / double(totalPass) / readGains->sipmPeakGain[ichan]);
         hSave->SetBinError(ibin, ebin / double(totalPass) / readGains->sipmSumGain[ichan]);
       }
+      /*
       cout << "at line171"
            << " file " << filenum.size() << " totalPass " << totalPass << "  " << hist->GetName() << " integral " << hist->Integral(startTime, endTime)
            << " normed  " << hSave->GetName() << " integral " << hSave->Integral(startTime, endTime) << endl;
+      */
     }
   }
 }
@@ -1477,7 +1479,7 @@ int main(int argc, char *argv[])
       continue;
     int fileNumber = TString(sname(sname.Last('e') + 1, sname.Length())).Atoi();
     double inte = h->Integral();
-    printf("line1435 file %i chan %i %s pass %i integral %.3E \n", fileNumber, chanNumber, h->GetName(), filePass[fileNumber], inte);
+    printf("line1435 file %i hist %s chan %i %s pass %i integral %.3E \n", fileNumber, h->GetName(), chanNumber, h->GetName(), filePass[fileNumber], inte);
     runSums[chanNumber].push_back(inte);
     runSumNames[chanNumber].push_back(h->GetName());
   }
