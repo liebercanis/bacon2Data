@@ -468,6 +468,7 @@ void fileLoop()
   nFiles = 0;
   filenum.clear();
   efilenum.clear();
+  hRunEventPass = nullptr;
   printf("\n \n \n +++++++ fileLoop over %lld files +++++ \n", maxFiles);
   // DEF would be nice to put in a way to look at the last maxFiles files
   for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
@@ -593,18 +594,9 @@ void fileLoop()
     }
     else
     {
-      // why do I need this check?
-      if (!hEventPass)
-      {
-        printf("line596 NO EVENT PASS IN FILE %i \n", ifile);
-        continue;
-      }
-      else
-      {
-        printf("line600 file %i SUM  %s \n", ifile, hEventPass->GetName());
-        fout->GetObject("RunEventPass", hRunEventPass);
-        hRunEventPass->Add(hEventPass);
-      }
+      printf("line600 file %i SUM  %s  to %s \n", ifile, hEventPass->GetName(), hRunEventPass->GetName());
+      fout->GetObject("RunEventPass", hRunEventPass);
+      hRunEventPass->Add(hEventPass);
     }
 
     // TrigSumNoCut
