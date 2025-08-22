@@ -483,6 +483,11 @@ void fileLoop()
     }
 
     printf(" \n ***** starting file %i  %s  *******\n", ifile, fin->GetName());
+    filenum.push_back(double(ifile));
+    efilenum.push_back(0);
+    TDatime dateTime = getTime(ifile);
+    fileDatime.push_back(dateTime);
+    fileTime.push_back(dateTime.Convert());
 
     eventCount = NULL;
 
@@ -903,11 +908,6 @@ void fileLoop()
     // waveSumDir->Write();
     totalPass += int(npass);
     ++nFiles;
-    filenum.push_back(double(ifile));
-    efilenum.push_back(0);
-    TDatime dateTime = getTime(ifile);
-    fileDatime.push_back(dateTime);
-    fileTime.push_back(dateTime.Convert());
 
     fin->Close();
     printf("line812 end loop over sumDir keys file %i of %i named %s file pass %i totalPass %i WaveSumDir keys %i \n", ifile, nFiles, fin->GetName(), int(npass), totalPass, waveSumDir->GetNkeys());
