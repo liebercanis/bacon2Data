@@ -507,7 +507,7 @@ void fileLoop()
     TDatime dateTime = getTime(ifile);
     fileDatime.push_back(dateTime);
     fileTime.push_back(dateTime.Convert());
-    printf(" \n ***** starting file %i , %lu  %s  *******\n", ifile, filenum.size(), fin->GetName());
+    printf(" \n ***** starting file %i , %lu  %s  pass %.0f *******\n", ifile, filenum.size(), fin->GetName(), npass);
     /* add peak and sum gains */
     TDirectory *sumDir = NULL;
     fin->GetObject("sumDir", sumDir); // typeO in directory name
