@@ -1378,8 +1378,8 @@ int main(int argc, char *argv[])
     effOther[ichan] = effOther[ichan] / effOther[7];
   }
   */
-  cout << "@ fileLoop" << endl;
   fileLoop();
+  cout << "@ fileLoop" << filenum.size() << endl;
   fout->Write();
 
   // waveSumDir->ls();
