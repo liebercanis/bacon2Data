@@ -544,8 +544,8 @@ void fileLoop()
           {
             gainSumDir->GetObject(gainOutName, hOut);
             hOut->Add(hIn);
-            cout << "line526 ... found for " << gainOutName
-                 << " in entries " << hIn->GetEntries() << " hit QPeak " << hOut->GetEntries() << endl;
+            // cout << "line526 ... found for " << gainOutName
+            //      << " in entries " << hIn->GetEntries() << " hit QPeak " << hOut->GetEntries() << endl;
           }
         } // if hIn
       } // channel loop
@@ -573,8 +573,8 @@ void fileLoop()
           {
             gainSumDir->GetObject(gainOutName, hOut);
             hOut->Add(hIn);
-            cout << "line621 ... found for " << gainOutName
-                 << " in entries " << hIn->GetEntries() << " hit QSum " << hOut->GetEntries() << endl;
+            // cout << "line621 ... found for " << gainOutName
+            //      << " in entries " << hIn->GetEntries() << " hit QSum " << hOut->GetEntries() << endl;
           }
         } // if hIn
       } // channel loop
