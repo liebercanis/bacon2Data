@@ -482,13 +482,6 @@ void fileLoop()
       continue;
     }
 
-    filenum.push_back(double(ifile));
-    efilenum.push_back(0);
-    TDatime dateTime = getTime(ifile);
-    fileDatime.push_back(dateTime);
-    fileTime.push_back(dateTime.Convert());
-    printf(" \n ***** starting file %lu  %s  *******\n", filenum.size(), fin->GetName());
-
     eventCount = NULL;
 
     cout << " get event Count " << ifile << endl;
@@ -508,6 +501,13 @@ void fileLoop()
       printf("NO EVENT COUNT IN FILE %i  %s\n", ifile, fin->GetName());
       continue;
     }
+
+    filenum.push_back(double(ifile));
+    efilenum.push_back(0);
+    TDatime dateTime = getTime(ifile);
+    fileDatime.push_back(dateTime);
+    fileTime.push_back(dateTime.Convert());
+    printf(" \n ***** starting file %i , %lu  %s  *******\n", ifile, filenum.size(), fin->GetName());
     /* add peak and sum gains */
     TDirectory *sumDir = NULL;
     fin->GetObject("sumDir", sumDir); // typeO in directory name
