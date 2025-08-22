@@ -587,15 +587,14 @@ void fileLoop()
     }
     if (ifile == 0)
     {
-      printf("line579 ADD  %s \n", hEventPass->GetName());
       hRunEventPass = (TH1D *)hEventPass->Clone("RunEventPass");
-      printf("line591 ADD TO %s \n", hRunEventPass->GetName());
+      printf("line579 ADD  %s to %s \n", hEventPass->GetName(), hRunEventPass->GetName());
       fout->Add(hRunEventPass);
     }
     else
     {
-      printf("line600 file %i SUM  %s  to %s \n", ifile, hEventPass->GetName(), hRunEventPass->GetName());
       fout->GetObject("RunEventPass", hRunEventPass);
+      printf("line600 file %i SUM  %s  to %s \n", ifile, hEventPass->GetName(), hRunEventPass->GetName());
       hRunEventPass->Add(hEventPass);
     }
 
