@@ -238,7 +238,7 @@ void normalizeTotalPass(TString histSet)
         hSave->SetBinError(ibin, ebin / double(totalPass) / readGains->sipmSumGain[ichan]);
       }
       cout << "at line171"
-           << " totalPass " << totalPass << "  " << hist->GetName() << " integral " << hist->Integral(startTime, endTime)
+           << " file " << filenum.size() << " totalPass " << totalPass << "  " << hist->GetName() << " integral " << hist->Integral(startTime, endTime)
            << " normed  " << hSave->GetName() << " integral " << hSave->Integral(startTime, endTime) << endl;
     }
   }
@@ -1394,7 +1394,7 @@ int main(int argc, char *argv[])
 
   for (unsigned jfile = 0; jfile < filenum.size(); ++jfile)
   {
-    printf(" %i %s \n", int(filenum[jfile]), fileList[jfile].Data());
+    printf(" file %i %s \n", int(filenum[jfile]), fileList[jfile].Data());
   }
 
   // printf("line1327 ..................... endNow skipping sumHistos...................\n");
