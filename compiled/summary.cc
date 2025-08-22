@@ -600,7 +600,8 @@ void fileLoop()
       }
       else
       {
-        printf("line600 file %i SUM  %s \n", ifile, hRunEventPass->GetName());
+        // printf("line600 file %i SUM  %s \n", ifile, hRunEventPass->GetName());
+        printf("line600 file %i SUM   \n", ifile);
         fout->GetObject("RunEventPass", hRunEventPass);
         hRunEventPass->Add(hEventPass);
       }
