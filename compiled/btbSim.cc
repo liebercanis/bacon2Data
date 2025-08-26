@@ -37,6 +37,7 @@ TDirectory *scanDir;
 bool writeRawData = true;
 bool useMap = false;
 int reportInterval = 1000;
+double zZero = 0.3; // source position
 
 modelFit *models[NCHAN];
 TNtuple *ntOrigin;
@@ -110,6 +111,7 @@ double nominalSimQsumTrigGain = 32056.789775; // rough estimate
 double peakQsum[3];
 
 ROOT::Math::XYZVector eventOrigin(0, 0, 0);
+ROOT::Math::XYZVector eventOriginOffset(0, 0, zZero);
 
 // z is positive into array!
 // ROOT::Math::XYZVector positionSipm9(1.052, -0.608, 0.851);
@@ -328,7 +330,7 @@ double effGeoSim(int ichan) // uses PositionVector3D eventOrigin;
     trigPhi[2] = positionSipm11.Phi(); // 9
 
     ROOT::Math::XYZVector rSipm = getXYZVector(trigRadius, trigTheta, trigPhi[ichan - 9]);
-    ROOT::Math::XYZVector relative = rSipm - eventOrigin;
+    ROOT::Math::XYZVector relative = rSipm - eventOriginOffset;
 
     double distance2 = relative.Mag2();
     // Area of SiPMs is 6.0mm x 6.0mm
@@ -608,10 +610,14 @@ void btb(int ngen = 10000000)
     {
       gammaR = abs(ran->Exp(meanFreePath));
       // gammaCosTheta = 2 * ran->Rndm() - 1.;
-      gammaCosTheta = ran->Rndm();                      // use only positive z
+      // for shifted source z to zZero need larger range
+      // gammaCosTheta = ran->Rndm();                   // use only positive z
+      gammaCosTheta = 1.31 * ran->Rndm() - 1.;          // cos range is -1 to 0.31
       gammaPhi = (2. * ran->Rndm() - 1.) * TMath::Pi(); // -pi to pi
     }
     eventOrigin = getXYZVector(gammaR, acos(gammaCosTheta), gammaPhi);
+    /*  add z offset zZero */
+    eventOrigin = eventOrigin + eventOriginOffset;
     double localPhi = eventOrigin.Phi() * 360. / TMath::TwoPi();
     if (localPhi < 0)
       localPhi += 360.;
