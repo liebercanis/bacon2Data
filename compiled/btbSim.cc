@@ -36,6 +36,7 @@ TDirectory *scanDir;
 
 bool writeRawData = true;
 bool useMap = false;
+bool originOffset = false;
 int reportInterval = 1000;
 double zZero = 0.3; // source position
 
@@ -330,7 +331,7 @@ double effGeoSim(int ichan) // uses PositionVector3D eventOrigin;
     trigPhi[2] = positionSipm11.Phi(); // 9
 
     ROOT::Math::XYZVector rSipm = getXYZVector(trigRadius, trigTheta, trigPhi[ichan - 9]);
-    ROOT::Math::XYZVector relative = rSipm - eventOriginOffset;
+    ROOT::Math::XYZVector relative = rSipm - eventOrigin;
 
     double distance2 = relative.Mag2();
     // Area of SiPMs is 6.0mm x 6.0mm
@@ -410,7 +411,11 @@ void btb(int ngen = 10000000)
   char output[30];
   strftime(output, 30, "%Y-%m-%d-%H-%M", timeinfo);
   TString tdateTag = TString(output);
-  TString fullname = (Form("btbSim-%s-%i.root", tdateTag.Data(), ngen));
+  TString fullname;
+  if (!originOffset)
+    fullname = (Form("btbSim-%s-%i.root", tdateTag.Data(), ngen));
+  if (originOffset)
+    fullname = (Form("btbSimOffset-%s-%i.root", tdateTag.Data(), ngen));
   fout = new TFile(fullname, "recreate"); // DEF made to update rather than recreate so that it doesn't write over a file already made.
   printf("opened output file %s date %s \n", fout->GetName(), tdateTag.Data());
   cout << tdateTag << endl;
@@ -441,23 +446,36 @@ void btb(int ngen = 10000000)
   hXYZMap->GetXaxis()->SetTitle("event X [cm]");
   hXYZMap->GetYaxis()->SetTitle("event Y [cm]");
   hXYZMap->GetZaxis()->SetTitle("event Z [cm]");
-
+  //
   hRadiusMap = new TH1D("RadiusMap", "event radius [cm] ", 100, 0., 10.);
+  hRadiusMap->GetXaxis()->SetTitle("event radius R [cm]");
+  //
   hRhoMap = new TH1D("RhoMap", "event cylindrical rho [cm] ", 100, 0., 4.);
+  hRhoMap->GetXaxis()->SetTitle("cylindrical rho [cm]");
+  //
   hZMap = new TH1D("ZMap", "event cylindrical Z [cm] ", 100, 0., 10.);
+  hZMap->GetXaxis()->SetTitle("event Z [cm]");
+  //
   hPhiMap = new TH1D("PhiMap", "event phi", 100, -TMath::Pi(), TMath::Pi());
   hRhoZMap = new TH2D("RhoZMap", "cylindrical rho z  map ", 100, 0., 2., 100, 0., 4.);
   hRhoZMap->GetXaxis()->SetTitle("cylindrical rho [cm]");
   hRhoZMap->GetYaxis()->SetTitle("Z");
-
+  //
   hRhoPhiZMap = new TH3D("RhoZPhiMap", "cylindrical rho phi z  map ", 100, 0., 2., 100, -TMath::Pi(), TMath::Pi(), 100, 0., 4.);
   hRhoPhiZMap->GetXaxis()->SetTitle("cylindrical rho [cm]");
   hRhoPhiZMap->GetYaxis()->SetTitle("phi");
   hRhoPhiZMap->GetZaxis()->SetTitle("Z");
+  //
   hEventPass = new TH1D("hEventPass", "event pass", 3, 0, 3);
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
+  hTriangle->GetXaxis()->SetTitle("xtern");
+  hTriangle->GetYaxis()->SetTitle("ytern");
   hTriangleCut = new TH2D("TriangleCut", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
+  hTriangleCut->GetXaxis()->SetTitle("xtern");
+  hTriangleCut->GetYaxis()->SetTitle("ytern");
   hTriangleMean = new TH2D("TriangleMean", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
+  hTriangleMean->GetXaxis()->SetTitle("xtern");
+  hTriangleMean->GetYaxis()->SetTitle("ytern");
   ntOrigin = new TNtuple("ntOrigin", " event origin ", "ev:r:cos:theta:phi:x:y:z");
   ntTrig = new TNtuple("ntTrig", " trigger info by event  ", "ev:nph9:nph10:nph11:rho:phi:x:y:z:tdiff:pass");
   ntTrigCh = new TNtuple("ntTrigCh", " trigger info by channel ", "ev:ch:qsum:psum:nph:rho:phi:x:y:z:effgeo");
@@ -609,15 +627,13 @@ void btb(int ngen = 10000000)
     else
     {
       gammaR = abs(ran->Exp(meanFreePath));
-      // gammaCosTheta = 2 * ran->Rndm() - 1.;
-      // for shifted source z to zZero need larger range
-      // gammaCosTheta = ran->Rndm();                   // use only positive z
-      gammaCosTheta = 1.31 * ran->Rndm() - 1.;          // cos range is -1 to 0.31
+      gammaCosTheta = 2.0 * ran->Rndm() - 1.;           // cos range is -1 to +1
       gammaPhi = (2. * ran->Rndm() - 1.) * TMath::Pi(); // -pi to pi
     }
     eventOrigin = getXYZVector(gammaR, acos(gammaCosTheta), gammaPhi);
     /*  add z offset zZero */
-    eventOrigin = eventOrigin + eventOriginOffset;
+    if (originOffset)
+      eventOrigin = eventOrigin + eventOriginOffset;
     double localPhi = eventOrigin.Phi() * 360. / TMath::TwoPi();
     if (localPhi < 0)
       localPhi += 360.;
@@ -644,24 +660,19 @@ void btb(int ngen = 10000000)
     double effGeoSim10 = effGeoSim(10);
     double effGeoSim11 = effGeoSim(11);
     bool isFid = false;
-    if (eventOrigin.Z() < 1.7 && effGeoSim9 > 0 && effGeoSim10 > 0 && effGeoSim11)
-      isFid = true;
-    if (eventOrigin.Z() > 1.7)
+    if (eventOrigin.Z() > 0.0 && effGeoSim9 > 0 && effGeoSim10 > 0 && effGeoSim11)
       isFid = true;
 
-    if (isFid && eventOrigin.Z() < 1.7)
-      hXYMap->Fill(eventOrigin.X(), eventOrigin.Y());
-    if (isFid)
-      hXYZMap->Fill(eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
-    // fiducial cut
     if (!isFid)
     {
       if (show)
         printf(" skip event %i XYZ %.3f %.3f %.3f \n", iev, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
       continue;
     }
+    hXYMap->Fill(eventOrigin.X(), eventOrigin.Y());
+    hXYZMap->Fill(eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
 
-    hEventPass->SetBinContent(2, hEventPass->GetBinContent(2) + 1);
+    hEventPass->SetBinContent(2, hEventPass->GetBinContent(2) + 1); // for fiducial events
     // eventOrigin.SetZ(abs(eventOrigin.Z()));
 
     ntOrigin->Fill(iev, eventOrigin.R(), cos(eventOrigin.Theta()), eventOrigin.Theta() * 360. / TMath::TwoPi(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
@@ -1006,7 +1017,7 @@ void btb(int ngen = 10000000)
       if (hPhoton[ih]->GetEntries() < 40)
         continue;
 
-      printf("BIG EVENT %i chan %i nphoton%i \n", iev, ih, (int)hPhoton[ih]->GetEntries());
+      // printf("BIG EVENT %i chan %i nphoton%i \n", iev, ih, (int)hPhoton[ih]->GetEntries());
 
       histDir->cd();
       histName.Form("hPhotonCh%iEv%i", ih, iev);
