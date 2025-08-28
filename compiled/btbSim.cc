@@ -596,7 +596,7 @@ void btb(int ngen = 10000000)
   for (int iev = 0; iev < ngen; ++iev) // start of event loop
   {
 
-    hEventPass->SetBinContent(1, hEventPass->GetBinContent(1) + 2); // for full 4pi events
+    hEventPass->SetBinContent(1, hEventPass->GetBinContent(1) + 1); // generated over 4 PI
 
     // zero trigger times array
     for (int i = 0; i < 3; ++i)
