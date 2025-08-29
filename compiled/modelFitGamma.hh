@@ -321,11 +321,12 @@ static double lightModel(Double_t *xx, Double_t *par)
   // add in sipm efficiency
   // sums to one printf("%f alpha1 %E fr %E alpha3 %E sum %E ..... ", x, alpha1, fr, alpha3, (alpha1 + fr + alpha3) / normPrime);
   // fs = max(fs, 1.E-20);
-  if (isnan(fs))
+  /*if (isnan(fs))
   {
     // printf("NAN at x=%f \n", x);
     fs = 0;
   }
+  */
 
   // return if just fitting singlet
   // if (ifit == 0)
