@@ -48,8 +48,8 @@ public:
     DOUBLEUPCROSS,
     DOUBLEDOWNCROSS
   };
-  // add two for summed waveform 0-12 channels, 13 summed
-  // NONSUMCANNELS are nonsummed
+  // add ONE for summed waveform = 12 SIPM + PMT +1 summed = 14
+  // NONSUMCANNELS do not include channel 13
   enum
   {
     CHANNELS = 14,
@@ -78,6 +78,9 @@ public:
     FAILBITS = 7
   };
 
+  // number of events for getting baseline
+  ULong64_t baselineSum = 100;
+
   // class to read and store gains
   TReadGains *readGains;
 
@@ -92,6 +95,7 @@ public:
   int badEvent = 5671;
   int failGamma = 0;
   int failCosmic = 0;
+  TH1D *hNominalBaselines;
 
   bool doNotOverWrite = true;
   bool theFirstFile = true;
@@ -200,8 +204,9 @@ public:
   std::vector<TH1D *> hWaveHitNoise;
 
   //
-  vector<double> channelSigmaValue;
+  vector<double> nominalBaseline;
   vector<double> channelSigma;
+  vector<double> channelSigmaValue;
   vector<double> channelSigmaErr;
   vector<double> digi;
   vector<double> ddigi;
@@ -247,6 +252,7 @@ public:
   void getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample);
   bool simTimeMatch(double stime, double ftime);
   void calcError(double pass, double fail, double &fraction, double &error);
+  void getBaselines(ULong64_t nBaselneAverage);
 
   /*
   void setTBRun(TBRun *theTBRun)
@@ -314,6 +320,63 @@ public:
   double cosmicCut = 3.E3;      // set Nov 3 2024
   double hitThresholdPmt = 30.; // set Nov 13 2024
 };
+
+/*
+  nominal baseline
+  calculate nominal and RMS
+  note: Automatic Destruction: When an std::variant variables lifetime ends its destructor is automatically invoked.
+ */
+void anaCRun::getBaselines(ULong64_t nBaselneAverage)
+{
+  nominalBaseline.clear();                    // global scope vector
+  nominalBaseline.resize(NONSUMCHANNELS);     // size is 12 sipms + PMT
+  std::vector<std::vector<double>> eventBase; // by event baselines [row][column]  where each row is an event and column is channel
+  std::vector<double> channelBase;
+  for (ULong64_t iev = 0; iev < nBaselneAverage; ++iev)
+  {
+    channelBase.clear();
+    channelBase.resize(NONSUMCHANNELS);
+    rawTree->GetEntry(iev); // read in brnches for this event
+    for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
+    {
+      for (unsigned j = 0; j < trigStart; ++j)
+      {
+        channelBase[ib] += rawBr[ib]->rdigi[j];
+      }
+      channelBase[ib] /= double(trigStart); // normalize time window
+    }
+    // store event baselines for this event
+    eventBase.push_back(channelBase); // save for this event
+  }
+  // calculate average over events and save as nominal baseline
+  for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
+  {
+    double sum = 0;
+    for (unsigned i = 0; i < eventBase.size(); ++i)
+    {
+      sum += eventBase[i][ib];
+    }
+    nominalBaseline[ib] = sum / double(eventBase.size());
+  }
+  // calculate RMS
+  std::vector<double> baseRms;
+  baseRms.resize(NONSUMCHANNELS);
+  for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
+  {
+    double rms2 = 0;
+    for (unsigned i = 0; i < eventBase.size(); ++i) // ave over events
+      rms2 += pow(eventBase[i][ib] - nominalBaseline[ib], 2.);
+    baseRms[ib] = sqrt(rms2) / double(eventBase.size());
+  }
+  // store
+  printf("getNominalBaslines number averaged over %lu events \n", eventBase.size());
+  for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
+  {
+    printf("\t\t ch %i base %E rms %E \n", ib, nominalBaseline[ib], baseRms[ib]);
+    hNominalBaselines->SetBinContent(ib + 1, nominalBaseline[ib]); // store for the this file
+    hNominalBaselines->SetBinError(ib + 1, baseRms[ib]);           // store for the this file
+  }
+}
 
 /* get rawBr */
 unsigned anaCRun::getBranches()
@@ -826,7 +889,7 @@ int anaCRun::anaEvent(Long64_t entry)
     else
     {
       if (reportFailures)
-        printf("@line804 failed Baseline Cut event %llu chan %i base %f ave %f status %i \n", entry, ib, base, ave, fitStatus);
+        printf("@line804 PASSBIT failed Baseline Cut event %llu chan %i base %f ave %f status %i \n", entry, ib, base, ave, fitStatus);
       if (badEventDir->GetList()->GetEntries() < badEventDirMax)
       {
         badEventDir->cd();
@@ -1003,7 +1066,7 @@ int anaCRun::anaEvent(Long64_t entry)
   if (firstTime > triggerEnd || firstTime < triggerStart)
   {
     if (reportFailures)
-      printf("@line893 failed triggerEnd event %llu cut %lu time %u \n", entry, triggerEnd, firstTime);
+      printf("@line893 PASSBIT failed triggerEnd event %llu cut %lu time %u \n", entry, triggerEnd, firstTime);
 
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
@@ -1028,7 +1091,7 @@ int anaCRun::anaEvent(Long64_t entry)
     }
     ++failCosmic;
     if (reportFailures)
-      printf("@line1077 failed cosmic event %llu bit %i cut %E totSum %E  \n", entry, passBit, cosmicCut, tdetPmt->totSum);
+      printf("@line1077 PASSBIT failed cosmic event %llu bit %i cut %E totSum %E  \n", entry, passBit, cosmicCut, tdetPmt->totSum);
   }
 
   /********** gamma cut *********/
@@ -1048,7 +1111,7 @@ int anaCRun::anaEvent(Long64_t entry)
     ++failGamma;
     if (reportFailures)
     {
-      printf("@line1090 failed gamma event %llu bit %i cut %E lateSum %E \n", entry, passBit, lateGammaCut, tbrun->getDet(13)->lateSum);
+      printf("@line1090 PASSBIT failed gamma event %llu bit %i cut %E lateSum %E \n", entry, passBit, lateGammaCut, tbrun->getDet(13)->lateSum);
       printf("@line1091  %f %f %f sum %E \n", idet9->lateSum, idet10->lateSum, idet11->lateSum, idet9->lateSum + idet10->lateSum + idet11->lateSum);
     }
   }
@@ -2082,7 +2145,10 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   {
     tbrun->addDet(it);
   }
-
+  TString hName;
+  hName.Form("NominalBaselines N=%i", int(baselineSum));
+  hNominalBaselines = new TH1D("NominalBaselines", hName, NONSUMCHANNELS, 0, NONSUMCHANNELS);
+  hNominalBaselines->GetXaxis()->SetTitle("channel number + 1");
   ntSimMatch = new TNtuple("ntSimMatch", "sim found comparison ntuple", "event:match:chan:shit:fhit:tdiff:stime:ftime:qpeaks:qpeakf");
   // histograms for event cuts
   ntBase = new TNtuple("ntBase", " baseline ntuple ", "event:chan:base0:base1:fitMean:sigma:status"); // Fill(entry, ib, ave, sigma, fitStatus);;
@@ -2097,7 +2163,6 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   hTrigSumNoCut = new TH1D("TrigSumNoCut", " before cut qsum9+qsum10+qsum11  in units nominal PE ", 160, 0, 40.);
   hTrigSumCut = new TH1D("TrigSumCut", " ytern vs xtern ", 160, 0, 40.);
 
-  TString hName;
   hName.Form("QFracRatio%i-9-10", 0);
   hQFracRatio.push_back(new TH1D(hName, hName, 50, 0., 10.));
   hName.Form("QFracRatio%i-9-11", 1);
@@ -2302,6 +2367,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     fout->Close();
     return 0;
   }
+  /* get the nominal baselines for this file*/
+  getBaselines(baselineSum);
 
   npass = 0;
   nfail = 0;
