@@ -252,7 +252,7 @@ public:
   void getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample);
   bool simTimeMatch(double stime, double ftime);
   void calcError(double pass, double fail, double &fraction, double &error);
-  void getBaselines(ULong64_t nBaselneAverage);
+  void getBaselines(ULong64_t nBaselineAverage);
 
   /*
   void setTBRun(TBRun *theTBRun)
@@ -326,13 +326,13 @@ public:
   calculate nominal and RMS
   note: Automatic Destruction: When an std::variant variables lifetime ends its destructor is automatically invoked.
  */
-void anaCRun::getBaselines(ULong64_t nBaselneAverage)
+void anaCRun::getBaselines(ULong64_t nBaselineAverage)
 {
   nominalBaseline.clear();                    // global scope vector
   nominalBaseline.resize(NONSUMCHANNELS);     // size is 12 sipms + PMT
   std::vector<std::vector<double>> eventBase; // by event baselines [row][column]  where each row is an event and column is channel
   std::vector<double> channelBase;
-  for (ULong64_t iev = 0; iev < nBaselneAverage; ++iev)
+  for (ULong64_t iev = 0; iev < nBaselineAverage; ++iev)
   {
     channelBase.clear();
     channelBase.resize(NONSUMCHANNELS);
