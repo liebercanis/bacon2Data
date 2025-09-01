@@ -140,22 +140,17 @@ public:
   TNtuple *ntAdc;
   TNtuple *ntFailures;
   vector<TH1D *> baseHist;
-  vector<TH1D *> noiseHist;
-  vector<TH1D *> skewHist;
   vector<TH1D *> sumWave;
   vector<TH1D *> sumHitWave;
   vector<TH1D *> sumPeakWave;
-  vector<TH1D *> valHist;
   vector<TH1D *> sumWaveA;
   vector<TH1D *> sumWaveB;
-  vector<TH1D *> valHistB;
   std::vector<std::vector<TH1D *>> sumWaveFail;
 
   vector<TH1D *> hMult;
   vector<TH1D *> hQSum;
   vector<TH1D *> hQPeak;
   vector<TH1D *> hQSpe;
-  TH1D *hEvBaseWave;
   vector<TH1D *> hEvGaus;
   vector<TH1D *> hEvRawWave;
   vector<TH1D *> hChannelGaus;
@@ -205,6 +200,7 @@ public:
 
   //
   vector<double> nominalBaseline;
+  vector<double> nominalBaselineRms;
   vector<double> channelSigma;
   vector<double> channelSigmaValue;
   vector<double> channelSigmaErr;
@@ -266,6 +262,7 @@ public:
   std::vector<unsigned> sTrigTimes; // after correction
   std::vector<double> adcBin;
   std::vector<double> speCount;
+  TDirectory *cutDir;
   TDirectory *threshDir;
   TDirectory *earlyPeakDir;
   TDirectory *rawSumDir;
@@ -328,15 +325,15 @@ public:
  */
 void anaCRun::getBaselines(ULong64_t nBaselineAverage)
 {
-  nominalBaseline.clear();                    // global scope vector
+  nominalBaseline.clear();                    // class scope vector
   nominalBaseline.resize(NONSUMCHANNELS);     // size is 12 sipms + PMT
   std::vector<std::vector<double>> eventBase; // by event baselines [row][column]  where each row is an event and column is channel
-  std::vector<double> channelBase;
+  std::vector<double> channelBase;            // vector of baselines by channel for an event
   for (ULong64_t iev = 0; iev < nBaselineAverage; ++iev)
   {
+    rawTree->GetEntry(iev); // read in brnches for this event!!
     channelBase.clear();
     channelBase.resize(NONSUMCHANNELS);
-    rawTree->GetEntry(iev); // read in brnches for this event
     for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
     {
       for (unsigned j = 0; j < trigStart; ++j)
@@ -346,7 +343,7 @@ void anaCRun::getBaselines(ULong64_t nBaselineAverage)
       channelBase[ib] /= double(trigStart); // normalize time window
     }
     // store event baselines for this event
-    eventBase.push_back(channelBase); // save for this event
+    eventBase.push_back(channelBase); // baselines by channel for this event
   }
   // calculate average over events and save as nominal baseline
   for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
@@ -359,27 +356,27 @@ void anaCRun::getBaselines(ULong64_t nBaselineAverage)
     nominalBaseline[ib] = sum / double(eventBase.size());
   }
   // calculate RMS
-  std::vector<double> baseRms;
-  baseRms.resize(NONSUMCHANNELS);
+  nominalBaselineRms.resize(NONSUMCHANNELS); // class scope
   for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
   {
     double rms2 = 0;
     for (unsigned i = 0; i < eventBase.size(); ++i) // ave over events
       rms2 += pow(eventBase[i][ib] - nominalBaseline[ib], 2.);
-    baseRms[ib] = sqrt(rms2) / double(eventBase.size());
+    nominalBaselineRms[ib] = sqrt(rms2) / double(eventBase.size());
   }
   // store
   printf("getNominalBaslines number averaged over %lu events \n", eventBase.size());
   for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
   {
-    printf("\t\t ch %i base %E rms %E \n", ib, nominalBaseline[ib], baseRms[ib]);
-    hNominalBaselines->SetBinContent(ib + 1, nominalBaseline[ib]); // store for the this file
-    hNominalBaselines->SetBinError(ib + 1, baseRms[ib]);           // store for the this file
+    printf("\t\t ch %i base %E rms %E \n", ib, nominalBaseline[ib], nominalBaselineRms[ib]);
+    hNominalBaselines->SetBinContent(ib + 1, nominalBaseline[ib]);  // store for the this file
+    hNominalBaselines->SetBinError(ib + 1, nominalBaselineRms[ib]); // store for the this file
   }
 }
 
 /* get rawBr */
-unsigned anaCRun::getBranches()
+unsigned anaCRun::
+    getBranches()
 {
   TObjArray *brList = rawTree->GetListOfBranches();
   TString cname;
@@ -680,17 +677,13 @@ void anaCRun::clear()
   hQSpe.clear();
   chanMap.clear();
   baseHist.clear();
-  noiseHist.clear();
-  skewHist.clear();
   sumWave.clear();
   sumHitWave.clear();
   sumPeakWave.clear();
-  valHist.clear();
   sumWaveA.clear();
   sumWaveB.clear();
   sumWaveFail.clear();
   sumWaveFail.resize(FAILBITS);
-  valHistB.clear();
   hEvGaus.clear();
   hEvRawWave.clear();
   hChannelGaus.clear();
@@ -760,7 +753,7 @@ int anaCRun::anaEvent(Long64_t entry)
   fout->GetObject("RunTree", tree);
   if (!tree)
   {
-    printf("line 531 ERROR!! anaEvent no tree event %lld \n", entry);
+    printf("line757  ERROR!! anaEvent no tree event %lld \n", entry);
     fout->ls();
   }
   // get sim branches
@@ -809,10 +802,19 @@ int anaCRun::anaEvent(Long64_t entry)
   {
     unsigned ichan = ib;
     TDet *idet = tbrun->getDet(ichan);
+
+    if (idet == NULL) // should never happen
+    {
+      printf("@line711!!!!!NULL idet br %u ichan %i\n", ib, ichan);
+      continue;
+    }
+
     // define trigger sipms
     bool trig = ichan == 9 || ichan == 10 || ichan == 11;
-    // deal with trigger channel sign by overwriting rdigi
-    // also invert pulse on PMT
+    /******
+     ******  deal with trigger channel sign by overwriting rdigi
+     ******  also invert pulse on PMT
+     ******/
     if (trig || ib == 12)
     {
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
@@ -822,105 +824,43 @@ int anaCRun::anaEvent(Long64_t entry)
     }
 
     int nbins = rawBr[ib]->rdigi.size();
-    // cout << "@line611 " << ib << " nbins " << nbins << " max hist " << hEvGaus.size() << " rawBr.size() " << rawBr.size() << endl;
 
     // sanity check
-    if (rawBr[ib]->rdigi.size() != WAVELENGTH)
+    if (rawBr[ib]->rdigi.size() != WAVELENGTH) // should never happen
     {
       printf("rdigi bad size  event %lld channel %u %lu \n", entry, ib, rawBr[ib]->rdigi.size());
       continue;
     }
-    // simple baseline
-    /* this base is a smaller value and in the case of almost all noise, is biased
-    std::vector<unsigned short> orderDigi = rawBr[ib]->rdigi;
-    std::sort(orderDigi.begin(), orderDigi.end(), std::less<int>());
-    unsigned baseLength = orderDigi.size() / orderFraction;
-    double base = 0;
-    for (unsigned j = 0; j < baseLength; ++j)
-    {
-      base += orderDigi[j];
-    }
-    base /= double(baseLength);
+    /*
+      use nominalBaseline, nominalBaselineRms determined from first baselineSum events
+      use samples from pretrigger
     */
-
-    // baseline from pre trigger data
-    double base = 0;
-    for (unsigned j = 0; j < trigStart; ++j)
-    {
-      base += rawBr[ib]->rdigi[j];
-    }
-    base /= double(trigStart);
-    // printf("line761 \t\t\t event %lld base %f \n", entry, base);
-
-    // baseline correction from fitted Gaussian
+    // also fill baseline subracted RawWave light curve
+    // find the mode by filling histogram and taking most probable bin
     hEvGaus[ib]->Reset("ICES");
     hEvRawWave[ib]->Reset("ICES");
-    // for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+    double baseRms2 = 0;
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
-      double val = double(rawBr[ib]->rdigi[j]) - base; // base is > digi value!
+      double val = double(rawBr[ib]->rdigi[j]) - nominalBaseline[ib];
       if (j < trigStart)
+      {
         hEvGaus[ib]->Fill(val);
+        baseRms2 += pow(val, 2.);
+      } // for debugging
       hEvRawWave[ib]->SetBinContent(j + 1, val);
     }
+    double baseRms = sqrt(baseRms2) / double(trigStart); // normalize
 
     // get the distribution mode
     double mode = hEvGaus[ib]->GetBinLowEdge(hEvGaus[ib]->GetMaximumBin()) + 0.5 * hEvGaus[ib]->GetBinWidth(hEvGaus[ib]->GetMaximumBin());
 
-    /* dont do this memory leak first clone*/
-    hEvGaus[ib]->GetListOfFunctions()->Clear();
-    // TH1D* hEvClone = (TH1D*) hEvGaus[ib]->Clone("EvClone");
-    TFitResultPtr fitptr = hEvGaus[ib]->Fit("gaus", "LQ0", "", -100, 100);
-    int fitStatus = fitptr;
-    TF1 *gfit = (TF1 *)hEvGaus[ib]->GetListOfFunctions()->FindObject("gaus");
-    double ave = hEvGaus[ib]->GetMean();
-    double sigma = hEvGaus[ib]->GetRMS();
-    double skew = 0;
-    double fitMean = 0;
-    if (!isnan(hEvGaus[ib]->GetSkewness()))
-      skew = hEvGaus[ib]->GetSkewness();
-    if (gfit != nullptr && fitStatus == 0)
-    {
-      ave = gfit->GetParameter(1);
-      fitMean = ave; // fit mean
-      sigma = gfit->GetParameter(2);
-    }
-    // fit status = migradStatus + 10*minosStatus + 100*hesseStatus + 1000*improveStatus \n", fullResult);
-    else
-    {
-      if (reportFailures)
-        printf("@line804 PASSBIT failed Baseline Cut event %llu chan %i base %f ave %f status %i \n", entry, ib, base, ave, fitStatus);
-      if (badEventDir->GetList()->GetEntries() < badEventDirMax)
-      {
-        badEventDir->cd();
-        TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawBaseFailEvent%lld-Ch%i", entry, ib));
-        EvRawWave->SetTitle(Form("EvRawBaseFailEvent%lld-Ch%i", entry, ib));
-        TH1D *hEvGausClone = (TH1D *)hEvGaus[ib]->Clone(Form("EvGausEv%lldchan%imean%.2fsigma%.2fstatus%i", entry, ib, fitMean, sigma, fitStatus));
-      }
-      passBit |= BASEFAIL;
-    }
-    ntBase->Fill(entry, ib, base, base + fitMean, fitMean, sigma, fitStatus);
-
-    // printf("@line652 baseline %lld chan %u base %f ave %f  \n", entry, ib, base, ave);
-
-    fout->cd();
-
-    // fitptr->Print();
-    noiseHist[ib]->Fill(sigma);
-    skewHist[ib]->Fill(skew);
-    double sign = TMath::Sign(1., skew);
-
-    if (idet == NULL)
-    {
-      printf("@line711!!!!!NULL idet br %u ichan %i\n", ib, ichan);
-      continue;
-    }
-    idet->ave = ave;
-    idet->sigma = sigma;
-    idet->skew = skew;
+    idet->ave = nominalBaseline[ib]; // nominal
+    idet->sigma = baseRms;
+    idet->skew = 0; // not used
     idet->event = entry;
     idet->trigger = rawBr[ib]->trigger;
-    idet->base = base + fitMean; // add in fit mean if fit succeeded
+    idet->base = nominalBaseline[ib] + mode; // the event baseline is nominal + mode
     idet->mode = mode;
     idet->totSum = 0;
     idet->preSum = 0;
@@ -931,6 +871,30 @@ int anaCRun::anaEvent(Long64_t entry)
     idet->trigPeakSum = 0;
     idet->latePeakSum = 0;
 
+    // baseline cut
+    double baselineModeCut = 10.; // first guess
+
+    if (abs(idet->mode) > baselineModeCut)
+    {
+      if (reportFailures)
+        printf("@line804 PASSBIT failed Baseline Cut event %llu chan %i cut %E mode %.3E \n", entry, ib, baselineModeCut, idet->mode);
+      if (badEventDir->GetList()->GetEntries() < badEventDirMax)
+      {
+        badEventDir->cd();
+        TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawBaseFailEvent%lld-Ch%i", entry, ib));
+        EvRawWave->SetTitle(Form("EvRawBaseFailEvent%lld-Ch%i", entry, ib));
+        TH1D *hEvGausClone = (TH1D *)hEvGaus[ib]->Clone(Form("EvGausEv%lldchan%imode%.3E", entry, ib, idet->mode));
+      }
+      passBit |= BASEFAIL;
+    }
+    else
+      printf("@line876 Baseline Cut PASS event %llu chan %i base  %E mode %.3E \n", entry, ib, nominalBaseline[ib], idet->mode);
+
+    ntBase->Fill(entry, ib, nominalBaseline[ib], mode, baseRms);
+
+    fout->cd();
+
+    // fitptr->Print();
     /*********
      * make sums for cuts
      *********/
@@ -1525,7 +1489,6 @@ int anaCRun::anaEvent(Long64_t entry)
       for (unsigned j = 0; j < digi.size(); ++j)
       {
         sumWave[ib]->SetBinContent(j + 1, sumWave[ib]->GetBinContent(j + 1) + digi[j]);
-        valHist[ib]->Fill(digi[j]);
       }
     } // check cosmic,gamma failure events
 
@@ -1540,7 +1503,6 @@ int anaCRun::anaEvent(Long64_t entry)
       for (unsigned j = 0; j < digi.size(); ++j)
       {
         sumWaveB[ib]->SetBinContent(j + 1, sumWaveB[ib]->GetBinContent(j + 1) + digi[j]);
-        valHistB[ib]->Fill(digi[j]);
       }
 
     // sum wave by failure code
@@ -2073,6 +2035,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   fout = new TFile(outFileName, "recreate");
   cout << " opened output file " << fout->GetName() << endl;
 
+  cutDir = fout->mkdir("cutDir");
   templateDir = fout->mkdir("templateDir");
   rawSumDir = fout->mkdir("rawSumDir");
   badEventDir = fout->mkdir("badEventDir");
@@ -2135,6 +2098,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   // fout->ls();
 
   // make output tree
+  printf("line 2096 TBRun\n");
   tbrun = new TBRun(tag);
   fout->Append(tbrun->btree);
   // and event time
@@ -2145,23 +2109,14 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   {
     tbrun->addDet(it);
   }
+  // store nominal baselines
   TString hName;
   hName.Form("NominalBaselines N=%i", int(baselineSum));
   hNominalBaselines = new TH1D("NominalBaselines", hName, NONSUMCHANNELS, 0, NONSUMCHANNELS);
   hNominalBaselines->GetXaxis()->SetTitle("channel number + 1");
+
   ntSimMatch = new TNtuple("ntSimMatch", "sim found comparison ntuple", "event:match:chan:shit:fhit:tdiff:stime:ftime:qpeaks:qpeakf");
   // histograms for event cuts
-  ntBase = new TNtuple("ntBase", " baseline ntuple ", "event:chan:base0:base1:fitMean:sigma:status"); // Fill(entry, ib, ave, sigma, fitStatus);;
-  ntAdc = new TNtuple("ntAdc", " ADC ntuple ", "event:chan:sample:digi");
-  ntTrig = new TNtuple("ntTrig", " trigger cut  ntuple ", "event:qsum9:qsum10:qsum11:qsum13:ratio910:ratio911:ratio1011:xternQ:yternQ:fails");
-  ntNonTrig = new TNtuple("ntNonTrig", " non trigger ntuple ", "event:chan:qsum");
-  hTriggerTime = new TH1D("TriggerTime", " ave of trigger Sipm times ", 1000, 0, 1000);
-  hPreSumCut = new TH1D("PreSumCut", " pre trigger sum /nominal gain ", 100, 0, 2 * preSumCut);
-  hCosmicCut = new TH1D("CosmicCut", " PMT sum /nominal gain", 1000, 0, 2. * totCosmicCut);
-  hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 /nominal gain ", 1000, 0, 2. * lateGammaCut);
-  hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
-  hTrigSumNoCut = new TH1D("TrigSumNoCut", " before cut qsum9+qsum10+qsum11  in units nominal PE ", 160, 0, 40.);
-  hTrigSumCut = new TH1D("TrigSumCut", " ytern vs xtern ", 160, 0, 40.);
 
   hName.Form("QFracRatio%i-9-10", 0);
   hQFracRatio.push_back(new TH1D(hName, hName, 50, 0., 10.));
@@ -2194,12 +2149,36 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   histQPrompt->Sumw2();
   // hCosmicMult = new TH1D("CosmicMult", "CosmicMult", 10, 0, 10);
 
-  //
-  anaDir->cd();
+  /* directory of hists for event cut */
+  cutDir->cd();
+
+  ntBase = new TNtuple("ntBase", " baseline ntuple ", "event:chan:base:mode:rms");
+  ntAdc = new TNtuple("ntAdc", " ADC ntuple ", "event:chan:sample:digi");
+  ntTrig = new TNtuple("ntTrig", " trigger cut  ntuple ", "event:qsum9:qsum10:qsum11:qsum13:ratio910:ratio911:ratio1011:xternQ:yternQ:fails");
+  ntNonTrig = new TNtuple("ntNonTrig", " non trigger ntuple ", "event:chan:qsum");
+  hTriggerTime = new TH1D("TriggerTime", " ave of trigger Sipm times ", 1000, 0, 1000);
+  hPreSumCut = new TH1D("PreSumCut", " pre trigger sum /nominal gain ", 100, 0, 2 * preSumCut);
+  hCosmicCut = new TH1D("CosmicCut", " PMT sum /nominal gain", 1000, 0, 2. * totCosmicCut);
+  hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 /nominal gain ", 1000, 0, 2. * lateGammaCut);
+  hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
+  hTrigSumNoCut = new TH1D("TrigSumNoCut", " before cut qsum9+qsum10+qsum11  in units nominal PE ", 160, 0, 40.);
+  hTrigSumCut = new TH1D("TrigSumCut", " ytern vs xtern ", 160, 0, 40.);
   hTriggerTimeDiff = new TH1D("TriggerTimeDiff", " max trigger time diff ", 1000, 0, 1000);
   hTriggerShift = new TH1D("TriggerShift", " ave trigger time shift ", 200, -100, 100);
   hTriggerTimeAllVal = new TH1D("TriggerTimeAllVal", " first time val all channels ", 1000, 0, 1000);
   hTriggerTimeAllValPmt = new TH1D("TriggerTimeAllValPmt", " first time val Pmt ", 1000, 0, 1000);
+  for (unsigned i = 0; i < rawBr.size(); ++i)
+  {
+    // not saved
+    hEvGaus.push_back(new TH1D(Form("evGaus%i", i), Form("evGaus%i", i), 20000, -10000., 10000.)); // bins are ADC counts
+    hEvGaus[hEvGaus.size() - 1]->SetDirectory(nullptr);                                            // not written to outptut file
+    hEvRawWave.push_back(new TH1D(Form("EvRawWave%i", i), Form("EvRawWave%i", i), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
+    hEvRawWave[hEvRawWave.size() - 1]->SetDirectory(nullptr); // not written to outptut file
+  }
+
+  // ana dir
+  anaDir->cd();
+
   TString htitle;
   htitle.Form(" pre time < %lu normalized qpeak", triggerStart);
   hPreQpeak = new TH1D("PreQpeak", htitle, 100, 0, 10);
@@ -2228,26 +2207,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     hWave.push_back(new TH1D(Form("waveChan%i", ichan), Form("WaveChan%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
     hWave[hWave.size() - 1]->SetDirectory(nullptr);
     hChannelGaus.push_back(new TH1D(Form("channelGaus%i", ichan), Form("channelGaus%i", ichan), 600, -100, 500));
-    noiseHist.push_back(new TH1D(Form("noiseChan%i", ichan), Form("noiseChan%i", ichan), 1000, 0, 1000));
-    skewHist.push_back(new TH1D(Form("skewChan%i", ichan), Form("skewChan%i", ichan), 200, -3, 7));
-    hEvRawWave.push_back(new TH1D(Form("evRawWave%i", ichan), Form("evRawWave%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
-    if (ichan > 8 && ichan < 12)
-    {
-      valHist.push_back(new TH1D(Form("valChan%i", ichan), Form("valChan%i", ichan), 1500, -500, 1000));
-      valHistB.push_back(new TH1D(Form("valBadChan%i", ichan), Form("valBadChan%i", ichan), 1500, -500, 1000));
-      hEvGaus.push_back(new TH1D(Form("evGaus%i", ichan), Form("evGaus%i", ichan), 200, -100, 100));
-      baseHist.push_back(new TH1D(Form("baseChan%i", ichan), Form("baseChan%i", ichan), 200, -10000, 1000));
-    }
-    else
-    {
-      baseHist.push_back(new TH1D(Form("baseChan%i", ichan), Form("baseChan%i", ichan), 200, -100, 100));
-      valHist.push_back(new TH1D(Form("valChan%i", ichan), Form("valChan%i", ichan), 1000, -200, 200));
-      valHistB.push_back(new TH1D(Form("valBadChan%i", ichan), Form("valBadChan%i", ichan), 1000, -200, 200));
-      hEvGaus.push_back(new TH1D(Form("evGaus%i", ichan), Form("evGaus%i", ichan), 200, -100, 100));
-    }
-
-    for (int ih = 0; ih < hEvGaus.size(); ++ih)
-      hEvGaus[ih]->SetDirectory(nullptr);
+    baseHist.push_back(new TH1D(Form("baseChan%i", ichan), Form("baseChan%i", ichan), 2000, -1000., 1000.));
 
     // for summary //
     qpeakLimit = 5. * nominalGain;
@@ -2354,10 +2314,11 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   fout->cd();
   /// fout->ls();
 
-  cout << " make hitFinder dets = " << CHANNELS << "  size " << rawBr[0]->rdigi.size() << endl;
   vector<int> chanList;
   for (int ichan = 0; ichan < CHANNELS; ++ichan)
     chanList.push_back(ichan);
+
+  cout << "line2316 make hitFinder dets = " << CHANNELS << "  size " << rawBr[0]->rdigi.size() << " " << chanList.size() << endl;
 
   finder = NULL;
   finder = new hitFinder(fout, tbrun, tag, rawBr[0]->rdigi.size(), chanList, channelSigmaValue, qsumGain);
@@ -2368,6 +2329,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     return 0;
   }
   /* get the nominal baselines for this file*/
+  printf("line2327 getNominalBaselines\n");
   getBaselines(baselineSum);
 
   npass = 0;
