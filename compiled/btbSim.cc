@@ -36,7 +36,7 @@ TDirectory *scanDir;
 
 bool writeRawData = true;
 bool useMap = false;
-bool originOffset = false;
+bool originOffset = true;
 int reportInterval = 1000;
 double zZero = 0.3; // source position
 
