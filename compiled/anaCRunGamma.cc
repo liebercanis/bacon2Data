@@ -79,7 +79,7 @@ public:
   };
 
   // number of events for getting baseline
-  ULong64_t baselineSum = 100;
+  ULong64_t baselineSum = 1000;
 
   // class to read and store gains
   TReadGains *readGains;
@@ -334,6 +334,17 @@ void anaCRun::getBaselines(ULong64_t nBaselineAverage)
     rawTree->GetEntry(iev); // read in brnches for this event!!
     channelBase.clear();
     channelBase.resize(NONSUMCHANNELS);
+
+    /******
+     ******  deal with trigger channel sign by overwriting rdigi
+     ******  also invert pulse on PMT
+     ******/
+    for (unsigned ib = 9; ib < NONSUMCHANNELS; ++ib)
+    {
+      for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+        rawBr[ib]->rdigi[j] = -1. * (rawBr[ib]->rdigi[j] - pow(2, 14)); // base is > digi value!
+    }
+
     for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
     {
       for (unsigned j = 0; j < trigStart; ++j)
@@ -375,8 +386,7 @@ void anaCRun::getBaselines(ULong64_t nBaselineAverage)
 }
 
 /* get rawBr */
-unsigned anaCRun::
-    getBranches()
+unsigned anaCRun::getBranches()
 {
   TObjArray *brList = rawTree->GetListOfBranches();
   TString cname;
@@ -835,7 +845,6 @@ int anaCRun::anaEvent(Long64_t entry)
       use nominalBaseline, nominalBaselineRms determined from first baselineSum events
       use samples from pretrigger
     */
-    // also fill baseline subracted RawWave light curve
     // find the mode by filling histogram and taking most probable bin
     hEvGaus[ib]->Reset("ICES");
     hEvRawWave[ib]->Reset("ICES");
@@ -848,7 +857,7 @@ int anaCRun::anaEvent(Long64_t entry)
         hEvGaus[ib]->Fill(val);
         baseRms2 += pow(val, 2.);
       } // for debugging
-      hEvRawWave[ib]->SetBinContent(j + 1, val);
+      hEvRawWave[ib]->SetBinContent(j + 1, val); // also fill baseline subracted RawWave light curve
     }
     double baseRms = sqrt(baseRms2) / double(trigStart); // normalize
 
@@ -872,12 +881,19 @@ int anaCRun::anaEvent(Long64_t entry)
     idet->latePeakSum = 0;
 
     // baseline cut
-    double baselineModeCut = 10.; // first guess
+    double rmsMode = 4.7; // non trigger from 1000 events
+    if (trig)
+      rmsMode = 19.3;                      // trigger from 1000 events
+    double baselineModeCut = 3. * rmsMode; // first guess
 
+    bool baselinePass = true;
     if (abs(idet->mode) > baselineModeCut)
+      baselinePass = false;
+
+    if (!baselinePass)
     {
       if (reportFailures)
-        printf("@line804 PASSBIT failed Baseline Cut event %llu chan %i cut %E mode %.3E \n", entry, ib, baselineModeCut, idet->mode);
+        printf("@line804 PASSBIT failed Baseline Cut event %llu chan %i cut %.3f mode %.3f \n", entry, ib, baselineModeCut, idet->mode);
       if (badEventDir->GetList()->GetEntries() < badEventDirMax)
       {
         badEventDir->cd();
@@ -887,10 +903,15 @@ int anaCRun::anaEvent(Long64_t entry)
       }
       passBit |= BASEFAIL;
     }
-    else
-      printf("@line876 Baseline Cut PASS event %llu chan %i base  %E mode %.3E \n", entry, ib, nominalBaseline[ib], idet->mode);
+    /* for debugging else
+    {
+      badEventDir->cd();
+      TH1D *hEvGausClone = (TH1D *)hEvGaus[ib]->Clone(Form("EvGausEv%lldchan%imode%.3E", entry, ib, idet->mode));
+    }
+    */
 
-    ntBase->Fill(entry, ib, nominalBaseline[ib], mode, baseRms);
+    // for debugging printf("entry %lld chan %u cut %.3f mode %.3f pass %i \n", entry, ib, baselineModeCut, mode, ;
+    ntBase->Fill(entry, ib, nominalBaseline[ib], mode, baseRms, baselinePass);
 
     fout->cd();
 
@@ -2152,7 +2173,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   /* directory of hists for event cut */
   cutDir->cd();
 
-  ntBase = new TNtuple("ntBase", " baseline ntuple ", "event:chan:base:mode:rms");
+  ntBase = new TNtuple("ntBase", " baseline ntuple ", "event:chan:base:mode:rms:pass");
   ntAdc = new TNtuple("ntAdc", " ADC ntuple ", "event:chan:sample:digi");
   ntTrig = new TNtuple("ntTrig", " trigger cut  ntuple ", "event:qsum9:qsum10:qsum11:qsum13:ratio910:ratio911:ratio1011:xternQ:yternQ:fails");
   ntNonTrig = new TNtuple("ntNonTrig", " non trigger ntuple ", "event:chan:qsum");
@@ -2170,8 +2191,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
     // not saved
-    hEvGaus.push_back(new TH1D(Form("evGaus%i", i), Form("evGaus%i", i), 20000, -10000., 10000.)); // bins are ADC counts
-    hEvGaus[hEvGaus.size() - 1]->SetDirectory(nullptr);                                            // not written to outptut file
+    hEvGaus.push_back(new TH1D(Form("evGaus%i", i), Form("evGaus%i", i), 2000, -1000., 1000.)); // bins are ADC counts
+    hEvGaus[hEvGaus.size() - 1]->SetDirectory(nullptr);                                         // not written to outptut file
     hEvRawWave.push_back(new TH1D(Form("EvRawWave%i", i), Form("EvRawWave%i", i), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
     hEvRawWave[hEvRawWave.size() - 1]->SetDirectory(nullptr); // not written to outptut file
   }
