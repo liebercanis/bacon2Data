@@ -73,7 +73,6 @@ double ntotal;
 double npass;
 vector<int> filePass;
 int totalPass;
-vector<double> effOther;
 vector<double> sumHits;
 static double startTime = 660.; // hWave->GetBinLowEdge(maxBin) + hWave->GetBinWidth(maxBin) / 2.;
 static double endTime = 75000.0;
@@ -93,20 +92,12 @@ std::vector<TDatime> fileDatime;
 TBFile *bf;
 TBEventData *eventData;
 TTree *runTree;
-TH1D *hEventPass;
-TH1D *hThreshHist;
-TH1D *hCrossHist;
-TH1D *hCosmicCut1;
-TH1D *hCosmicCut2;
-TH1D *hTrigSumNoCut;
+TH1D *hRunEventPass; // on output file
+TH1D *hEventPass;    // must be in input file
 TH1D *hTrigSumCut;
+TH1D *hTrigSumNoCut;
 TH1D *hRunTrigSumNoCut;
 TH1D *hRunTrigSumCut;
-TH1D *hRunEventPass;
-TH1D *hRunThreshHist;
-TH1D *hRunCrossHist;
-TH1D *hRunCosmicCut1;
-TH1D *hRunCosmicCut2;
 std::vector<double> QPEMean;
 std::vector<double> vecQPEMean;
 std::vector<double> vecQPENave;
@@ -139,7 +130,10 @@ std::vector<TGraph *> gInte;
 std::vector<vector<double>> runSums;
 std::vector<vector<TString>> runSumNames;
 
+// these must be in input file
 TDirectory *sumDir;
+TDirectory *anaDir;
+// made on output file
 TDirectory *fitSumDir;
 TDirectory *waveSumDir;
 TDirectory *qpeSumDir;
@@ -176,6 +170,77 @@ std::vector<double> sipmSumGainError;
 double xWaveLow = 0;
 double xWaveHigh = 7500; // max sample
 
+// get all pointers we need
+bool getPointers(TFile *f)
+{
+  printf("line176 getPointers file %s\n", f->GetName());
+  bool isGoodFile = true;
+  if (!f)
+  {
+    isGoodFile = false;
+  }
+  TString name(f->GetName());
+  if (f->IsZombie())
+  {
+    cout << "line922 skipping zombie " << name << endl;
+    isGoodFile = false;
+  }
+
+  TTree *RunTree = NULL;
+  f->GetObject("RunTree", RunTree);
+  if (RunTree == NULL)
+  {
+    cout << "line1215 skipping BAD file no RunTree" << name << endl;
+    isGoodFile = false;
+  }
+  if (isGoodFile)
+    printf("good 1 \n");
+
+  sumDir = nullptr;
+  f->GetObject("sumDir", sumDir);
+  if (sumDir == NULL)
+  {
+    cout << "line203 skipping BAD file no sumDir" << name << endl;
+    isGoodFile = false;
+  }
+
+  anaDir = nullptr;
+  f->GetObject("anaDir", anaDir);
+  if (sumDir == NULL)
+  {
+    cout << "line214 skipping BAD file no anaDir" << name << endl;
+    isGoodFile = false;
+  }
+
+  eventCount = nullptr;
+  f->GetObject("eventcount", eventCount);
+  if (!eventCount)
+  {
+    cout << "line223 skipping BAD file no eventcount " << name << endl;
+    isGoodFile = false;
+  }
+
+  hEventPass = nullptr;
+  f->GetObject("EventPass", hEventPass);
+  if (!hEventPass)
+  {
+    cout << "line1230 skipping BAD file no EventPass " << name << endl;
+    isGoodFile = false;
+  }
+
+  eventData = new TBEventData();
+  RunTree->GetListOfBranches()->ls();
+  RunTree->SetBranchAddress("eventData", &eventData);
+
+  // ***** not fatal if missing *****
+  hTrigSumNoCut = nullptr;
+  f->GetObject("TrigSumNoCut", hTrigSumNoCut);
+  hTrigSumCut = nullptr;
+  f->GetObject("TrigSumCut", hTrigSumCut);
+  //
+  return isGoodFile;
+}
+
 /* start of code */
 
 void setTime(TString startTag, TString endTag)
@@ -207,7 +272,7 @@ void setTime(TString startTag, TString endTag)
 // normalize to total pass
 void normalizeTotalPass(TString histSet)
 {
-  printf("line195  \t  in normalizeTotalPass runSumDir has %d \n", runSumDir->GetList()->GetEntries());
+  printf("line195  \t  in normalizeTotalPass runSumDir has %d entries \n", runSumDir->GetList()->GetEntries());
   TString histName;
   for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
   {
@@ -244,37 +309,6 @@ void normalizeTotalPass(TString histSet)
       */
     }
   }
-}
-
-double effGeo(int ichan)
-{
-  int ilevel = -1;
-  if (ichan == 6 || ichan == 7 || ichan == 8)
-    ilevel = 0;
-  else if (ichan == 3 || ichan == 4 || ichan == 5)
-    ilevel = 1;
-  else if (ichan == 0 || ichan == 1 || ichan == 2)
-    ilevel = 2;
-
-  double e = 1.0;
-  if (ilevel < 0)
-    return e;
-  /*
-  Area of SiPMs is 6.0mm x 6.0mm
-
-      Channels 6, 7, and 8 are at 11.6 cm
-      from the source Channels 3, 4, and 5 are at 23.2 cm
-      from the source Channels 0, 1, and 2 are at 34.8 cm from the source Channel 12 is at 36 cm from the source.
-      */
-  double a = pow(0.6, 2.);
-  double distance2[3];
-  double b = 4.0 * TMath::Pi();
-  distance2[0] = pow(11.6, 2.);
-  distance2[1] = pow(23.2, 2.);
-  distance2[2] = pow(34.8, 2.);
-
-  e = a / b / distance2[ilevel];
-  return e;
 }
 
 void fitQPE()
@@ -422,87 +456,46 @@ Int_t get_month_index(TString name)
 TDatime getTime(int ifile, Long64_t ievent = 0)
 {
   TDatime datime;
-  if (theDataType == SIS)
+  if (runTree)
   {
-    bf = NULL;
-    fin->GetObject("tbfile", bf);
-    if (!bf)
-    {
-      printf(" no TBfile file %s \n", fileList[ifile].Data());
-      return datime;
-    }
-    TString strfileTime = bf->modified;
-    TString tempstring = TString(strfileTime(20, 4));
-    int fileYear = tempstring.Atoi();
-    tempstring = TString(strfileTime(4, 3));
-    int fileMonth = get_month_index(tempstring);
-    tempstring = TString(strfileTime(8, 2));
-    int fileDay = tempstring.Atoi();
-    tempstring = TString(strfileTime(11, 2));
-    int fileHour = tempstring.Atoi();
-    tempstring = TString(strfileTime(14, 2));
-    int fileMin = tempstring.Atoi();
-    tempstring = TString(strfileTime(17, 2));
-    int fileSec = tempstring.Atoi();
-    datime.Set(fileYear, fileMonth, fileDay, fileHour, fileMin, fileSec);
-    printf("FileYear = %u , FileMonth = %u , FileDay = %u , FileHour = %u , FileMin = %u , FileSec = %u \n", fileYear, fileMonth, fileDay, fileHour, fileMin, fileSec);
-  }
-  else
-  {
-    if (!eventData)
-    {
-      printf(" no eventData in file %s \n", fileList[ifile].Data());
-      return datime;
-    }
-
     runTree->GetEntry(ievent);
-
     printf(" file %i event %lli FileYear = %u , FileMonth = %u , FileDay = %u , FileHour = %u , FileMin = %u , FileSec = %u \n", ifile, ievent, eventData->year + 1900, eventData->mon + 1, eventData->day, eventData->hour, eventData->min, eventData->sec);
     datime.Set(eventData->year, eventData->mon + 1, eventData->day, eventData->hour, eventData->min, eventData->sec);
   }
-
   return datime;
 }
 
+/*
+*****  all pointers found in countFiles
+*/
 void fileLoop()
 {
+  // must have output file opened
+  if (!fout)
+    return;
+
   totalPass = 0;
   nFiles = 0;
   filenum.clear();
   efilenum.clear();
-  hRunEventPass = nullptr;
-  printf("\n \n \n +++++++ fileLoop over %lld files +++++ \n", maxFiles);
+  printf("+++++++ fileLoop over %lld files +++++ \n", maxFiles);
   // DEF would be nice to put in a way to look at the last maxFiles files
   for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
   {
     TString fullName = dirNameSlash + fileList[ifile];
+    printf("line479 %s\n", fullName.Data());
     fin = new TFile(fullName, "readonly");
-
-    if (fin->IsZombie())
-    {
-      printf(" \n *****  skip zomgie file %i  %s  *******\n", ifile, fin->GetName());
+    // get ponters
+    if (!getPointers(fin))
       continue;
-    }
 
-    eventCount = NULL;
-
-    cout << " get event Count " << ifile << endl;
-    fin->GetObject("eventcount", eventCount);
-    if (eventCount)
-    {
-      ntotal = eventCount->GetBinContent(0);
-      npass = eventCount->GetBinContent(1);
-      filePass.push_back(npass);
-      // 0 = ntriggers, 1 = npass
-      // printf("\n\n line485 total events file %i %s %f events passed  %f \n ", ifile, fileList[ifile].Data(), eventCount->GetBinContent(0), eventCount->GetBinContent(1));
-      // TH1D *hevcount = (TH1D *)eventCount->Clone(Form("eventCount%i", ifile));
-      // fout->Add(hevcount);
-    }
-    else
-    {
-      printf("NO EVENT COUNT IN FILE %i  %s\n", ifile, fin->GetName());
-      continue;
-    }
+    ntotal = eventCount->GetBinContent(0);
+    npass = eventCount->GetBinContent(1);
+    filePass.push_back(npass);
+    // 0 = ntriggers, 1 = npass
+    // printf("\n\n line485 total events file %i %s %f events passed  %f \n ", ifile, fileList[ifile].Data(), eventCount->GetBinContent(0), eventCount->GetBinContent(1));
+    // TH1D *hevcount = (TH1D *)eventCount->Clone(Form("eventCount%i", ifile));
+    // fout->Add(hevcount);
 
     filenum.push_back(double(ifile));
     efilenum.push_back(0);
@@ -511,113 +504,54 @@ void fileLoop()
     fileTime.push_back(dateTime.Convert());
     printf(" \n ***** starting file %i , %lu  %s  pass %.0f *******\n", ifile, filenum.size(), fin->GetName(), npass);
     /* add peak and sum gains */
-    TDirectory *sumDir = NULL;
-    fin->GetObject("sumDir", sumDir); // typeO in directory name
-    if (!sumDir)
+    /***************** add qsum ****************/
+    //  loop over channels
+    for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
     {
-      // printf("line489 anaDir not found in file %s \n", fin->GetName());
-      continue;
-    }
-    else
-    {
-      /**************** add peak ****************/
-      //  loop over channels
-      TString gainInName;
       TString gainOutName;
-      for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
+      TString gainInName;
+      gainOutName.Form("GainSumChan%i", ichan);
+      gainInName.Form("QSumChan%i", ichan);
+      TH1D *hIn = NULL;
+      sumDir->GetObject(gainInName, hIn);
+      if (hIn)
       {
-        gainOutName.Form("GainPeakChan%i", ichan);
-        gainInName.Form("QPeakChan%i", ichan);
-        TH1D *hIn = NULL;
-        sumDir->GetObject(gainInName, hIn);
-        if (hIn)
+        TH1D *hOut = NULL;
+        gainSumDir->GetObject(gainOutName, hOut);
+        if (hOut == NULL)
         {
-          TH1D *hOut = NULL;
-          gainSumDir->GetObject(gainOutName, hOut);
-          if (hOut == NULL)
-          {
-            hOut = (TH1D *)hIn->Clone(gainOutName);
-            hOut->SetTitle(gainOutName);
-            cout << "line516 ... adding  " << hIn->GetName() << " file "
-                 << fin->GetName() << " hit QPeak " << hOut->GetEntries() << endl;
-            gainSumDir->Add(hOut);
-          }
-          else
-          {
-            gainSumDir->GetObject(gainOutName, hOut);
-            hOut->Add(hIn);
-            // cout << "line526 ... found for " << gainOutName
-            //      << " in entries " << hIn->GetEntries() << " hit QPeak " << hOut->GetEntries() << endl;
-          }
-        } // if hIn
-      } // channel loop
-      /***************** add qsum ****************/
-      //  loop over channels
-      for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
-      {
-        gainOutName.Form("GainSumChan%i", ichan);
-        gainInName.Form("QSumChan%i", ichan);
-        TH1D *hIn = NULL;
-        sumDir->GetObject(gainInName, hIn);
-        if (hIn)
+          hOut = (TH1D *)hIn->Clone(gainOutName);
+          hOut->SetTitle(gainOutName);
+          // cout << "line613 ... adding  " << hIn->GetName() << " file "  << fin->GetName() << " hit QSum " << hOut->GetEntries() << endl;
+          gainSumDir->Add(hOut);
+        }
+        else
         {
-          TH1D *hOut = NULL;
           gainSumDir->GetObject(gainOutName, hOut);
-          if (hOut == NULL)
-          {
-            hOut = (TH1D *)hIn->Clone(gainOutName);
-            hOut->SetTitle(gainOutName);
-            cout << "line613 ... adding  " << hIn->GetName() << " file "
-                 << fin->GetName() << " hit QSum " << hOut->GetEntries() << endl;
-            gainSumDir->Add(hOut);
-          }
-          else
-          {
-            gainSumDir->GetObject(gainOutName, hOut);
-            hOut->Add(hIn);
-            // cout << "line621 ... found for " << gainOutName
-            //      << " in entries " << hIn->GetEntries() << " hit QSum " << hOut->GetEntries() << endl;
-          }
-        } // if hIn
-      } // channel loop
+          hOut->Add(hIn);
+          // cout << "line621 ... found for " << gainOutName
+          //      << " in entries " << hIn->GetEntries() << " hit QSum " << hOut->GetEntries() << endl;
+        }
+      } // if hIn
+    } // channel loop
 
-    } // if sumDir
-
-    // get hist of cleanup cut pass bit
-    hEventPass = nullptr;
-    printf("line572 collect EventPass ifile %i  \n", ifile);
-    fin->GetObject("EventPass", hEventPass);
-    if (!hEventPass)
-    {
-      printf("NO EVENT PASS IN FILE %s\n", fin->GetName());
-      continue;
-    }
+    // sum eventPsss
     if (ifile == 0)
     {
-      hRunEventPass = (TH1D *)hEventPass->Clone("RunEventPass");
-      printf("line579 ADD  %s to %s \n", hEventPass->GetName(), hRunEventPass->GetName());
       fout->Add(hRunEventPass);
-    }
-    else
-    {
-      fout->GetObject("RunEventPass", hRunEventPass);
-      printf("line600 file %i SUM  %s  to %s \n", ifile, hEventPass->GetName(), hRunEventPass->GetName());
-      hRunEventPass->Add(hEventPass);
     }
 
     // TrigSumNoCut
-    fin->GetObject("TrigSumNoCut", hTrigSumNoCut);
     if (!hTrigSumNoCut)
     {
-      printf("NO hTrigSumNoCut IN FILE %s\n", fin->GetName());
-      continue;
+      printf("NO hTrigSumCut IN FILE %s\n", fin->GetName());
     }
-    if (ifile == 0)
+    if (ifile == 0 && hTrigSumNoCut)
     {
       hRunTrigSumNoCut = (TH1D *)hTrigSumNoCut->Clone("RunTrigSumNoCut");
       fout->Add(hRunTrigSumNoCut);
     }
-    else
+    else if (hTrigSumNoCut)
     {
       fout->GetObject("TrigSumNoCut", hTrigSumNoCut);
       if (!hTrigSumNoCut)
@@ -628,20 +562,17 @@ void fileLoop()
       hRunTrigSumNoCut->Add(hTrigSumNoCut);
     }
     // TrigSumCut
-    fin->GetObject("TrigSumCut", hTrigSumCut);
     if (!hTrigSumCut)
     {
       printf("NO hTrigSumCut IN FILE %s\n", fin->GetName());
-      continue;
     }
-    printf("GOT hTrigSumCut IN FILE %s %s\n", fin->GetName(), hTrigSumCut->GetName());
-    if (ifile == 0)
+    if (ifile == 0 && hTrigSumCut)
     {
       hRunTrigSumCut = (TH1D *)hTrigSumCut->Clone("RunTrigSumCut");
       fout->Add(hRunTrigSumCut);
       printf("hRunTrigSumCut IN FILE %s %s\n", fin->GetName(), hRunTrigSumCut->GetName());
     }
-    else
+    else if (hTrigSumCut)
     {
       fout->GetObject("TrigSumCut", hTrigSumCut);
       if (!hTrigSumCut)
@@ -652,117 +583,8 @@ void fileLoop()
       hRunTrigSumCut->Add(hTrigSumCut);
     }
 
-    // thresh
-    /* add gains */
-    TDirectory *anaDir = NULL;
-    fin->GetObject("anadir", anaDir); // typeO in directory name
-    if (!anaDir)
-    {
-      // printf("line489 anaDir not found in file %s \n", fin->GetName());
-      continue;
-    }
-    anaDir->GetObject("threshHist", hThreshHist);
-    if (!hThreshHist)
-      cout << "  thresh" << endl;
-    if (ifile == 0)
-    {
-      hRunThreshHist = (TH1D *)hThreshHist->Clone("RunThreshHist");
-      fout->Add(hRunThreshHist);
-    }
-    else
-    {
-      fout->GetObject("RunThreshHist", hRunThreshHist);
-      hRunThreshHist->Add(hThreshHist);
-    }
-
-    // crossings
-    anaDir->GetObject("crossHist", hCrossHist);
-    if (!hCrossHist)
-      cout << " cross" << endl;
-    if (ifile == 0)
-    {
-      hRunCrossHist = (TH1D *)hCrossHist->Clone("RunCrossHist");
-      fout->Add(hRunCrossHist);
-    }
-    else
-    {
-      fout->GetObject("RunCrossHist", hRunCrossHist);
-      hRunCrossHist->Add(hCrossHist);
-    }
-    // cosmic 1
-    anaDir->GetObject("cosmicCut1", hCosmicCut1);
-    if (!hCosmicCut1)
-    {
-      cout << " no cosmic 1" << endl;
-    }
-    else
-    {
-      if (ifile == 0)
-      {
-        hRunCosmicCut1 = (TH1D *)hCosmicCut1->Clone("RunCosmicCut1");
-        fout->Add(hRunCosmicCut1);
-      }
-      else
-      {
-        fout->GetObject("RunCosmicCut1", hRunCosmicCut1);
-        hRunCosmicCut1->Add(hCosmicCut1);
-      }
-    }
-    // cosmic 2
-    anaDir->GetObject("cosmicCut2", hCosmicCut2);
-    if (!hCosmicCut2)
-      cout << " no cosmic 2" << endl;
-    else
-    {
-      if (ifile == 0)
-      {
-        hRunCosmicCut2 = (TH1D *)hCosmicCut2->Clone("RunCosmicCut2");
-        fout->Add(hRunCosmicCut2);
-      }
-      else
-      {
-        fout->GetObject("RunCosmicCut2", hRunCosmicCut2);
-        hRunCosmicCut2->Add(hCosmicCut2);
-      }
-    }
-
-    //
-
-    sumDir = NULL;
-    fin->GetObject("sumDir", sumDir);
-    if (!sumDir)
-    {
-      printf(" sumDir not found in file %s \n", fin->GetName());
-      continue;
-    }
-    printf(" sumDir for file %s \n", fin->GetName());
-
     TH1D *hqsum = NULL;
     TH1D *hqprompt = NULL;
-    /* not using this now
-    if (theDataType == SIS)
-    {
-      fin->GetObject("histQsum", hqsum);
-      fin->GetObject("histQprompt", hqprompt);
-    }
-    else
-    {
-      fin->GetObject("histqsum", hqsum);
-      fin->GetObject("histqprompt", hqprompt);
-    }
-    */
-    runTree = NULL;
-    eventData = NULL;
-    if (theDataType == CAEN)
-    {
-      eventData = new TBEventData();
-      fin->GetObject("RunTree", runTree);
-      if (!runTree)
-        printf("file has not RunTree %s \n", fin->GetName());
-      else
-        runTree->SetBranchAddress("eventData", &eventData);
-    }
-
     if (hqsum && hqprompt)
     {
       TH1D *hq = (TH1D *)hqsum->Clone(Form("hqsum%i", ifile));
@@ -834,7 +656,7 @@ void fileLoop()
         // waveSumDir->cd();
         string chan = name.substr(name.find_last_of("e") + 1);
         int ichan = stoi(chan);
-        printf("line760 sumPeakWave clone %s file %i chan %i\n", name.c_str(), ifile, ichan);
+        // printf("line760 sumPeakWave clone %s file %i chan %i\n", name.c_str(), ifile, ichan);
         TString cloneName;
         cloneName.Form("RunPeakWaveFile%uChan%i", ifile, ichan);
         hClone = (TH1D *)h->Clone(cloneName);
@@ -910,7 +732,7 @@ void fileLoop()
     // waveSumDir->Write();
     totalPass += int(npass);
     ++nFiles;
-
+    // close file
     fin->Close();
     printf("line812 end loop over sumDir keys file %i of %i named %s file pass %i totalPass %i WaveSumDir keys %i \n", ifile, nFiles, fin->GetName(), int(npass), totalPass, waveSumDir->GetNkeys());
   } // end loop over files
@@ -920,12 +742,6 @@ void fileLoop()
 
 void sumHistosChannel(int ichan, TString histSet)
 {
-  vecQPEMean[ichan] = QPEMean[ichan]; // starting value
-  /* if (ichan > 8 && ichan < 12)
-    return; // skip trigger sipms
-  */
-  // printf("line792 sumHistosChannel:: sum histos total pass %i ichan %i set %s QPEMean %f  \n", totalPass, ichan, histSet.Data(), QPEMean[ichan]);
-
   // sum over files
   for (int ih = 0; ih < nFiles; ++ih)
   {
@@ -940,7 +756,7 @@ void sumHistosChannel(int ichan, TString histSet)
       continue;
     }
 
-    // cout << "at line 765 waveToSum " << waveToSum->GetName() << endl;
+    cout << "line765 waveToSum channel " << ih << " file " << waveToSum->GetName() << " passing files " << filePass[ih] << endl;
 
     // new histogram
     int nbinsx = waveToSum->GetNbinsX();
@@ -968,36 +784,21 @@ void sumHistosChannel(int ichan, TString histSet)
     hWaveToFitNotNormed->SetMarkerSize(0.2);
     hWaveToFitNotNormed->GetListOfFunctions()->Clear();
 
-    // printf(" line 850 NNNNNN normalize to qpe chan %i nbins %i file %i qpe %f !!!!!\n", ichan, waveToSum->GetNbinsX(), ih, qpeChan);
-    /* loop over histogram bins */
-    // printf("line862 waveToSum %s  chan %i file %i entries %f total event %f  \n",
-    // waveToSum->GetName(), ichan, ih, waveToSum->GetEntries(), double(filePass[ih]));
     for (int ibin = 0; ibin < waveToSum->GetNbinsX(); ++ibin)
     {
-      // apply effOther correction
-      double xbin = waveToSum->GetBinContent(ibin) / effOther[ichan];
-      double ebin = waveToSum->GetBinError(ibin) / effOther[ichan];
-
-      // norm to number of triggers
+      double xbin = waveToSum->GetBinContent(ibin);
+      double ebin = waveToSum->GetBinError(ibin);
       hWaveToFitNotNormed->SetBinContent(ibin, xbin);
       hWaveToFitNotNormed->SetBinError(ibin, ebin);
       // norm to total pass in file and to gain
-      hWaveToFit->SetBinContent(ibin, xbin / double(filePass[ih]) / nominalGain);
-      hWaveToFit->SetBinError(ibin, ebin / double(filePass[ih]) / nominalGain);
+      hWaveToFit->SetBinContent(ibin, xbin / double(filePass[ih]) / readGains->sipmPeakGain[ichan]);
+      hWaveToFit->SetBinError(ibin, ebin / double(filePass[ih]) / readGains->sipmPeakGain[ichan]);
     }
     if (histSet.Contains("Peak"))
     {
       vNormByFile.push_back(hWaveToFit);
       // printf("line927 chan %i file %i push back vNormByFile size %lu \n \n", ichan,ih,vNormByFile.size());
     }
-
-    /*
-    cout << "at line894 "
-         << " filePass " << filePass[ih] << "  " << hWaveToFit->GetName()
-         << " sum entries " << waveToSum->GetEntries()
-         << " sum integral " << waveToSum->Integral()
-         << " fit integral  " << hWaveToFit->Integral() << endl;
-         */
 
     // check histo
     bool addIt = true;
@@ -1008,14 +809,9 @@ void sumHistosChannel(int ichan, TString histSet)
       runSumDir->cd();
       if (hUnNormedPeakWave[ichan] == NULL && addIt)
       {
-        // histName.Form("Run%sChan%i", histSet.Data(), ichan);
-        //  do norm to tatal pass after sum over files
-        // hRunHitWave[ichan] = (TH1D *)hWaveToFitNotNormed->Clone(histName);
         histName.Form("UnNormed%sChan%i", histSet.Data(), ichan);
-        // cout << " line915 NNNNNNNNNN new clone " << histName << " of " << hWaveToFitNotNormed->GetName() << endl;
         hUnNormedPeakWave[ichan] = (TH1D *)hWaveToFitNotNormed->Clone(histName);
         hUnNormedPeakWave[ichan]->SetTitle(histName);
-        // runSumDir->Add(hRunHitWave[ichan]);
         runSumDir->Add(hUnNormedPeakWave[ichan]);
       }
       else if (addIt)
@@ -1030,18 +826,13 @@ void sumHistosChannel(int ichan, TString histSet)
         }
         hUnNormedPeakWave[ichan]->Add(hWaveToFitNotNormed);
       }
-      // cout << " at line943 " << fileList[ih].Data() << " totalPass " << totalPass << "  " << hUnNormedPeakWave[ichan]->GetName() << " integral " << hUnNormedHitWave[ichan]->Integral() << endl;
-
-      // end add RunHitWave
     }
     else if (histSet == TString("SumWave"))
     {
       runSumDir->cd();
       histName.Form("UnNormed%sChan%i", histSet.Data(), ichan);
-      // cout << " line896 sum to " << histName << " summing " << waveToSum->GetName() << endl;
       if (hUnNormedSumWave[ichan] == NULL && addIt)
       {
-        // cout << " line939 NNNNNNNNNN new clone " << histName << " " << waveToSum->GetName() << endl;
         hUnNormedSumWave[ichan] = (TH1D *)waveToSum->Clone(histName);
         hUnNormedSumWave[ichan]->SetTitle(histName);
       }
@@ -1054,15 +845,13 @@ void sumHistosChannel(int ichan, TString histSet)
         hUnNormedSumWave[ichan]->Add(hWaveToFit);
       }
     }
-    // printf("line986 file %i fitSumDir %i keys \n", ih, fitSumDir->GetNkeys());
-    // printf("line984 file %i \n",ih);
   } // sum over files
-    // end add RunHitWave
 }
 
 void sumHistos()
 {
   // histograms time in ns
+  // make sum histograms on output file in directory runSumDir
   runSumDir->cd();
   TString histName;
   for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
@@ -1077,9 +866,7 @@ void sumHistos()
     hRunSumWave[ichan]->GetYaxis()->SetTitle("yield [SPE] ");
   }
 
-  runSumDir->ls();
-
-  printf("line963 sumHistos: Nfiles %d Number of waveForDir %d\n", nFiles, waveSumDir->GetList()->GetEntries());
+  printf("line1013 sumHistos: Nfiles %d Number of waveSumDir %d\n", nFiles, waveSumDir->GetList()->GetEntries());
   // loop over channels
   for (int ichan = 0; ichan < CHANNELS; ++ichan)
     sumHistosChannel(ichan, TString("PeakWave"));
@@ -1089,72 +876,6 @@ void sumHistos()
   // waveSumDir->ls();
   normalizeTotalPass(TString("PeakWave"));
   normalizeTotalPass(TString("SumWave"));
-}
-
-void fitSlopes()
-{
-  printf("Make slope graph.  Number of files = %lu Number of channels = %lu \n", filenum.size(), vRunPeakWave.size());
-  double flow = 0.;
-  double fhigh = 0;
-  if (theDataType == SIS)
-  { // For SIS data
-    flow = 8 * 120.;
-    fhigh = 8 * 500.;
-  }
-  else
-  { // For CAEN data
-    flow = 2. * 1000.;
-    fhigh = 2. * 3000.;
-  }
-
-  for (unsigned ichan = 0; ichan < vRunPeakWave.size(); ++ichan)
-  {
-    if (ichan > 8 && ichan < 12)
-      continue; // skip trigger sipms
-    TString histName;
-    TH1D *hWaveToFit = NULL;
-    for (unsigned ih = 0; ih < vRunPeakWave[ichan].size(); ++ih)
-    {
-      histName.Form("fitwaveChan%iFlile%i", ichan, ih);
-      // fitSumDir->GetObject(histName, hWaveToFit);
-      if (hWaveToFit == NULL)
-        continue;
-      printf("slope graph ichan %i %s \n", ichan, hWaveToFit->GetName());
-      TF1 *gslopefit = NULL;
-      /* chisq fit def, L for likelihood
-        L Uses a log likelihood method(default is chi - square method).
-        To be used when the histogram represents counts.
-      */
-
-      hWaveToFit->Fit("expo", "QLQ", " ", flow, fhigh);
-      gslopefit = (TF1 *)hWaveToFit->GetListOfFunctions()->FindObject("expo");
-      double mfit = 0;
-      double emfit = 0;
-      double time = 0;
-      double etime = 0;
-      double MicroSecPerNs = 1. / 1000.; // DEF added in switch for different digitizer MicroSecPerDac
-      if (gslopefit)
-      {
-        mfit = -1. * gslopefit->GetParameter(1);
-        emfit = gslopefit->GetParError(1);
-        time = 0;
-        etime = 0;
-        if (mfit != 0)
-        {
-          time = MicroSecPerNs / mfit;
-          etime = gslopefit->GetParError(1) / abs(gslopefit->GetParameter(1)) * abs(time);
-        }
-      }
-      /* correct but confusing MG
-        if (time > 40) time = 0;
-        etime = gslopefit->GetParError(1) *(-1)*time / mfit;
-        if (etime > time) etime = time;
-      */
-      printf(" Slope for file %u, channel %i = %f tau = %f tau_error = %f \n", ih, ichan, mfit, time, etime);
-      vSlope[ichan].push_back(time);
-      vESlope[ichan].push_back(etime);
-    }
-  }
 }
 
 string currentDate()
@@ -1170,10 +891,13 @@ string currentDate()
 // count subruns and channels
 unsigned long countFiles()
 {
+  dirName = TString("caenData");
+  dirNameSlash = TString("caenData/");
   cout << " count files in dir " << dirName << endl;
   TSystemDirectory dir(dirName, dirName); // TSystemDirectory
-  TList *files = dir.GetListOfFiles();    //
-  TIter next(files);
+  TList *files = dir.GetListOfFiles();
+  // print list
+  TIter next(files); // Create an iterator for the TList
   TSystemFile *file;
   while ((file = (TSystemFile *)next()))
   {
@@ -1192,36 +916,28 @@ unsigned long countFiles()
     time_t fileTime = mktime(&tmStruct);
     const auto diff0 = std::difftime(fileTime, time0);
     const auto diff1 = std::difftime(fileTime, time1);
-    printf("line1139 info : file %s time %s", tname.Data(), asctime(gmtime(&fileTime)));
-    cout << " \t ..... " << diff0 << " " << diff1 << endl;
+    // printf("line914 info : file %s time %s", tname.Data(), asctime(gmtime(&fileTime)));
+    // cout << " \t ..... " << diff0 << " " << diff1 << endl;
     bool timetest = diff0 >= 0 && diff1 <= 0;
     if (!timetest)
     {
-      cout << "line1148 skip out of time file " << name << endl;
+      // cout << "line1148 skip out of time file " << name << endl;
       continue;
     }
 
     // see if file is good
     TString fullName = dirNameSlash + TString(name.c_str());
+    // open file and get pointers
     TFile *f = new TFile(fullName, "READONLY");
-    TTree *RunTree = NULL;
-    f->GetObject("RunTree", RunTree);
-    if (RunTree == NULL)
-    {
-      cout << "line1129 skipping BAD file " << name << endl;
-      continue;
-    }
+    if (getPointers(f))
+      fileList.push_back(TString(name.c_str()));
     f->Close();
-    // good file add to list
-    fileList.push_back(TString(name.c_str()));
-    cout << "line1135 add file " << name << " nFiles= " << fileList.size() << endl;
   }
   return fileList.size();
 }
 
 int main(int argc, char *argv[])
 {
-  readGains = new TReadGains();
   cout << "executing " << argv[0] << " make summary plots  " << endl;
   printf(" usage: summary start date string <stag> end date string <etag> max files <default all> \n ");
   if (argc < 2)
@@ -1229,6 +945,7 @@ int main(int argc, char *argv[])
     printf("reguire file date start string <stag> args\n");
     exit(0);
   }
+  readGains = new TReadGains();
   dirName = TString("caenData");
   dirNameSlash = TString("caenData/");
   theStartTag = TString(argv[1]);
@@ -1267,17 +984,6 @@ int main(int argc, char *argv[])
     maxFiles = atoi(argv[3]);
   }
   printf(" for %s found %lu files maxFiles %lli \n", tag.Data(), fileList.size(), maxFiles);
-  // cleanup cuts;
-  hEventPass = NULL;
-  hThreshHist = NULL;
-  hCrossHist = NULL;
-  hCosmicCut1 = NULL;
-  hCosmicCut2 = NULL;
-  hRunEventPass = NULL;
-  hRunThreshHist = NULL;
-  hRunCrossHist = NULL;
-  hRunCosmicCut1 = NULL;
-  hRunCosmicCut2 = NULL;
 
   sdate = currentDate();
   cout << " starting summary for   " << maxFiles << endl;
@@ -1295,7 +1001,6 @@ int main(int argc, char *argv[])
   hQPESigmaChan = new TH1D("QPESigmaChan", "QPE  by channel", 12, 0, 12);
   hQPEChan->Sumw2();
   hQPESigmaChan->Sumw2();
-  effOther.resize(CHANNELS);
   vecQsum.resize(CHANNELS);
   vecEQsum.resize(CHANNELS);
   vecQsumUn.resize(CHANNELS);
@@ -1323,141 +1028,27 @@ int main(int argc, char *argv[])
   sumHits.resize(CHANNELS);
   hRunLatePeakSum.resize(CHANNELS);
 
-  for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
-  {
-    hUnNormedPeakWave[ichan] = NULL;
-    hUnNormedSumWave[ichan] = NULL;
-    effOther[ichan] = 1.;
-    sumHits[ichan] = 0.;
-  }
-
   fout->cd();
 
-  // nominal values
-  QPEMean.resize(CHANNELS);
-  QPEMean[0] = 5.576E+03;
-  QPEMean[1] = 5.206E+03;
-  QPEMean[2] = 5.488E+03;
-  QPEMean[3] = 1.000E+00;
-  QPEMean[4] = 1.139E+04;
-  QPEMean[5] = 5.103E+03;
-  QPEMean[6] = 8.700E+03;
-  QPEMean[7] = 1.143E+04;
-  QPEMean[8] = 1.203E+04;
-  QPEMean[9] = 1.000E+00;
-  QPEMean[10] = 1.000E+00;
-  QPEMean[11] = 1.000E+00;
-  QPEMean[12] = 8.187E+02;
-
-  // from integral
-  /*
-  effOther[0] = 1.720E-01;
-  effOther[1] = 1.558E-01;
-  effOther[2] = 1.986E-01;
-  effOther[4] = 4.757E-01;
-  effOther[5] = 5.218E+00;
-  effOther[7] = 2.077E-01;
-  effOther[8] = 8.284E-02;
-  effOther[12] = 2.801E-01;
-
-  // from fits
-  effOther[0] = 1.729E-01;
-  effOther[1] = 2.604E-01;
-  effOther[2] = 2.176E-01;
-  effOther[4] = 4.852E-01;
-  effOther[5] = 6.848E+00;
-  effOther[7] = 2.127E-01;
-  effOther[8] = 8.533E-02;
-  effOther[12] = 2.779E-01;
-  */
-
-  // use a relative normalization
-  /*
-  for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
-  {
-    effOther[ichan] = effOther[ichan] / effOther[7];
-  }
-  */
   fileLoop();
-  cout << "@ fileLoop" << filenum.size() << endl;
-  fout->Write();
-
-  // waveSumDir->ls();
-  // fitSumDir->ls();
-  // printf("%i vRunPeakWave size %lu\n", ichan, vRunPeakWave[ichan].size());
-
-  printf("line1270 \t\t >>> after fileLoop processed << %li  total pass %i channels %lu <<<<< \n", filenum.size(), totalPass, vRunPeakWave.size());
+  printf("line1284 \t\t >>> after fileLoop processed << %li  total pass %i channels %lu <<<<< \n", filenum.size(), totalPass, vRunPeakWave.size());
 
   for (unsigned jfile = 0; jfile < filenum.size(); ++jfile)
   {
     printf(" file %i %s \n", int(filenum[jfile]), fileList[jfile].Data());
   }
-
-  // printf("line1327 ..................... endNow skipping sumHistos...................\n");
-  // goto endNow;
-  //  cout << "@ fitQPE" << endl;
-  //  fitQPE();
+  fout->Write();
 
   // call function to fit slopes and fill vSlope, vESlope
   if (filenum.size() > 0)
   {
     cout << "line1357 call sumHistos files " << filenum.size() << " total pass " << totalPass << endl;
     sumHistos();
-    // cout << "@  line1230 fitSlopes" << endl;
-    //  fitSlopes();
-    // cout << "@ line1232 makeGraphs" << endl;
-    //  makeGraphs();
   }
   // endNow:
 
   // print totalHits
   printf("line1367 \t >>> end of job: files processed << %li  total pass %i <<<<< \n", filenum.size(), totalPass);
-
-  printf("\n totalHits in %i passed triggers \n", totalPass);
-  for (unsigned ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
-    if (sumHits[ichan] != 0)
-      printf("totalHits[%i]=%E ;\n", ichan, sumHits[ichan]);
-  /*
-  printf("\n qpeMean in %i passed triggers \n", totalPass);
-  for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
-    printf("QPEMean[%i]=%.3E ;\n", ichan, vecQPEMean[ichan]);
-
-  printf("\n effOther\n");
-  for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
-    printf("effOther[%i]=%f ;\n", ichan, effOther[ichan]);
-    */
-
-  //    fout->ls();
-  // get rid of first bin
-  for (int ihist = 0; ihist < hRunLatePeakSum.size(); ++ihist)
-  {
-    TString runHistName;
-    runHistName.Form("RunLatePeakSumChan%i", ihist);
-    fout->GetObject(runHistName, hRunLatePeakSum[ihist]);
-    if (hRunLatePeakSum[ihist])
-    {
-      hRunLatePeakSum[ihist]->SetBinContent(1, 0);
-      // cout << " set to zero " << runHistName << " " << hRunLatePeakSum[ihist]->GetBinContent(1) << endl;
-    }
-    // dont need this fout->Add(hRunLatePeakSum[ihist]);
-  }
-
-  // get rid of first bin in gaina
-  gainSumDir->Purge(1);
-  // gainSumDir->ls();
-  printf("gainSumDir %i keys \n", gainSumDir->GetNkeys());
-  TList *gainList = gainSumDir->GetListOfKeys();
-  TIter next(gainList);
-  TKey *key;
-  while (TKey *key = (TKey *)next())
-  {
-    TClass *cl = gROOT->GetClass(key->GetClassName());
-    if (!cl->InheritsFrom("TH1D"))
-      continue;
-    TH1D *h = (TH1D *)key->ReadObj();
-    for (int ibin = 1; ibin < 5; ++ibin)
-      h->SetBinContent(ibin, 0);
-  }
 
   /* runSum integrals of waveSuDir */
   printf("line1416 from Directory %s with %i keys do integrals: \n", waveSumDir->GetName(), waveSumDir->GetNkeys());
@@ -1484,25 +1075,6 @@ int main(int argc, char *argv[])
     runSumNames[chanNumber].push_back(h->GetName());
   }
 
-  /*
-  printf("line1440 filenum %lu runSums 0 %lu  make graphs from integrals \n", filenum.size(), runSums[0].size());
-  gInte.resize(runSums.size());
-  for (int ichan = 0; ichan < runSums.size(); ++ichan)
-  {
-    gInte[ichan] = new TGraph(runSums[ichan].size(), &filenum[0], &runSums[ichan][0]);
-    for (int ic = 0; ic < runSums[ichan].size(); ++ic)
-      printf(" chan %d run %d  file %s sum %E\n", ichan, ic, runSumNames[ichan][ic].Data(), runSums[ichan][ic]);
-    TString graphName;
-    graphName.Form("gInteChan%i", ichan);
-    gInte[ichan]->SetName(graphName);
-    gInte[ichan]->SetTitle(graphName);
-    gInte[ichan]->SetMarkerSize(1);
-    gInte[ichan]->SetMarkerColor(kBlue);
-    gInte[ichan]->SetMarkerStyle(21);
-    fout->Add(gInte[ichan]);
-  }
-    */
-
   // calculate mean hits from waveforms
   printf("line1461 calculate mean hits from hRunPeakWave %lu from runSumDir \n", hRunPeakWave.size());
   for (int idet = 0; idet < hRunPeakWave.size(); ++idet)
@@ -1525,81 +1097,6 @@ int main(int argc, char *argv[])
 
   exit(0);
 }
-
-// report
-/*for (unsigned it = 0; it < fileTime.size(); ++it)
-  if (fileDatime[it].Convert() < dateTime.Convert())
-    cout << " before " << fileDatime[it].AsString() << "  " << fileList[it] << endl;
-  else
-    cout << " after  " << fileDatime[it].AsString() << "  " << fileList[it] << endl;
-    */
-// fout->ls();
-
-/*
-cout << "Average QPE" << endl;
-
-for (int ichan = 0; ichan < CHANNELS; ++ichan)
-{
-  double sum = 0;
-  for (int ifile = 0; ifile < vecQPE[ichan].size(); ++ifile)
-    sum += vecQPE[ichan][ifile];
-  printf(" chan %i average over %li files, QPE %f \n", ichan, vecQPE[ichan].size(), sum / double(vecQPE[ichan].size()));
-}
-*/
-
-/*
-double fitStart = 12000;
-double fitEnd = 14000;
-for (unsigned ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
-{
-  if (ichan == 9 || ichan == 10 || ichan == 11 || ichan == 3 || ichan == 6 || ichan==12)
-    continue;
-  TString histName;
-  histName.Form("RunPeakWaveChan%i", ichan);
-  runSumDir->GetObject(histName, hRunPeakWave[ichan]);
-  if (hRunPeakWave[ichan] == NULL)
-  {
-    cout << " cannot find " << histName << endl;
-    continue;
-  }
-  int nbins = hRunPeakWave[ichan]->GetNbinsX();
-  double sum = hRunPeakWave[ichan]->Integral(1, nbins);
-  int startBins = hRunPeakWave[ichan]->FindBin(fitStart);
-  int endBins = hRunPeakWave[ichan]->FindBin(fitEnd);
-  double ave = hRunPeakWave[ichan]->Integral(startBins, endBins) / double(endBins - startBins);
-
-  TF1 *gfit = NULL;
-  double ave2 = 0;
-  hRunPeakWave[ichan]->Fit("pol0", "LF", " ", fitStart, fitEnd);
-  gfit = (TF1 *)hRunPeakWave[ichan]->GetListOfFunctions()->FindObject("pol0");
-  if (gfit)
-  {
-    // this shouldnot get divided
-    ave2 = gfit->GetParameter(0); // / double(backBins);
-    printf("......pol0 fit to chan %i value %f \n", ichan, ave2);
-  }
-  else
-    printf("WARNING pol0 Fit to chan %u fails \n", ichan);
-
-  if (isnan(ave2) || ave2 < 0)
-  {
-    printf("WARNING pol0 Fit to chan %u fails \n", ichan);
-    ave2 = ave;
-  }
-  double back = ave * double(nbins);
-  double back2 = ave2 * double(nbins);
-  // from fit to hist
-  // if (ichan == 12)
-  //  back = 6.45;
-  printf("RunPeakWave chan %i nbins %i entries %f sum %E  bins (%f,%f)  ave (%.4f,%.4f)  back (%E,%E)\n", ichan, nbins, hRunPeakWave[ichan]->GetEntries(), sum, fitStart, fitEnd, ave, ave2, back, back2);
-  // sumHits[ichan] = sum - back;
-  if (sum - back < 0)
-    back = back2;
-    sum /= sipmGain[ichan];
-  //printf("totalHits[%i]=%E;\n", ichan, sum - back);
-  printf("totalHits[%i]=%E SPE;\n", ichan, sum);
-}
-*/
 
 /*  put this all at bottom */
 void makeGraphs()
@@ -1686,7 +1183,6 @@ void makeGraphs()
   fout->Append(canSlope);
 
   // one graph per channel
-  // normalize to qpe and effOther
   for (unsigned ic = 0; ic < vecQsum.size(); ++ic)
   {
     printf("QSUM ch %i size %lu \n", ic, vecQsum[ic].size());
@@ -1695,10 +1191,10 @@ void makeGraphs()
       double qpe = vecQPE[ic][ih];
       if (qpe <= 1. || isnan(qpe) || isinf(qpe))
         qpe = 1.;
-      printf(" \t\t QSUM chan %i file%i qpe %.3E effOther %.3E  qsum %f  new  %f \n",
-             ic, ih, vecQPE[ic][ih], effOther[ic], vecQsum[ic][ih], vecQsum[ic][ih] / qpe / effOther[ic]);
-      vecQsum[ic][ih] = vecQsum[ic][ih] / qpe / effOther[ic];
-      vecEQsum[ic][ih] = vecEQsum[ic][ih] / qpe / effOther[ic];
+      printf(" \t\t QSUM chan %i file%i qpe %.3E  qsum %f  new  %f \n",
+             ic, ih, vecQPE[ic][ih], vecQsum[ic][ih], vecQsum[ic][ih] / qpe);
+      vecQsum[ic][ih] = vecQsum[ic][ih] / qpe;
+      vecEQsum[ic][ih] = vecEQsum[ic][ih] / qpe;
     }
   }
 
@@ -1877,83 +1373,3 @@ void makeGraphs()
   canL3->SetGrid();
   fout->Append(canL3);
 }
-/*
-// apply norms
-for (unsigned ic = 0; ic < vecQsum.size(); ++ic)
-{
-  for (unsigned jf = 0; jf < vecQsum[ic].size(); ++jf)
-  {
-    vecQsum[ic][jf] /= normQsum[ic];
-    vecEQsum[ic][jf] /= normQsum[ic];
-  }
-}
-// apply norms
-for (unsigned ic = 0; ic < vecQPE.size(); ++ic)
-{
-  for (unsigned jf = 0; jf < vecQPE[ic].size(); ++jf)
-  {
-    vecQPE[ic][jf] /= normQPE[ic];
-    vecEQPE[ic][jf] /= normQPE[ic];
-  }
-}
-*/
-
-// get slopes from graph
-/*
-unsigned nslope = gslope->GetN();
-printf(" nslope %u \n", nslope);
-// the graph starts with ichn = 3
-for (unsigned ic = 0; ic < CHANNELS;  ++ic)
-{
-  vSlope[ic].push_back(0.);
-  vESlope[ic].push_back(0);
-}
-for (unsigned ic = 0; ic < nslope ; ++ic)
-{
-  unsigned ilast = vSlope[ic].size()-1;
-  unsigned ichan = unsigned(gslope->GetPointX(ic));
-  double yval = gslope->GetPointY(ic);
-  double yerr = gslope->GetErrorY(ic);
-  printf("filling chan %u file %u %f %f \n", ichan, ilast , yval, yerr);
-
-  vSlope[ichan][ilast] = gslope->GetPointY(ic);
-  vESlope[ichan][ilast] = gslope->GetErrorY(ic);
-}
-
-printf("\t slopes %lu \n", vSlope.size());
-for (unsigned j = 0; j < vSlope.size(); ++j)
-{
-  for (unsigned k = 0; k < vSlope[j].size(); ++k)
-    printf("chan %u file %u %f %f \n", j, k, vSlope[j][k], vESlope[j][k]);
-}
-*/
-
-// get slopes from graph
-/*
-unsigned nslope = gslope->GetN();
-printf(" nslope %u \n", nslope);
-// the graph starts with ichn = 3
-for (unsigned ic = 0; ic < CHANNELS;  ++ic)
-{
-  vSlope[ic].push_back(0.);
-  vESlope[ic].push_back(0);
-}
-for (unsigned ic = 0; ic < nslope ; ++ic)
-{
-  unsigned ilast = vSlope[ic].size()-1;
-  unsigned ichan = unsigned(gslope->GetPointX(ic));
-  double yval = gslope->GetPointY(ic);
-  double yerr = gslope->GetErrorY(ic);
-  printf("filling chan %u file %u %f %f \n", ichan, ilast , yval, yerr);
-
-  vSlope[ichan][ilast] = gslope->GetPointY(ic);
-  vESlope[ichan][ilast] = gslope->GetErrorY(ic);
-}
-
-printf("\t slopes %lu \n", vSlope.size());
-for (unsigned j = 0; j < vSlope.size(); ++j)
-{
-  for (unsigned k = 0; k < vSlope[j].size(); ++k)
-    printf("chan %u file %u %f %f \n", j, k, vSlope[j][k], vESlope[j][k]);
-}
-*/
