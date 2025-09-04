@@ -137,7 +137,6 @@ TDirectory *anaDir;
 TDirectory *fitSumDir;
 TDirectory *waveSumDir;
 TDirectory *qpeSumDir;
-TDirectory *peakSumDir;
 TDirectory *runSumDir;
 TDirectory *gainSumDir;
 TFile *fin;
@@ -466,7 +465,7 @@ TDatime getTime(int ifile, Long64_t ievent = 0)
 }
 
 /*
-*****  all pointers found in countFiles
+*****  all pointers found using getPointers()
 */
 void fileLoop()
 {
@@ -480,13 +479,17 @@ void fileLoop()
   efilenum.clear();
   printf("+++++++ fileLoop over %lld files +++++ \n", maxFiles);
   // DEF would be nice to put in a way to look at the last maxFiles files
+
   for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
   {
     TString fullName = dirNameSlash + fileList[ifile];
     printf("line479 %s\n", fullName.Data());
     fin = new TFile(fullName, "readonly");
+    // for summing
+    hRunTrigSumNoCut = nullptr;
+    hRunTrigSumCut = nullptr;
     // get ponters
-    if (!getPointers(fin))
+    if (!getPointers(fin)) // get pointers for this file
       continue;
 
     ntotal = eventCount->GetBinContent(0);
@@ -503,7 +506,41 @@ void fileLoop()
     fileDatime.push_back(dateTime);
     fileTime.push_back(dateTime.Convert());
     printf(" \n ***** starting file %i , %lu  %s  pass %.0f *******\n", ifile, filenum.size(), fin->GetName(), npass);
-    /* add peak and sum gains */
+    /******
+     * add peak and sum gains  to gainSumDir
+     * ******/
+    /**************** add peak ****************/
+    //  loop over channels
+    for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
+    {
+      TString gainInName;
+      TString gainOutName;
+      gainOutName.Form("GainPeakChan%i", ichan);
+      gainInName.Form("QPeakChan%i", ichan);
+      TH1D *hIn = NULL;
+      sumDir->GetObject(gainInName, hIn);
+      if (hIn)
+      {
+        TH1D *hOut = NULL;
+        gainSumDir->GetObject(gainOutName, hOut);
+        if (hOut == NULL)
+        {
+          hOut = (TH1D *)hIn->Clone(gainOutName);
+          hOut->SetTitle(gainOutName);
+          cout << "line516 ... adding  " << hIn->GetName() << " file "
+               << fin->GetName() << " hit QPeak " << hOut->GetEntries() << endl;
+          gainSumDir->Add(hOut);
+        }
+        else
+        {
+          gainSumDir->GetObject(gainOutName, hOut);
+          hOut->Add(hIn);
+          // cout << "line526 ... found for " << gainOutName
+          //      << " in entries " << hIn->GetEntries() << " hit QPeak " << hOut->GetEntries() << endl;
+        }
+      } // if hIn
+    } // channel loop
+
     /***************** add qsum ****************/
     //  loop over channels
     for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
@@ -542,80 +579,37 @@ void fileLoop()
     }
 
     // TrigSumNoCut
-    if (!hTrigSumNoCut)
+    // make summed histos on output
+    if (!hRunTrigSumNoCut && hTrigSumNoCut)
     {
-      printf("NO hTrigSumCut IN FILE %s\n", fin->GetName());
-    }
-    if (ifile == 0 && hTrigSumNoCut)
-    {
+      printf("line550 GOT hTrigSumNoCut IN FILE %s\n", fin->GetName());
       hRunTrigSumNoCut = (TH1D *)hTrigSumNoCut->Clone("RunTrigSumNoCut");
       fout->Add(hRunTrigSumNoCut);
+      printf("hRunTrigSumCut IN FILE %s named %s\n", fin->GetName(), hRunTrigSumNoCut->GetName());
     }
-    else if (hTrigSumNoCut)
+
+    if (hRunTrigSumCut && hTrigSumCut)
     {
-      fout->GetObject("TrigSumNoCut", hTrigSumNoCut);
-      if (!hTrigSumNoCut)
-      {
-        printf("NO hTrigSumNoCut IN FILE %s\n", fin->GetName());
-        continue;
-      }
-      hRunTrigSumNoCut->Add(hTrigSumNoCut);
-    }
-    // TrigSumCut
-    if (!hTrigSumCut)
-    {
-      printf("NO hTrigSumCut IN FILE %s\n", fin->GetName());
-    }
-    if (ifile == 0 && hTrigSumCut)
-    {
+      printf("line562 hRunTrigSumCut IN FILE named %s \n", fin->GetName());
       hRunTrigSumCut = (TH1D *)hTrigSumCut->Clone("RunTrigSumCut");
       fout->Add(hRunTrigSumCut);
-      printf("hRunTrigSumCut IN FILE %s %s\n", fin->GetName(), hRunTrigSumCut->GetName());
+      printf("hRunTrigSumCut IN FILE %s named %s\n", fin->GetName(), hRunTrigSumCut->GetName());
     }
-    else if (hTrigSumCut)
+
+    // sum with Add
+    if (hRunTrigSumNoCut && hTrigSumNoCut)
     {
-      fout->GetObject("TrigSumCut", hTrigSumCut);
-      if (!hTrigSumCut)
-      {
-        printf("NO hTrigSumCut IN FILE %s\n", fin->GetName());
-        continue;
-      }
+      // printf("line571 hRunTrigSumNOCut IN FILE %s %s add to %s \n", fin->GetName(), hTrigSumNoCut->GetName(), hRunTrigSumNoCut->GetName());
+      hRunTrigSumNoCut->Add(hTrigSumNoCut);
+    }
+
+    if (hRunTrigSumCut && hTrigSumCut)
+    {
+      // printf("line573 hRunTrigSumCut IN FILE %s %s\n", fin->GetName(), hTrigSumCut->GetName());
       hRunTrigSumCut->Add(hTrigSumCut);
     }
 
-    TH1D *hqsum = NULL;
-    TH1D *hqprompt = NULL;
-    if (hqsum && hqprompt)
-    {
-      TH1D *hq = (TH1D *)hqsum->Clone(Form("hqsum%i", ifile));
-      peakSumDir->Add(hq);
-      TH1D *hp = (TH1D *)hqsum->Clone(Form("hqprompt%i", ifile));
-      peakSumDir->Add(hp);
-    }
-
-    cout << " TIME FILE  " << ifile << " " << fileList[ifile] << " modified "
-         << " TDatime " << dateTime.AsString() << " as int " << dateTime.Convert() << endl;
-
-    if (hqsum && hqprompt)
-    {
-      for (int i = 0; i < hqsum->GetNbinsX() - 1; ++i)
-      {
-        double eval = 0;
-        double val = 0;
-        if (!isnan(hqsum->GetBinContent(i + 1)) && !isinf(hqsum->GetBinContent(i + 1)))
-        {
-          val = hqsum->GetBinContent(i + 1);
-          eval = hqsum->GetBinError(i + 1);
-        }
-        vecQsum[i].push_back(val);
-        vecEQsum[i].push_back(eval);
-        vecQsumUn[i].push_back(val);
-        vecEQsumUn[i].push_back(eval);
-        cout << "chan " << i << " qsum " << hqsum->GetBinContent(i + 1) << " size " << vecQsum[i].size() << endl;
-      }
-    }
-
-    /******  loop over sumDir *****/
+        /******  loop over sumDir *****/
     TList *sumList = sumDir->GetListOfKeys();
     TIter next(sumList);
     TKey *key;
@@ -992,7 +986,6 @@ int main(int argc, char *argv[])
   fitSumDir = fout->mkdir("fitSumDir");
   waveSumDir = fout->mkdir("waveSumDir");
   qpeSumDir = fout->mkdir("qpeSumDir");
-  peakSumDir = fout->mkdir("peakSumDir");
   runSumDir = fout->mkdir("runSumDir");
   gainSumDir = fout->mkdir("gainSumDir");
   fout->cd();
