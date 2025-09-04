@@ -2263,23 +2263,23 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
     unsigned ichan = i;
-    qpeakLimit = 5. * nominalGain;
-    qsumLimit = 5. * nominalQsumGain;
+    qpeakLimit = 10. * nominalGain;
+    qsumLimit = 10. * nominalQsumGain;
 
     bool trigger = ichan == 9 || ichan == 10 || ichan == 11;
     if (trigger)
     {
-      qpeakLimit = 5. * nominalTrigGain;
-      qsumLimit = 5. * nominalQsumTrigGain;
+      qpeakLimit = 10. * nominalTrigGain;
+      qsumLimit = 10. * nominalQsumTrigGain;
     }
     if (ichan == 12)
     {
-      qpeakLimit = 5. * nominalPmtGain;
-      qsumLimit = 5. * nominalQsumPmtGain;
+      qpeakLimit = 10. * nominalPmtGain;
+      qsumLimit = 10. * nominalQsumPmtGain;
     }
 
-    hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 700, 0, qpeakLimit));
-    hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 1000, 0, qsumLimit));
+    hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 2000, 0, qpeakLimit));
+    hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 2000, 0, qsumLimit));
     hQSpe.push_back(new TH1D(Form("QSpeChan%i", ichan), Form("QSpeChan%i", ichan), 9, 0, 9.));
     sumWave.push_back(new TH1D(Form("sumWave%i", ichan), Form("sumWave%i", ichan), rawBr[0]->rdigi.size(), 0, 2 * rawBr[0]->rdigi.size()));
     sumWaveA.push_back(new TH1D(Form("sumWaveAll%i", ichan), Form("sumWaveAll%i", ichan), rawBr[0]->rdigi.size(), 0, 2 * rawBr[0]->rdigi.size()));
@@ -2393,11 +2393,11 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     // sum wave by failure code
 
     tbrun->fill();
-    if (entry / 100 * 100 == entry)
+    if (entry / 1000 * 1000 == entry)
     {
       printf("... entry %llu pass %u fail %u  failures by bit:\n", entry, npass, nfail);
       // printf(" FINISHED npass %u nfail %u output file  %s \n", npass, nfail, fout->GetName());
-      printf(" line 2209 entry %i ( %i ) pass %i (%i) fail %i ( frac %0.3f )  \n",
+      printf(" line2400 entry %i ( %i ) pass %i (%i) fail %i ( frac %0.3f )  \n",
              npass + nfail,
              int(hEventFail->GetEntries()),
              npass, int(hEventFail->GetBinContent(1)),
@@ -2406,7 +2406,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
       for (int ibin = 1; ibin <= hEventFail->GetNbinsX(); ++ibin)
         printf(" bin %i content %.0f %s \n", ibin, hEventFail->GetBinContent(ibin), bitNames[ibin - 1].Data());
-      hEventFail->Print("all");
+      // hEventFail->Print("all");
 
       // if (npass > 0)
       if (0)
