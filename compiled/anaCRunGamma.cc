@@ -2569,7 +2569,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
 anaCRun::anaCRun(TString theTag)
 {
-
+  // use nominal gains
   readGains = new TReadGains();
   nominalGain = readGains->nominalGain;
   nominalTrigGain = readGains->nominalTrigGain;
