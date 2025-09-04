@@ -2230,22 +2230,22 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     hChannelGaus.push_back(new TH1D(Form("channelGaus%i", ichan), Form("channelGaus%i", ichan), 600, -100, 500));
     baseHist.push_back(new TH1D(Form("baseChan%i", ichan), Form("baseChan%i", ichan), 2000, -1000., 1000.));
 
-    // for summary //
-    qpeakLimit = 5. * nominalGain;
-    qsumLimit = 5. * nominalQsumGain;
+    qpeakLimit = 10. * nominalGain;
+    qsumLimit = 10. * nominalQsumGain;
 
     bool trigger = ichan == 9 || ichan == 10 || ichan == 11;
     if (trigger)
     {
-      qpeakLimit = 5. * nominalTrigGain;
-      qsumLimit = 5. * nominalQsumTrigGain;
+      qpeakLimit = 10. * nominalTrigGain;
+      qsumLimit = 10. * nominalQsumTrigGain;
     }
     if (ichan == 12)
     {
-      qpeakLimit = 5. * nominalPmtGain;
-      qsumLimit = 5. * nominalQsumPmtGain;
+      qpeakLimit = 10. * nominalPmtGain;
+      qsumLimit = 10. * nominalQsumPmtGain;
     }
-    int nbins = 700.;
+
+    int nbins = 2000.;
     hTotSum.push_back(new TH1D(Form("TotPeakSumChan%i", i), Form("tot peak sum chan %i", i), nbins, 0, qpeakLimit));
     hPreSum.push_back(new TH1D(Form("PrePeakSumChan%i", i), Form("pre peak sum chan %i", i), nbins, 0, qpeakLimit));
     hTrigSum.push_back(new TH1D(Form("TrigPeakSumChan%i", i), Form("trig peak sum chan %i", i), nbins, 0, qpeakLimit));
