@@ -716,14 +716,14 @@ void anaCRun::clear()
   for (unsigned long j = 0; j < channelSigmaValue.size(); ++j)
   {
     // chanThreshold[j] = 2. * 36.4; from bad data
-    chanThreshold[j] = 4. * 36.; //
+    chanThreshold[j] = 2. * 36.; //
   }
   // trigger SIPMs do three sigma
-  chanThreshold[9] = 4. * 99.;
-  chanThreshold[10] = 4. * 99.;
-  chanThreshold[11] = 4. * 99.;
-  chanThreshold[12] = 3. * 2.4; // based on histogram sigma, had been 5.3;
-  chanThreshold[13] = 3. * 33.; // should be same as trigger sipm
+  chanThreshold[9] = 2. * 99.;
+  chanThreshold[10] = 2. * 99.;
+  chanThreshold[11] = 2. * 99.;
+  chanThreshold[12] = 2. * 2.4; // based on histogram sigma, had been 5.3;
+  chanThreshold[13] = 2. * 33.; // should be same as trigger sipm
   nSpeSum.resize(CHANNELS);
 }
 
@@ -883,7 +883,10 @@ int anaCRun::anaEvent(Long64_t entry)
     // baseline cut
     double rmsMode = 4.7; // non trigger from 1000 events
     if (trig)
-      rmsMode = 19.3;                      // trigger from 1000 events
+      rmsMode = 19.3; // trigger from 1000 events
+    if (ib == 12)
+      rmsMode = 200; // why so large for PMT?
+
     double baselineModeCut = 3. * rmsMode; // first guess
 
     bool baselinePass = true;
@@ -1553,7 +1556,8 @@ int anaCRun::anaEvent(Long64_t entry)
       if (exampleDir->GetList()->GetEntries() < exampleDirMax)
       {
         exampleDir->cd();
-        TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lld-Ch%i-qpeak%0.f", entry, ib, tbrun->getDet(ib)->hits[0].qpeak));
+        // TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lld-Ch%i-qpeak%0.f", entry, ib, tbrun->getDet(ib)->hits[0].qpeak));
+        TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lld-Ch%inhit%lu", entry, ib, tbrun->getDet(ib)->hits.size()));
         EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, ib));
         finder->plotEvent(exampleDir, tbrun->getDet(ib)->channel, entry);
         // printf("@line1192 print event %llu start %i printed %i \n", entry, startLast, exampleDir->GetList()->GetEntries());
