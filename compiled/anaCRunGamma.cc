@@ -921,7 +921,8 @@ int anaCRun::anaEvent(Long64_t entry)
     */
 
     // for debugging printf("entry %lld chan %u cut %.3f mode %.3f pass %i \n", entry, ib, baselineModeCut, mode, ;
-    ntBase->Fill(entry, ib, nominalBaseline[ib], mode, baseRms, baselinePass);
+    if (ntBase->GetEntries() < 1.E6)
+      ntBase->Fill(entry, ib, nominalBaseline[ib], mode, baseRms, baselinePass);
 
     fout->cd();
 
@@ -961,7 +962,7 @@ int anaCRun::anaEvent(Long64_t entry)
       for (unsigned j = 0; j < rawBr[ichan]->rdigi.size(); ++j)
       {
         double adc = double(rawBr[ichan]->rdigi[j]) - idet->base;
-        if (adc > 2. * idet->sigma)
+        if (adc > 2. * idet->sigma && ntAdc->GetEntries() < 1.E6)
           ntAdc->Fill(double(entry), double(ib), double(j), adc);
       }
     }
@@ -1000,7 +1001,8 @@ int anaCRun::anaEvent(Long64_t entry)
     double val = 0;
     // get time for maximim val before triggerEnd
     unsigned time = getTriggerTime(ib, val); // include timeOffset in routine
-    ntSetTrigTime->Fill(double(entry), double(ib), double(time), double(val));
+    if (ntSetTrigTime->GetEntries() < 1.E6)
+      ntSetTrigTime->Fill(double(entry), double(ib), double(time), double(val));
     trigTimes[ib] = time;
     adcBin[ib] = val;
 
@@ -1114,7 +1116,8 @@ int anaCRun::anaEvent(Long64_t entry)
   // if (passBit == 0)
   for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
   {
-    ntNonTrig->Fill(double(entry), double(ib), tbrun->getDet(ib)->totSum);
+    if (ntNonTrig->GetEntries() < 1.E6)
+      ntNonTrig->Fill(double(entry), double(ib), tbrun->getDet(ib)->totSum);
   }
   double triggerSum = idet9->totSum + idet10->totSum + idet11->totSum;
   hTrigFailCut->Fill(triggerSum);
@@ -1212,7 +1215,8 @@ int anaCRun::anaEvent(Long64_t entry)
     idet->pass = passBit;
     idet->peakMax = peakMax;
 
-    ntChan->Fill(float(rawBr[ib]->trigger), float(ib), float(idet->ave), float(idet->sigma), float(idet->skew), float(idet->base), float(peakMax), float(idet->totSum), float(idet->lateSum), float(crossings.size()), float(passBit));
+    if (ntChan->GetEntries() < 1.E6)
+      ntChan->Fill(float(rawBr[ib]->trigger), float(ib), float(idet->ave), float(idet->sigma), float(idet->skew), float(idet->base), float(peakMax), float(idet->totSum), float(idet->lateSum), float(crossings.size()), float(passBit));
 
     if (ib == 12)
       differentiate(diffStepPmt);
@@ -1239,7 +1243,8 @@ int anaCRun::anaEvent(Long64_t entry)
         sampleHigh = idd;
       }
       if (ntThresholdAll->GetEntries() < 1.0E7)
-        ntThresholdAll->Fill(float(entry), float(ib), float(idd), float(ddigi[idd]));
+        if (ntThresholdAll->GetEntries() < 1.E6)
+          ntThresholdAll->Fill(float(entry), float(ib), float(idd), float(ddigi[idd]));
 
       //  find max anywhere
       if (digi[idd] > adcMax)
@@ -1251,7 +1256,8 @@ int anaCRun::anaEvent(Long64_t entry)
     // if (!((sampleLow - sampleHigh) > 0 && (sampleLow - sampleHigh) < 50))
     //   continue;
 
-    ntThresholdAdc->Fill(entry, ib, sampleLow, sampleHigh, maxBin, adcMax);
+    if (ntThresholdAdc->GetEntries() < 1.E6)
+      ntThresholdAdc->Fill(entry, ib, sampleLow, sampleHigh, maxBin, adcMax);
 
     // plot to see a few of these
     if (abs(valLow) > chanThreshold[ib] && valHigh > chanThreshold[ib] && threshDir->GetList()->GetEntries() < 100)
@@ -1268,7 +1274,8 @@ int anaCRun::anaEvent(Long64_t entry)
 
     // printf("@line808 %lld ichan %lu low %lu high %lu maxBin %lu adcMax %f  \n", entry, ib, sampleLow, sampleHigh, maxBin, adcMax);
     if (abs(valLow) > chanThreshold[ib] && valHigh > chanThreshold[ib])
-      ntThreshold->Fill(entry, ib, sampleLow, ddigi[sampleLow], sampleHigh, ddigi[sampleHigh], maxBin, adcMax);
+      if (ntThreshold->GetEntries() < 1.E6)
+        ntThreshold->Fill(entry, ib, sampleLow, ddigi[sampleLow], sampleHigh, ddigi[sampleHigh], maxBin, adcMax);
   }
 
   /* **** */
@@ -1277,7 +1284,8 @@ int anaCRun::anaEvent(Long64_t entry)
   {
     double val;
     sTrigTimes[ic] = fixedTriggerTime(ic, val);
-    ntTrigTime->Fill(double(entry), double(ic), double(firstTime), trigTimes[ic], adcBin[ic], sTrigTimes[ic], val);
+    if (ntTrigTime->GetEntries() < 1.E6)
+      ntTrigTime->Fill(double(entry), double(ic), double(firstTime), trigTimes[ic], adcBin[ic], sTrigTimes[ic], val);
   }
 
   /********************************************************
