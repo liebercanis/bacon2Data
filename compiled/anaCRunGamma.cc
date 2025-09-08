@@ -165,8 +165,8 @@ public:
   std::vector<TH1D *> hLateSum;
   std::vector<TH1D *> hWave;
 
-  TH1D *hTrigSumNoCut;
-  TH1D *hTrigSumCut;
+  TH1D *hTrigFailCut;
+  TH1D *hTriangleCut;
   std::vector<TH1D *> hQFracRatio;
   TH1D *hPreQpeak;
   TH1D *hLateQpeak;
@@ -1117,7 +1117,7 @@ int anaCRun::anaEvent(Long64_t entry)
     ntNonTrig->Fill(double(entry), double(ib), tbrun->getDet(ib)->totSum);
   }
   double triggerSum = idet9->totSum + idet10->totSum + idet11->totSum;
-  hTrigSumNoCut->Fill(triggerSum);
+  hTrigFailCut->Fill(triggerSum);
 
   // softer trig cut
   if (triggerSum < trigSumCut)
@@ -1150,7 +1150,7 @@ int anaCRun::anaEvent(Long64_t entry)
     hTriangle->Fill(xternQ, yternQ);
 
   if (passTriangle && passBit == 0)
-    hTrigSumCut->Fill(xternQ, yternQ);
+    hTriangleCut->Fill(xternQ, yternQ);
 
   if (passBit != 0)
   {
@@ -2184,8 +2184,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   histQSum->Sumw2();
   histQPrompt->Sumw2();
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
-  hTrigSumNoCut = new TH1D("TrigSumNoCut", " before cut qsum9+qsum10+qsum11  in units nominal PE ", 160, 0, 40.);
-  hTrigSumCut = new TH1D("TrigSumCut", " ytern vs xtern ", 160, 0, 40.);
+  hTriangleCut = new TH1D("TrigSumCut", " ytern vs xtern ", 160, 0, 40.);
   // hCosmicMult = new TH1D("CosmicMult", "CosmicMult", 10, 0, 10);
 
   /* directory of hists for event cut */
@@ -2200,6 +2199,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   hEarlyCut = new TH1D("EarlyCut", " pre trigger sum /nominal gain ", 1000, 0, 10 * earlyCut);
   hCosmicCut = new TH1D("CosmicCut", " PMT sum /nominal gain", 1000, 0, 10. * cosmicCut);
   hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 /nominal gain ", 1000, 0, 10. * gammaCut);
+  hTrigFailCut = new TH1D("TrigFail", " before cut qsum9+qsum10+qsum11  in units nominal PE ", 160, 0, 40.);
   hFirstTimeDiff = new TH1D("FirstTimeDiff", " max trigger time diff ", 1000, 0, 1000);
   hTriggerShift = new TH1D("TriggerShift", " ave trigger time shift ", 200, -100, 100);
   hFirstTimeAllVal = new TH1D("FirstTimeAllVal", " first time val all channels ", 1000, 0, 1000);
@@ -2534,14 +2534,17 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
          fout->GetName());
 
   // hEventPass->Print("all");
-  printf(" pass %i fail %i fail cosmic %i fail gamma %i \n", npass, nfail, failCosmic, failGamma);
+  printf("  pass %i fail %i fail cosmic %i fail gamma %i \n", npass, nfail, failCosmic, failGamma);
   for (int ibin = 1; ibin <= hEventFail->GetNbinsX(); ++ibin)
   { // include error on poisson probability
     double nbin = hEventFail->GetBinContent(ibin);
     double ntot = hEventFail->GetEntries();
     double prob = nbin / ntot;
     double perror = sqrt(prob * (1. - prob) / ntot);
-    printf(" bit %i fail %.f frac %.3f +/- %.3f  %s cut %.3f \n", ibin, hEventFail->GetBinContent(ibin), prob, perror, bitNames[ibin - 1].Data(), bitCutValues[ibin - 1]);
+    if (ibin == 1)
+      printf(" bit %i fail %.f frac %.3f +/- %.3f  %s \n", ibin, hEventFail->GetBinContent(ibin), prob, perror, bitNames[ibin - 1].Data());
+    else
+      printf(" bit %i fail %.f frac %.3f +/- %.3f  %s cut %.3f \n", ibin, hEventFail->GetBinContent(ibin), prob, perror, bitNames[ibin - 1].Data(), bitCutValues[ibin - 1]);
   }
 
   for (int idet = 0; idet < hTotSum.size(); ++idet)
@@ -2616,7 +2619,7 @@ anaCRun::anaCRun(TString theTag)
   bitCutValues[0] = 1;
   bitCutValues[1] = baselineRmsCut;
   bitCutValues[2] = earlyCut;
-  bitCutValues[3] = firstTime;
+  bitCutValues[3] = firstTimeCut;
   bitCutValues[4] = cosmicCut;
   bitCutValues[5] = gammaCut;
   bitCutValues[6] = trigSumCut;
