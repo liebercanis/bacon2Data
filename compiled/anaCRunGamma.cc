@@ -883,7 +883,8 @@ int anaCRun::anaEvent(Long64_t entry)
     // baseline cut
     double rmsMode = 4.7; // non trigger from 1000 events
     if (trig)
-      rmsMode = 19.3; // trigger from 1000 events
+      // loosen this cut Sept 5
+      rmsMode = 30.; // 19.3; // trigger from 1000 events
     if (ib == 12)
       rmsMode = 200; // why so large for PMT?
 
@@ -926,7 +927,7 @@ int anaCRun::anaEvent(Long64_t entry)
     {
       double val = double(rawBr[ib]->rdigi[j]) - idet->base;
       if (val < 3. * idet->sigma)
-        continue;
+        continue;                           // cut noise
       idet->totSum += val / qsumGain[ib];   // convert to approximate number of photons
       tdet13->totSum += val / qsumGain[ib]; // convert to approximate number of photons
       if (j < triggerStart)
@@ -967,7 +968,7 @@ int anaCRun::anaEvent(Long64_t entry)
   {
     unsigned ichan = ib;
     TDet *idet = tbrun->getDet(ichan);
-    preSum += idet->preSum / qsumGain[ib];
+    preSum += idet->preSum; // already gain normalized
   }
 
   hPreSumCut->Fill(preSum);
