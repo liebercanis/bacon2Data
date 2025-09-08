@@ -2542,7 +2542,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     double prob = nbin / ntot;
     double perror = sqrt(prob * (1. - prob) / ntot);
     if (ibin == 1)
-      printf(" bit %i fail %.f frac %.3f +/- %.3f  %s \n", ibin, hEventFail->GetBinContent(ibin), prob, perror, bitNames[ibin - 1].Data());
+      printf(" bit %i PASS %.f frac %.3f +/- %.3f  \n", ibin, hEventFail->GetBinContent(ibin), prob, perror);
     else
       printf(" bit %i fail %.f frac %.3f +/- %.3f  %s cut %.3f \n", ibin, hEventFail->GetBinContent(ibin), prob, perror, bitNames[ibin - 1].Data(), bitCutValues[ibin - 1]);
   }
