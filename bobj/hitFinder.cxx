@@ -1094,7 +1094,8 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     {
       double xbin = hEvWave[idet]->GetBinLowEdge(peakt);
       double offset = fSinglet->Eval(xbin);
-      ntPeakFix->Fill(float(detHits.size()), float(idet), float(singletPeakTime), float(peakt), qpeak, qpeak - offset);
+      if (ntPeakFix->GetEntries() < 1.E6)
+        ntPeakFix->Fill(float(detHits.size()), float(idet), float(singletPeakTime), float(peakt), qpeak, qpeak - offset);
       if (verbose)
         printf("line919 list size %lu idet %i singlett %u peakt %u qpeak %f fixed %f\n", detHits.size(), idet, singletPeakTime, peakt, dhit.qpeak, dhit.qpeak - offset);
       // fix here
@@ -1109,7 +1110,8 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     // ntFinder = new TNtuple("ntFinder", " hit finder ", "event:chan:nhit:startt:peakBin:lastBin:qpeak");
     // if (idet == 12)
     //  printf("line990  detHits fill ntFinder %lu  %i  peakt %f qpeak %f  \n", detHits.size(), idet, dhit.startTime, dhit.qpeak);
-    ntFinder->Fill(float(theEvent), float(idet), float(detHits.size()), float(dhit.startTime), float(dhit.peakBin), float(dhit.lastBin), dhit.qpeak);
+    if (ntFinder->GetEntries() < 1.E6)
+      ntFinder->Fill(float(theEvent), float(idet), float(detHits.size()), float(dhit.startTime), float(dhit.peakBin), float(dhit.lastBin), dhit.qpeak);
 
     if (dhit.qpeak < hitThreshold && idet == 12)
       printf("line975HitFinderMakeHits ihit %i qpeak %f thresh %f \n ", int(detHits.size()), dhit.qpeak, hitThreshold);
@@ -1476,7 +1478,8 @@ void hitFinder::splitPeaks(int idet)
         hEvPeakCross[idet]->SetBinContent(peakCrossingBin[ipc], digi[peakCrossingBin[ipc]]);
         hPeakCrossingRatio->Fill(digi[peakCrossingBin[ipc]] / peakMax);
         */
-        ntSplit->Fill(theEvent, float(vChannel[idet]), float(ipc), float(indexSplit.size()), float(peakCrossingBin[ipc] - peakStart), float(ratio), float(binAtr), float(peakEnd - peakStart));
+        if (ntSplit->GetEntries() < 1.E6)
+          ntSplit->Fill(theEvent, float(vChannel[idet]), float(ipc), float(indexSplit.size()), float(peakCrossingBin[ipc] - peakStart), float(ratio), float(binAtr), float(peakEnd - peakStart));
       }
     } // peak crossing loop
 
