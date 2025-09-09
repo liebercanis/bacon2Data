@@ -73,6 +73,7 @@ double ntotal;
 double npass;
 vector<int> filePass;
 int totalPass;
+int totalEvents;
 vector<double> sumHits;
 static double startTime = 660.; // hWave->GetBinLowEdge(maxBin) + hWave->GetBinWidth(maxBin) / 2.;
 static double endTime = 75000.0;
@@ -172,7 +173,7 @@ double xWaveHigh = 7500; // max sample
 // get all pointers we need
 bool getPointers(TFile *f)
 {
-  printf("line176 getPointers file %s\n", f->GetName());
+  // printf("line176 getPointers file %s\n", f->GetName());
   bool isGoodFile = true;
   if (!f)
   {
@@ -473,6 +474,7 @@ void fileLoop()
   if (!fout)
     return;
 
+  totalEvents = 0;
   totalPass = 0;
   nFiles = 0;
   filenum.clear();
@@ -483,7 +485,7 @@ void fileLoop()
   for (unsigned ifile = 0; ifile < maxFiles; ++ifile)
   {
     TString fullName = dirNameSlash + fileList[ifile];
-    printf("line479 %s\n", fullName.Data());
+    // printf("line479 %s\n", fullName.Data());
     fin = new TFile(fullName, "readonly");
     // for summing
     hRunTrigSumNoCut = nullptr;
@@ -528,8 +530,8 @@ void fileLoop()
         {
           hOut = (TH1D *)hIn->Clone(gainOutName);
           hOut->SetTitle(gainOutName);
-          cout << "line516 ... adding  " << hIn->GetName() << " file "
-               << fin->GetName() << " hit QPeak " << hOut->GetEntries() << endl;
+          // cout << "line516 ... adding  " << hIn->GetName() << " file "
+          //      << fin->GetName() << " hit QPeak " << hOut->GetEntries() << endl;
           gainSumDir->Add(hOut);
         }
         else
@@ -614,8 +616,8 @@ void fileLoop()
     TList *sumList = sumDir->GetListOfKeys();
     TIter next(sumList);
     TKey *key;
-    printf("line714 in fileLoop addsumDirHistos %u \n", sumList->GetEntries());
-    // sumDir->GetListOfKeys()->ls();
+    // printf("line714 in fileLoop addsumDirHistos %u \n", sumList->GetEntries());
+    //  sumDir->GetListOfKeys()->ls();
     while (TKey *key = (TKey *)next())
     {
       TKey *keyprev = NULL;
@@ -725,14 +727,15 @@ void fileLoop()
     fout->Write();
     // if(ifile==0) fout->ls();
     // waveSumDir->Write();
+    totalEvents += int(ntotal);
     totalPass += int(npass);
     ++nFiles;
     // close file
     fin->Close();
-    printf("line812 end loop over sumDir keys file %i of %i named %s file pass %i totalPass %i WaveSumDir keys %i \n", ifile, nFiles, fin->GetName(), int(npass), totalPass, waveSumDir->GetNkeys());
+    printf("line812 end loop over sumDir keys file %i of %i named %s events %i file pass %i totalPass %i WaveSumDir keys %i \n", ifile, nFiles, fin->GetName(), int(ntotal), int(npass), totalPass, waveSumDir->GetNkeys());
   } // end loop over files
 
-  printf("line865 end of fileLoop finished over %lld good files %d  totalPass %i waveSumDir has %d \n", maxFiles, nFiles, totalPass, waveSumDir->GetNkeys()); // DEF would be nice to put in a way to look at the last maxFiles files
+  printf("line865 end of fileLoop finished over %lld good files %d  totalEvents %i totalPass %i waveSumDir has %d \n", maxFiles, nFiles, totalEvents, totalPass, waveSumDir->GetNkeys()); // DEF would be nice to put in a way to look at the last maxFiles files
 }
 
 void sumHistosChannel(int ichan, TString histSet)
@@ -751,7 +754,7 @@ void sumHistosChannel(int ichan, TString histSet)
       continue;
     }
 
-    cout << "line765 waveToSum channel " << ih << " file " << waveToSum->GetName() << " passing files " << filePass[ih] << endl;
+    // cout << "line765 waveToSum channel " << ih << " file " << waveToSum->GetName() << " passing files " << filePass[ih] << endl;
 
     // new histogram
     int nbinsx = waveToSum->GetNbinsX();
@@ -1064,7 +1067,7 @@ int main(int argc, char *argv[])
       continue;
     int fileNumber = TString(sname(sname.Last('e') + 1, sname.Length())).Atoi();
     double inte = h->Integral();
-    printf("line1435 file %i hist %s chan %i %s pass %i integral %.3E \n", fileNumber, h->GetName(), chanNumber, h->GetName(), filePass[fileNumber], inte);
+    // printf("line1435 file %i hist %s chan %i %s pass %i integral %.3E \n", fileNumber, h->GetName(), chanNumber, h->GetName(), filePass[fileNumber], inte);
     runSums[chanNumber].push_back(inte);
     runSumNames[chanNumber].push_back(h->GetName());
   }
