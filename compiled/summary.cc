@@ -1,4 +1,3 @@
-// revised April 11 2024 for new gains and new anaCRun.cc
 // removed SumHitWave July 25, 2024
 #include <ctime>
 #include <iostream>
@@ -72,6 +71,7 @@ Long64_t maxFiles;
 double ntotal;
 double npass;
 vector<int> filePass;
+vector<int> fileTotal;
 int totalPass;
 int totalEvents;
 vector<double> sumHits;
@@ -497,7 +497,8 @@ void fileLoop()
     /* get statistics */
     ntotal = hEventPass->GetEntries();
     npass = hEventPass->GetBinContent(0);
-    filePass.push_back(npass);
+    filePass.push_back(int(npass));
+    fileTotal.push_back(int(ntotal));
     // 0 = ntriggers, 1 = npass
     // printf("\n\n line485 total events file %i %s %f events passed  %f \n ", ifile, fileList[ifile].Data(), eventCount->GetBinContent(0), eventCount->GetBinContent(1));
     // TH1D *hevcount = (TH1D *)eventCount->Clone(Form("eventCount%i", ifile));
@@ -1032,7 +1033,8 @@ int main(int argc, char *argv[])
 
   for (unsigned jfile = 0; jfile < filenum.size(); ++jfile)
   {
-    printf(" file %i %s \n", int(filenum[jfile]), fileList[jfile].Data());
+    printf(" file %i %s total %i pass %i pass frac %.3f \n", int(filenum[jfile]), fileList[jfile].Data(),
+           fileTotal[jfile], filePass[jfile], double(filePass[jfile]) / double(fileTotal[jfile]));
   }
   fout->Write();
 
@@ -1073,6 +1075,7 @@ int main(int argc, char *argv[])
   }
 
   // calculate mean hits from waveforms
+  /*
   printf("line1461 calculate mean hits from hRunPeakWave %lu from runSumDir \n", hRunPeakWave.size());
   for (int idet = 0; idet < hRunPeakWave.size(); ++idet)
   {
@@ -1084,6 +1087,7 @@ int main(int argc, char *argv[])
       printf(" idet %i unnormed %.3E inte %.3E \n", idet, hist->Integral(), hRunPeakWave[idet]->Integral());
     // else printf(" did not find %s \n",histName.Data());
   }
+    */
 
   fout->Purge(1);
   fout->Write();
