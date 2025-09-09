@@ -492,8 +492,9 @@ void fileLoop()
     if (!getPointers(fin)) // get pointers for this file
       continue;
 
-    ntotal = eventCount->GetBinContent(0);
-    npass = eventCount->GetBinContent(1);
+    /* get statistics */
+    ntotal = hEventPass->GetEntries();
+    npass = hEventPass->GetBinContent(0);
     filePass.push_back(npass);
     // 0 = ntriggers, 1 = npass
     // printf("\n\n line485 total events file %i %s %f events passed  %f \n ", ifile, fileList[ifile].Data(), eventCount->GetBinContent(0), eventCount->GetBinContent(1));
@@ -609,7 +610,7 @@ void fileLoop()
       hRunTrigSumCut->Add(hTrigSumCut);
     }
 
-        /******  loop over sumDir *****/
+    /******  loop over sumDir *****/
     TList *sumList = sumDir->GetListOfKeys();
     TIter next(sumList);
     TKey *key;
