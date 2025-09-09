@@ -193,8 +193,8 @@ bool getPointers(TFile *f)
     cout << "line1215 skipping BAD file no RunTree" << name << endl;
     isGoodFile = false;
   }
-  if (isGoodFile)
-    printf("good 1 \n");
+  // if (isGoodFile)
+  //   printf("good 1 \n");
 
   sumDir = nullptr;
   f->GetObject("sumDir", sumDir);
