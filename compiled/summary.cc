@@ -499,6 +499,7 @@ void fileLoop()
     npass = hEventPass->GetBinContent(0);
     filePass.push_back(int(npass));
     fileTotal.push_back(int(ntotal));
+
     // 0 = ntriggers, 1 = npass
     // printf("\n\n line485 total events file %i %s %f events passed  %f \n ", ifile, fileList[ifile].Data(), eventCount->GetBinContent(0), eventCount->GetBinContent(1));
     // TH1D *hevcount = (TH1D *)eventCount->Clone(Form("eventCount%i", ifile));
@@ -510,6 +511,17 @@ void fileLoop()
     fileDatime.push_back(dateTime);
     fileTime.push_back(dateTime.Convert());
     printf(" \n ***** starting file %i , %lu  %s  pass %.0f *******\n", ifile, filenum.size(), fin->GetName(), npass);
+
+    /* clone hEventPass */
+
+    TString cloneName;
+    TString fileTag(fileList[ifile](13, 9));
+    cloneName.Form("EventPass%uDate%s", ifile, fileTag.Data());
+    TH1D *hClone = (TH1D *)hEventPass->Clone(cloneName);
+    printf("line521 %s \n", hClone->GetName());
+    hClone->SetTitle(cloneName);
+    fout->Add(hClone);
+
     /******
      * add peak and sum gains  to gainSumDir
      * ******/
