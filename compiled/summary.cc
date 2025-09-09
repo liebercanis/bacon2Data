@@ -228,7 +228,7 @@ bool getPointers(TFile *f)
   }
 
   eventData = new TBEventData();
-  RunTree->GetListOfBranches()->ls();
+  // RunTree->GetListOfBranches()->ls();
   RunTree->SetBranchAddress("eventData", &eventData);
 
   // ***** not fatal if missing *****
