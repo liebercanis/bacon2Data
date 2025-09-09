@@ -230,7 +230,10 @@ bool getPointers(TFile *f)
 
   eventData = new TBEventData();
   // RunTree->GetListOfBranches()->ls();
-  RunTree->SetBranchAddress("eventData", &eventData);
+  if (RunTree)
+    RunTree->SetBranchAddress("eventData", &eventData);
+  if (!eventData)
+    isGoodFile = false;
 
   // ***** not fatal if missing *****
   hTrigSumNoCut = nullptr;
