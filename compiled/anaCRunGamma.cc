@@ -105,7 +105,7 @@ public:
   TH1D *hSimFoundTimeDiff;
   int badEventDirMax = 1000;
   int exampleDirMax = 1000;
-  // int missedDirMax = 1000;
+  int missedDirMax = 1000;
   bool reportFailures = true;
   double noiseToSignal = 0.04;
   TBRun *tbrun;
@@ -196,6 +196,7 @@ public:
   TH1D *hTriggerShift;
 
   // sim comparison histos by channel
+  std::vector<TH1D *> hWaveHitSim;
   std::vector<TH1D *> hWaveHitFound;
   std::vector<TH1D *> hWaveHitMissed;
   std::vector<TH1D *> hWaveHitNoise;
@@ -269,7 +270,7 @@ public:
   TDirectory *earlyPeakDir;
   TDirectory *rawSumDir;
   TDirectory *exampleDir;
-  // TDirectory *missedDir;
+  TDirectory *missedDir;
   TDirectory *sumDir;
   TDirectory *anaDir;
   TDirectory *badEventDir;
@@ -1835,6 +1836,7 @@ int anaCRun::anaEvent(Long64_t entry)
           {
             int simHitNumber = simMatchList[isim];
             int ibin = hWaveHitFound[0]->FindBin(sdet->hits[simHitNumber].startTime);
+            hWaveHitSim[idet]->SetBinContent(ibin, hWaveHitSim[idet]->GetBinContent(ibin) + 1);
             hWaveHitFound[idet]->SetBinContent(ibin, hWaveHitFound[idet]->GetBinContent(ibin) + 1);
             ntSimMatch->Fill(double(entry), double(simMatchList.size()), double(simDet[idet]->channel), double(simHitNumber), double(ihit),
                              simDet[idet]->hits[simHitNumber].startTime - tdet->hits[ihit].startTime, simDet[idet]->hits[simHitNumber].startTime, tdet->hits[ihit].startTime,
@@ -1873,9 +1875,19 @@ int anaCRun::anaEvent(Long64_t entry)
         if (!isFound) // this hit is missed, label with match = -1
         {
           int simTimeBin = hWaveHitMissed[0]->FindBin(simHit.startTime);
+          hWaveHitSim[idet]->SetBinContent(simTimeBin, hWaveHitSim[idet]->GetBinContent(simTimeBin) + 1);
           hWaveHitMissed[idet]->SetBinContent(simTimeBin, hWaveHitMissed[idet]->GetBinContent(simTimeBin) + 1);
           ntSimMatch->Fill(double(entry), -1., double(sdet->channel), isim, -1, simHit.startTime, simHit.startTime, 0.,
                            simHit.qpeak, 0.);
+          if (missedDir->GetList()->GetEntries() < missedDirMax)
+          {
+            missedDir->cd();
+            // TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lld-Ch%i-qpeak%0.f", entry, ib, tbrun->getDet(ib)->hits[0].qpeak));
+            TH1D *EvRawWave = (TH1D *)hEvRawWave[idet]->Clone(Form("EvRawEvent%lld-Ch%itime%i", entry, idet, int(simTimeBin)));
+            EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, idet));
+            finder->plotEvent(missedDir, tbrun->getDet(idet)->channel, entry);
+            // printf("@line1192 print event %llu start %i printed %i \n", entry, startLast, missedDir->GetList()->GetEntries());
+          }
         }
       }
 
@@ -2085,7 +2097,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   badEventDir = fout->mkdir("badEventDir");
   pmtDir = fout->mkdir("pmtDir");
   exampleDir = fout->mkdir("exampleDir");
-  // missedDir = fout->mkdir("missedDir");
+  missedDir = fout->mkdir("missedDir");
   threshDir = fout->mkdir("threshDir");
   earlyPeakDir = fout->mkdir("earlyPeakDir");
   anaDir = fout->mkdir("anadir");
@@ -2351,6 +2363,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   for (unsigned i = 0; i < rawBr.size(); ++i)
   {
     unsigned ichan = i;
+    hWaveHitSim.push_back(new TH1D(Form("waveHitSimChan%i", ichan), Form("WaveHitSimChan%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
     hWaveHitFound.push_back(new TH1D(Form("waveHitFoundChan%i", ichan), Form("WaveHitFoundChan%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
     hWaveHitMissed.push_back(new TH1D(Form("waveHitMissedChan%i", ichan), Form("WaveHitMissedChan%i", ichan), rawBr[0]->rdigi.size(), 0, rawBr[0]->rdigi.size()));
 
@@ -2412,6 +2425,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
         tbrun->detList[idet]->pass = passBit;
       }
     }
+    // store pass as underflow
     hEventPass->SetBinContent(passBit, hEventPass->GetBinContent(passBit) + 1);
     // failure rate by bit
 
