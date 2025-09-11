@@ -1068,17 +1068,20 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
 
     // if (idet == 12)
     //   printf("line951HitFinderMakeHits ihit %i time %f qpeak %f \n ", int(detHits.size()), double(dhit.startTime), dhit.qpeak);
-    // ensure new hit it does not have peak bin too close to another hit
+    /*****************************************************************************
+     *          duplicate peak cut
+     *          ensure new hit it does not have peak bin too close to another hit
+     ******************************************************************************/
     bool used = false;
     for (hitMapIter hitIter = detHits.begin(); hitIter != detHits.end(); ++hitIter)
     {
       TDetHit hiti = hitIter->second;
       // if (hiti.peakBin == dhit.peakBin)
       //  check in 5 sample range
-      if (hiti.peakBin > dhit.peakBin - 5 && hiti.peakBin < dhit.peakBin + 5)
+      // if (hiti.peakBin > dhit.peakBin - 5 && hiti.peakBin < dhit.peakBin + 5)
+      if (hiti.peakBin > dhit.peakBin - 2 && hiti.peakBin < dhit.peakBin + 2)
       {
-        // used = true;
-        // if (1)
+        used = true;
         if (hiti.peakBin != dhit.peakBin)
           printf("line963 hitFinder::makeHit REMOVE CLOSE HIT det %i this (%i,%i,%i)  last peak (%i,%i,%i) dethit size %lu \n", idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, dhit.firstBin, dhit.peakBin, dhit.lastBin, detHits.size());
       }
