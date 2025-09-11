@@ -1078,9 +1078,9 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
       //  check in 5 sample range
       if (hiti.peakBin > dhit.peakBin - 5 && hiti.peakBin < dhit.peakBin + 5)
       {
-        used = true;
-        if (verbose)
-          printf("line963 hitFinder::makeHit REMOVE CLOSE HIT det %i this (%i,%i,%i)  last peak (%i,%i,%i) dethit size %lu \n", idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, dhit.firstBin, dhit.peakBin, dhit.lastBin, detHits.size());
+        // used = true;
+        // if (1)
+        printf("line963 hitFinder::makeHit REMOVE CLOSE HIT det %i this (%i,%i,%i)  last peak (%i,%i,%i) dethit size %lu \n", idet, hiti.firstBin, hiti.peakBin, hiti.lastBin, dhit.firstBin, dhit.peakBin, dhit.lastBin, detHits.size());
       }
     }
 
