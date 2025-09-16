@@ -38,6 +38,8 @@
 hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, vector<int> vchan, vector<double> sigmaValue, vector<double> theGains)
 {
   tbrun = brun;
+  verboseB = false;
+  verbose = false;
   isCAEN = false;
   doFFT = false;
   fFFT = NULL;
@@ -49,7 +51,6 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   if (nSamples == CAENLENGTH)
     isCAEN = true;
   channelSigmaValue = sigmaValue;
-  verbose = false;
   doPeakCorrection = true;
   TString templateDir = TString(getenv("BOBJ"));
   templateFileName = templateDir + TString("/templates-2023-05-01-15-06.root");
@@ -232,7 +233,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   for (unsigned ichan = 0; ichan < detGains.size(); ++ichan)
     printf("chan %i gain %f ; ", ichan, detGains[ichan]);
   printf("\n");
-  printf("\t HHHHHHHH INSTANCE of hitFinder verbose %i \n", verbose);
+  printf("\t HHHHHHHH INSTANCE of hitFinder verbose %i verboseB %i\n", verbose, verboseB);
 }
 //
 void hitFinder::fillWFilter(int ichan)
@@ -599,16 +600,24 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
   }
 
   //
-  if (tbrun->detList[idet]->hits.size() > 1 && verbose)
+  if (tbrun->detList[idet]->hits.size() > 1 && (verbose || verboseB))
   {
     TDet *tdet = tbrun->detList[idet];
     cout << "HHHH  END hitFinder::event " << theEvent << " idet= " << idet << " " << tdet->channel << " hits.size " << tdet->hits.size() << endl;
+
+    for (unsigned ip = 0; ip < peakList.size(); ++ip)
+    {
+      unsigned peakStart = std::get<0>(peakList[ip]);
+      unsigned peakEnd = std::get<1>(peakList[ip]);
+      printf("line612  hitFinder preakds event %lld det %i peak %i  peakStart %i peakEnd %i\n", theEvent, idet, ip, peakStart, peakEnd);
+    }
+
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
     {
       cout << " \t finder hit number  " << ihit << " peak bin " << tdet->hits[ihit].peakBin << " qpeak " << tdet->hits[ihit].qpeak << endl;
     }
   }
-  if (verbose)
+  if (verbose || verboseB)
     cout << "HHHH  END hitFinder::event ichan " << ichan << " event " << ievent << "   " << tbrun->detList[idet]->hits.size() << "  " << detHits.size() << endl;
 }
 
@@ -819,6 +828,7 @@ void hitFinder::findDerivativeCrossings(Int_t idet)
   return;
 }
 // make peaks to zero of waveform from PUP crossing type
+// peaks are kept in peakList
 void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
 {
   if (verbose)
@@ -849,7 +859,8 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
         maxVal = v[ibin];
       }
     }
-    else if (crossings[icross] == NUP) // case NUP
+    /* sept 11 use only PUP */
+    /*else if (crossings[icross] == NUP) // case NUP
     {                                  // NUP is other side of derivative going through zero
       maxVal = -99999.;
       for (unsigned ibin = crossingBin[icross]; ibin > 0; --ibin)
@@ -860,6 +871,7 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
         maxVal = v[ibin];
       }
     }
+    */
     hMaxBinVal[idet]->Fill(maxVal / nominalGain);
     hCrossingMaxBin[idet]->Fill(imax);
 
@@ -947,6 +959,20 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
 
     if (ilow >= 7500 && ihigh >= 7500)
       printf("line855 makePeaks ERROR!! LATE %lli add det %i  imax %i val %f icross %u from (%u,%u) %i\n", theEvent, idet, imax, maxVal, crossingBin[icross], ilow, ihigh, icross);
+
+    /** fix peak list to remove overlaps look at next peak in list */
+    for (unsigned ip = 0; ip < peakList.size() - 1; ++ip)
+    {
+      unsigned peakStart = std::get<0>(peakList[ip]);
+      unsigned peakEnd = std::get<1>(peakList[ip]);
+      unsigned peakStartNext = std::get<0>(peakList[ip + 1]);
+      if (peakEnd > peakStartNext)
+      {
+        peakList.at(ip) = std::make_pair(peakStart, peakStartNext - 1);
+        if (verboseB)
+          ("line971 peak %i start %i end %i new end %i \n", ip, std::get<0>(peakList[ip]), peakEnd, std::get<1>(peakList[ip]));
+      }
+    }
   }
 }
 

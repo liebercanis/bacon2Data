@@ -82,6 +82,7 @@ public:
   bool doFFT;
   bool isCAEN;
   bool verbose;
+  bool verboseB;
   bool splitVerbose;
   bool smoothing;
   const Double_t qnorm = 1.0;

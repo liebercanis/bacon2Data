@@ -1886,7 +1886,7 @@ int anaCRun::anaEvent(Long64_t entry)
             TH1D *EvRawWave = (TH1D *)hEvRawWave[idet]->Clone(Form("EvRawEvent%lld-Ch%itime%i", entry, idet, int(simTimeBin)));
             EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, idet));
             finder->plotEvent(missedDir, tbrun->getDet(idet)->channel, entry);
-            // printf("@line1192 print event %llu start %i printed %i \n", entry, startLast, missedDir->GetList()->GetEntries());
+            printf("@line1089 MISSING HIT print event %llu det %i time bin %i printed %i \n", entry, idet, int(simTimeBin), missedDir->GetList()->GetEntries());
           }
         }
       }
