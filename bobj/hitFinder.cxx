@@ -609,7 +609,7 @@ void hitFinder::event(int ichan, Long64_t ievent, vector<double> inputDigi, doub
     {
       unsigned peakStart = std::get<0>(peakList[ip]);
       unsigned peakEnd = std::get<1>(peakList[ip]);
-      printf("line612  hitFinder preakds event %lld det %i peak %i  peakStart %i peakEnd %i\n", theEvent, idet, ip, peakStart, peakEnd);
+      printf("line612  hitFinder::  event %lld det %i peak %i  peakStart %i peakEnd %i\n", theEvent, idet, ip, peakStart, peakEnd);
     }
 
     for (unsigned ihit = 0; ihit < tdet->hits.size(); ++ihit)
@@ -970,7 +970,7 @@ void hitFinder::makePeaks(int idet, std::vector<Double_t> v)
       {
         peakList.at(ip) = std::make_pair(peakStart, peakStartNext - 1);
         if (verboseB)
-          ("line971 peak %i start %i end %i new end %i \n", ip, std::get<0>(peakList[ip]), peakEnd, std::get<1>(peakList[ip]));
+          printf("line971 peak %i start %u end %u new end %u \n", ip, std::get<0>(peakList[ip]), peakEnd, std::get<1>(peakList[ip]));
       }
     }
   }
@@ -1024,6 +1024,53 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
         qpeak = qdigik;
       }
     }
+
+    /***  second peak will be later in time then first.
+           first search for local minimum
+    *****/
+    UInt_t minSample = 0;
+    Double_t minAdc = qpeak; // must be less than this
+    for (unsigned k = peakt; k < khigh; ++k)
+    {
+      double qdigik = digi[k];
+      if (qdigik < minAdc)
+      {
+        minSample = k;
+        minAdc = qdigik;
+      }
+      // break if next is greatger
+      UInt_t lastk = CAENLENGTH - 1;
+      double qnext = digi[min(k + 1, lastk)]; // dont go over the edge of array
+      if (qnext > qdigik)
+        break;
+    }
+    if (verboseB)
+      printf("line1048 det %i  peak %u klow %u khigh %u minSample %u peakt %u qpeak %f\n ", idet, ip, klow, khigh, minSample, peakt, qpeak);
+    /* if minimum is not at the end, then the peak we want is after the minimum */
+    if (minSample > 0 && minSample < khigh - 1)
+    {
+      qsum = 0;
+      qpeak = 0;
+      for (unsigned k = minSample; k < khigh; ++k)
+      {
+        double qdigik = digi[k];
+        qsum += qdigik;
+        if (qdigik > qpeak)
+        {
+          peakt = k;
+          qpeak = qdigik;
+        }
+      }
+      if (verboseB)
+        printf("line1057 NEW PEAK det %i  peak %u klow %u khigh %u minSample %u peakt %u qpeak %f\n ", idet, ip, klow, khigh, minSample, peakt, qpeak);
+    }
+    /*
+    else
+    {
+      if (verboseB)
+        printf("line1048 KEEP PEAK det %i  peak %u klow %u khigh %u minSample %u peakt %u qpeak %f\n ", idet, ip, klow, khigh, minSample, peakt, qpeak);
+    }
+    */
 
     // if (idet == 12)
     //   printf("line905 HitFinderMakeHits ihit %i qpeak %f time %f \n ", int(detHits.size()), qpeak, double(peakt));
