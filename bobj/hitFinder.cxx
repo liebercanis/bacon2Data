@@ -133,6 +133,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
   }
 
   splitDir->cd();
+  hFixMinAdc = new TH1D("FixMinAdc", "Fix min adc", 1000., 0., 5000.);
   for (unsigned index = 0; index < vchan.size(); ++index)
   {
     int id = vchan[index];
@@ -1024,45 +1025,53 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
         qpeak = qdigik;
       }
     }
-
-    /***  second peak will be later in time then first.
+    /* if minimum is not at the end, then the peak we want is after the minimum
+          limit ranege 710-775 sample range where dip is
+          second peak will be later in time then first.
            first search for local minimum
     *****/
-    UInt_t minSample = 0;
-    Double_t minAdc = qpeak; // must be less than this
-    for (unsigned k = peakt; k < khigh; ++k)
+    if (peakt > 710 && peakt < 775)
     {
-      double qdigik = digi[k];
-      if (qdigik < minAdc)
-      {
-        minSample = k;
-        minAdc = qdigik;
-      }
-      // break if next is greatger
-      UInt_t lastk = CAENLENGTH - 1;
-      double qnext = digi[min(k + 1, lastk)]; // dont go over the edge of array
-      if (qnext > qdigik)
-        break;
-    }
-    if (verboseB)
-      printf("line1048 det %i  peak %u klow %u khigh %u minSample %u peakt %u qpeak %f\n ", idet, ip, klow, khigh, minSample, peakt, qpeak);
-    /* if minimum is not at the end, then the peak we want is after the minimum */
-    if (minSample > 0 && minSample < khigh - 1)
-    {
-      qsum = 0;
-      qpeak = 0;
-      for (unsigned k = minSample; k < khigh; ++k)
+      UInt_t minSample = 0;
+      Double_t minAdc = qpeak; // must be less than this
+      for (unsigned k = peakt; k < khigh; ++k)
       {
         double qdigik = digi[k];
-        qsum += qdigik;
-        if (qdigik > qpeak)
+        if (qdigik < minAdc)
         {
-          peakt = k;
-          qpeak = qdigik;
+          minSample = k;
+          minAdc = qdigik;
         }
+        // break if next is greatger
+        UInt_t lastk = CAENLENGTH - 1;
+        double qnext = digi[min(k + 1, lastk)]; // dont go over the edge of array
+        if (qnext > qdigik)
+          break;
       }
+      hFixMinAdc->Fill(minAdc);
       if (verboseB)
-        printf("line1057 NEW PEAK det %i  peak %u klow %u khigh %u minSample %u peakt %u qpeak %f\n ", idet, ip, klow, khigh, minSample, peakt, qpeak);
+        printf("line1048 det %i  peak %u klow %u khigh %u minSample %u minAdc %f peakt %u qpeak %f\n ", idet, ip, klow, khigh, minSample, minAdc, peakt, qpeak);
+      /*
+        if minimum is not at the end, then the peak we want is after the minimum
+        if minimum is too small dont do anything
+      */
+      if (minSample > 0 && minSample < khigh - 1 && minAdc > 0.5 * nominalGain)
+      {
+        qsum = 0;
+        qpeak = 0;
+        for (unsigned k = minSample; k < khigh; ++k)
+        {
+          double qdigik = digi[k];
+          qsum += qdigik;
+          if (qdigik > qpeak)
+          {
+            peakt = k;
+            qpeak = qdigik;
+          }
+        }
+        if (verboseB)
+          printf("line1057 NEW PEAK det %i  peak %u klow %u khigh %u minSample %u peakt %u qpeak %f\n ", idet, ip, klow, khigh, minSample, peakt, qpeak);
+      }
     }
     /*
     else

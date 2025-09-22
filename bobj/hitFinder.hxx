@@ -180,6 +180,7 @@ public:
 
   TH1D *hWFilter;
   TH1D *hDeriv8;
+  TH1D *hFixMinAdc;
   std::vector<TH1D *> hCrossingBinA;
   std::vector<TH1D *> hCrossingBinB;
   std::vector<TH1D *> hCrossingBinC;
