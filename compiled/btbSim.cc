@@ -1078,8 +1078,11 @@ void btb(int ngen = 10000000)
   printf("****** generated %i events.\nphoton count:\n", ngen);
   for (int ih = 0; ih < NCHAN; ++ih)
   {
-    printf(" chan %i (singlet,total) photons (%i, %i)  (singlet,total) photons/triggered (%.3f, %.3f)  \n",
-           ih, (int)ncountSinglet[ih], (int)ncount[ih], double(ncountSinglet[ih]) / double(nTrigger), double(ncount[ih]) / double(nTrigger));
+    if (nTrigger > 1)
+      printf(" chan %i (singlet,total) photons (%i, %i)  (singlet,total) photons/triggered (%.3f, %.3f)  \n",
+             ih, (int)ncountSinglet[ih], (int)ncount[ih], double(ncountSinglet[ih]) / double(nTrigger), double(ncount[ih]) / double(nTrigger));
+    else
+      printf("nTrigger = 0\n");
   }
   // fout->ls();
   // hEventPass->Print("all");
