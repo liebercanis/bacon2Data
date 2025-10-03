@@ -203,17 +203,15 @@ int openFile(int fileNum = 0)
 void tbFitAll(int fileNum = 2)
 {
 
-  /* channel efficiences */
-  for (int ichan = 0; ichan < NCHAN - 1; ++ichan)
-  {
-    printf("chan %i nominal effGeo  %E   \n", ichan, effGeoFunc(ichan));
-  }
-  summaryFile[0] = TString("summary-05_19_2025-05_19_2025-nfiles-14-created-2025-09-09-15-58.root");
+    summaryFile[0] = TString("summary-05_19_2025-05_19_2025-nfiles-14-created-2025-09-09-15-58.root");
   summaryFile[1] = TString("summary-05_27_2025-05_27_2025-nfiles-22-created-2025-09-09-15-56.root");
-  summaryFile[2] = TString("caenData/anaCRun-btbSimOffset-2025-09-09-16-09-1000000-0.root");
+  summaryFile[2] = TString("caenData/anaCRun-btbSimOffset-2025-09-09-16-09-1000000-0.root"); // new geometry
   dopant[0] = 0.05;
   dopant[1] = 0.00;
   dopant[2] = 0.00;
+
+  geoVersionOld = true;
+  setDistanceLevels(geoVersionOld);
 
   // is this simulation?
   isSim = false;
@@ -225,6 +223,17 @@ void tbFitAll(int fileNum = 2)
     fout = new TFile(Form("tbFitAllSimPPM%.2f.root", dopant[fileNum]), "recreate");
   else
     fout = new TFile(Form("tbFitAllPPM%.2f.root", dopant[fileNum]), "recreate");
+
+  if (geoVersionOld)
+    printf("OLD level distances 0 = %.3f 1= %.3f 2= %.3f 3 %.3f 4 %.3f \n", distanceLevel[0], distanceLevel[1], distanceLevel[2], distanceLevel[3], distanceLevel[4]);
+  else
+    printf("NEW level distances 0 = %.3f 1= %.3f 2= %.3f 3 %.3f 4 %.3f \n", distanceLevel[0], distanceLevel[1], distanceLevel[2], distanceLevel[3], distanceLevel[4]);
+
+  /* channel efficiences */
+  for (int ichan = 0; ichan < NCHAN - 1; ++ichan)
+  {
+    printf("chan %i nominal effGeo  %E   \n", ichan, effGeoFunc(ichan));
+  }
 
   printf(" opened output file %s dopant %f \n", fout->GetName(), dopant[fileNum]);
   // get data histograms from file

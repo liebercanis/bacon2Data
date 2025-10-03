@@ -365,7 +365,8 @@ double effGeoSim(int ichan) // uses PositionVector3D eventOrigin;
 void btb(int ngen = 10000000)
 {
 
-  setDistanceLevels();
+  geoVersionOld = true;
+  setDistanceLevels(geoVersionOld);
 
   if (geoVersionOld)
   {

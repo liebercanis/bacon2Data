@@ -7,13 +7,12 @@ enum
 };
 bool geoVersionOld = true;
 
+// distances in 3D radius of sipms
 static double distanceLevel[NLEVELS];
 
-// distances in 3D radius of sipms
-static double distanceLevelOld[NLEVELS];
-
-static void setDistanceLevels()
+static void setDistanceLevels(bool isOld = true)
 {
+  geoVersionOld = isOld;
   if (!geoVersionOld)
   {
     distanceLevel[0] = 1.062;

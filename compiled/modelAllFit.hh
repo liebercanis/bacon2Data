@@ -284,8 +284,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
   double bkg = par[BKGCONST];
 
   // loop over channels
-  double chanList[5] = {9, 8, 5, 0, 12};
-  for (int ichan = 0; ichan < 5; ++ichan)
+  double chanList[3] = {8, 5, 0};
+  for (int ichan = 0; ichan < 3; ++ichan)
   {
     int ic = chanList[ichan];
     // if (ic == 5 || ic == 6 || ic == 8 || ic == 3 || ic == 9 || ic == 10 || ic == 11)
