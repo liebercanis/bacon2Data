@@ -37,7 +37,6 @@ TDirectory *scanDir;
 
 bool writeRawData = true;
 bool useMap = false;
-bool originOffset = true;
 int reportInterval = 1000;
 double zZero = 0.3; // source position
 
@@ -445,10 +444,10 @@ void btb(int ngen = 10000000)
   strftime(output, 30, "%Y-%m-%d-%H-%M", timeinfo);
   TString tdateTag = TString(output);
   TString fullname;
-  if (!originOffset)
-    fullname = (Form("btbSim-%s-%i.root", tdateTag.Data(), ngen));
-  if (originOffset)
-    fullname = (Form("btbSimOffset-%s-%i.root", tdateTag.Data(), ngen));
+  if (geoVersionOld)
+    fullname = (Form("btbSimOLD-%s-%i.root", tdateTag.Data(), ngen));
+  else
+    fullname = (Form("btbSimNEW-%s-%i.root", tdateTag.Data(), ngen));
   fout = new TFile(fullname, "recreate"); // DEF made to update rather than recreate so that it doesn't write over a file already made.
   printf("opened output file %s date %s \n", fout->GetName(), tdateTag.Data());
   cout << tdateTag << endl;
@@ -664,8 +663,8 @@ void btb(int ngen = 10000000)
       gammaPhi = (2. * ran->Rndm() - 1.) * TMath::Pi(); // -pi to pi
     }
     eventOrigin = getXYZVector(gammaR, acos(gammaCosTheta), gammaPhi);
-    /*  add z offset zZero */
-    if (originOffset)
+    /*  add z offset zZero if we are using new geometry */
+    if (!geoVersionOld)
       eventOrigin = eventOrigin + eventOriginOffset;
     double localPhi = eventOrigin.Phi() * 360. / TMath::TwoPi();
     if (localPhi < 0)
@@ -1101,6 +1100,8 @@ void btb(int ngen = 10000000)
 // static TBRun *theTBRun;
 int main(int argc, char *argv[])
 {
+  /** geoVersion  **/
+  geoVersionOld = true;
   /* setup minuit fit*/
   gMinuit = new TMinuit(NPAR); // initialize TMinuit nphotons + event position vector
   gMinuit->SetFCN(fcn);
@@ -1130,6 +1131,10 @@ int main(int argc, char *argv[])
   triggerPeakFitShow = false;
   */
 
+  if (geoVersionOld)
+    printf("***** START of btb OLD geometry ngen = %.0E *****\n", double(ngen));
+  else
+    printf("***** START of btb NEW geometry ngen = %.0E *****\n", double(ngen));
   printf("***** START of btb ngen = %.0E *****\n", double(ngen));
   btb(ngen);
   printf("... %s ngen %i passed %lld total efficiency %.3f  file %s exit\n", argv[0], ngen, ntFit->GetEntries(), totalEventEffiency, fout->GetName());
