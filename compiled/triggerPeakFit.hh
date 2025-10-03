@@ -7,6 +7,7 @@
 
 #include "Math/Vector3D.h"
 #include "TMath.h"
+#include "distanceLevels.hh"
 
 enum
 {
@@ -20,7 +21,7 @@ static bool triggerPeakFitShow = false;
 static double peakFit(double *par)
 {
     // geometry
-    double trigRadius = 1.;
+    double trigRadius = distanceLevel[0];
     double trigTheta = 55.06 / 360. * TMath::TwoPi(); // 11,10,9
     double trigPhi[nTriggerSipms];
     trigPhi[0] = 0.;                           // 9
@@ -136,7 +137,7 @@ static double peakFit(double *par)
 }
 
 // function to minimize
-void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
+void fcnPeakFit(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
 {
     f = peakFit(par);
 }

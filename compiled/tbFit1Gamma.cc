@@ -6,7 +6,7 @@
 #include "TCanvas.h"
 #include "TGraph.h"
 #include "TGraphErrors.h"
-#include "modelFit.hh"
+#include "modelFitGamma.hh"
 std::string sdate;
 // time is in microseconds
 using namespace TMath;
@@ -277,12 +277,14 @@ bool openFile()
   return true;
 }
 
-void tbFit1(unsigned ichan = 8, TString flag = "A", double thePPM = 2.)
+void tbFit1Gamma(unsigned ichan = 8, TString flag = "A", double thePPM = 2.)
 {
   ppm = thePPM;
-  TString fileName0 = TString("summary-11_28_2023-01_07_2024-nfiles-349-created-2024-07-25-15-45.root");
-  TString fileName2 = TString("summary-03_15-2024-03_28_2024-nfiles-125-created-2024-08-06-12-34.root");
-  fileName = fileName2;
+
+  TString fileName1 = TString("summary-05_19_2025-05_19_2025-nfiles-14-created-2025-09-09-15-58.root");
+  TString fileName2 = TString("summary-05_27_2025-05_27_2025-nfiles-22-created-2025-09-09-15-56.root");
+
+  fileName = fileName1;
 
   // make individual light curves
   for (int ifit = 0; ifit < NTYPES; ++ifit)

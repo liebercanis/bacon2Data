@@ -16,11 +16,12 @@
 #include "TFile.h"
 #include "TGraph.h"
 #include "Math/Vector3D.h"
-#include "modelFitGamma.hh"
 #include "TBRawRun.hxx"
 #include "TBSimRun.hxx"
+#include "modelAllFit.hh"
 #include "triggerPeakFit.hh"
 #include "TMinuit.h"
+
 std::string sdate;
 // time is in microseconds
 using namespace TMath;
@@ -40,14 +41,12 @@ bool originOffset = true;
 int reportInterval = 1000;
 double zZero = 0.3; // source position
 
-modelFit *models[NCHAN];
 TNtuple *ntOrigin;
 TNtuple *ntTrigCh;
 TNtuple *ntTrig;
 TNtuple *ntTern;
 TNtuple *ntMean;
 TNtuple *ntFit;
-TNtuple *ntScan;
 /* geant maps */
 TH3D *originPDF;     // pdf of event origins
 TH3D *fluxMapChan9;  // geo efficiency values
@@ -94,9 +93,11 @@ double nominalGeo;
 /* parameters quoted in talk  "A new optical model for LEGEND-200
 with remage" Manuel Huber <ge38nap@mytum.de>, Luigi Pertoldi
 LEGEND collaboration meeting · March 25, 2025 */
-double LY = 25.6; //  photons/kev Doke
-double numPhotons = 60 * LY;
 double singletFrac = 0.20;
+double numPhotons = LY * 60.; // 60 keV gamma
+double nominalGain = 227.4;
+double nominalTrigGain = 735.688747;
+double fillFactor = 1.0;
 int binWidth = 2;
 double noiseToSignal = 0.04;
 double baseline = 1100.; // 1100; // ADC
@@ -120,9 +121,9 @@ ROOT::Math::XYZVector eventOriginOffset(0, 0, zZero);
 // ROOT::Math::XYZVector positionSipm11(0.000, 1.216, 0.851);
 
 // z is positive into array
-ROOT::Math::XYZVector positionSipm9(0.795, -0.459, 0.851);
-ROOT::Math::XYZVector positionSipm10(-0.795, -0.459, 0.851);
-ROOT::Math::XYZVector positionSipm11(0.000, 0.918, 0.851);
+ROOT::Math::XYZVector positionSipm9;
+ROOT::Math::XYZVector positionSipm10;
+ROOT::Math::XYZVector positionSipm11;
 
 TMinuit *gMinuit;
 Double_t arglist[1];
@@ -146,7 +147,7 @@ efficiencies  PMTQE175 = 0.38;
 static double QEff128(double ppm, double dist)
 */
 double eff[NCHAN];
-int triggerStart = theBinWidth * 730; // 730; sipm rise time convert to ns
+int triggerStart = binWidth * 730; // 730; sipm rise time convert to ns
 double speMPV = double(triggerStart);
 double speSigma = 20.; // ns from single PI data fit
 TF1 *speLandau;
@@ -191,7 +192,7 @@ double eventTrigger()
 
   // collect first times hPhoton x-axis is in ns
   std::vector<double> ftimes;
-  for (int isipm = 9; isipm < 12; ++isipm)
+  for (int isipm = 9; isipm < NCHANPMT; ++isipm)
   {
     for (int ibin = 1; ibin < hPhoton[isipm]->GetNbinsX(); ++ibin)
     {
@@ -292,15 +293,16 @@ double effGeoSim(int ichan) // uses PositionVector3D eventOrigin;
   if (!isTrig)
     return effGeoFunc(ichan);
 
-  int ilevel = level(ichan);
-  double e = 1.0;
-  if (ilevel != 0)
-    return e;
+  int ilevel = getLevel(ichan);
+  // double e = 1.0;
+  // if (ilevel != 0)
+  //  return e;
 
-  e = nominalGeo;
+  double e = effGeoFunc(ichan);
   if (eventOrigin.R() == 0.)
     return e;
 
+  /* correct for gamma interaction position */
   /* get from map */
   if (useMap)
   {
@@ -363,12 +365,44 @@ double effGeoSim(int ichan) // uses PositionVector3D eventOrigin;
 
 void btb(int ngen = 10000000)
 {
-  printf(" btb sim NOMAP generate ngen =  %i LY %.1f photons/kev * 60 = %.1f nominalGain %f nominalTrigGain %f \n", ngen, LY, numPhotons, nominalGain, nominalTrigGain);
+
+  setDistanceLevels();
+
+  if (geoVersionOld)
+  {
+    // z is positive into array set XYZ coordinates
+    positionSipm9.SetCoordinates(0.795, -0.459, 0.851);
+    positionSipm10.SetCoordinates(-0.795, -0.459, 0.851);
+    positionSipm11.SetCoordinates(0.000, 0.918, 0.851);
+    printf(" btb sim OLD geometry NOMAP generate ngen =  %i LY %.1f photons/kev * 60 = %.1f nominalGain %f nominalTrigGain %f \n", ngen, LY, numPhotons, nominalGain, nominalTrigGain);
+  }
+  else
+  {
+    // z is positive into array
+    /* chan 9 1.062 0.795 -0.459 -0.534
+      chan 10 1.062 -0.795 -0.459 -0.534
+      chan 11 1.062 0.000 0.918 -0.534
+    */
+    positionSipm9.SetCoordinates(0.795, -0.459, -0.534);
+    positionSipm10.SetCoordinates(-0.795, -0.459, -0.534);
+    positionSipm11.SetCoordinates(0.000, 0.918, -0.534);
+    printf(" btb sim NEW geometry NOMAP generate ngen =  %i LY %.1f photons/kev * 60 = %.1f nominalGain %f nominalTrigGain %f \n", ngen, LY, numPhotons, nominalGain, nominalTrigGain);
+  }
+
+  printf("level distances 0 = %.3f 1= %.3f 2= %.3f 3 %.3f 4 %.3f \n", distanceLevel[0], distanceLevel[1], distanceLevel[2], distanceLevel[3], distanceLevel[4]);
 
   printf(" trigger sipm positions :  \n");
-  printf(" \t sipm 9 : rho %f phi  %f Z %f  \n", positionSipm9.Rho(), positionSipm9.Phi() * 180 / TMath::Pi(), positionSipm9.Z());
-  printf(" \t sipm 10 : rho %f phi  %f Z %f  \n", positionSipm10.Rho(), positionSipm10.Phi() * 180 / TMath::Pi(), positionSipm10.Z());
-  printf(" \t sipm 11 : rho %f phi  %f Z %f  \n", positionSipm11.Rho(), positionSipm11.Phi() * 180 / TMath::Pi(), positionSipm11.Z());
+  printf(" \t sipm 9 : x %.3f y %.3f z %.3f R %.3f rho %.3f phi %.3f  \n",
+         positionSipm9.X(), positionSipm9.Y(), positionSipm9.Z(),
+         positionSipm9.R(), positionSipm9.Rho(), positionSipm9.Phi() * 180 / TMath::Pi());
+
+  printf(" \t sipm 10 : x %.3f y %.3f z %.3f R %.3f rho %.3f phi %.3f  \n",
+         positionSipm10.X(), positionSipm10.Y(), positionSipm10.Z(),
+         positionSipm10.R(), positionSipm10.Rho(), positionSipm10.Phi() * 180 / TMath::Pi());
+
+  printf(" \t sipm 11: x %.3f y %.3f z %.3f R %.3f rho %.3f phi %.3f \n",
+         positionSipm11.X(), positionSipm11.Y(), positionSipm11.Z(),
+         positionSipm11.R(), positionSipm11.Rho(), positionSipm11.Phi() * 180 / TMath::Pi());
 
   if (useMap)
   {
@@ -379,18 +413,17 @@ void btb(int ngen = 10000000)
     }
   }
 
-  /* nominal geo at detector origin */
-  double trigRadius = 1.486;
-  nominalGeo = pow(0.6, 2.) / pow(trigRadius, 2.) / (4.0 * TMath::Pi());
-
-  for (int ichan = 0; ichan < NCHAN; ++ichan)
-    models[ichan] = new modelFit(4, ichan, thePPM);
+  /* nominal geo with SIPM at with R=0 origin detector origin */
+  double trigDistanceR = positionSipm9.R();
+  nominalGeo = pow(0.6, 2.) / pow(trigDistanceR, 2.) / (4.0 * TMath::Pi());
 
   /* channel efficiences */
   for (int i = 0; i < NCHAN - 1; ++i)
   {
     double effGeoSimi = effGeoSim(i);
-    printf("chan %i nominal effGeoSim %E \n", i, effGeoSimi);
+    double trigRadius = distanceLevel[getLevel(i)];
+    nominalGeo = pow(0.6, 2.) / pow(trigRadius, 2.) / (4.0 * TMath::Pi());
+    printf("chan %i eventOrgin R %.3f nominal effGeoSim %E (%E)  \n", i, eventOrigin.R(), effGeoFunc(i), nominalGeo);
     eff[i] = effGeoSimi * SiPMQE128Ham * fillFactor;
     // double dist = distanceLevel[level(i)];
   }
@@ -493,7 +526,7 @@ void btb(int ngen = 10000000)
   hTrigDiffTime10 = new TH1D("TrigDiffTime10", " time difference <1000 ns", 7500, 0, 7500);
   hTrigDiffTime10->GetXaxis()->SetTitle("max time diff [ns]");
   // landau response function
-  speLandau = new TF1("myLandau", myLandau, 0, totalBins * theBinWidth, 3);
+  speLandau = new TF1("myLandau", myLandau, 0, MAXSAMPLE * binWidth, 3);
   // set SPE response parameters
   speLandau->SetParName(1, "MPV");
   speLandau->SetParameter(0, speMPV);
@@ -502,7 +535,7 @@ void btb(int ngen = 10000000)
   speLandau->SetParName(2, "norm");
   speLandau->SetParameter(2, 1); // single SPE
   // modelFit::modelFit(int theFit, int ichan, double ppm)
-  hResponse = new TH1D("Response", "sipm response", totalBins, 0, totalBins * (theBinWidth));
+  hResponse = new TH1D("Response", "sipm response", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
   hResponse->GetXaxis()->SetTitle("time [ns]");
   hResponse->GetYaxis()->SetTitle("photons/2ns");
 
@@ -528,30 +561,31 @@ void btb(int ngen = 10000000)
   histDir->cd();
   for (int ih = 0; ih < NCHAN; ++ih)
   {
+    int ilevel = getLevel(ih);
     // modelFit::modelFit(int theFit, int ichan, double ppm)
-    hPhoton[ih] = new TH1D(Form("Photon%i", ih), Form("Photon%i-level%i", ih, level(ih)), totalBins, 0, totalBins * (theBinWidth));
+    hPhoton[ih] = new TH1D(Form("Photon%i", ih), Form("Photon%i-level%i", ih, ilevel), MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
     hPhoton[ih]->GetXaxis()->SetTitle("time [ns]");
     hPhoton[ih]->GetYaxis()->SetTitle("photons/2ns");
     hPhoton[ih]->SetDirectory(nullptr);
     //
-    hConvolve[ih] = new TH1D(Form("Convolve%i", ih), Form("Convolve%i-level%i", ih, level(ih)), totalBins, 0, totalBins * (theBinWidth));
+    hConvolve[ih] = new TH1D(Form("Convolve%i", ih), Form("Convolve%i-level%i", ih, ilevel), MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
     hConvolve[ih]->GetXaxis()->SetTitle("time [ns]");
     hConvolve[ih]->GetYaxis()->SetTitle("photons/2ns");
     hConvolve[ih]->SetDirectory(nullptr);
 
     //
-    hSignalNb[ih] = new TH1D(Form("SignalNb%i", ih), Form("SignalNb%i-level%i", ih, level(ih)), totalBins, 0, totalBins * (theBinWidth));
+    hSignalNb[ih] = new TH1D(Form("SignalNb%i", ih), Form("SignalNb%i-level%i", ih, ilevel), MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
     hSignalNb[ih]->GetXaxis()->SetTitle("time [ns]");
     hSignalNb[ih]->GetYaxis()->SetTitle("photons/2ns");
     hSignalNb[ih]->SetDirectory(nullptr);
     //
-    hSignal[ih] = new TH1D(Form("Signal%i", ih), Form("Signal%i-level%i", ih, level(ih)), totalBins, 0, totalBins * (theBinWidth));
+    hSignal[ih] = new TH1D(Form("Signal%i", ih), Form("Signal%i-level%i", ih, ilevel), MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
     hSignal[ih]->GetXaxis()->SetTitle("time [ns]");
     hSignal[ih]->GetYaxis()->SetTitle("photons/2ns");
     hSignal[ih]->SetDirectory(nullptr);
 
     //
-    hSignalSum[ih] = new TH1D(Form("SignalSum%i", ih), Form("SignalSum%i-level%i", ih, level(ih)), totalBins, 0, totalBins * (theBinWidth));
+    hSignalSum[ih] = new TH1D(Form("SignalSum%i", ih), Form("SignalSum%i-level%i", ih, ilevel), MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
     hSignalSum[ih]->GetXaxis()->SetTitle("time [ns]");
     hSignalSum[ih]->GetYaxis()->SetTitle("photons/2ns");
   }
@@ -562,23 +596,23 @@ void btb(int ngen = 10000000)
   for (int ich = 8; ich >= 0; --ich)
   {
     double eff = effGeoFunc(ich);
-    int ilevel = level(ich);
+    int ilevel = getLevel(ich);
     printf(" chan %i level %i distance %f eff %E total eff %E\n", ich, ilevel, distanceLevel[ilevel], eff, eff * SiPMQE128Ham * fillFactor);
   }
 
   // trigger sipms
   double effTrigger = effGeoSim(9);
-  for (int ich = 9; ich < 12; ++ich)
+  for (int ich = 9; ich < NCHANPMT; ++ich)
   {
-    int ilevel = level(ich);
+    int ilevel = distanceLevel[ich];
     printf(" chan %i level %i origin(%f,%f,%f) distance %f eff %E total eff %E\n", ich, ilevel,
            eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z(), distanceLevel[ilevel], effTrigger, effTrigger * SiPMQE128Ham * fillFactor);
   }
 
   printf("\t\t nominal yield nphotons %.0f  3 SIPM sum %f\n,", numPhotons, 3. * numPhotons * effTrigger * SiPMQE128Ham * fillFactor);
   // print info for pmt
-  double effPmt = effGeoFunc(12);
-  int ilevel = level(12);
+  double effPmt = effGeoFunc(NCHANPMT);
+  int ilevel = distanceLevel[4];
   printf(" chan %i level %i distance %f eff %E \n", 12, ilevel, distanceLevel[ilevel], effPmt);
   printf("***********\n\n\n ");
 
@@ -595,7 +629,6 @@ void btb(int ngen = 10000000)
   int nTrigger = 0;
   for (int iev = 0; iev < ngen; ++iev) // start of event loop
   {
-
     hEventPass->SetBinContent(1, hEventPass->GetBinContent(1) + 1); // generated over 4 PI
 
     // zero trigger times array

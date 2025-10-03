@@ -1,3 +1,4 @@
+#include <iostream>
 #include "TFile.h"
 #include "TH1D.h"
 #include "TCanvas.h"
@@ -7,16 +8,35 @@
 #include "modelFit.hh"
 
 std::vector<TH1D *> hwave0;
+std::vector<TH1D *> hfit0;
 TFile *fout;
 TSpline5 *spline5 = 0;
+int colors[NCHAN] = {kRed, kGreen, kBlue, kYellow, kMagenta, kCyan, kOrange, kSpring, kTeal, kAzure, kViolet, kPink, kGray};
 
-void plotModel(double PPM = 0.0)
+enum
 {
-  TString fileName = TString(Form("tbFitAllPPM%.2f.root", PPM));
+  MAXCHAN = 4
+};
+int chanList[MAXCHAN] = {9, 8, 5, 0};
+
+// get smallest nonzero bin
+double getMinBin(TH1D *h)
+{
+  double min = 1.E9;
+  for (int ibin = 0; ibin < h->GetNbinsX(); ++ibin)
+    if (h->GetBinContent(ibin) > 0 && h->GetBinContent(ibin) < min)
+    {
+      min = h->GetBinContent(ibin);
+    }
+  return min;
+}
+
+void plotModel(TString fileName)
+{
   TFile *fin = new TFile(fileName, "readonly");
   printf(" file is %s \n", fileName.Data());
 
-  /* get sum histos from file0 */
+  /* get sum histos from file0
   TIter next(fin->GetListOfKeys());
   TKey *key;
   while (TKey *key = (TKey *)next())
@@ -33,15 +53,34 @@ void plotModel(double PPM = 0.0)
       h->SetTitle(Form("%s", h->GetName()));
       hwave0.push_back(h);
     }
+      */
+  TH1D *h = nullptr;
+  TString hname;
+  for (int ichan = 0; ichan < MAXCHAN; ++ichan)
+  {
+    hname.Form("fitWaveFitChan%i", chanList[ichan]);
+    fin->GetObject(hname, h);
+    if (h)
+      cout << "got " << hname << endl;
+    hfit0.push_back(h);
+    //
+    hname.Form("RunPeakWave%i", chanList[ichan]);
+    fin->GetObject(hname, h);
+    if (h)
+      cout << "got " << hname << endl;
+    hwave0.push_back(h);
   }
-  cout << " number waves " << fin->GetName() << " " << hwave0.size() << endl;
-  if (hwave0.size() < 1)
+  printf(" got %lu %lu \n", hwave0.size(), hfit0.size());
+
+  if (hwave0.size() != MAXCHAN || hfit0.size() != MAXCHAN)
   {
     return;
   }
 
-  for (int ichan = 0; ichan < hwave0.size(); ++ichan)
-    cout << hwave0[ichan]->GetName() << endl;
+  for (int ichan = 0; ichan < MAXCHAN; ++ichan)
+  {
+    printf(" %i data %s fit %s \n", ichan, hwave0[ichan]->GetName(), hfit0[ichan]->GetName());
+  }
 
   TString canName;
   canName.Form("model-%s", fileName.Data());
@@ -52,27 +91,44 @@ void plotModel(double PPM = 0.0)
   // for (int ichan = hwave0.size() - 1; ichan >= 0; --ichan)
   // find max bin
   double maxBin = 0;
+  double minBin = 1E9;
   for (int ichan = 0; ichan < hwave0.size(); ++ichan)
   {
     if (hwave0[ichan]->GetMaximum() > maxBin)
       maxBin = hwave0[ichan]->GetMaximum();
+    hwave0[ichan]->SetLineColor(colors[ichan]);
+    minBin = getMinBin(hwave0[ichan]);
   }
   maxBin *= 1.1;
+  printf("min bin set to %E max bin set to %E\n", minBin, maxBin);
 
-  double chanList[5] = {9, 8, 5, 0, 12};
-
-  for (int ilevel = 0; ilevel < 5; ++ilevel) // skip PMT for now
+  for (int ihist = 0; ihist < hwave0.size(); ++ihist) // skip PMT for now
   {
-    int ichan = chanList[ilevel];
-    // hwave0[ichan]->GetYaxis()->SetRangeUser(1.E-9, maxBin);
+    hwave0[ihist]->GetYaxis()->SetRangeUser(minBin, 1.1 * maxBin);
     if (first)
     {
-      hwave0[ichan]->Draw();
+      hwave0[ihist]->Draw();
       first = false;
     }
     else
-      hwave0[ichan]->Draw("sames");
+      hwave0[ihist]->Draw("sames");
   }
   can1->BuildLegend();
   gPad->SetLogy();
+
+  for (int ihist = 0; ihist < hwave0.size(); ++ihist) // skip PMT for now
+  {
+    minBin = getMinBin(hwave0[ihist]);
+    maxBin = hwave0[ihist]->GetMaximum();
+    printf(" hist %i %s and %s %E to %E \n", ihist, hwave0[ihist]->GetName(), hfit0[ihist]->GetName(), minBin, maxBin);
+    hwave0[ihist]->GetYaxis()->SetRangeUser(minBin, 1.1 * maxBin);
+    hfit0[ihist]->GetYaxis()->SetRangeUser(minBin, 1.1 * maxBin);
+    canName.Form("channel-%i", chanList[ihist]);
+    gStyle->SetOptStat(0);
+    gStyle->SetOptTitle(0);
+    TCanvas *can1 = new TCanvas(canName, canName);
+    hwave0[ihist]->Draw();
+    hfit0[ihist]->Draw("sames");
+    gPad->SetLogy();
+  }
 }

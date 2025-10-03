@@ -48,7 +48,7 @@ all: summary anacg btbSim
 sis: sis.cc
 	$(CPP) $< $(LIBS)  -o $@
 
-btbSim: btbSim.cc triggerPeakFit.hh modelFitGamma.hh
+btbSim: btbSim.cc triggerPeakFit.hh modelAllFit.hh distanceLevels.hh
 	$(CPP) $< $(LIBS)  -o $@
 
 

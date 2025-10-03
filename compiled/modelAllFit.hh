@@ -4,11 +4,23 @@
 #include "TString.h"
 #include "TF1.h"
 #include <TNtuple.h>
+#include <distanceLevels.hh>
 
+// light components
+enum
+{
+  SINGLETCOMP,
+  TRIPLETCOMP,
+  XENONCOMP,
+  MIXEDCOMP,
+  BKGCOMP,
+  NUMCOMP
+};
 // fit parameters
 enum
 {
   NORM = 0,
+  TRIGSTART,
   SFRAC,
   PPM,
   TAU3,
@@ -21,12 +33,14 @@ enum
 enum
 {
   NCHAN = 13,
+  NCHANPMT = 12,
   MAXSAMPLE = 7500
 };
 
 // return fitted function
 static double buff[NCHAN][MAXSAMPLE]; // buffer to store light curve data
 static double fitWave[NCHAN][MAXSAMPLE];
+static double fitComp[NCHAN][NUMCOMP][MAXSAMPLE];
 
 TNtuple *ntScan = new TNtuple("ntScan", "ntScan", "ppm:fx:f");
 // units are nanoseconds
@@ -43,7 +57,6 @@ static double kxZero = 2.9 * kUnit0; // kx in the paper diffusion limited reacti
 static double LY = 25.6;           //  photons/kev LEGEND number , ref see Doke
 static double nPhotons = 60. * LY; // 60 keV gamma
 //
-static double distanceLevel[5];
 static int iTrigger = 695;
 
 // NOT USING THIS
@@ -57,6 +70,7 @@ Electron transport and electron–ion recombination in liquid argon simulation b
 
 static double lpar[NPARS];       // pass parameters to light model
 static TString lparNames[NPARS]; // parameter names
+static TString compNames[NPARS]; // parameter names
 
 // effiecienies
 static double SiPMQE128Ham = 0.15;
@@ -70,12 +84,57 @@ static double PMTQE400 = 0.35;
 static void setParNames() // tousif
 {
   lparNames[NORM] = TString("norm");
+  lparNames[TRIGSTART] = TString("trigStart");
   lparNames[SFRAC] = TString("sfrac");
   lparNames[PPM] = TString("ppm");
   lparNames[TAU3] = TString("tau3");
   lparNames[TAUM] = TString("taumix");
   lparNames[BKGCONST] = TString("bkgconst");
   lparNames[BKGTAU] = TString("bkgtau");
+}
+
+static void setCompNames() // tousif
+{
+  compNames[SINGLETCOMP] = TString("singletComp");
+  compNames[TRIPLETCOMP] = TString("tripletCpmp");
+  compNames[XENONCOMP] = TString("xenonComp");
+  compNames[MIXEDCOMP] = TString("mixedComp");
+  compNames[BKGCOMP] = TString("bkgComp");
+}
+
+// level
+static int getLevel(int ichan)
+{
+  int ilevel = 0; // triggger 9,10,11
+  if (ichan == 6 || ichan == 7 || ichan == 8)
+    ilevel = 1;
+  if (ichan == 3 || ichan == 4 || ichan == 5)
+    ilevel = 2;
+  if (ichan == 0 || ichan == 1 || ichan == 2)
+    ilevel = 3;
+  if (ichan == 12)
+    ilevel = 4;
+  return ilevel;
+}
+
+static double effGeoFunc(int ichan)
+{
+  int ilevel = getLevel(ichan);
+  /*
+  Area of SiPMs is 6.0mm x 6.0mm
+
+      Channels 6, 7, and 8 are at 11.6 cm
+      from the source Channels 3, 4, and 5 are at 23.2 cm
+      from the source Channels 0, 1, and 2 are at 34.8 cm from the source Channel 12 is at 36 cm from the source.
+      */
+  double aPmt = TMath::Pi() / 4.0 * pow(6.4, 2); // R11410-20  Effective area : 64 mm dia
+  double a = pow(0.6, 2.);
+  if (ichan == 12)
+    a = aPmt;
+
+  double b = 4.0 * TMath::Pi();
+  double e = a / b / pow(distanceLevel[ilevel], 2.);
+  return e;
 }
 
 static double Absorbtion(double ppm, double dist)
@@ -109,7 +168,8 @@ returns likelihood value for some set of parameters
 */
 static void printModel(int ibin, Double_t *par, double *fsChan, double *ftChan)
 {
-  double x = double(ibin - iTrigger); // subract trigger sample
+  double xTrigger = par[TRIGSTART];
+  double x = double(ibin) - xTrigger; // subract trigger sample
   double bw = 2.;                     // ns
   double ppm = par[PPM];
   double norm = par[NORM];
@@ -117,12 +177,6 @@ static void printModel(int ibin, Double_t *par, double *fsChan, double *ftChan)
   double sfrac = par[SFRAC];
   double tMix = par[TAUM];
   double bkg = par[BKGCONST];
-
-  distanceLevel[0] = 1.062; // 11.6;
-  distanceLevel[1] = 11.48; // 11.6;
-  distanceLevel[2] = 21.41; // 23.2;
-  distanceLevel[3] = 31.35; // 34.8;
-  distanceLevel[4] = 42.70; // 36.0;
 
   double kx = kxZero * ppm;                 // rate of tansfer to mixed state
   double kxPrime = kqZero + kx + 1. / tMix; // k_x^\prime in paper
@@ -160,16 +214,15 @@ static void printModel(int ibin, Double_t *par, double *fsChan, double *ftChan)
     // ilevel
 
     /** dist */
-    double dist = distanceLevel[ilevel];
-    effChan[ic] = pow(0.6, 2.) / fourPi / pow(dist, 2.);
+    effChan[ic] = pow(0.6, 2.) / fourPi / pow(distanceLevel[ilevel], 2.);
     double aPmt = TMath::Pi() / 4.0 * pow(6.40, 2); // R11410-20  Effective area : 64 mm dia units here are cm
     if (ic == 12)
-      effChan[ic] = aPmt / fourPi / pow(dist, 2.);
+      effChan[ic] = aPmt / fourPi / pow(distanceLevel[ilevel], 2.);
 
     // absorption
     double lambda1 = 12.7 * 0.1 / ppm;
     double lambda2 = 740 * 0.1 / ppm;
-    double Tr128 = 0.615 * exp(-dist / lambda1) + (1 - 0.615) * exp(-dist / lambda2);
+    double Tr128 = 0.615 * exp(-distanceLevel[ilevel] / lambda1) + (1 - 0.615) * exp(-distanceLevel[ilevel] / lambda2);
     double ab = 1. - Tr128;
     abChan[ic] = ab;
 
@@ -186,21 +239,34 @@ static void printModel(int ibin, Double_t *par, double *fsChan, double *ftChan)
     // model emission components terms in equation 6
     // convoute with resolution using expGaus
     fsChan[ic] = (1. - ab) * alpha1 / tSinglet0 * expGaus(x, t1); // singlet
-    printf("xxxx ic %i x %f ab %f alpha1 %f t1 %f  exp %E \n", ic, x, ab, alpha1, t1, expGaus(x, t1));
+    // printf("xxxx ic %i x %f ab %f alpha1 %f t1 %f  exp %E \n", ic, x, ab, alpha1, t1, expGaus(x, t1));
     ftChan[ic] = (1. - ab) * alpha3 / tTriplet * expGaus(x, t3); // triplet
+
+    // xenenon emission x_i terms in paper
+    double xterm1 = c1 * kx * alpha1 / (l1 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe0)) / (lX - l1));
+    double xterm3 = c1 * kx * alpha3 / (l3 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe0)) / (lX - l3));
+    double fx = (xterm1 + xterm3) / tXe0; // xenon
+    // double fx = (xterm1 + xterm3) / tXe0; // xenon
+    //  mixed component
+    double mterm1 = alpha1 * c1 / (l1 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t1));
+    double mterm3 = alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
+    double fm = (mterm1 + mterm3) / tMix; // mixed
+    printf("chan %i xterm1 %E xterm3 %E fx %E mterm1 %E mterm3 %E fm %E \n", ic, xterm1, xterm3, fx, mterm1, mterm3, fm);
   }
 
-  printf(" \n\n >>> modelFit start parameters\n");
+  printf(" \n\n >>> modelFit parameters\n");
   for (int ii = 0; ii < NPARS; ++ii)
   {
     printf("\t  param %i %s %.4E  \n", ii, lparNames[ii].Data(), par[ii]);
   }
 
-  printf("SiPMQE128Ham %.3f tSinglet0 %E kx %E kxPrime %E l1 %E l3 %E lX %E \n", SiPMQE128Ham, tSinglet0, kx, kxPrime, l1, l3, lX);
-
-  printf("printModel ppm %.2f sample %.0f  \n", ppm, x);
+  printf(" printModel ppm %.2f sample %i \n", ppm, ibin);
   for (int ic = 0; ic < NCHAN; ++ic)
     printf("chan ic %i effGeo %E abs %f fs %E ft %E alpha1 %E alpha3 %E \n", ic, effChan[ic], abChan[ic], fsChan[ic], ftChan[ic], alpha1Chan[ic], alpha3Chan[ic]);
+
+  printf("siPMQE128Ham %.3f tSinglet0 %E kx %E kxPrime %E l1 %E l3 %E lX %E \n", SiPMQE128Ham, tSinglet0, kx, kxPrime, l1, l3, lX);
+
+  printf("DENOMINATORS lx - kxPrime %E lx - l1 %E lx - l3 %E\n", lX - kxPrime, lX - l1, lX - l3);
 }
 void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
 {
@@ -216,12 +282,6 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
   double sfrac = par[SFRAC];
   double tMix = par[TAUM];
   double bkg = par[BKGCONST];
-
-  distanceLevel[0] = 1.062; // 11.6;
-  distanceLevel[1] = 11.48; // 11.6;
-  distanceLevel[2] = 21.41; // 23.2;
-  distanceLevel[3] = 31.35; // 34.8;
-  distanceLevel[4] = 42.70; // 36.0;
 
   // loop over channels
   double chanList[5] = {9, 8, 5, 0, 12};
@@ -243,7 +303,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       ilevel = 4;
     //  **** ilevel
     /** dist */
-    double dist = distanceLevel[ilevel];
+    double dist = distanceLevel[ilevel]; // from header distanceLevels.hh
     // SiPMQ128
     double SiPMQ128 = SiPMQE128Ham;
 
@@ -266,10 +326,10 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     // singlet region
     // ihigh = 1500;
     // loop over bins to fit
-    for (int j = ilow; j < ihigh; ++j) // 7500 is total
+    for (int j = ilow; j < ihigh; ++j) // 7500 is total samples
     {
       /* skip dip region */
-      bool dip = j > 725 && j < 800;
+      bool dip = j > 1450 / 2 && j < 1540 / 2;
       if (dip)
         continue;
       double x = bw * (double(j - iTrigger) + 0.5);      // bin center convert to ns mutiplying by bin width
@@ -299,9 +359,9 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
 
       // xenenon emission x_i terms in paper
       double xterm1 = c1 * kx * alpha1 / (l1 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe0)) / (lX - l1));
-      double xterm3 = c1 * kx * alpha1 / (l3 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe0)) / (lX - l3));
+      double xterm3 = c1 * kx * alpha3 / (l3 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe0)) / (lX - l3));
       double fx = (xterm1 + xterm3) / tXe0; // xenon
-      // mixed component
+      //  mixed component
       double mterm1 = alpha1 * c1 / (l1 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t1));
       double mterm3 = alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
       double fm = (mterm1 + mterm3) / tMix; // mixed
@@ -332,7 +392,15 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
 
       // total light for channel
       double mval = fs + ft + fx + fm + bkg;
-
+      mval = fs + ft;
+      // for plottting components
+      fitComp[ic][SINGLETCOMP][j] = fs;
+      fitComp[ic][TRIPLETCOMP][j] = ft;
+      fitComp[ic][XENONCOMP][j] = fx;
+      // if (ic == 8 && j == 1500)
+      //   printf("....line418 sample %i fx %E \n", j, fx);
+      fitComp[ic][MIXEDCOMP][j] = fm;
+      fitComp[ic][BKGCOMP][j] = bkg;
       // output fitted function
       fitWave[ic][j] = mval;
       /*if (ic == 9 && (j > 1000 && j < 2000))

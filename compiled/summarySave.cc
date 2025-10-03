@@ -478,31 +478,16 @@ void fileLoop()
     TString fullName = dirNameSlash + fileList[ifile];
     fin = new TFile(fullName, "readonly");
 
-    if (fin->IsZombie())
-    {
-      printf(" \n *****  skip zomgie file %i  %s  *******\n", ifile, fin->GetName());
+    if (!getPointers(fin))
       continue;
-    }
 
-    eventCount = NULL;
-
-    cout << " get event Count " << ifile << endl;
-    fin->GetObject("eventcount", eventCount);
-    if (eventCount)
-    {
-      ntotal = eventCount->GetBinContent(0);
-      npass = eventCount->GetBinContent(1);
-      filePass.push_back(npass);
-      // 0 = ntriggers, 1 = npass
-      // printf("\n\n line485 total events file %i %s %f events passed  %f \n ", ifile, fileList[ifile].Data(), eventCount->GetBinContent(0), eventCount->GetBinContent(1));
-      // TH1D *hevcount = (TH1D *)eventCount->Clone(Form("eventCount%i", ifile));
-      // fout->Add(hevcount);
-    }
-    else
-    {
-      printf("NO EVENT COUNT IN FILE %i  %s\n", ifile, fin->GetName());
-      continue;
-    }
+    ntotal = eventCount->GetBinContent(0);
+    npass = eventCount->GetBinContent(1);
+    filePass.push_back(npass);
+    // 0 = ntriggers, 1 = npass
+    // printf("\n\n line485 total events file %i %s %f events passed  %f \n ", ifile, fileList[ifile].Data(), eventCount->GetBinContent(0), eventCount->GetBinContent(1));
+    // TH1D *hevcount = (TH1D *)eventCount->Clone(Form("eventCount%i", ifile));
+    // fout->Add(hevcount);
 
     filenum.push_back(double(ifile));
     efilenum.push_back(0);
@@ -1204,16 +1189,12 @@ unsigned long countFiles()
     // see if file is good
     TString fullName = dirNameSlash + TString(name.c_str());
     TFile *f = new TFile(fullName, "READONLY");
-    TTree *RunTree = NULL;
-    f->GetObject("RunTree", RunTree);
-    if (RunTree == NULL)
-    {
-      cout << "line1129 skipping BAD file " << name << endl;
-      continue;
-    }
+
+    if (getPointers(f))
+      fileList.push_back(TString(name.c_str()));
+
     f->Close();
     // good file add to list
-    fileList.push_back(TString(name.c_str()));
     cout << "line1135 add file " << name << " nFiles= " << fileList.size() << endl;
   }
   return fileList.size();
