@@ -75,6 +75,7 @@ Long64_t ncount[NCHAN];
 Long64_t ncountSinglet[NCHAN];
 TH1D *hEventPass;
 TH1D *hCount;
+TH1D *hCountSinglet;
 TH1D *hResponse;
 TH1D *hTime;
 TH1D *hTrigDiffTime;
@@ -366,7 +367,7 @@ void btb(int ngen = 10000000)
 {
 
   geoVersionOld = true;
-  setDistanceLevels(geoVersionOld);
+  setDistanceLevels();
 
   if (geoVersionOld)
   {
@@ -518,6 +519,7 @@ void btb(int ngen = 10000000)
   ntFit = new TNtuple("ntFit", "trigger peak fit", "ev:numPhotons:eventR:eventCos:eventPhi:qsum9:qsum10:qsum11:fitR:fitCos:fitPhi:errR:errTheta:ierr");
   ntScan = new TNtuple("ntScan", "scan", "nll:mean9:mean10:mean11:qsum9:qsum10:qsum11:r:theta:phi");
   hCount = new TH1D("Count", "hit count", 13, 0, 13);
+  hCountSinglet = new TH1D("CountSinglet", "hit count singlet", 13, 0, 13);
   hTime = new TH1D("Time", "photon time ", 7500, 0, 2 * 7500);
   hTrigDiffTime = new TH1D("TrigDiffTime", " time difference ", 7500, 0, 7500);
   hTrigDiffTime->GetXaxis()->SetTitle("max time diff [samples]");
@@ -1073,7 +1075,10 @@ void btb(int ngen = 10000000)
   } // end of event loop
 
   for (int ich = 0; ich < NCHAN; ++ich)
+  {
     hCount->SetBinContent(ich + 1, ncount[ich]);
+    hCountSinglet->SetBinContent(ich + 1, ncountSinglet[ich]);
+  }
   // summary
   printf("****** generated %i events.\nphoton count:\n", ngen);
   for (int ih = 0; ih < NCHAN; ++ih)
