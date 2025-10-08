@@ -166,6 +166,8 @@ public:
   std::vector<TH1D *> hWave;
 
   TH1D *hTrigFailCut;
+  TH1D *hGammaPeak;
+  TH1D *hGammaPeakCut;
   TH1D *hTriangleCut;
   std::vector<TH1D *> hQFracRatio;
   TH1D *hPreQpeak;
@@ -1132,6 +1134,10 @@ int anaCRun::anaEvent(Long64_t entry)
   qFraction[0] = idet9->totSum / triggerSum;
   qFraction[1] = idet10->totSum / triggerSum;
   qFraction[2] = idet11->totSum / triggerSum;
+
+  // TUM cuts on fractions
+  double qSumTrigPhotons = idet9->totSum + idet10->totSum + idet11->totSum;
+  hGammaPeak->Fill(qSumTrigPhotons);
   for (unsigned iratio = 0; iratio < hQFracRatio.size(); ++iratio)
     hQFracRatio[iratio]->Fill(qFraction[iratio]);
 
@@ -1144,6 +1150,8 @@ int anaCRun::anaEvent(Long64_t entry)
   if (xternQ > 0.2 && xternQ < 0.8 && yternQ < 0.6)
     passTriangle = true;
 
+  if (passTriangle)
+    hGammaPeakCut->Fill(qSumTrigPhotons);
   // printf("line1097 %f %f %f %f %f \n", qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
   ntTrig->Fill(double(entry), idet9->totSum, idet9->totSum, idet10->totSum, idet11->totSum, qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ, passTriangle);
 
@@ -2205,6 +2213,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   histQPrompt->Sumw2();
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hTriangleCut = new TH1D("TrigSumCut", " ytern vs xtern ", 160, 0, 40.);
+  hGammaPeak = new TH1D("GammaPeak", "gamma peak (photons)", 100, 0., 50.);
+  hGammaPeakCut = new TH1D("GammaPeakCut", "gamma peak with cut (photons)", 100, 0., 50.);
   // hCosmicMult = new TH1D("CosmicMult", "CosmicMult", 10, 0, 10);
 
   /* directory of hists for event cut */
