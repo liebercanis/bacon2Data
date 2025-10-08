@@ -2213,8 +2213,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   histQPrompt->Sumw2();
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hTriangleCut = new TH1D("TrigSumCut", " ytern vs xtern ", 160, 0, 40.);
-  hGammaPeak = new TH1D("GammaPeak", "gamma peak (photons)", 100, 0., 50.);
-  hGammaPeakCut = new TH1D("GammaPeakCut", "gamma peak with cut (photons)", 100, 0., 50.);
+  hGammaPeak = new TH1D("GammaPeak", "gamma peak (photons)", 100, 0., 200.);
+  hGammaPeakCut = new TH1D("GammaPeakCut", "gamma peak with cut (photons)", 100, 0., 200.);
   // hCosmicMult = new TH1D("CosmicMult", "CosmicMult", 10, 0, 10);
 
   /* directory of hists for event cut */
