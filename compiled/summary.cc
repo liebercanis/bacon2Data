@@ -93,7 +93,8 @@ std::vector<TDatime> fileDatime;
 TBFile *bf;
 TBEventData *eventData;
 TTree *runTree;
-TH1D *hRunEventPass; // on output file
+TH1D *hGammaPeak;    // on output file
+TH1D *hGammaPeakCut; // on output file
 TH1D *hEventPass;    // must be in input file
 TH1D *hTrigSumCut;
 TH1D *hTrigSumNoCut;
@@ -170,6 +171,30 @@ std::vector<double> sipmSumGainError;
 double xWaveLow = 0;
 double xWaveHigh = 7500; // max sample
 
+void saveToOutput(TDirectory *dir, TString inName, TString outName)
+{
+  TH1D *hIn = NULL;
+  /* clone hGammaPeak hGammaPeakCut*/
+  fin->GetObject(inName, hIn);
+  if (hIn)
+  {
+    TH1D *hOut = NULL;
+    dir->GetObject(outName, hOut);
+    if (hOut == NULL)
+    {
+      hOut = (TH1D *)hIn->Clone(outName);
+      hOut->SetTitle(outName);
+      // cout << "line613 ... adding  " << hIn->GetName() << " file "  << fin->GetName() << " hit QSum " << hOut->GetEntries() << endl;
+      fout->Add(hOut);
+    }
+    else
+    {
+      fout->GetObject(outName, hOut);
+      hOut->Add(hIn);
+    }
+  } // if hIn
+}
+
 // get all pointers we need
 bool getPointers(TFile *f)
 {
@@ -226,6 +251,20 @@ bool getPointers(TFile *f)
   {
     cout << "line1230 skipping BAD file no EventPass " << name << endl;
     isGoodFile = false;
+  }
+
+  hGammaPeak = nullptr;
+  f->GetObject("GammaPeak", hGammaPeak);
+  if (!hGammaPeak)
+  {
+    cout << "line1230 no GammaPeak " << name << endl;
+  }
+
+  hGammaPeakCut = nullptr;
+  f->GetObject("GammaPeakCut", hGammaPeakCut);
+  if (!hGammaPeakCut)
+  {
+    cout << "line1230 no GammaPeakCut " << name << endl;
   }
 
   eventData = new TBEventData();
@@ -515,8 +554,7 @@ void fileLoop()
     fileTime.push_back(dateTime.Convert());
     printf(" \n ***** starting file %i , %lu  %s  pass %.0f *******\n", ifile, filenum.size(), fin->GetName(), npass);
 
-    /* clone hEventPass */
-
+    /* clone EventPass
     TString cloneName;
     TString fileTag(fileList[ifile](13, 9));
     cloneName.Form("EventPass%uDate%s", ifile, fileTag.Data());
@@ -524,6 +562,87 @@ void fileLoop()
     printf("line521 %s \n", hClone->GetName());
     hClone->SetTitle(cloneName);
     fout->Add(hClone);
+    */
+
+    /* clone EventPass */
+    TString OutName;
+    TString InName;
+    OutName.Form("EventPassSum");
+    InName.Form("EventPsss");
+    TH1D *hIn = NULL;
+    fin->GetObject(InName, hIn);
+    if (hIn)
+    {
+      TH1D *hOut = NULL;
+      fout->GetObject(OutName, hOut);
+      if (hOut == NULL)
+      {
+        hOut = (TH1D *)hIn->Clone(OutName);
+        hOut->SetTitle(OutName);
+        fout->Add(hOut);
+      }
+      else
+      {
+        fout->GetObject(OutName, hOut);
+        hOut->Add(hIn);
+      }
+    } // if hIn
+
+    /* clone hGammaPeak hGammaPeakCut*/
+    TString gammaOutName;
+    TString gammaInName;
+    gammaOutName.Form("GammaPeakSum");
+    gammaInName.Form("GammaPeak");
+    saveToOutput(fout, gammaInName, gammaOutName);
+
+    /* clone hGammaPeak hGammaPeakCut*/
+    gammaOutName.Form("GammaPeakCutSum");
+    gammaInName.Form("GammaPeakCut");
+    saveToOutput(fout, gammaInName, gammaOutName);
+    /*
+    fin->GetObject(gammaInName, hIn);
+    if (hIn)
+    {
+      TH1D *hOut = NULL;
+      fout->GetObject(gammaOutName, hOut);
+      if (hOut == NULL)
+      {
+        hOut = (TH1D *)hIn->Clone(gammaOutName);
+        hOut->SetTitle(gammaOutName);
+        // cout << "line613 ... adding  " << hIn->GetName() << " file "  << fin->GetName() << " hit QSum " << hOut->GetEntries() << endl;
+        fout->Add(hOut);
+      }
+      else
+      {
+        fout->GetObject(gammaOutName, hOut);
+        hOut->Add(hIn);
+      }
+    } // if hIn
+     */
+
+    /* clone hGammaPeak hGammaPeakCut*/
+    /*
+    gammaOutName.Form("GammaPeakCutSum");
+    gammaInName.Form("GammaPeakCut");
+    fin->GetObject(gammaInName, hIn);
+    if (hIn)
+    {
+      TH1D *hOut = NULL;
+      fout->GetObject(gammaOutName, hOut);
+      if (hOut == NULL)
+      {
+        hOut = (TH1D *)hIn->Clone(gammaOutName);
+        hOut->SetTitle(gammaOutName);
+        // cout << "line613 ... adding  " << hIn->GetName() << " file "  << fin->GetName() << " hit QSum " << hOut->GetEntries() << endl;
+        fout->Add(hOut);
+      }
+      else
+      {
+        fout->GetObject(gammaOutName, hOut);
+        hOut->Add(hIn);
+      }
+    } // if hIn
+    */
 
     /******
      * add peak and sum gains  to gainSumDir
@@ -590,12 +709,6 @@ void fileLoop()
         }
       } // if hIn
     } // channel loop
-
-    // sum eventPsss
-    if (ifile == 0)
-    {
-      fout->Add(hRunEventPass);
-    }
 
     // TrigSumNoCut
     // make summed histos on output
