@@ -93,7 +93,7 @@ double nominalGeo;
 /* parameters quoted in talk  "A new optical model for LEGEND-200
 with remage" Manuel Huber <ge38nap@mytum.de>, Luigi Pertoldi
 LEGEND collaboration meeting · March 25, 2025 */
-double singletFrac = 0.20;
+double singletFrac = 0.23;
 double numPhotons = LY * 60.; // 60 keV gamma
 double nominalGain = 227.4;
 double nominalTrigGain = 735.688747;

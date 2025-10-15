@@ -599,6 +599,15 @@ void fileLoop()
     gammaOutName.Form("GammaPeakCutSum");
     gammaInName.Form("GammaPeakCut");
     saveToOutput(fout, gammaInName, gammaOutName);
+
+    /* clone hGammaPeak hTrianglePlot*/
+    gammaOutName.Form("TriangleSum");
+    gammaInName.Form("Triangle");
+    saveToOutput(fout, gammaInName, gammaOutName);
+
+    gammaOutName.Form("TriangleCutSum");
+    gammaInName.Form("TriangleCut");
+    saveToOutput(fout, gammaInName, gammaOutName);
     /*
     fin->GetObject(gammaInName, hIn);
     if (hIn)

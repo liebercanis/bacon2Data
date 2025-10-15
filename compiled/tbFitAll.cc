@@ -1,10 +1,12 @@
 #include <iostream>
+#include <string>
 #include <fstream>
 #include "TMinuit.h"
 #include "TFile.h"
 #include "TString.h"
 #include "TCanvas.h"
 #include "TH1D.h"
+#include "TMultiGraph.h"
 #include "TGraph.h"
 #include "modelAllFit.hh"
 // time is in microseconds
@@ -18,8 +20,8 @@ std::vector<TH1D *> hmodel;
 std::vector<TH1D *> hffitPmt;
 std::vector<TH1D *> hffitChan;
 TString histSet;
-double dopant[3];
-TString summaryFile[3];
+double dopant[4];
+TString summaryFile[4];
 double ylow = 1300;
 double yhigh = 4000;
 bool isSim;
@@ -63,6 +65,7 @@ void fillFitWave(int ichan, TH1D *hist)
     hist->SetBinError(ib, 0);
     hist->GetYaxis()->SetTitle("yield");
     hist->GetXaxis()->SetTitle("time [ns]");
+    hffit[ichan] = hist;
   }
 }
 
@@ -203,14 +206,16 @@ int openFile(int fileNum = 0)
 void tbFitAll(int fileNum = 2)
 {
 
-    summaryFile[0] = TString("summary-05_19_2025-05_19_2025-nfiles-14-created-2025-09-09-15-58.root");
+  summaryFile[0] = TString("summary-05_19_2025-05_19_2025-nfiles-14-created-2025-09-09-15-58.root");
   summaryFile[1] = TString("summary-05_27_2025-05_27_2025-nfiles-22-created-2025-09-09-15-56.root");
   summaryFile[2] = TString("caenData/anaCRun-btbSimOffset-2025-09-09-16-09-1000000-0.root"); // new geometry
+  summaryFile[3] = TString("rootData/btbSimOLD-2025-10-03-13-35-100000.root");
   dopant[0] = 0.05;
   dopant[1] = 0.00;
   dopant[2] = 0.00;
+  dopant[3] = 0.00;
 
-  geoVersionOld = true;
+  geoVersionOld = false;
   setDistanceLevels(geoVersionOld);
 
   // is this simulation?
@@ -305,14 +310,14 @@ void tbFitAll(int fileNum = 2)
   */
 
   if (isSim)
-    xTrigger = 698;
+    xTrigger = 705;
   else
-    xTrigger = 695;
+    xTrigger = 705;
 
   // fit starting values
   vstart[NORM] = 2.06322e+03;
   vstart[TRIGSTART] = xTrigger;
-  vstart[SFRAC] = 0.20; // btbSim value
+  vstart[SFRAC] = 0.23; // btbSim value
   vstart[PPM] = dopant[fileNum];
   vstart[TAU3] = 1600.0;
   vstart[TAUM] = 4700.0;
@@ -434,13 +439,14 @@ void tbFitAll(int fileNum = 2)
   for (int ichan = 0; ichan < NCHAN; ++ichan)
   {
     TH1D *hFit = (TH1D *)hwave[ichan]->Clone(Form("fitWaveDefaultChan%i", ichan));
+
     hFit->Reset("ICES");
     hFit->SetTitle((Form("fitWaveDefaultChan%i", ichan)));
     hFit->SetLineColor(colors[ichan]);
     fillFitWave(ichan, hFit);
   }
 
-  // minimize with MIGRAD
+  // minimize with MIGRADfill
   // Now ready for minimization step
   arglist[0] = 1000000; // maxcalls
   arglist[1] = 1.E-5;   // tolerance
@@ -521,10 +527,12 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
   std::vector<double> fchan;
   std::vector<double> dataCorrPeak;
   std::vector<double> fitCorrPeak;
-  printf("max bins \n");
+  std::vector<double> dataPeakBin;
+  printf("peak fit results: \n");
   for (int ichan = 0; ichan < 13; ++ichan)
   {
     int peakBin = hwave[ichan]->GetMaximumBin();
+    dataPeakBin.push_back(hwave[ichan]->GetBinContent(peakBin));
     if (fitWave[ichan][peakBin] == 0)
       continue;
     fchan.push_back(ichan);
@@ -533,16 +541,21 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
     fitPeak.push_back(fitWave[ichan][peakBin]);
     dataCorrPeak.push_back(buff[ichan][peakBin] / eff);
     fitCorrPeak.push_back(fitWave[ichan][peakBin] / eff);
-    printf("ichan %i peak bin %i  xTrigger buff %.3E model %.3E effGeo %.3E data ratio %.3E fit ratio %.3E\n",
+    printf("ichan %i peak bin %i  xTrigger buff %.3E model %.3E effGeo %.3E data eff corr %.3E fit eff corr %.3E\n",
            ichan, peakBin, buff[ichan][peakBin], fitWave[ichan][peakBin],
            eff, buff[ichan][peakBin] / eff, fitWave[ichan][peakBin] / eff);
   }
 
+  // sort peak bins
+  std::sort(dataPeakBin.begin(), dataPeakBin.end());
+  printf(" sorted peak bins %f %f \n", dataPeakBin[0], dataPeakBin[dataPeakBin.size() - 1]);
+
+  // make multigraph
+  printf("number of peaks is %lu \n", fchan.size());
+
   TGraph *grData = new TGraph(fchan.size(), &fchan[0], &dataPeak[0]);
   grData->SetName("dataPeak");
   grData->SetTitle("dataPeak");
-  grData->GetHistogram()->GetXaxis()->SetTitle("chan");
-  grData->GetHistogram()->GetYaxis()->SetTitle("value");
   grData->SetMarkerStyle(21);
   grData->SetMarkerColor(kBlue);
 
@@ -552,10 +565,14 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
   grFit->SetMarkerStyle(22);
   grFit->SetMarkerColor(kRed);
 
+  TMultiGraph *gmultPeak = new TMultiGraph();
+  gmultPeak->Add(grData);
+  gmultPeak->Add(grFit);
   TCanvas *canPeak = new TCanvas("singletPeak", "singlet peak");
-  grData->Draw("ap");
-  grFit->Draw("psame");
-  gPad->SetLogy();
+  gmultPeak->GetXaxis()->SetTitle("channel");
+  gmultPeak->GetYaxis()->SetTitle("singlet peak value");
+  gmultPeak->Draw("apm");
+  // gPad->SetLogy();
   canPeak->BuildLegend();
   canPeak->SetGrid();
 
@@ -571,17 +588,46 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
   grCorrFit->SetName("fitCorrPeak");
   grCorrFit->SetTitle("fitCorrPeak");
   grCorrFit->SetMarkerStyle(22);
-  grFit->SetMarkerColor(kRed);
+  grCorrFit->SetMarkerColor(kRed);
 
-  TCanvas *canCorrPeak = new TCanvas("singletCorrPeak", "singlet peak eff corrected");
-  grCorrData->Draw("ap");
-  grCorrFit->Draw("psame");
-  gPad->SetLogy();
-  canCorrPeak->BuildLegend();
-  canCorrPeak->SetGrid();
+  TMultiGraph *gmultCorr = new TMultiGraph();
+  gmultCorr->Add(grCorrData);
+  gmultCorr->Add(grCorrFit);
+  TCanvas *canCorr = new TCanvas("singletCorrPeak", "singlet corrected peak");
+  gmultCorr->GetXaxis()->SetTitle("channel");
+  gmultCorr->GetYaxis()->SetTitle("singlet peak value");
+  gmultCorr->Draw("apm");
+  // gPad->SetLogy();
+  canCorr->BuildLegend();
+  canCorr->SetGrid();
 
   fout->Append(grData);
   fout->Append(grFit);
+
+  /* make comparison plots */
+  TCanvas *canChan;
+  bool firstPlot = true;
+  for (int i = 0; i < 13; ++i)
+  {
+    if (fitWave[i][hwave[i]->GetMaximumBin()] == 0)
+      continue;
+    // int ichan = atoi(string(fsname.substr(fsname.find_last_of("n") + 1, 1)).c_str());
+    printf("%s %s \n", hwave[i]->GetName(), hffit[i]->GetName());
+    // hwave[i]->Draw("");
+    canChan = new TCanvas(Form("lightCurveChan%i", i), Form("lightCurveChan%i", i));
+    printf("ffit %i max %f \n", i, hffit[i]->GetBinContent(hffit[i]->GetMaximumBin()));
+    printf("chan %i data bin %i val %f peak bin fit %i val %f \n", i,
+           hwave[i]->GetMaximumBin(), hwave[i]->GetBinContent(hwave[i]->GetMaximumBin()),
+           hffit[i]->GetMaximumBin(), hffit[i]->GetBinContent(hffit[i]->GetMaximumBin()));
+    hffit[i]->GetYaxis()->SetRangeUser(10, 1.1 * hffit[i]->GetBinContent(hffit[i]->GetMaximumBin()));
+    hffit[i]->GetXaxis()->SetRangeUser(650., 5000.);
+    hwave[i]->GetYaxis()->SetRangeUser(10, 1.1 * hffit[i]->GetBinContent(hffit[i]->GetMaximumBin()));
+    hwave[i]->GetXaxis()->SetRangeUser(650., 5000.);
+    hwave[i]->Draw("");
+    hffit[i]->Draw("sames");
+    canChan->BuildLegend();
+    canChan->SetLogy();
+  }
 
   // grData->Print("all");
   // grFit->Print("all");
@@ -592,5 +638,5 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
   // fout->Purge(1);
   // fout->ls();
   fout->Write();
-  fin->Close(); // cannot close before write because histos are on input file
+  // fin->Close(); // cannot close before write because histos are on input file
 }

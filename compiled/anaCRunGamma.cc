@@ -78,7 +78,7 @@ public:
     FAILBITS = 7
   };
 
-  // number of events for getting baseline
+  double tSinglet0 = 7.0; // ns
   ULong64_t baselineSum = 1000;
 
   // class to read and store gains
@@ -167,6 +167,7 @@ public:
 
   TH1D *hTrigFailCut;
   TH1D *hGammaPeak;
+  TH1D *hGammaAfterPeak;
   TH1D *hGammaPeakCut;
   TH1D *hTriangleCut;
   std::vector<TH1D *> hQFracRatio;
@@ -302,10 +303,12 @@ public:
   unsigned timeOffset = 13; // changed from 17 may 13, 2024
   double passValEarlyCut = 100.0;
   /// double passValEarlyPmtCut = 225.0;
-  ULong_t triggerEnd = 800; // 740;
   ULong_t lateTimeStart = 900;
-  ULong_t triggerStart = 730; // 740;
+  ULong_t triggerStart = 730;               // 740;
+  ULong_t afterTrigger = triggerStart + 20; //  2*20 = 40 ns after trigger
+
   ULong_t timeVeryLateCut = 3500;
+  ULong_t triggerEnd = 800; // 740;
   /* need to tune these cuts on data */
   double trigRatioCutLow = 0.2;  // qsum fraction
   double trigRatioCutHigh = 0.8; // qsum fraction
@@ -942,7 +945,7 @@ int anaCRun::anaEvent(Long64_t entry)
       tdet13->totSum += val / qsumGain[ib]; // convert to approximate number of photons
       if (j < triggerStart)
         idet->preSum += val / qsumGain[ib];
-      if (j > lateTimeStart)
+      if (j > afterTrigger)
       {
         idet->lateSum += val / qsumGain[ib];
         tdet13->lateSum += val / qsumGain[ib];
@@ -1137,9 +1140,28 @@ int anaCRun::anaEvent(Long64_t entry)
 
   // TUM cuts on fractions
   double qSumTrigPhotons = idet9->totSum + idet10->totSum + idet11->totSum;
+  double qAfterTrigPhotons = idet9->lateSum + idet10->lateSum + idet11->lateSum;
   hGammaPeak->Fill(qSumTrigPhotons);
+  hGammaAfterPeak->Fill(qAfterTrigPhotons);
   for (unsigned iratio = 0; iratio < hQFracRatio.size(); ++iratio)
     hQFracRatio[iratio]->Fill(qFraction[iratio]);
+
+  /* just collect some events */
+  if (qSumTrigPhotons > 80)
+  //&& (tbrun->getDet(ib)->hits[0].qpeak > 200 && tbrun->getDet(ib)->hits[0].qpeak < 250)
+  {
+    if (exampleDir->GetList()->GetEntries() < exampleDirMax)
+    {
+      for (int ib = 9; ib < 12; ++ib)
+      {
+        exampleDir->cd();
+        // TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lld-Ch%i-qpeak%0.f", entry, ib, tbrun->getDet(ib)->hits[0].qpeak));
+        TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lldCh%iGamma%.0f", entry, ib, qSumTrigPhotons));
+        EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, ib));
+        finder->plotEvent(exampleDir, tbrun->getDet(ib)->channel, entry);
+      }
+    }
+  }
 
   double xternQ, yternQ;
   makeTernary(qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
@@ -1147,7 +1169,7 @@ int anaCRun::anaEvent(Long64_t entry)
   /******   triangle cut ********/
   /* try a cut like TUM */
   bool passTriangle = false;
-  if (xternQ > 0.2 && xternQ < 0.8 && yternQ < 0.6)
+  if (xternQ > 0.2 && xternQ < 0.8 && yternQ > 0.6)
     passTriangle = true;
 
   if (passTriangle)
@@ -1332,12 +1354,14 @@ int anaCRun::anaEvent(Long64_t entry)
     digi.clear();
     digi = fixedDigi[ib];
 
-    evCount->Fill(ib);                        // chan 0 from GetBinContent(0)
-    double hitThreshold = 0.75 * nominalGain; // 500.0;
+    evCount->Fill(ib); // chan 0 from GetBinContent(0)
+    /* with shift in gain for run 5, this hitThreshold is too large */
+    double hitThresholdFraction = 0.33;                       // had been 0.75
+    double hitThreshold = hitThresholdFraction * nominalGain; // 500.0;
     if (trig)
-      hitThreshold = 0.75 * nominalTrigGain;
+      hitThreshold = hitThresholdFraction * nominalTrigGain;
     if (ib == 12)
-      hitThreshold = 0.75 * nominalPmtGain; // this is 5*(6 sigma noise)
+      hitThreshold = hitThresholdFraction * nominalPmtGain; // this is 5*(6 sigma noise)
     double theStep = diffStepSipm;
     if (ib == 12)
     {
@@ -1430,7 +1454,7 @@ int anaCRun::anaEvent(Long64_t entry)
   {
     pmtDir->cd();
     // printf("@line1171 print event %llu peakMax %E \n", entry, tdetPmt->peakMax);
-    TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawPMTEvent%lldVal%.0E-Ch%i", entry, tdetPmt->peakMax, 12));
+    TH1D *EvRawWave = (TH1D *)hEvRawWave[12]->Clone(Form("EvRawPMTEvent%lldVal%.0ECh%i", entry, tdetPmt->peakMax, 12));
     EvRawWave->SetTitle(Form("EvRawPMTEvent%lldVal%.3E-Ch%i", entry, tdetPmt->peakMax, 12));
     if (tdetPmt->hits.size() > 0)
       finder->plotEvent(pmtDir, tdetPmt->channel, entry);
@@ -1460,12 +1484,12 @@ int anaCRun::anaEvent(Long64_t entry)
   if (exampleDir->GetList()->GetEntries() < exampleDirMax)
   {
     exampleDir->cd();
-    TH1D *EvRawWave = (TH1D *)hEvRawWave[9]->Clone(Form("EvRawEvent%lld-Ch%i-totSum%.0f", entry, 9, tdet9->totSum));
+    TH1D *EvRawWave = (TH1D *)hEvRawWave[9]->Clone(Form("EvRawEvent%lldCh%itotSum%.0f", entry, 9, tdet9->totSum));
     EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, 9));
-    EvRawWave = (TH1D *)hEvRawWave[10]->Clone(Form("EvRawEvent%lld-Ch%i-totSum%.0f", entry, 10, tdet10->totSum));
+    EvRawWave = (TH1D *)hEvRawWave[10]->Clone(Form("EvRawEvent%lldCh%itotSum%.0f", entry, 10, tdet10->totSum));
     EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, 10));
 
-    EvRawWave = (TH1D *)hEvRawWave[11]->Clone(Form("EvRawEvent%lld-Ch%i-totSum%.0f", entry, 11, tdet11->totSum));
+    EvRawWave = (TH1D *)hEvRawWave[11]->Clone(Form("EvRawEvent%lldCh%itotSum%.0f", entry, 11, tdet11->totSum));
     EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, 11));
     // finder->plotEvent(exampleDir, tdet9->channel, entry);
     //  printf("@line1192 print event %llu start %i printed %i \n", entry, startLast, exampleDir->GetList()->GetEntries());
@@ -1585,7 +1609,7 @@ int anaCRun::anaEvent(Long64_t entry)
       {
         exampleDir->cd();
         // TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lld-Ch%i-qpeak%0.f", entry, ib, tbrun->getDet(ib)->hits[0].qpeak));
-        TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lld-Ch%inhit%lu", entry, ib, tbrun->getDet(ib)->hits.size()));
+        TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lldCh%inhit%lu", entry, ib, tbrun->getDet(ib)->hits.size()));
         EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, ib));
         finder->plotEvent(exampleDir, tbrun->getDet(ib)->channel, entry);
         // printf("@line1192 print event %llu start %i printed %i \n", entry, startLast, exampleDir->GetList()->GetEntries());
@@ -2213,8 +2237,9 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   histQPrompt->Sumw2();
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hTriangleCut = new TH1D("TrigSumCut", " ytern vs xtern ", 160, 0, 40.);
-  hGammaPeak = new TH1D("GammaPeak", "gamma peak (photons)", 100, 0., 200.);
-  hGammaPeakCut = new TH1D("GammaPeakCut", "gamma peak with cut (photons)", 100, 0., 200.);
+  hGammaPeak = new TH1D("GammaPeak", "gamma peak (photons)", 150, 0., 300.);
+  hGammaAfterPeak = new TH1D("GammaAfterPeak", "gamma peak after trig time (photons)", 150, 0., 300.);
+  hGammaPeakCut = new TH1D("GammaPeakCut", "gamma peak with cut (photons)", 150, 0., 300.);
   // hCosmicMult = new TH1D("CosmicMult", "CosmicMult", 10, 0, 10);
 
   /* directory of hists for event cut */
