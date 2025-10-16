@@ -1101,9 +1101,12 @@ int anaCRun::anaEvent(Long64_t entry)
   TDet *idet9 = tbrun->getDet(9);
   TDet *idet10 = tbrun->getDet(10);
   TDet *idet11 = tbrun->getDet(11);
+  double qSumTrigPhotons = idet9->totSum + idet10->totSum + idet11->totSum;
   hGammaCut->Fill(tbrun->getDet(13)->lateSum);
   if (tbrun->getDet(13)->lateSum > gammaCut)
   {
+    // plot gamma peak for GAMMA cut failures
+    hGammaAfterPeak->Fill(qSumTrigPhotons);
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
       badEventDir->cd();
@@ -1118,6 +1121,8 @@ int anaCRun::anaEvent(Long64_t entry)
       printf("@line1091  %f %f %f sum %E \n", idet9->lateSum, idet10->lateSum, idet11->lateSum, idet9->lateSum + idet10->lateSum + idet11->lateSum);
     }
   }
+  if (tbrun->getDet(13)->lateSum < gammaCut)
+    hGammaPeakCut->Fill(qSumTrigPhotons);
 
   // if (passBit == 0)
   for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
@@ -1139,10 +1144,9 @@ int anaCRun::anaEvent(Long64_t entry)
   qFraction[2] = idet11->totSum / triggerSum;
 
   // TUM cuts on fractions
-  double qSumTrigPhotons = idet9->totSum + idet10->totSum + idet11->totSum;
   double qAfterTrigPhotons = idet9->lateSum + idet10->lateSum + idet11->lateSum;
   hGammaPeak->Fill(qSumTrigPhotons);
-  hGammaAfterPeak->Fill(qAfterTrigPhotons);
+  // hGammaAfterPeak->Fill(qAfterTrigPhotons);
   for (unsigned iratio = 0; iratio < hQFracRatio.size(); ++iratio)
     hQFracRatio[iratio]->Fill(qFraction[iratio]);
 
@@ -1172,8 +1176,6 @@ int anaCRun::anaEvent(Long64_t entry)
   if (xternQ > 0.2 && xternQ < 0.8 && yternQ > 0.6)
     passTriangle = true;
 
-  if (passTriangle)
-    hGammaPeakCut->Fill(qSumTrigPhotons);
   // printf("line1097 %f %f %f %f %f \n", qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
   ntTrig->Fill(double(entry), idet9->totSum, idet9->totSum, idet10->totSum, idet11->totSum, qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ, passTriangle);
 
@@ -2236,7 +2238,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   histQSum->Sumw2();
   histQPrompt->Sumw2();
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
-  hTriangleCut = new TH1D("TrigSumCut", " ytern vs xtern ", 160, 0, 40.);
+  hTriangleCut = new TH1D("TrigiangleSumCut", " ytern vs xtern ", 160, 0, 40.);
   hGammaPeak = new TH1D("GammaPeak", "gamma peak (photons)", 150, 0., 300.);
   hGammaAfterPeak = new TH1D("GammaAfterPeak", "gamma peak after trig time (photons)", 150, 0., 300.);
   hGammaPeakCut = new TH1D("GammaPeakCut", "gamma peak with cut (photons)", 150, 0., 300.);
