@@ -322,7 +322,7 @@ public:
   double earlyCut = 20.0; // normalized to nominalGain; ///
   double firstTimeCut = double(triggerEnd);
   double cosmicCut = 30.; // value normlized to nominalPmtGain
-  double gammaCut = 150.; // normalized to nominalGain; //
+  double gammaCut = 140.; // run5 was 150 for run 4.  normalized to nominalGain; //
   double trigSumCut = 3.0;
   double hitThresholdPmt = 30.; // set Nov 13 2024
   // double qpeakCosmicCut = 3. * nominalGain; // 3*SPE
