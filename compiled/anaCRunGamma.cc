@@ -2256,7 +2256,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   hEarlyCut = new TH1D("EarlyCut", " pre trigger sum /nominal gain ", 1000, 0, 10 * earlyCut);
   hCosmicCut = new TH1D("CosmicCut", " PMT sum /nominal gain", 1000, 0, 10. * cosmicCut);
   hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 /nominal gain ", 1000, 0, 10. * gammaCut);
-  hTrigFailCut = new TH1D("TrigFail", " before cut qsum9+qsum10+qsum11  in units nominal PE ", 160, 0, 40.);
+  hTrigFailCut = new TH1D("TrigFail", " before cut qsum9+qsum10+qsum11  in units nominal PE ", 1000, 0, 10. * gammaCut);
   hFirstTimeDiff = new TH1D("FirstTimeDiff", " max trigger time diff ", 1000, 0, 1000);
   hTriggerShift = new TH1D("TriggerShift", " ave trigger time shift ", 200, -100, 100);
   hFirstTimeAllVal = new TH1D("FirstTimeAllVal", " first time val all channels ", 1000, 0, 1000);
