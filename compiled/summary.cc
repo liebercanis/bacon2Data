@@ -1300,6 +1300,7 @@ int main(int argc, char *argv[])
     gFailures[icode] = new TGraph(normFailures[icode].size(), &normFailures[icode][0], &vecFile[0]);
     gFailures[icode]->SetName(bitNames[icode]);
     gFailures[icode]->SetTitle(bitNames[icode]);
+    fout->Add(gFailures[icode]);
   }
 
   fout->Purge(1);
