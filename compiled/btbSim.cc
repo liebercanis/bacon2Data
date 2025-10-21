@@ -367,7 +367,7 @@ void btb(int ngen = 10000000)
 {
 
   geoVersionOld = true;
-  setDistanceLevels();
+  setDistanceLevels(geoVersionOld);
 
   if (geoVersionOld)
   {
