@@ -53,7 +53,13 @@ enum
   NONSUMCHANNELS = CHANNELS - 1
 };
 
+enum
+{
+  FAILBITS = 7
+};
+
 TReadGains *readGains;
+std::vector<TString> bitNames;
 
 static int waveBins = 7500.;
 int nFiles;
@@ -100,6 +106,8 @@ TH1D *hTrigSumCut;
 TH1D *hTrigSumNoCut;
 TH1D *hRunTrigSumNoCut;
 TH1D *hRunTrigSumCut;
+std::vector<std::vector<double>> vecFail;
+std::vector<double> vecFile;
 std::vector<double> QPEMean;
 std::vector<double> vecQPEMean;
 std::vector<double> vecQPENave;
@@ -529,6 +537,25 @@ void fileLoop()
     TString fullName = dirNameSlash + fileList[ifile];
     // printf("line479 %s\n", fullName.Data());
     fin = new TFile(fullName, "readonly");
+
+    /* pick up cut failures */
+    TH1D *hEventFail = NULL;
+    fin->GetObject("EventFail", hEventFail);
+    if (hEventFail)
+    {
+      vecFile.push_back(double(ifile));
+      printf("line539 file %i %s EventFail %.0f \n", ifile, fin->GetName(), hEventFail->GetEntries());
+      for (int ibin = 0; ibin < hEventFail->GetNbinsX(); ++ibin)
+      {
+        vecFail[ibin].push_back(hEventFail->GetBinContent(ibin + 1));
+        printf("bin %i contents %f \n", ibin + 1, hEventFail->GetBinContent(ibin + 1));
+      }
+    }
+    else
+    {
+      printf("line543 file %i %s has no EventFail!! \n", ifile, fin->GetName());
+    }
+
     // for summing
     hRunTrigSumNoCut = nullptr;
     hRunTrigSumCut = nullptr;
@@ -1081,6 +1108,16 @@ int main(int argc, char *argv[])
     printf("reguire file date start string <stag> args\n");
     exit(0);
   }
+  vecFail.resize(FAILBITS);
+  bitNames.resize(FAILBITS);
+  bitNames[0] = TString("pass");
+  bitNames[1] = TString("baseline");
+  bitNames[2] = TString("earlycut");
+  bitNames[3] = TString("firsttime");
+  bitNames[4] = TString("cosmic");
+  bitNames[5] = TString("gamma");
+  bitNames[6] = TString("trigger");
+
   readGains = new TReadGains();
   dirName = TString("caenData");
   dirNameSlash = TString("caenData/");
@@ -1225,6 +1262,45 @@ int main(int argc, char *argv[])
     // else printf(" did not find %s \n",histName.Data());
   }
     */
+
+  /* report cleanup cut failures */
+  printf("line1256 vecFail size %lu \n", vecFail[0].size());
+  std::vector<std::vector<double>> normFailures; // normalized to number of events
+  normFailures.resize(FAILBITS);
+  // std::vector<std::vector<double>> normFailuresError;
+  for (unsigned ifile = 0; ifile < vecFail[0].size(); ++ifile)
+  {
+    printf("file %i PASS %.0f BASEFAIL %.0f EARLYCUT %.0f FIRSTTIME %.0f COSMIC %.0f GAMMA %.0f TRIGFAIL %.0f \n ", ifile, vecFail[0][ifile], vecFail[1][ifile], vecFail[2][ifile], vecFail[3][ifile], vecFail[4][ifile], vecFail[5][ifile], vecFail[6][ifile]);
+    double sum = 0;
+    for (int icode = 0; icode < vecFail.size(); ++icode)
+      sum += vecFail[icode][ifile];
+    printf("line1277 totals for file %i %.0f \n", ifile, sum);
+
+    for (int icode = 0; icode < FAILBITS; ++icode)
+    {
+      normFailures[icode].push_back(vecFail[icode][ifile] / sum);
+    }
+  }
+
+  printf("line1284 number of files = normFailureds[0] size %lu \n", normFailures[0].size());
+
+  for (unsigned ifile = 0; ifile < vecFail[0].size(); ++ifile)
+  {
+    // printf("file %i NORMED PASS %.0f BASEFAIL %.0f EARLYCUT %.0f FIRSTTIME %.0f COSMIC %.0f GAMMA %.0f TRIGFAIL %.0f \n ", ifile, normFailures[0][ifile], normFailures[1][ifile], normFailures[2][ifile], normFailures[3][ifile], normFailures[4][ifile], normFailures[5][ifile], normFailures[6][ifile]);
+    for (int icode = 0; icode < FAILBITS; ++icode)
+    {
+      printf("line1265 ifile %i code %i  %s normed %f \n", ifile, icode, bitNames[icode].Data(), normFailures[icode][ifile]);
+    }
+  }
+
+  /* make vector normed with errors */
+  TGraph *gFailures[FAILBITS];
+  for (unsigned icode = 0; icode < FAILBITS; ++icode)
+  {
+    gFailures[icode] = new TGraph(normFailures[icode].size(), &normFailures[icode][0], &vecFile[0]);
+    gFailures[icode]->SetName(bitNames[icode]);
+    gFailures[icode]->SetTitle(bitNames[icode]);
+  }
 
   fout->Purge(1);
   fout->Write();
