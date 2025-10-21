@@ -1284,6 +1284,7 @@ int main(int argc, char *argv[])
 
   printf("line1284 number of files = normFailureds[0] size %lu \n", normFailures[0].size());
 
+  /*
   for (unsigned ifile = 0; ifile < vecFail[0].size(); ++ifile)
   {
     // printf("file %i NORMED PASS %.0f BASEFAIL %.0f EARLYCUT %.0f FIRSTTIME %.0f COSMIC %.0f GAMMA %.0f TRIGFAIL %.0f \n ", ifile, normFailures[0][ifile], normFailures[1][ifile], normFailures[2][ifile], normFailures[3][ifile], normFailures[4][ifile], normFailures[5][ifile], normFailures[6][ifile]);
@@ -1292,14 +1293,17 @@ int main(int argc, char *argv[])
       printf("line1265 ifile %i code %i  %s normed %f \n", ifile, icode, bitNames[icode].Data(), normFailures[icode][ifile]);
     }
   }
+    */
 
   /* make vector normed with errors */
   TGraph *gFailures[FAILBITS];
   for (unsigned icode = 0; icode < FAILBITS; ++icode)
   {
-    gFailures[icode] = new TGraph(normFailures[icode].size(), &normFailures[icode][0], &vecFile[0]);
+    gFailures[icode] = new TGraph(normFailures[icode].size(), &vecFile[0], &normFailures[icode][0]);
     gFailures[icode]->SetName(bitNames[icode]);
     gFailures[icode]->SetTitle(bitNames[icode]);
+    gFailures[icode]->GetHistogram()->GetXaxis()->SetTitle("file number");
+    gFailures[icode]->GetHistogram()->GetYaxis()->SetTitle("failure fraction");
     fout->Add(gFailures[icode]);
   }
 
