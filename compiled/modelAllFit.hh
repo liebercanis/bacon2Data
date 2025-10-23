@@ -54,7 +54,8 @@ static double kUnit0 = 1.0E-4;       // unit to convert to inverse nanoseconds
 static double kqZero = 1.3 * kUnit0; // kq in the paper collisiona de-excitation quenching rate
 static double kxZero = 2.9 * kUnit0; // kx in the paper diffusion limited reaction rate /[PPM]
 //
-static double LY = 25.6;           //  photons/kev LEGEND number , ref see Doke
+static double LY = 41.; // Doke, April 2009 https://arxiv.org/abs/0910.4956v1
+// LEGEND value 25.6;                              //  photons/kev LEGEND number , ref see Doke
 static double nPhotons = 60. * LY; // 60 keV gamma
 //
 static int iTrigger = 695;
