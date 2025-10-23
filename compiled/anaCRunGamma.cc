@@ -1,4 +1,4 @@
-/*te**Ths is GAMMA version Sept 25 2024 **/
+/*** This is GAMMA version Sept 25 2024 **/
 // revised Jan 15 2025
 /////////////////////////////////////////////////////////
 #include <sstream>
@@ -120,6 +120,8 @@ public:
   TH1D *hBaselineRmsCut;
   TH1D *hEarlyCut;
   TH1D *hCosmicCut;
+  TH1D *hCosmicCutFail;
+  TH1D *hCosmicCutPass;
   TH1D *hGammaCut;
   TNtuple *ntHit;
   TNtuple *ntSimMatch;
@@ -322,7 +324,7 @@ public:
   double earlyCut = 20.0; // normalized to nominalGain; ///
   double firstTimeCut = double(triggerEnd);
   double cosmicCut = 30.; // value normlized to nominalPmtGain
-  double gammaCut = 140.; // run5 was 150 for run 4.  normalized to nominalGain; //
+  double gammaCut = 140.; // was 150 normalized to nominalGain; //
   double trigSumCut = 3.0;
   double hitThresholdPmt = 30.; // set Nov 13 2024
   // double qpeakCosmicCut = 3. * nominalGain; // 3*SPE
@@ -339,8 +341,11 @@ void anaCRun::getBaselines(ULong64_t nBaselineAverage)
   nominalBaseline.resize(NONSUMCHANNELS);     // size is 12 sipms + PMT
   std::vector<std::vector<double>> eventBase; // by event baselines [row][column]  where each row is an event and column is channel
   std::vector<double> channelBase;            // vector of baselines by channel for an event
-  for (ULong64_t iev = 0; iev < nBaselineAverage; ++iev)
+  // printf("line342 GET BASELINES  total events  %i  \n", int(rawTree->GetEntries()));
+  int nToAverage = min(ULong64_t(rawTree->GetEntries()), nBaselineAverage);
+  for (ULong64_t iev = 0; iev < nToAverage; ++iev)
   {
+    // printf("line344 GET BASELINES  event %lld \n", iev);
     rawTree->GetEntry(iev); // read in brnches for this event!!
     channelBase.clear();
     channelBase.resize(NONSUMCHANNELS);
@@ -352,7 +357,12 @@ void anaCRun::getBaselines(ULong64_t nBaselineAverage)
     for (unsigned ib = 9; ib < NONSUMCHANNELS; ++ib)
     {
       for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+      {
+        uint16_t save = rawBr[ib]->rdigi[j];
         rawBr[ib]->rdigi[j] = -1. * (rawBr[ib]->rdigi[j] - pow(2, 14)); // base is > digi value!
+        // if (j == 0)
+        //   printf("line357 event %lld ch %i %u %u \n", iev, ib, save, rawBr[ib]->rdigi[j]);
+      }
     }
 
     for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
@@ -1085,6 +1095,7 @@ int anaCRun::anaEvent(Long64_t entry)
   hCosmicCut->Fill(tdetPmt->totSum);
   if (tdetPmt->totSum > cosmicCut)
   {
+    hCosmicCutFail->Fill(tdetPmt->totSum);
     passBit |= COSMIC;
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
@@ -1095,6 +1106,10 @@ int anaCRun::anaEvent(Long64_t entry)
     ++failCosmic;
     if (reportFailures)
       printf("@line1077 PASSBIT failed cosmic event %llu bit %i cut %E totSum %E  \n", entry, passBit, cosmicCut, tdetPmt->totSum);
+  }
+  else
+  {
+    hCosmicCutPass->Fill(tdetPmt->totSum);
   }
 
   /********** gamma cut *********/
@@ -2255,8 +2270,10 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   hFirstTime = new TH1D("FirstTime", " ave of trigger Sipm times ", 1000, 0, 1000);
   hEarlyCut = new TH1D("EarlyCut", " pre trigger sum /nominal gain ", 1000, 0, 10 * earlyCut);
   hCosmicCut = new TH1D("CosmicCut", " PMT sum /nominal gain", 1000, 0, 10. * cosmicCut);
+  hCosmicCutFail = new TH1D("CosmicCutFail", " fail PMT sum /nominal gain", 1000, 0, 10. * cosmicCut);
+  hCosmicCutPass = new TH1D("CosmicCutPass", " pass PMT sum /nominal gain", 1000, 0, 10. * cosmicCut);
   hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 /nominal gain ", 1000, 0, 10. * gammaCut);
-  hTrigFailCut = new TH1D("TrigFail", " before cut qsum9+qsum10+qsum11  in units nominal PE ", 1000, 0, 10. * gammaCut);
+  hTrigFailCut = new TH1D("TrigFail", " before cut qsum9+qsum10+qsum11  in units nominal PE ", 160, 0, 40.);
   hFirstTimeDiff = new TH1D("FirstTimeDiff", " max trigger time diff ", 1000, 0, 1000);
   hTriggerShift = new TH1D("TriggerShift", " ave trigger time shift ", 200, -100, 100);
   hFirstTimeAllVal = new TH1D("FirstTimeAllVal", " first time val all channels ", 1000, 0, 1000);
