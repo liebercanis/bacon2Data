@@ -322,7 +322,7 @@ void setTime(TString startTag, TString endTag)
 // normalize to total pass
 void normalizeTotalPass(TString histSet)
 {
-  printf("line195  \t  in normalizeTotalPass runSumDir has %d entries \n", runSumDir->GetList()->GetEntries());
+  printf("line195  \t for set %s  in normalizeTotalPass runSumDir has %d entries \n", histSet.Data(), runSumDir->GetList()->GetEntries());
   TString histName;
   for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
   {
@@ -927,7 +927,6 @@ void sumHistosChannel(int ichan, TString histSet)
     double xup = waveToSum->GetXaxis()->GetBinUpEdge(nbinsx);
 
     // normalize to qpe.
-
     fitSumDir->cd();
     TH1D *hWaveToFit;
     TH1D *hWaveToFitNotNormed;
