@@ -322,7 +322,7 @@ void setTime(TString startTag, TString endTag)
 // normalize to total pass
 void normalizeTotalPass(TString histSet)
 {
-  printf("line195  \t for set %s  in normalizeTotalPass runSumDir has %d entries \n", histSet.Data(), runSumDir->GetList()->GetEntries());
+  printf("line195  \t for set %s  in normalizeTotalPass runSumDir has %d entries total pass %d \n", histSet.Data(), runSumDir->GetList()->GetEntries(), totalPass);
   TString histName;
   for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
   {
