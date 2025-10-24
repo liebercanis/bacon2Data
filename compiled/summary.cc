@@ -352,11 +352,9 @@ void normalizeTotalPass(TString histSet)
         hSave->SetBinContent(ibin, xbin / double(totalPass) / readGains->sipmPeakGain[ichan]);
         hSave->SetBinError(ibin, ebin / double(totalPass) / readGains->sipmSumGain[ichan]);
       }
-      /*
       cout << "at line171"
            << " file " << filenum.size() << " totalPass " << totalPass << "  " << hist->GetName() << " integral " << hist->Integral(startTime, endTime)
            << " normed  " << hSave->GetName() << " integral " << hSave->Integral(startTime, endTime) << endl;
-      */
     }
   }
 }
