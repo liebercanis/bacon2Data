@@ -356,11 +356,13 @@ void normalizeTotalPass(TString histSet)
         double xbin = hist->GetBinContent(ibin);
         // double ebin = abs(hist->GetBinError(ibin));
         double ebin = sqrt(abs(hist->GetBinContent(ibin)));
-        // if (xbin < 0)
+
         // cout << " at line212 " << hist->GetName() << " ibin " << ibin << " xbin " << xbin << " ebin " << ebin << " tot " << totalPass << endl;
         // divide by nominal gain july 22 2024
         hSave->SetBinContent(ibin, xbin / double(totalPass) / readGains->sipmPeakGain[ichan]);
         hSave->SetBinError(ibin, ebin / double(totalPass) / readGains->sipmSumGain[ichan]);
+        if (ichan == 7 && ibin > 847 && ibin < 851 && histSet.Contains("Peak"))
+          printf("line360XXXXXXX %i %f totalPass %i gain %f corr %f\n", ibin, xbin, totalPass, readGains->sipmPeakGain[ichan], xbin / double(totalPass) / readGains->sipmPeakGain[ichan]);
       }
 
       cout << "at line171"
