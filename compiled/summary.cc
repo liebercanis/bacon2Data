@@ -938,7 +938,6 @@ void sumHistosChannel(int ichan, TString histSet)
     printf("line936 at %s  %s chan %i file %i \n", histSet.Data(), histName.Data(), ichan, ih);
     cout << "line937  waveToSum channel " << ih << " file "
          << waveToSum->GetName() << " passing for file  " << filePass[ih] << endl;
-
     // new histogram
     int nbinsx = waveToSum->GetNbinsX();
     double xlow = waveToSum->GetXaxis()->GetBinLowEdge(0);
@@ -987,7 +986,7 @@ void sumHistosChannel(int ichan, TString histSet)
       if (hUnNormedPeakWave[ichan] == NULL)
       {
         histName.Form("UnNormed%sChan%i", histSet.Data(), ichan);
-        hUnNormedPeakWave[ichan] = (TH1D *)hWaveToFitNotNormed->Clone(histName);
+        hUnNormedPeakWave[ichan] = (TH1D *)waveToSum->Clone(histName);
         hUnNormedPeakWave[ichan]->SetTitle(histName);
         runSumDir->Add(hUnNormedPeakWave[ichan]);
         vIntegral[ichan].push_back(hWaveToFit->Integral(startTime, endTime));
@@ -1004,7 +1003,7 @@ void sumHistosChannel(int ichan, TString histSet)
           // printf("line 951 NULL chan %i file %i %s \n", ichan, ih, histName.Data());
           runSumDir->ls();
         }
-        hUnNormedPeakWave[ichan]->Add(hWaveToFit);
+        hUnNormedPeakWave[ichan]->Add(waveToSum);
         // printf("line1003 file %i Int %f peak %f \n", ih, hWaveToFit->Integral(startTime, endTime), hWaveToFit->GetBinContent(hWaveToFit->GetMaximumBin()));
         vIntegral[ichan].push_back(hWaveToFit->Integral(startTime, endTime));
         vMaxValue[ichan].push_back(hWaveToFit->GetBinContent(hWaveToFit->GetMaximumBin()));
@@ -1027,7 +1026,7 @@ void sumHistosChannel(int ichan, TString histSet)
         runSumDir->GetObject(histName, hUnNormedSumWave[ichan]);
         if (hUnNormedSumWave[ichan] == NULL)
           printf("line950 no RunSumWave %s\n", histName.Data());
-        hUnNormedSumWave[ichan]->Add(hWaveToFit);
+        hUnNormedSumWave[ichan]->Add(waveToSum);
       }
     }
   } // sum over files
