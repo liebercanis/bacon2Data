@@ -61,6 +61,11 @@ enum
 TReadGains *readGains;
 std::vector<TString> bitNames;
 
+std::vector<int> vTotal;
+std::vector<int> vPass;
+std::vector<std::vector<double>> vMaxValue;
+std::vector<std::vector<double>> vIntegral;
+
 static int waveBins = 7500.;
 int nFiles;
 TString tag;
@@ -323,6 +328,10 @@ void setTime(TString startTag, TString endTag)
 void normalizeTotalPass(TString histSet)
 {
   printf("line195  \t for set %s  in normalizeTotalPass runSumDir has %d entries total pass %d \n", histSet.Data(), runSumDir->GetList()->GetEntries(), totalPass);
+
+  for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
+    printf(" chan %i gain %f \n", ichan, readGains->sipmPeakGain[ichan]);
+
   TString histName;
   for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
   {
@@ -340,6 +349,7 @@ void normalizeTotalPass(TString histSet)
         hSave = hRunSumWave[ichan];
 
       sumHits[ichan] = hist->Integral(startTime, endTime);
+
       // printf("at line174 %s normalize to %d\n", hSave->GetName(), totalPass);
       for (int ibin = 0; ibin < hist->GetNbinsX(); ++ibin)
       {
@@ -352,8 +362,10 @@ void normalizeTotalPass(TString histSet)
         hSave->SetBinContent(ibin, xbin / double(totalPass) / readGains->sipmPeakGain[ichan]);
         hSave->SetBinError(ibin, ebin / double(totalPass) / readGains->sipmSumGain[ichan]);
       }
+
       cout << "at line171"
-           << " file " << filenum.size() << " totalPass " << totalPass << "  " << hist->GetName() << " integral " << hist->Integral(startTime, endTime)
+           << " file " << filenum.size() << " totalPass " << totalPass << "  " << hist->GetName()
+           << " peak value " << hist->GetBinContent(hist->GetMaximumBin()) << " integral " << hist->Integral(startTime, endTime)
            << " normed  " << hSave->GetName() << " integral " << hSave->Integral(startTime, endTime) << endl;
     }
   }
@@ -892,6 +904,9 @@ void fileLoop()
     // waveSumDir->Write();
     totalEvents += int(ntotal);
     totalPass += int(npass);
+    vTotal.push_back(ntotal);
+    vPass.push_back(npass);
+
     ++nFiles;
     // close file
     fin->Close();
@@ -903,10 +918,12 @@ void fileLoop()
 
 void sumHistosChannel(int ichan, TString histSet)
 {
-  // sum over files
+  // printf("line921 chan %i set %s nFiles %i \n", ichan, histSet.Data(), nFiles);
+  //  sum over files
   for (int ih = 0; ih < nFiles; ++ih)
   {
-    // waveToSum already in output file by run and channel
+    // printf("line925 in sumHistosChannel ichan %i set %s ifile %i \n", ichan, histSet.Data(), ih);
+    //  waveToSum already in output file by run and channel
     TString histName;
     histName.Form("Run%sFile%uChan%i", histSet.Data(), ih, ichan);
     TH1D *waveToSum = NULL;
@@ -916,8 +933,9 @@ void sumHistosChannel(int ichan, TString histSet)
       printf("line856 skipping %s  %s chan %i file %i \n", histSet.Data(), histName.Data(), ichan, ih);
       continue;
     }
-
-    // cout << "line765 waveToSum channel " << ih << " file " << waveToSum->GetName() << " passing files " << filePass[ih] << endl;
+    printf("line936 at %s  %s chan %i file %i \n", histSet.Data(), histName.Data(), ichan, ih);
+    cout << "line937  waveToSum channel " << ih << " file "
+         << waveToSum->GetName() << " passing for file  " << filePass[ih] << endl;
 
     // new histogram
     int nbinsx = waveToSum->GetNbinsX();
@@ -960,43 +978,48 @@ void sumHistosChannel(int ichan, TString histSet)
       // printf("line927 chan %i file %i push back vNormByFile size %lu \n \n", ichan,ih,vNormByFile.size());
     }
 
-    // check histo
-    bool addIt = true;
-
     // add and save in output file runSumDir;
     if (histSet == TString("PeakWave"))
     {
       runSumDir->cd();
-      if (hUnNormedPeakWave[ichan] == NULL && addIt)
+      if (hUnNormedPeakWave[ichan] == NULL)
       {
         histName.Form("UnNormed%sChan%i", histSet.Data(), ichan);
         hUnNormedPeakWave[ichan] = (TH1D *)hWaveToFitNotNormed->Clone(histName);
         hUnNormedPeakWave[ichan]->SetTitle(histName);
         runSumDir->Add(hUnNormedPeakWave[ichan]);
+        vIntegral[ichan].push_back(hWaveToFit->Integral(startTime, endTime));
+        vMaxValue[ichan].push_back(hWaveToFit->GetBinContent(hWaveToFit->GetMaximumBin()));
+        // printf("line993 file %i %s Int %f peak %f \n", ih, hWaveToFit->GetName(), vIntegral[ichan][vIntegral[ichan].size() - 1], vMaxValue[ichan][vMaxValue[ichan].size() - 1]);
       }
-      else if (addIt)
+      else
       {
         histName.Form("UnNormed%sChan%i", histSet.Data(), ichan);
-        // hRunHitWave[ichan]->Add(hWaveToFitNotNormed);
+        // hRunHitWave[ichan]->Add(hWaveToFit);
         runSumDir->GetObject(histName, hUnNormedPeakWave[ichan]);
         if (hUnNormedPeakWave[ichan] == NULL)
         {
           // printf("line 951 NULL chan %i file %i %s \n", ichan, ih, histName.Data());
           runSumDir->ls();
         }
-        hUnNormedPeakWave[ichan]->Add(hWaveToFitNotNormed);
+        hUnNormedPeakWave[ichan]->Add(hWaveToFit);
+        // printf("line1003 file %i Int %f peak %f \n", ih, hWaveToFit->Integral(startTime, endTime), hWaveToFit->GetBinContent(hWaveToFit->GetMaximumBin()));
+        vIntegral[ichan].push_back(hWaveToFit->Integral(startTime, endTime));
+        vMaxValue[ichan].push_back(hWaveToFit->GetBinContent(hWaveToFit->GetMaximumBin()));
+        // printf("line1006 file %i %s Int %f peak %f \n", ih, hWaveToFitNotNormed->GetName(), vIntegral[ichan][vIntegral[ichan].size() - 1], vMaxValue[ichan][vMaxValue[ichan].size() - 1]);
       }
+      printf("line1011 sumHistos file %i chan %i hist %s integral %f \n", ih, ichan, hUnNormedPeakWave[ichan]->GetName(), hUnNormedPeakWave[ichan]->Integral(startTime, endTime));
     }
     else if (histSet == TString("SumWave"))
     {
       runSumDir->cd();
       histName.Form("UnNormed%sChan%i", histSet.Data(), ichan);
-      if (hUnNormedSumWave[ichan] == NULL && addIt)
+      if (hUnNormedSumWave[ichan] == NULL)
       {
         hUnNormedSumWave[ichan] = (TH1D *)waveToSum->Clone(histName);
         hUnNormedSumWave[ichan]->SetTitle(histName);
       }
-      else if (addIt)
+      else
       {
         histName.Form("UnNormed%sChan%i", histSet.Data(), ichan);
         runSumDir->GetObject(histName, hUnNormedSumWave[ichan]);
@@ -1170,6 +1193,8 @@ int main(int argc, char *argv[])
   hQPESigmaChan = new TH1D("QPESigmaChan", "QPE  by channel", 12, 0, 12);
   hQPEChan->Sumw2();
   hQPESigmaChan->Sumw2();
+  vMaxValue.resize(CHANNELS);
+  vIntegral.resize(CHANNELS);
   vecQsum.resize(CHANNELS);
   vecEQsum.resize(CHANNELS);
   vecQsumUn.resize(CHANNELS);
@@ -1271,7 +1296,7 @@ int main(int argc, char *argv[])
     double sum = 0;
     for (int icode = 0; icode < vecFail.size(); ++icode)
       sum += vecFail[icode][ifile];
-    printf("line1277 totals for file %i %.0f \n", ifile, sum);
+    printf("line1277 totals for file %i %.0f total pass %i \n", ifile, sum, totalPass);
 
     for (int icode = 0; icode < FAILBITS; ++icode)
     {
@@ -1304,16 +1329,53 @@ int main(int argc, char *argv[])
     fout->Add(gFailures[icode]);
   }
 
-  fout->Purge(1);
-  fout->Write();
-  fout->Close();
+  printf(" nfiles %lu \n", vMaxValue[0].size());
+  for (int ifile = 0; ifile < vTotal.size(); ++ifile)
+  {
+    printf(" file %i total %i pass %i \n", ifile, vTotal[ifile], vPass[ifile]);
+
+    for (int ich = 0; ich < NONSUMCHANNELS; ++ich)
+      printf("\t file %i  channel %i MaxValue %f integral %f \n", ifile, ich, vMaxValue[ich][ifile], vIntegral[ich][ifile]);
+  }
+
+  /* make MaxValue graphs */
+  printf("line1345 make MaxValue file %lu %lu\n", vecFile.size(), vMaxValue[0].size());
+  TGraph *gMaxValue[NONSUMCHANNELS];
+  for (unsigned ich = 0; ich < NONSUMCHANNELS; ++ich)
+  {
+    gMaxValue[ich] = new TGraph(vMaxValue[ich].size(), &vecFile[0], &vMaxValue[ich][0]);
+    gMaxValue[ich]->SetName(Form("MaxValueChan%i", ich));
+    gMaxValue[ich]->SetTitle(Form("MaxValueChan%i", ich));
+    gMaxValue[ich]->GetHistogram()->GetXaxis()->SetTitle("file number");
+    gMaxValue[ich]->GetHistogram()->GetYaxis()->SetTitle("Peak MaxValue [SPE]");
+    gMaxValue[ich]->SetMarkerColor(kRed);
+    gMaxValue[ich]->SetMarkerStyle(21);
+    fout->Add(gMaxValue[ich]);
+  }
+
+  /* make Integral graphs */
+  TGraph *gIntegral[NONSUMCHANNELS];
+  for (unsigned ich = 0; ich < NONSUMCHANNELS; ++ich)
+  {
+    gIntegral[ich] = new TGraph(vIntegral[ich].size(), &vecFile[0], &vIntegral[ich][0]);
+    gIntegral[ich]->SetName(Form("IntegralChan%i", ich));
+    gIntegral[ich]->SetTitle(Form("IntegralChan%i", ich));
+    gIntegral[ich]->GetHistogram()->GetXaxis()->SetTitle("file number");
+    gIntegral[ich]->GetHistogram()->GetYaxis()->SetTitle("Peak Integral [SPE]");
+    gIntegral[ich]->SetMarkerColor(kBlue);
+    gIntegral[ich]->SetMarkerStyle(22);
+    fout->Add(gIntegral[ich]);
+  }
 
   cout << "line1474 summary finished "
        << " total pass " << totalPass << " maxFiles  " << maxFiles << " good file " << nfiles << " files written to " << fout->GetName() << endl;
 
+  fout->Purge(1);
+  fout->Write();
+  fout->Close();
+
   exit(0);
 }
-
 /*  put this all at bottom */
 void makeGraphs()
 {
