@@ -554,11 +554,11 @@ void fileLoop()
     if (hEventFail)
     {
       vecFile.push_back(double(ifile));
-      printf("line539 file %i %s EventFail %.0f \n", ifile, fin->GetName(), hEventFail->GetEntries());
+      // printf("line539 file %i %s EventFail %.0f \n", ifile, fin->GetName(), hEventFail->GetEntries());
       for (int ibin = 0; ibin < hEventFail->GetNbinsX(); ++ibin)
       {
         vecFail[ibin].push_back(hEventFail->GetBinContent(ibin + 1));
-        printf("bin %i contents %f \n", ibin + 1, hEventFail->GetBinContent(ibin + 1));
+        // printf("bin %i contents %f \n", ibin + 1, hEventFail->GetBinContent(ibin + 1));
       }
     }
     else
@@ -1322,10 +1322,12 @@ int main(int argc, char *argv[])
   for (unsigned icode = 0; icode < FAILBITS; ++icode)
   {
     gFailures[icode] = new TGraph(normFailures[icode].size(), &vecFile[0], &normFailures[icode][0]);
-    gFailures[icode]->SetName(bitNames[icode]);
-    gFailures[icode]->SetTitle(bitNames[icode]);
+    gFailures[icode]->SetName(Form("%s-%s", bitNames[icode].Data(), tag.Data()));
+    gFailures[icode]->SetTitle(Form("%s-%s", bitNames[icode].Data(), tag.Data()));
     gFailures[icode]->GetHistogram()->GetXaxis()->SetTitle("file number");
     gFailures[icode]->GetHistogram()->GetYaxis()->SetTitle("failure fraction");
+    gFailures[icode]->SetMarkerColor(kGreen);
+    gFailures[icode]->SetMarkerStyle(20);
     fout->Add(gFailures[icode]);
   }
 
@@ -1344,8 +1346,8 @@ int main(int argc, char *argv[])
   for (unsigned ich = 0; ich < NONSUMCHANNELS; ++ich)
   {
     gMaxValue[ich] = new TGraph(vMaxValue[ich].size(), &vecFile[0], &vMaxValue[ich][0]);
-    gMaxValue[ich]->SetName(Form("MaxValueChan%i", ich));
-    gMaxValue[ich]->SetTitle(Form("MaxValueChan%i", ich));
+    gMaxValue[ich]->SetName(Form("MaxValueChan%i-%s", ich, tag.Data()));
+    gMaxValue[ich]->SetTitle(Form("MaxValueChan%i-%s", ich, tag.Data()));
     gMaxValue[ich]->GetHistogram()->GetXaxis()->SetTitle("file number");
     gMaxValue[ich]->GetHistogram()->GetYaxis()->SetTitle("Peak MaxValue [SPE]");
     gMaxValue[ich]->SetMarkerColor(kRed);
@@ -1358,8 +1360,8 @@ int main(int argc, char *argv[])
   for (unsigned ich = 0; ich < NONSUMCHANNELS; ++ich)
   {
     gIntegral[ich] = new TGraph(vIntegral[ich].size(), &vecFile[0], &vIntegral[ich][0]);
-    gIntegral[ich]->SetName(Form("IntegralChan%i", ich));
-    gIntegral[ich]->SetTitle(Form("IntegralChan%i", ich));
+    gIntegral[ich]->SetName(Form("IntegralChan%i-%s", ich, tag.Data()));
+    gIntegral[ich]->SetTitle(Form("IntegralChan%i-%s", ich, tag.Data()));
     gIntegral[ich]->GetHistogram()->GetXaxis()->SetTitle("file number");
     gIntegral[ich]->GetHistogram()->GetYaxis()->SetTitle("Peak Integral [SPE]");
     gIntegral[ich]->SetMarkerColor(kBlue);
