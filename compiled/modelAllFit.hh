@@ -43,7 +43,7 @@ static double fitWave[NCHAN][MAXSAMPLE];
 static double fitComp[NCHAN][NUMCOMP][MAXSAMPLE];
 
 TNtuple *ntScan = new TNtuple("ntScan", "ntScan", "ppm:fx:f");
-// units are nanoseconds
+/***** units are nanoseconds ****/
 static double tResolution = 7.0;
 static double tTriplet0 = 1600.0; // 2100.0;
 static double tSinglet0 = 7.0;
@@ -74,7 +74,7 @@ static TString lparNames[NPARS]; // parameter names
 static TString compNames[NPARS]; // parameter names
 
 // effiecienies
-static double SiPMQE128Ham = 0.15;
+static double SiPMQE128Ham = 0.15; // 0.15;
 static double SiPMQE150 = 0.238;
 static double SiPMQE175 = 0.238;
 // static double PMTQE175 = 0.38;
@@ -269,6 +269,7 @@ static void printModel(int ibin, Double_t *par, double *fsChan, double *ftChan)
 
   printf("DENOMINATORS lx - kxPrime %E lx - l1 %E lx - l3 %E\n", lX - kxPrime, lX - l1, lX - l3);
 }
+/* function fit by minuit*/
 void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
 {
   // pack parameters into static array onto lightModel
@@ -285,12 +286,12 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
   double bkg = par[BKGCONST];
 
   // loop over channels
-  double chanList[3] = {8, 5, 0};
-  for (int ichan = 0; ichan < 3; ++ichan)
+  // double chanList[3] = {8, 5, 0};
+  for (int ic = 0; ic < NCHAN; ++ic)
   {
-    int ic = chanList[ichan];
-    // if (ic == 5 || ic == 6 || ic == 8 || ic == 3 || ic == 9 || ic == 10 || ic == 11)
-    //   continue;
+    // int ic = chanList[ichan];
+    //  if (ic == 5 || ic == 6 || ic == 8 || ic == 3 || ic == 9 || ic == 10 || ic == 11)
+    //    continue;
 
     // **** level
     int ilevel = 0; // triggger 9,10,11
@@ -331,7 +332,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     {
       /* skip dip region */
       bool dip = j > 1450 / 2 && j < 1540 / 2;
-      if (dip)
+      if (0) // comment out dip
         continue;
       double x = bw * (double(j - iTrigger) + 0.5);      // bin center convert to ns mutiplying by bin width
       double alpha1 = sfrac * bw * norm * effGeo;        // singlet norm N1 in paper
@@ -361,7 +362,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       // xenenon emission x_i terms in paper
       double xterm1 = c1 * kx * alpha1 / (l1 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe0)) / (lX - l1));
       double xterm3 = c1 * kx * alpha3 / (l3 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe0)) / (lX - l3));
-      double fx = (xterm1 + xterm3) / tXe0; // xenon
+      // divide by Xenon lifetime from equation 6
+      double fx = (xterm1 + xterm3) / tXe0;
       //  mixed component
       double mterm1 = alpha1 * c1 / (l1 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t1));
       double mterm3 = alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
@@ -393,8 +395,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
 
       // total light for channel
       double mval = fs + ft + fx + fm + bkg;
-      mval = fs + ft;
-      // for plottting components
+      // mval = fs + ft;
+      //  for plottting components
       fitComp[ic][SINGLETCOMP][j] = fs;
       fitComp[ic][TRIPLETCOMP][j] = ft;
       fitComp[ic][XENONCOMP][j] = fx;

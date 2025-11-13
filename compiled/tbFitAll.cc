@@ -1,3 +1,8 @@
+/*
+root macro to fit data with model
+using modelAllFit.hh
+Nov 13 2025
+*/
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -203,14 +208,14 @@ int openFile(int fileNum = 0)
   return iGot;
 }
 
-void tbFitAll(int fileNum = 2)
+void tbFitAll(int fileNum = 0)
 {
 
   summaryFile[0] = TString("summary-05_19_2025-05_19_2025-nfiles-14-created-2025-09-09-15-58.root");
   summaryFile[1] = TString("summary-05_27_2025-05_27_2025-nfiles-22-created-2025-09-09-15-56.root");
   summaryFile[2] = TString("caenData/anaCRun-btbSimOffset-2025-09-09-16-09-1000000-0.root"); // new geometry
   summaryFile[3] = TString("rootData/btbSimOLD-2025-10-03-13-35-100000.root");
-  dopant[0] = 0.05;
+  dopant[0] = 0.40; //
   dopant[1] = 0.00;
   dopant[2] = 0.00;
   dopant[3] = 0.00;
@@ -317,7 +322,7 @@ void tbFitAll(int fileNum = 2)
   // fit starting values
   vstart[NORM] = 2.06322e+03;
   vstart[TRIGSTART] = xTrigger;
-  vstart[SFRAC] = 0.23; // btbSim value
+  vstart[SFRAC] = 0.14; //;0.23;   // Segretto PHYSICAL REVIEW D 103, 043001 (2021)
   vstart[PPM] = dopant[fileNum];
   vstart[TAU3] = 1600.0;
   vstart[TAUM] = 4700.0;
@@ -329,6 +334,7 @@ void tbFitAll(int fileNum = 2)
   for (int ip = 0; ip < NPARS; ++ip)
     printf(" par %i %s start val %f \n", ip, lparNames[ip].Data(), vstart[ip]);
 
+  // make TMinuit class instance and set minimization function
   TMinuit *gMinuit = new TMinuit(NPARS); // initialize TMinuit with a maximum of 5 params
   gMinuit->SetFCN(fcn);
 
@@ -436,15 +442,24 @@ void tbFitAll(int fileNum = 2)
   // fill fit function histogram
   fout->cd(); // add to output file
   // fout->ls();
+
+  /** look at model prior to fitting  */
+  // plot by channel first
   for (int ichan = 0; ichan < NCHAN; ++ichan)
   {
-    TH1D *hFit = (TH1D *)hwave[ichan]->Clone(Form("fitWaveDefaultChan%i", ichan));
-
-    hFit->Reset("ICES");
-    hFit->SetTitle((Form("fitWaveDefaultChan%i", ichan)));
-    hFit->SetLineColor(colors[ichan]);
-    fillFitWave(ichan, hFit);
+    if (ichan != 8)
+      continue;
+    for (int icomp = 0; icomp < NUMCOMP; ++icomp)
+    {
+      TH1D *hFit = (TH1D *)hwave[ichan]->Clone(Form("fit%sChan%i", compNames[icomp].Data(), ichan));
+      hFit->Reset("ICES");
+      hFit->SetTitle((Form("fit%sChan%i", compNames[icomp].Data(), ichan)));
+      hFit->SetLineColor(colors[ichan]);
+      fillCompWave(ichan, icomp, hFit);
+    }
   }
+
+  return;
 
   // minimize with MIGRADfill
   // Now ready for minimization step
