@@ -245,7 +245,8 @@ static void printModel(int ibin, Double_t *par, double *fsChan, double *ftChan)
 
     // xenenon emission x_i terms in paper
     double xterm1 = c1 * kx * alpha1 / (l1 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe0)) / (lX - l1));
-    double xterm3 = c1 * kx * alpha3 / (l3 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe0)) / (lX - l3));
+    /* fix was c1 not c3 Nov 14 2025*/
+    double xterm3 = c3 * kx * alpha3 / (l3 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe0)) / (lX - l3));
     double fx = (xterm1 + xterm3) / tXe0; // xenon
     // double fx = (xterm1 + xterm3) / tXe0; // xenon
     //  mixed component
@@ -262,7 +263,7 @@ static void printModel(int ibin, Double_t *par, double *fsChan, double *ftChan)
   }
 
   printf(" printModel ppm %.2f sample %i \n", ppm, ibin);
-  for (int ic = 0; ic < NCHAN; ++ic)
+  for (int ic = 9; ic < NCHAN; ++ic)
     printf("chan ic %i effGeo %E abs %f fs %E ft %E alpha1 %E alpha3 %E \n", ic, effChan[ic], abChan[ic], fsChan[ic], ftChan[ic], alpha1Chan[ic], alpha3Chan[ic]);
 
   printf("siPMQE128Ham %.3f tSinglet0 %E kx %E kxPrime %E l1 %E l3 %E lX %E \n", SiPMQE128Ham, tSinglet0, kx, kxPrime, l1, l3, lX);
@@ -361,7 +362,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
 
       // xenenon emission x_i terms in paper
       double xterm1 = c1 * kx * alpha1 / (l1 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe0)) / (lX - l1));
-      double xterm3 = c1 * kx * alpha3 / (l3 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe0)) / (lX - l3));
+      /* fix was c1 not c3 Nov 14 2025*/
+      double xterm3 = c3 * kx * alpha3 / (l3 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe0)) / (lX - l3));
       // divide by Xenon lifetime from equation 6
       double fx = (xterm1 + xterm3) / tXe0;
       //  mixed component
