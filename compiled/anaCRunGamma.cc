@@ -1668,12 +1668,10 @@ int anaCRun::anaEvent(Long64_t entry)
   /* collect example of failing evnets */
   // printf("@line913 event %lld passBit %i det %i nhits %u \n",
   //        entry, int(passBit), NONSUMCHANNELS, tbrun->detList[NONSUMCHANNELS]->nhits());
-  /*
-if (passBit != 0)
-{
-  return passBit;
-}
-*/
+  if (passBit != 0)
+  {
+    return passBit;
+  }
 
   /***************************************
   **** good events, passBit ==0 ******
