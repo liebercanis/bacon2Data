@@ -2708,9 +2708,9 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     }
   }
   // hCosmicMult->Print("all");
+  printf(" ***** FINISHED ****** %s entries processed %lld RunTree entries %lld \n", fout->GetName(), nentries, tbrun->getNevents());
   fout->Write();
   fout->Close();
-  printf(" ***** FINISHED ****** %s entries %lld \n", fout->GetName(), nentries);
   return nentries;
 }
 
