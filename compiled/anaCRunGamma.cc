@@ -1,4 +1,4 @@
-/*** This is GAMMA version Sept 25 2024 **/
+/*  This is GAMMA version Sept 25 2024  */
 // revised Jan 15 2025
 /////////////////////////////////////////////////////////
 #include <sstream>
@@ -69,8 +69,8 @@ public:
     FIRSTTIME = 0x4,
     COSMIC = 0x8,
     GAMMA = 0x10,
-    TRIGFAIL = 0x20,
-    TOTALCODES = 2 * TRIGFAIL
+    TRIANGLE = 0x20,
+    TOTALCODES = 2 * TRIANGLE
   };
 
   enum
@@ -123,6 +123,7 @@ public:
   TH1D *hCosmicCutFail;
   TH1D *hCosmicCutPass;
   TH1D *hGammaCut;
+  TH1D *hNEventPhotons[3];
   TNtuple *ntHit;
   TNtuple *ntSimMatch;
   unsigned orderFraction = 10;
@@ -143,6 +144,7 @@ public:
   TNtuple *ntSpeYield;
   TNtuple *ntAdc;
   TNtuple *ntFailures;
+  TNtuple *ntGammaPeak;
   vector<TH1D *> baseHist;
   vector<TH1D *> sumWave;
   vector<TH1D *> sumHitWave;
@@ -169,7 +171,9 @@ public:
 
   TH1D *hTrigFailCut;
   TH1D *hGammaPeak;
-  TH1D *hGammaAfterPeak;
+  TH1D *hGammaPeakPass;
+  TH1D *hGammaPeakPassAll;
+  TH1D *hGammaFailsCut;
   TH1D *hGammaPeakCut;
   TH1D *hTriangleCut;
   std::vector<TH1D *> hQFracRatio;
@@ -180,6 +184,8 @@ public:
   TH1D *hCountLateTime;
   TH2D *hCountLateTimeQpeak;
   TH2D *hTriangle;
+  TH2D *hTriangleLow;
+  TH2D *hTriangleHigh;
   TH1D *evCount;
   TH1D *histQSum;
   TH1D *hEventPass;
@@ -1117,11 +1123,14 @@ int anaCRun::anaEvent(Long64_t entry)
   TDet *idet10 = tbrun->getDet(10);
   TDet *idet11 = tbrun->getDet(11);
   double qSumTrigPhotons = idet9->totSum + idet10->totSum + idet11->totSum;
+  hNEventPhotons[0]->Fill(idet9->totSum);
+  hNEventPhotons[1]->Fill(idet10->totSum);
+  hNEventPhotons[2]->Fill(idet11->totSum);
   hGammaCut->Fill(tbrun->getDet(13)->lateSum);
   if (tbrun->getDet(13)->lateSum > gammaCut)
   {
     // plot gamma peak for GAMMA cut failures
-    hGammaAfterPeak->Fill(qSumTrigPhotons);
+    hGammaFailsCut->Fill(qSumTrigPhotons);
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
       badEventDir->cd();
@@ -1130,12 +1139,13 @@ int anaCRun::anaEvent(Long64_t entry)
     }
     passBit |= GAMMA;
     ++failGamma;
-    if (reportFailures)
+    if (0)
     {
       printf("@line1090 PASSBIT failed gamma event %llu bit %i cut %E lateSum %E \n", entry, passBit, gammaCut, tbrun->getDet(13)->lateSum);
       printf("@line1091  %f %f %f sum %E \n", idet9->lateSum, idet10->lateSum, idet11->lateSum, idet9->lateSum + idet10->lateSum + idet11->lateSum);
     }
   }
+  ntGammaPeak->Fill(entry, idet9->totSum, idet10->totSum, idet11->totSum, qSumTrigPhotons);
   if (tbrun->getDet(13)->lateSum < gammaCut)
     hGammaPeakCut->Fill(qSumTrigPhotons);
 
@@ -1148,9 +1158,9 @@ int anaCRun::anaEvent(Long64_t entry)
   double triggerSum = idet9->totSum + idet10->totSum + idet11->totSum;
   hTrigFailCut->Fill(triggerSum);
 
-  // softer trig cut
-  if (triggerSum < trigSumCut)
-    passBit |= TRIGFAIL;
+  // softer trig cut not needed
+  // if (triggerSum < trigSumCut)
+  //  passBit |= TRIANGLE;
 
   // TUM cuts on fractions
   double qFraction[3];
@@ -1160,8 +1170,7 @@ int anaCRun::anaEvent(Long64_t entry)
 
   // TUM cuts on fractions
   double qAfterTrigPhotons = idet9->lateSum + idet10->lateSum + idet11->lateSum;
-  hGammaPeak->Fill(qSumTrigPhotons);
-  // hGammaAfterPeak->Fill(qAfterTrigPhotons);
+  // hGammaFailsCut->Fill(qAfterTrigPhotons);
   for (unsigned iratio = 0; iratio < hQFracRatio.size(); ++iratio)
     hQFracRatio[iratio]->Fill(qFraction[iratio]);
 
@@ -1187,21 +1196,36 @@ int anaCRun::anaEvent(Long64_t entry)
 
   /******   triangle cut ********/
   /* try a cut like TUM */
-  bool passTriangle = false;
-  if (xternQ > 0.2 && xternQ < 0.8 && yternQ > 0.6)
-    passTriangle = true;
+  bool passTriangle = true;
+  for (int itr = 0; itr < 3; ++itr)
+    if (qFraction[itr] < 0.2 || qFraction[itr] > 0.8)
+      passTriangle = false;
+
+  hGammaPeak->Fill(qSumTrigPhotons);
+
+  if (!passTriangle)
+    passBit |= TRIANGLE;
+
+  if (passTriangle)
+    hGammaPeakPass->Fill(qSumTrigPhotons);
+
+  if (passBit == 0)
+    hGammaPeakPassAll->Fill(qSumTrigPhotons);
 
   // printf("line1097 %f %f %f %f %f \n", qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
-  ntTrig->Fill(double(entry), idet9->totSum, idet9->totSum, idet10->totSum, idet11->totSum, qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ, passTriangle);
+  ntTrig->Fill(double(entry), tbrun->getDet(13)->lateSum, qSumTrigPhotons, idet9->totSum, idet9->totSum, idet10->totSum, idet11->totSum, qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ, passTriangle);
 
-  // printf("line1054 TRIGFAIL %lld cut %f chan 9 %f,%f chan 10 %f chan 11 %f ratio 9-10 %f ratio 9-11 %f ratio 10-11 %f \n", entry, trigRatioCutLow, trigRatioCutHigh, idet9->totSum, idet10->totSum, idet11->totSum, qFraction[0], qFraction[1], qFraction[2]);
+  // printf("line1054 TRIANGLE %lld cut %f chan 9 %f,%f chan 10 %f chan 11 %f ratio 9-10 %f ratio 9-11 %f ratio 10-11 %f \n", entry, trigRatioCutLow, trigRatioCutHigh, idet9->totSum, idet10->totSum, idet11->totSum, qFraction[0], qFraction[1], qFraction[2]);
 
   // fill triangle plot
+  hTriangle->Fill(xternQ, yternQ);
   if (passBit == 0)
-    hTriangle->Fill(xternQ, yternQ);
-
-  if (passTriangle && passBit == 0)
     hTriangleCut->Fill(xternQ, yternQ);
+
+  if (qSumTrigPhotons < gammaCut)
+    hTriangleLow->Fill(xternQ, yternQ);
+  else
+    hTriangleHigh->Fill(xternQ, yternQ);
 
   if (passBit != 0)
   {
@@ -1583,7 +1607,8 @@ int anaCRun::anaEvent(Long64_t entry)
       {
         sumWave[ib]->SetBinContent(j + 1, sumWave[ib]->GetBinContent(j + 1) + digi[j]);
       }
-    } // check cosmic,gamma failure events
+    }
+    // check cosmic,gamma failure events
 
     // make this sum All instead of Bad
     for (unsigned j = 0; j < digi.size(); ++j)
@@ -1619,7 +1644,7 @@ int anaCRun::anaEvent(Long64_t entry)
     //{
 
     /* just collect some events */
-    if (passBit == 0 && tbrun->getDet(ib)->hits.size() > 0)
+    /* if (passBit == 0 && tbrun->getDet(ib)->hits.size() > 0)
     //&& (tbrun->getDet(ib)->hits[0].qpeak > 200 && tbrun->getDet(ib)->hits[0].qpeak < 250)
     {
       if (exampleDir->GetList()->GetEntries() < exampleDirMax)
@@ -1631,24 +1656,41 @@ int anaCRun::anaEvent(Long64_t entry)
         finder->plotEvent(exampleDir, tbrun->getDet(ib)->channel, entry);
         // printf("@line1192 print event %llu start %i printed %i \n", entry, startLast, exampleDir->GetList()->GetEntries());
       }
-    }
+    }*/
 
     //}
   }
 
   // if (passBit != 0) return passBit;
   // printf("line818  event %lld passbit %i \n",entry,passBit);
-  if (passBit != 0)
-  {
-    /* collect example of failing evnets */
-    // printf("@line913 event %lld passBit %i det %i nhits %u \n",
-    //        entry, int(passBit), NONSUMCHANNELS, tbrun->detList[NONSUMCHANNELS]->nhits());
-    return passBit;
-  }
+  /** now we want to process all events whether passing or not */
+
+  /* collect example of failing evnets */
+  // printf("@line913 event %lld passBit %i det %i nhits %u \n",
+  //        entry, int(passBit), NONSUMCHANNELS, tbrun->detList[NONSUMCHANNELS]->nhits());
+  /*
+if (passBit != 0)
+{
+  return passBit;
+}
+*/
 
   /***************************************
   **** good events, passBit ==0 ******
   ****************************************/
+
+  if (exampleDir->GetList()->GetEntries() < exampleDirMax)
+  {
+    for (int ib = 9; ib < 12; ++ib)
+    {
+      exampleDir->cd();
+      // TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lld-Ch%i-qpeak%0.f", entry, ib, tbrun->getDet(ib)->hits[0].qpeak));
+      TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lldCh%iGamma%.0f", entry, ib, qSumTrigPhotons));
+      EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, ib));
+      finder->plotEvent(exampleDir, tbrun->getDet(ib)->channel, entry);
+    }
+  }
+
   // fill total light
   vector<float> fsum;
   fsum.resize(tbrun->detList.size());
@@ -2242,6 +2284,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   ntSetTrigTime = new TNtuple("ntSetTrigTime", " trig time and val", "event:chan:time:val");
   ntTrigTime = new TNtuple("ntTrigTime", "trigger time check ntuple", "entry:chan:firstTime:time:adc:ftime:fadc");
   ntChanSum = new TNtuple("ntchansum", "channel ntuple", "sum0:sum1:sum2:sum3:sum4:sum5:sum6:sum7:sum8:sum9:sum10:sum11:sum12:pass");
+  ntGammaPeak = new TNtuple("ntGammaPeak", "nt gamma peak", "ev:nph9:nph10:nph11:sum");
+
   evCount = new TH1D("eventcount", "event count", CHANNELS, 0, CHANNELS);
   hEventPass = new TH1D("EventPass", " event failures", TOTALCODES, 0, TOTALCODES);
   hEventFail = new TH1D("EventFail", " event fail bit", FAILBITS, 0, FAILBITS); // first bin is pass
@@ -2253,10 +2297,17 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   histQSum->Sumw2();
   histQPrompt->Sumw2();
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
+  hTriangleLow = new TH2D("TriangleLow", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
+  hTriangleHigh = new TH2D("TriangleHigh", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hTriangleCut = new TH1D("TrigiangleSumCut", " ytern vs xtern ", 160, 0, 40.);
   hGammaPeak = new TH1D("GammaPeak", "gamma peak (photons)", 150, 0., 300.);
-  hGammaAfterPeak = new TH1D("GammaAfterPeak", "gamma peak after trig time (photons)", 150, 0., 300.);
-  hGammaPeakCut = new TH1D("GammaPeakCut", "gamma peak with cut (photons)", 150, 0., 300.);
+  hGammaFailsCut = new TH1D("GammaFailsCut", "gamma peak failed gamma cut trig time (photons)", 150, 0., 300.);
+  hGammaPeakCut = new TH1D("GammaPeakCut", "gamma peak  gamma cut (photons)", 150, 0., 300.);
+  hGammaPeakPass = new TH1D("GammaPeakPass", "gamma peak  pass triangle (photons)", 150, 0., 300.);
+  hGammaPeakPassAll = new TH1D("GammaPeakPassAll", "gamma peak pass all cuts (photons)", 150, 0., 300.);
+  hNEventPhotons[0] = new TH1D("NEventPhotons9", "photons/event channel 9", 100, 0., 100.);
+  hNEventPhotons[1] = new TH1D("NEventPhotons10", "photons/event channel 10", 100, 0., 100.);
+  hNEventPhotons[2] = new TH1D("NEventPhotons11", "photons/event channel 11", 100, 0., 100.);
   // hCosmicMult = new TH1D("CosmicMult", "CosmicMult", 10, 0, 10);
 
   /* directory of hists for event cut */
@@ -2264,7 +2315,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   ntBase = new TNtuple("ntBase", " baseline ntuple ", "event:chan:base:mode:rms:pass");
   ntAdc = new TNtuple("ntAdc", " ADC ntuple ", "event:chan:sample:digi");
-  ntTrig = new TNtuple("ntTrig", " trigger cut  ntuple ", "event:qsum9:qsum10:qsum11:qsum13:ratio910:ratio911:ratio1011:xternQ:yternQ:fails");
+  ntTrig = new TNtuple("ntTrig", " trigger cut  ntuple ", "event:trigSum:gamma:qsum9:qsum10:qsum11:qsum13:ratio910:ratio911:ratio1011:xternQ:yternQ:fails");
   ntNonTrig = new TNtuple("ntNonTrig", " non trigger ntuple ", "event:chan:qsum");
   hBaselineRmsCut = new TH1D("BaseLineRmsCut", " baseline mode / Rms", 200, -100, 100);
   hFirstTime = new TH1D("FirstTime", " ave of trigger Sipm times ", 1000, 0, 1000);
@@ -2680,7 +2731,7 @@ anaCRun::anaCRun(TString theTag)
   failCode[3] = FIRSTTIME;
   failCode[4] = COSMIC;
   failCode[5] = GAMMA;
-  failCode[6] = TRIGFAIL;
+  failCode[6] = TRIANGLE;
 
   bitNames.resize(FAILBITS);
   bitNames[0] = TString("pass");
@@ -2689,7 +2740,7 @@ anaCRun::anaCRun(TString theTag)
   bitNames[3] = TString("firsttime");
   bitNames[4] = TString("cosmic");
   bitNames[5] = TString("gamma");
-  bitNames[6] = TString("trigger");
+  bitNames[6] = TString("triangle");
 
   bitCutValues.resize(FAILBITS);
   bitCutValues[0] = 1;
@@ -2704,7 +2755,7 @@ anaCRun::anaCRun(TString theTag)
     codeNames.push_back(TString("mixed"));
   codeNames[PASS] = TString("pass");
   codeNames[BASEFAIL] = TString("baseline");
-  codeNames[TRIGFAIL] = TString("trigger");
+  codeNames[TRIANGLE] = TString("triangle");
   codeNames[EARLYCUT] = TString("earlycut");
   codeNames[FIRSTTIME] = TString("firsttime");
   codeNames[COSMIC] = TString("cosmic");

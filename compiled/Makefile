@@ -43,12 +43,15 @@ endif
 #CPP+=-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
 
 
-all: summary anacg btbSim
+all: summary anacg btbSim 
 
 sis: sis.cc
 	$(CPP) $< $(LIBS)  -o $@
 
 btbSim: btbSim.cc triggerPeakFit.hh modelAllFit.hh distanceLevels.hh
+	$(CPP) $< $(LIBS)  -o $@
+
+btbSim5: btbSim5.cc triggerPeakFit.hh modelAllFit.hh distanceLevels.hh
 	$(CPP) $< $(LIBS)  -o $@
 
 
@@ -59,7 +62,8 @@ build: build.cc
 convertRaw: convertRaw.cc
 	$(CPP) $< $(LIBS)  -o $@
 
-ana: ana.cc anaRun.cc
+postAna: postAna.cc 
+	@echo "compile postAna after pulse finding analysis"	
 	$(CPP) $< $(LIBS)  -o $@
 
 ana1: ana1.cc anaRun.cc
