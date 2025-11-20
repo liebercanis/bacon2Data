@@ -175,7 +175,7 @@ public:
   TH1D *hGammaPeakPassAll;
   TH1D *hGammaFailsCut;
   TH1D *hGammaPeakCut;
-  TH1D *hTriangleCut;
+  TH2D *hTriangleCut;
   std::vector<TH1D *> hQFracRatio;
   TH1D *hPreQpeak;
   TH1D *hLateQpeak;
@@ -2299,7 +2299,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hTriangleLow = new TH2D("TriangleLow", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hTriangleHigh = new TH2D("TriangleHigh", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
-  hTriangleCut = new TH1D("TrigiangleSumCut", " ytern vs xtern ", 160, 0, 40.);
+  hTriangleCut = new TH2D("TriangleCut", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hGammaPeak = new TH1D("GammaPeak", "gamma peak (photons)", 150, 0., 300.);
   hGammaFailsCut = new TH1D("GammaFailsCut", "gamma peak failed gamma cut trig time (photons)", 150, 0., 300.);
   hGammaPeakCut = new TH1D("GammaPeakCut", "gamma peak  gamma cut (photons)", 150, 0., 300.);
