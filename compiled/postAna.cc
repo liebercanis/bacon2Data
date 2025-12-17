@@ -1,8 +1,9 @@
 /*
-    program to analyze RunTree chain from date tag
-    this is second pass after pulse findiing anacRunGamma.cc has been run
-    uses TTree RunTree making a chain from date tag xx_xx_yyyy
-        M Gold Nov 12 2025
+       program to analyze RunTree chain from date tag this is second pass after pulse findiing anacRunGamma.cc has been run
+           uses TTree RunTree making a chain from date tag xx_xx_yyyy
+               M Gold Nov 12 2025
+
+       ........modified impliment event cuts...... Dec 2025 *
 */
 #include <sstream>
 #include <unistd.h>
@@ -43,13 +44,27 @@
 #include "TReadGains.hxx"
 
 using namespace TMath;
+
+// class to read and store gains
+TReadGains *readGains;
 TChain *RunTree;
 TFile *fout;
 TString tag;
 TNtuple *ntSum;
 TNtuple *ntHit;
 TNtuple *ntTDiff;
-int passBit;
+Long64_t totalEntries;
+Long64_t maxEntry;
+std::vector<TString> fileListName;
+std::vector<std::vector<double>> vecFail;
+TBEventData *eventData;
+TDirectory *sumDir;
+TDirectory *anaDir;
+TDirectory *cutDir;
+
+TH1D *hEventPass;
+TH1D *eventCount;
+std::vector<double> qsumGain; // read from class TReadGain
 
 // pass bit failures hex
 enum FAILURECODES
@@ -80,26 +95,22 @@ enum
 enum
 {
   MAXSAMPLES = 7500
-}
+};
 
-TReadGains *readGains;
 std::vector<TString> bitNames;
+std::vector<TString> codeNames;
 
 std::vector<int> vTotal;
 std::vector<int> vPass;
 
 int nFiles;
-TString tag;
 TString theStartTag;
 TString theEndTag;
 std::string sdate;
-vector<double> normQsum;
-vector<double> normQPE;
 TDatime dateTime;
 time_t time0;
 time_t time1;
 struct tm tmStruct;
-Long64_t maxFiles;
 double ntotal;
 double npass;
 vector<int> filePass;
@@ -107,37 +118,17 @@ vector<int> fileTotal;
 int totalPass;
 int totalEvents;
 
-// old stuff below
-//  hSipmLatePeaksFitograms as vectors
-std::vector<TH1D *> hTotSum;
-std::vector<TH1D *> hPreSum;
-std::vector<TH1D *> hTrigSum;
-std::vector<TH1D *> hLateSum;
-
-double y[NCHAN];
 double nominalGain;
+double nominalTrigGain;
 
+std::vector<TH1D *> hLightCurve;
 TH1D *hPassBit;
-TH1D *hTrigEventSumArea;
-TH1D *hTrigEventSumPeak;
-TH2D *hTrigHitPeakTime;
-TH2D *hTrigHitPeakTimeCoarse;
-TH2D *hAllHitPeakTimeCoarse;
-TH2D *hAllHitPeakTime;
-TH1D *hHitTimeDiff;
 
-TH1D *hTrigLatePeaks;
-TH1D *hSipmLatePeaks;
-TH1D *hTrigLatePeaksFit;
-TH1D *hSipmLatePeaksFit;
-TH1D *hCountPre;
-TH1D *hCountLate;
-TH1D *hCountLateTime;
-TH2D *hCountLateTimeQpeak;
-
-unsigned sipmCut;
-unsigned trigCut;
-double peakCut;
+int passEventCuts()
+{
+  int passBit = 0;
+  return passBit;
+}
 
 string currentDate()
 {
@@ -149,11 +140,107 @@ string currentDate()
   strftime(output, 30, "%Y-%m-%d-%H-%M", timeinfo);
   return string(output);
 }
+
+// get all pointers we need
+bool getPointers(TFile *f)
+{
+  // printf("line176 getPointers file %s\n", f->GetName());
+  bool isGoodFile = true;
+  if (!f)
+  {
+    isGoodFile = false;
+  }
+  TString name(f->GetName());
+  if (f->IsZombie())
+  {
+    cout << "line922 skipping zombie " << name << endl;
+    isGoodFile = false;
+  }
+
+  TTree *RunTree = NULL;
+  f->GetObject("RunTree", RunTree);
+  if (RunTree == NULL)
+  {
+    cout << "line1215 skipping BAD file no RunTree" << name << endl;
+    isGoodFile = false;
+  }
+  else
+  {
+    totalEntries += RunTree->GetEntries();
+    maxEntry = totalEntries;
+    printf("\t\t file %s has %lld RunTree entries total %lld \n", f->GetName(), RunTree->GetEntries(), totalEntries);
+  }
+  // if (isGoodFile)
+  //   printf("good 1 \n");
+
+  sumDir = nullptr;
+  f->GetObject("sumDir", sumDir);
+  if (sumDir == NULL)
+  {
+    cout << "line203 skipping BAD file no sumDir" << name << endl;
+    isGoodFile = false;
+  }
+
+  anaDir = nullptr;
+  f->GetObject("anaDir", anaDir);
+  if (sumDir == NULL)
+  {
+    cout << "line214 skipping BAD file no anaDir" << name << endl;
+    isGoodFile = false;
+  }
+
+  eventCount = nullptr;
+  f->GetObject("eventcount", eventCount);
+  if (!eventCount)
+  {
+    cout << "line223 skipping BAD file no eventcount " << name << endl;
+    isGoodFile = false;
+  }
+
+  TH1D *hEventPassFile = nullptr;
+  f->GetObject("EventPass", hEventPassFile);
+  if (!hEventPassFile)
+  {
+    cout << "line1230 skipping BAD file no EventPass " << name << endl;
+    isGoodFile = false;
+  }
+
+  TH1D *hGammaPeak = nullptr;
+  f->GetObject("GammaPeak", hGammaPeak);
+  if (!hGammaPeak)
+  {
+    cout << "line1230 no GammaPeak " << name << endl;
+  }
+
+  TH1D *hGammaPeakCut = nullptr;
+  f->GetObject("GammaPeakCut", hGammaPeakCut);
+  if (!hGammaPeakCut)
+  {
+    cout << "line1230 no GammaPeakCut " << name << endl;
+  }
+
+  eventData = new TBEventData();
+  // RunTree->GetListOfBranches()->ls();
+  if (RunTree)
+    RunTree->SetBranchAddress("eventData", &eventData);
+  if (!eventData)
+    isGoodFile = false;
+
+  // ***** not fatal if missing *****
+  TH1D *hTrigSumNoCut = nullptr;
+  f->GetObject("TrigSumNoCut", hTrigSumNoCut);
+  TH1D *hTrigSumCut = nullptr;
+  f->GetObject("TrigSumCut", hTrigSumCut);
+  //
+  return isGoodFile;
+}
+
 // count subruns and channels
 unsigned long countFiles()
 {
-  dirName = TString("caenData");
-  dirNameSlash = TString("caenData/");
+  totalEntries = 0;
+  TString dirName = TString("caenData");
+  TString dirNameSlash = TString("caenData/");
   cout << " count files in dir " << dirName << endl;
   TSystemDirectory dir(dirName, dirName); // TSystemDirectory
   TList *files = dir.GetListOfFiles();
@@ -191,18 +278,18 @@ unsigned long countFiles()
     // open file and get pointers
     TFile *f = new TFile(fullName, "READONLY");
     if (getPointers(f))
-      fileList.push_back(TString(name.c_str()));
+      fileListName.push_back(TString(name.c_str()));
     f->Close();
   }
-  return fileList.size();
+  return fileListName.size();
 }
 
 TDatime getTime(int ifile, Long64_t ievent = 0)
 {
   TDatime datime;
-  if (runTree)
+  if (RunTree)
   {
-    runTree->GetEntry(ievent);
+    RunTree->GetEntry(ievent);
     printf(" file %i event %lli FileYear = %u , FileMonth = %u , FileDay = %u , FileHour = %u , FileMin = %u , FileSec = %u \n", ifile, ievent, eventData->year + 1900, eventData->mon + 1, eventData->day, eventData->hour, eventData->min, eventData->sec);
     datime.Set(eventData->year, eventData->mon + 1, eventData->day, eventData->hour, eventData->min, eventData->sec);
   }
@@ -235,299 +322,105 @@ void setTime(TString startTag, TString endTag)
   printf("set end %s\n", asctime(gmtime(&time1)));
 }
 
-void loop(Long64_t maxEntry)
+void loop()
 {
-  sipmCut = 0;
-  trigCut = 0;
   // loop over entries
   for (Long64_t entry = 0; entry < maxEntry; ++entry)
   {
-    passBit = 0;
-    int nPre = 0;
-    int nLate = 0;
-    // get entry
+    printf("line330 .....loop entry %lld \n", entry);
+    int passBit = passEventCuts();
+    hEventPass->SetBinContent(passBit, hEventPass->GetBinContent(passBit) + 1);
+    if (passBit != 0)
+      return;
+
     RunTree->GetEntry(entry);
-    // get branch pointers and save in detList
+    // RunTree->GetListOfBranches()->ls();
+    //   get branch pointers and save in detList
     TIter next(RunTree->GetListOfBranches());
     TBranchElement *aBranch = NULL;
     // loop over branches
-    double trigPre = 0;
-    double trigTrig = 0;
-    double trigLate = 0;
-    double sipmPre = 0;
-    double sipmTrig = 0;
-    double sipmLate = 0;
-    double trigEventSumArea = 0;
-    double trigEventSumPeak = 0;
-    double trigTotPeak = 0;
-
-    bool trigIsCut = false;
-    bool sipmIsCut = false;
 
     while ((aBranch = (TBranchElement *)next()))
     {
-      int id = TString(TString(aBranch->GetName())(4, 2)).Atoi();
-      if (id >= NCHAN) // skip PMT
-        continue;
+      int idet = TString(TString(aBranch->GetName())(4, 2)).Atoi();
       bool trig = false; // define trigger sipms
-      if (id == 9 || id == 10 || id == 11)
+      if (idet == 9 || idet == 10 || idet == 11)
         trig = true;
-      if (TString(aBranch->GetName()) == TString("eventData")) // skip this branch
-        continue;
-      TDet *det = (TDet *)aBranch->GetObject();
-      // if(id==0) cout << "branch " << aBranch->GetName() << " entry " << entry << " TotSum " << det->totSum << endl;
-      // do not normlize to nominal
-      double oldNominal = 270.5;
-      hTotSum[id]->Fill(det->totPeakSum);
-      hPreSum[id]->Fill(det->prePeakSum);
-      hTrigSum[id]->Fill(det->trigPeakSum);
-      hLateSum[id]->Fill(det->latePeakSum);
-      if (trig)
-      {
-        trigPre += det->prePeakSum / nominalGain;
-        trigTrig += det->trigPeakSum / nominalGain;
-        trigLate += det->latePeakSum / nominalGain;
-        trigEventSumPeak += det->trigPeakSum / nominalGain;
-        trigEventSumArea += det->trigSum;
-        trigTotPeak += (det->trigPeakSum + det->latePeakSum) / nominalGain;
-      }
-      else
-      {
-        sipmPre += det->prePeakSum / nominalGain;
-        sipmTrig += det->trigPeakSum / nominalGain;
-        sipmLate += det->latePeakSum / nominalGain;
-      }
-      // loop over hits
 
+      // skip eventData branch
+      if (TString(aBranch->GetName()) == TString("eventData"))
+      { // skip this branch
+        continue;
+      }
+
+      TDet *det = (TDet *)aBranch->GetObject();
+      // printf("det %i hits %lu \n", idet, det->hits.size());
+      //  check if passes eventCuts
+
+      // loop over hits
       for (unsigned ihit = 0; ihit < det->hits.size(); ++ihit)
       {
-        TDetHit hiti = det->hits[ihit];
-        // printf(" det %i time %.0f qpeak %f \n",id,det->hits[ihit].startTime, det->hits[ihit].qpeak);
-        if (trig)
-          hTrigHitPeakTime->Fill(det->hits[ihit].startTime, det->hits[ihit].qpeak / nominalGain);
-        if (trig)
-          hTrigHitPeakTimeCoarse->Fill(det->hits[ihit].startTime, det->hits[ihit].qpeak / nominalGain);
-        hAllHitPeakTime->Fill(det->hits[ihit].startTime, det->hits[ihit].qpeak / nominalGain);
-        hAllHitPeakTimeCoarse->Fill(det->hits[ihit].startTime, det->hits[ihit].qpeak / nominalGain);
-        ntHit->Fill(double(entry), double(id), det->hits[ihit].startTime, det->hits[ihit].qpeak / nominalGain);
-
-        if (trig && det->hits[ihit].startTime > 800)
-          hTrigLatePeaks->Fill(det->hits[ihit].qpeak / nominalGain);
-        if (!trig && det->hits[ihit].startTime > 800)
-          hSipmLatePeaks->Fill(det->hits[ihit].qpeak / nominalGain);
-
-        if (trig && (det->hits[ihit].startTime > 800 || det->hits[ihit].startTime < 600) && det->hits[ihit].qpeak / nominalGain > 10)
-          trigIsCut = true;
-        if (!trig && (det->hits[ihit].startTime > 800 || det->hits[ihit].startTime < 600) && det->hits[ihit].qpeak / nominalGain > 10)
-          sipmIsCut = true;
-
-        /*
-        if ((det->hits[ihit].startTime > 800 || det->hits[ihit].startTime < 600) && det->hits[ihit].qpeak / nominalGain > 10)
-          printf("xxxxx event %llu chan %i time %f qpeak %f\n", entry, id, det->hits[ihit].startTime, det->hits[ihit].qpeak / nominalGain);
-          */
-      }
-
-      // look at time difference between hits.
-      if (id < 9)
-      {
-        for (unsigned ihit = 0; ihit < det->hits.size(); ++ihit)
-        {
-          TDetHit hiti = det->hits[ihit];
-          for (unsigned jhit = ihit + 1; jhit < det->hits.size(); ++jhit)
-          {
-            TDetHit hitj = det->hits[ihit];
-            double tdiff = double(det->hits[jhit].startTime) - double(det->hits[ihit].startTime);
-            // printf("%i %i %f\n", ihit, jhit, tdiff);
-            hHitTimeDiff->Fill(tdiff);
-            ntTDiff->Fill(double(det->hits[ihit].startTime), double(det->hits[jhit].startTime), det->hits[ihit].qpeak, det->hits[jhit].qpeak); //= new TNtuple("ntTDiff","time diff","startTime1:startTime2:qpeak1:qpeak2");
-          }
-        }
-      }
-
-      // pre cut
-      int npreHits = 0;
-      int nlateHits = 0;
-      if (id == 13)
-      {
-        for (unsigned ihit = 0; ihit < det->hits.size(); ++ihit)
-        {
-          TDetHit hiti = det->hits[ihit];
-          if (det->hits[ihit].startTime < 600)
-          {
-            ++npreHits;
-            ++nPre;
-          }
-          hCountLateTimeQpeak->Fill(det->hits[ihit].startTime, det->hits[ihit].qpeak / nominalGain);
-          if (det->hits[ihit].startTime > 1000 && det->hits[ihit].qpeak / nominalGain > peakCut)
-          {
-            ++nlateHits;
-            ++nLate;
-            hCountLateTime->Fill(det->hits[ihit].startTime);
-          }
-        }
-        hCountPre->Fill(npreHits);
-        hCountLate->Fill(nlateHits);
-      }
-    } // end branch loop
-    if (trigEventSumPeak < 0)
-      trigEventSumPeak = 0;
-    ntSum->Fill(trigEventSumArea, trigEventSumPeak, trigTotPeak, trigPre, trigTrig, trigLate, sipmPre, sipmTrig, sipmLate);
-    if (entry == entry / 10000 * 10000)
-      printf("... event %llu trig sum %.2E %.2E \n", entry, trigEventSumArea, trigEventSumPeak);
-    hTrigEventSumArea->Fill(trigEventSumArea);
-    hTrigEventSumPeak->Fill(trigEventSumPeak);
-    if (trigIsCut)
-      ++trigCut;
-    if (sipmIsCut)
-      ++sipmCut;
-    if (nPre > 0)
-      passBit |= 0x1;
-    if (nLate > 0)
-      passBit |= 0x2;
-    hPassBit->Fill(passBit);
+        TDetHit thit = det->hits[ihit];
+        // fill light curve
+        hLightCurve[idet]->SetBinContent(thit.firstBin + 1, hLightCurve[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
+      } // end branch loop
+    }
   }
 }
 
-void post(TString tag = TString("10_06_2025"), Long64_t maxEntry = 0)
+void post(TString tag)
 {
-  peakCut = 6.5;
+  vecFail.resize(FAILBITS);
   /*gains-2024-02-01-17-06.root*/
-  y[0] = 229.5;
-  y[1] = 221;
-  y[2] = 236;
-  y[3] = 200.6;
-  y[4] = 229;
-  y[5] = 229; // not fit same as 4
-  y[6] = 231.6;
-  y[7] = 237.2;
-  y[8] = 232.6;
-  y[9] = 646.9;
-  y[10] = 619.5;
-  y[11] = 605;
-  nominalGain = 0;
-  for (int k = 0; k < 9; ++k)
-    nominalGain += y[k];
-  nominalGain /= 9.;
-  printf(" the tag is %s nominal gain = %f ", tag.Data(), nominalGain);
+
+  printf(" the tag is %s nominal gain = %f \n ", tag.Data(), nominalGain);
   gStyle->SetOptStat(1001101);
   /* get RunTree */
   RunTree = new TChain("RunTree");
-  TString name;
-  name.Form("caenData/anaCRun*%s*.root", tag.Data());
-  printf("open chain with %s \n", name.Data());
-  RunTree->Add(name);
+  //** add files  */
+  for (unsigned ifile = 0; ifile < fileListName.size(); ++ifile)
+  {
+    TString fullName = TString("caenData/") + fileListName[ifile];
+    printf("RunTree add file %s \n", fullName.Data());
+    RunTree->Add(fullName);
+  }
+
   if (!RunTree)
     return;
   printf("files in chain:\n");
   RunTree->GetListOfFiles()->Print();
   Long64_t ntriggers = RunTree->GetEntries();
-  printf(" total triggers in this chain %lld \n", ntriggers);
-  if (maxEntry == 0)
-    maxEntry = ntriggers;
+  printf(" in post: total triggers in this chain %lld \n", ntriggers);
   RunTree->GetListOfBranches()->ls();
-  TString sentries;
-  sentries.Form("-%llu", maxEntry);
-  fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "recreate");
-
-  hHitTimeDiff = new TH1D("HitTimeDiff", "samples between hits ", 3000, 0, 3000);
-  hTrigEventSumArea = new TH1D("TrigEventSumArea", "trig sipm trigger window sum area ", 600, 0, 6.E5);
-  hTrigEventSumPeak = new TH1D("TrigEventSumPeak", "trig sipm trigger window sum peak ", 400, 0, 40);
-  hTrigHitPeakTime = new TH2D("TrigHitPeakTime", "trig summed trig peak versus time ", 7500, 0, 7500, 400, 0, 40);
-  hAllHitPeakTime = new TH2D("AllHitPeakTime", "trig summed trig peak versus time ", 7500, 0, 7500, 400, 0, 40);
-  hTrigHitPeakTimeCoarse = new TH2D("TrigHitPeakTimeCoarse", "trig summed trig peak versus time ", 75, 0, 7500, 400, 0, 40);
-  hAllHitPeakTimeCoarse = new TH2D("AllHitPeakTimeCoarse", "trig summed trig peak versus time ", 75, 0, 7500, 400, 0, 40);
-
-  //
-  TString htitle;
-  hCountPre = new TH1D("CountPre", " hits sample<600 in sum", 20, 0, 20);
-  htitle.Form("hits qpeak>%.2f SPE sample>1000 in sum", peakCut);
-  hCountLate = new TH1D("CountLate", htitle, 20, 0, 20);
-  htitle.Form("umber of late time hits with qpeak>%.2f", peakCut);
-  hCountLate->GetXaxis()->SetTitle(htitle);
-  htitle.Form("hits qpeak>%.2f SPE sample>1000 in sum", peakCut);
-  hCountLateTime = new TH1D("CountLateTime ", htitle, 30, 0, 7500);
-  hCountLateTime->GetXaxis()->SetTitle("sample time");
-  hCountLateTime->Sumw2();
-  hCountLateTimeQpeak = new TH2D("CountLateTimeQpeak", " sample>1000 in sum qpeak vs time ", 30, 0, 7500, 20, 0, 20);
-  hCountLateTimeQpeak->GetXaxis()->SetTitle("sample time");
-  hCountLateTimeQpeak->GetYaxis()->SetTitle("qpeak [SPE]");
-
-  ntTDiff = new TNtuple("ntTDiff", "time diff", "startTime1:startTime2:qpeak1:qpeak2");
-  ntSum = new TNtuple("ntSum", " ADC sums ", "trigSumArea:trigSumPeak:trigTotPeak:trigPre:trigTrig:trigLate:sipmPre:sipmTrig:sipmLate");
-  ntHit = new TNtuple("ntHit", " hits ", "event:chan:time:qpeak");
-
-  hTrigLatePeaks = new TH1D("TrigEventSumLatePeak", "trig sipm trigger late peaks ", 1000, 0, 100);
-  hTrigLatePeaksFit = new TH1D("TrigEventSumPeakFit", "trig sipm trigger late peaks ", 1000, 0, 100);
-  hSipmLatePeaks = new TH1D("SipmEventSumPeak", "non-trig sipm late peaks ", 1000, 0, 100);
-  hSipmLatePeaksFit = new TH1D("SipmEventSumPeakFit", "non-trig sipm late peaks ", 1000, 0, 100);
   hPassBit = new TH1D("PassBit", "pass bit", 4, 0, 4);
 
-  // make hSipmLatePeaksFitos
-  for (unsigned i = 0; i < NCHAN; ++i)
+  // make histograms
+  hEventPass = new TH1D("EventPass", " event failures", TOTALCODES, 0, TOTALCODES);
+  for (unsigned i = 0; i < CHANNELS; ++i)
   {
-    double limit = 40;
-    int nbins = 400.;
     // normalized to SPE
-    hTotSum.push_back(new TH1D(Form("TotPeakSumChan%i", i), Form("tot peak sum chan %i", i), nbins, 0, limit));
-    hPreSum.push_back(new TH1D(Form("PrePeakSumChan%i", i), Form("pre peak sum chan %i", i), nbins, 0, limit));
-    hTrigSum.push_back(new TH1D(Form("TrigPeakSumChan%i", i), Form("trig peak sum chan %i", i), nbins, 0, limit));
-    hLateSum.push_back(new TH1D(Form("LatePeakSumChan%i", i), Form("late peak sum chan %i", i), nbins, 0, limit));
+    hLightCurve.push_back(new TH1D(Form("LightCurveChan%i", i), Form("LightCurveChan%i", i), MAXSAMPLES, 0, 2 * MAXSAMPLES));
+    hLightCurve[hLightCurve.size() - 1]->GetXaxis()->SetTitle("time [ns]");
+    hLightCurve[hLightCurve.size() - 1]->GetYaxis()->SetTitle("normilized number of photons/2ns");
   }
+  // loop over events
+  loop();
 
-  //
-  loop(maxEntry);
-
-  // poisson fit
-  TF1 *fpoi1 = new TF1("fpoi1", "[1]*pow([0],x)*Exp(-[0])/Gamma(x+1.)", 0, 10);
-  double norm = hSipmLatePeaks->Integral();
-  // set non-zero initial values for parameters
-  fpoi1->SetParameter(0, 1);
-  fpoi1->SetParameter(1, norm);
-  hSipmLatePeaks->Fit("fpoi1", "R");
-  for (int ib = 1; ib < hSipmLatePeaksFit->GetNbinsX(); ++ib)
-  {
-    double xbin = hSipmLatePeaksFit->GetBinCenter(ib) - 0.5;
-    double fbin = fpoi1->Eval(xbin);
-    hSipmLatePeaksFit->SetBinContent(ib, fbin);
-    hSipmLatePeaksFit->SetBinError(ib, 0);
-    hSipmLatePeaksFit->GetYaxis()->SetTitle("yield");
-    hSipmLatePeaksFit->GetXaxis()->SetTitle("SPE");
+  printf("total %llu \n", maxEntry);
+  // hEventPass->Print("all");
+  printf("pass fractions total = %.0f  \n", hEventPass->GetEntries());
+  /*
+  for (int ibin = 0; ibin < hEventPass->GetNbinsX(); ++ibin)
+  { // inc/lude error on poisson probability
+    double nbin = hEventPass->GetBinContent(ibin);
+    double ntot = hEventPass->GetEntries();
+    double prob = nbin / ntot;
+    double perror = sqrt(prob * (1. - prob) / ntot);
+    printf(" bin %i fail %.f frac %.3f +/- %.3f name %s \n", ibin, hEventPass->GetBinContent(ibin), prob, perror, codeNames[ibin].Data());
   }
-  hSipmLatePeaksFit->SetLineColor(kRed);
-
-  TCanvas *canSipmLate = new TCanvas("sipmLate", "sipmLate");
-  hSipmLatePeaks->Draw();
-  hSipmLatePeaksFit->Draw("same");
-
-  // R" = fit between "xmin" and "xmax" of the "f1"
-
-  // poisson fit
-  TF1 *fpoi2 = new TF1("fpoi2", "[1]*pow([0],x)*Exp(-[0])/Gamma(x+1.)", 0, 10);
-  norm = hTrigLatePeaks->Integral();
-  // set non-zero initial values for parameters
-  fpoi1->SetParameter(0, 1);
-  fpoi1->SetParameter(1, norm);
-  hTrigLatePeaks->Fit("fpoi1", "R");
-  for (int ib = 1; ib < hTrigLatePeaksFit->GetNbinsX(); ++ib)
-  {
-    double xbin = hTrigLatePeaksFit->GetBinCenter(ib) - 0.5;
-    double fbin = fpoi1->Eval(xbin);
-    hTrigLatePeaksFit->SetBinContent(ib, fbin);
-    hTrigLatePeaksFit->SetBinError(ib, 0);
-    hTrigLatePeaksFit->GetYaxis()->SetTitle("yield");
-    hTrigLatePeaksFit->GetXaxis()->SetTitle("SPE");
-  }
-  hTrigLatePeaksFit->SetLineColor(kRed);
-
-  TCanvas *canTrigLate = new TCanvas("trigLate", "trigLate");
-  hTrigLatePeaks->Draw();
-  hTrigLatePeaksFit->Draw("same");
-
-  printf("total %llu trig cut %u (%f) sipm cut %u (%f) \n",
-         maxEntry, trigCut, double(trigCut) / double(maxEntry), sipmCut, double(sipmCut) / double(maxEntry));
+    */
 
   fout->Write();
-  printf(" cut is %.2f \n", peakCut);
   hPassBit->Print("all");
   // fout->ls();
 }
@@ -535,12 +428,32 @@ void post(TString tag = TString("10_06_2025"), Long64_t maxEntry = 0)
 int main(int argc, char *argv[])
 {
   cout << "executing " << argv[0] << " post hit finding analysis  " << endl;
-  printf(" usage:  start date string <stag> end date string <etag> max files <default all> \n ");
+  printf(" usage:  start date string <stag> end date string <etag> max entries <default all> \n ");
   if (argc < 2)
   {
-    printf("reguire file date start string <stag> args\n");
+    printf("require file date start string <stag> args.\n  exit \n");
     exit(0);
   }
+  readGains = new TReadGains();
+  // use nominal gains for now FIXME
+  nominalGain = readGains->nominalGain;
+  nominalTrigGain = readGains->nominalTrigGain;
+  readGains->printGains();
+
+  // store qsumGain[ib];
+  for (unsigned ch = 0; ch < readGains->sipmSumGain.size(); ++ch)
+    qsumGain.push_back(readGains->sipmSumGain[ch]);
+
+  for (unsigned ic = 0; ic < TOTALCODES; ++ic)
+    codeNames.push_back(TString("mixed"));
+  codeNames[PASS] = TString("pass");
+  codeNames[BASEFAIL] = TString("baseline");
+  codeNames[TRIANGLE] = TString("triangle");
+  codeNames[EARLYCUT] = TString("earlycut");
+  codeNames[FIRSTTIME] = TString("firsttime");
+  codeNames[COSMIC] = TString("cosmic");
+  codeNames[GAMMA] = TString("gamma");
+
   vecFail.resize(FAILBITS);
   bitNames.resize(FAILBITS);
   bitNames[0] = TString("pass");
@@ -551,7 +464,6 @@ int main(int argc, char *argv[])
   bitNames[5] = TString("gamma");
   bitNames[6] = TString("trigger");
 
-  TReadGains *readGains = new TReadGains();
   TString dirName = TString("caenData");
   TString dirNameSlash = TString("caenData/");
   theStartTag = TString(argv[1]);
@@ -571,28 +483,29 @@ int main(int argc, char *argv[])
 
   dateTime = TDatime(2023, 3, 9, 22, 0, 0);
 
-  printf("count files from %s to %s \n", theStartTag.Data(), theEndTag.Data());
   unsigned nfiles = countFiles();
+  printf("count files from %s to %s total files  %ld \n", theStartTag.Data(), theEndTag.Data(), fileListName.size());
   if (nfiles == 0)
   {
     printf(" >>>> datatype no files found <<<<\n");
     exit(0);
   }
 
-  printf(" >>>>> files from %s to %s tag %s <<<<<\n", theStartTag.Data(), theEndTag.Data(), tag.Data());
-
-  for (int i = 0; i < fileList.size(); ++i)
-    cout << i << "  " << fileList[i] << endl;
-
-  maxFiles = fileList.size();
   if (argc > 3)
   {
-    maxFiles = atoi(argv[3]);
+    maxEntry = atoi(argv[3]);
   }
-  printf(" for %s found %lu files maxFiles %lli \n", tag.Data(), fileList.size(), maxFiles);
+
+  printf(" >>>>> analyze %u  files from %s to %s tag %s totalEntries %lld maxEntry %lldb<<<<<\n", nfiles, theStartTag.Data(), theEndTag.Data(), tag.Data(), totalEntries, maxEntry);
+
+  for (int i = 0; i < fileListName.size(); ++i)
+    cout << i << "  " << fileListName[i] << endl;
 
   sdate = currentDate();
-  cout << " starting summary for   " << maxFiles << endl;
-
-  fout = new TFile(Form("postAna-%s-nfiles-%lld-created-%s.root", tag.Data(), maxFiles, sdate.c_str()), "recreate");
+  tag = theStartTag + TString("-") + theEndTag;
+  TString sentries;
+  sentries.Form("-%llu", maxEntry);
+  fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "recreate");
+  cout << " starting summary for   " << fileListName.size() << " on " << sdate << " writing to file " << fout->GetName() << endl;
+  post(tag);
 }
