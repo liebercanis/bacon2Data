@@ -55,11 +55,12 @@ TNtuple *ntHit;
 TNtuple *ntTDiff;
 Long64_t totalEntries;
 Long64_t maxEntry;
+Long64_t totalPass;
 std::vector<TString> fileListName;
 std::vector<std::vector<double>> vecFail;
 TBEventData *eventData;
 TDirectory *sumDir;
-TDirectory *anaDir;
+TDirectory *anaDir; //
 TDirectory *cutDir;
 
 TH1D *hEventPass;
@@ -74,6 +75,7 @@ TH1D *hGammaCut;
 TH1D *hCosmicCut;
 
 std::vector<TH1D *> hLightCurve;
+std::vector<TH1D *> hLightNorm;
 
 std::vector<double> qsumGain; // read from class TReadGain
 
@@ -131,11 +133,24 @@ double ntotal;
 double npass;
 vector<int> filePass;
 vector<int> fileTotal;
-int totalPass;
-int totalEvents;
 
 double nominalGain;
 double nominalTrigGain;
+
+void normalize(int ichan)
+{
+  // printf("at line174 %s normalize to %d\n", hSave->GetName(), totalPass);
+  TH1D *hist = hLightCurve[ichan];
+  TH1D *hSave = hLightNorm[ichan];
+  for (int ibin = 0; ibin < hist->GetNbinsX(); ++ibin)
+  {
+    double xbin = hist->GetBinContent(ibin);
+    double ebin = sqrt(abs(hist->GetBinContent(ibin)));
+    // divide by channel gain and totalPass
+    hSave->SetBinContent(ibin, xbin / double(totalPass) / readGains->sipmPeakGain[ichan]);
+    hSave->SetBinError(ibin, ebin / double(totalPass) / readGains->sipmPeakGain[ichan]);
+  }
+}
 
 //// https://mathworld.wolfram.com/TernaryDiagram.html
 void makeTernary(double a, double b, double c, double &x, double &y)
@@ -426,6 +441,7 @@ void setTime(TString startTag, TString endTag)
 
 void loop()
 {
+  totalPass = 0;
   printf(" start of entry loop maxEntry=%lld\n", maxEntry);
   // loop over entries
   for (Long64_t entry = 0; entry < maxEntry; ++entry)
@@ -436,6 +452,8 @@ void loop()
     hEventPassNew->SetBinContent(passBit, hEventPassNew->GetBinContent(passBit) + 1);
     if (passBit != 0)
       continue;
+
+    ++totalPass;
 
     RunTree->GetEntry(entry);
     // RunTree->GetListOfBranches()->ls();
@@ -512,14 +530,18 @@ void post(TString tag)
     // normalized to SPE
     hLightCurve.push_back(new TH1D(Form("LightCurveChan%i", i), Form("LightCurveChan%i", i), MAXSAMPLES, 0, 2 * MAXSAMPLES));
     hLightCurve[hLightCurve.size() - 1]->GetXaxis()->SetTitle("time [ns]");
-    hLightCurve[hLightCurve.size() - 1]->GetYaxis()->SetTitle("normilized number of photons/2ns");
+    hLightCurve[hLightCurve.size() - 1]->GetYaxis()->SetTitle("number of photons/2ns");
+
+    hLightNorm.push_back(new TH1D(Form("LightNormChan%i", i), Form("LightNormChan%i", i), MAXSAMPLES, 0, 2 * MAXSAMPLES));
+    hLightNorm[hLightNorm.size() - 1]->GetXaxis()->SetTitle("time [ns]");
+    hLightNorm[hLightNorm.size() - 1]->GetYaxis()->SetTitle("normalized number of photons per event /2ns");
   }
   /*
    *  loop over events
    */
   loop();
 
-  printf("total %llu \n", maxEntry);
+  printf("total %llu pass %llu \n", maxEntry, totalPass);
   // hEventPassNew->Print("all");
   printf("pass fractions total = %.0f  \n", hEventPassNew->GetEntries());
   for (int ibin = 0; ibin < hEventPassNew->GetNbinsX(); ++ibin)
@@ -530,6 +552,10 @@ void post(TString tag)
     double perror = sqrt(prob * (1. - prob) / ntot);
     printf(" bin %i fail %.f frac %.3f +/- %.3f name %s \n", ibin, hEventPassNew->GetBinContent(ibin), prob, perror, codeNames[ibin].Data());
   }
+
+  // do not normilzed summed chan 13
+  for (int ich = 0; ich < hLightCurve.size() - 1; ++ich)
+    normalize(ich);
 
   hPassBitNew->Print("all");
 
