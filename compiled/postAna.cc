@@ -135,6 +135,7 @@ int passEventCuts(Long64_t entry)
   TIter next(RunTree->GetListOfBranches());
   TBranchElement *aBranch = NULL;
   int passBit = 0;
+  std::vector<TDet *> detList;
   while ((aBranch = (TBranchElement *)next()))
   {
     int idet = TString(TString(aBranch->GetName())(4, 2)).Atoi();
@@ -144,6 +145,7 @@ int passEventCuts(Long64_t entry)
     }
 
     TDet *det = (TDet *)aBranch->GetObject();
+    detList.push_back(det);
     // loop over hits
     if (idet == 9)
     {
@@ -158,8 +160,19 @@ int passEventCuts(Long64_t entry)
         }
       }
     }
-    // if recalculating a cut, would do it here
   }
+  // if recalculating a cut, would do it here
+  // for (int idet = 0; idet < detList.size(); ++idet)
+  //{
+  ///  printf("det %i totSum %f \n", idet, detList[idet]->totSum);
+  //}
+
+  double triggerSum = detList[9]->totSum + detList[10]->totSum + detList[11]->totSum;
+  double qFraction[3];
+  qFraction[0] = detList[9]->totSum / triggerSum;
+  qFraction[1] = detList[10]->totSum / triggerSum;
+  qFraction[2] = detList[11]->totSum / triggerSum;
+
   return passBit;
 }
 
@@ -307,6 +320,7 @@ unsigned long countFiles()
     }
     TString fullName = dirNameSlash + TString(name.c_str());
     TFile *f = new TFile(fullName, "READONLY");
+    /* not really needed but checks for file contents */
     if (getPointers(f))
       fileListName.push_back(TString(name.c_str()));
     f->Close();
@@ -450,28 +464,8 @@ void post(TString tag)
 
   hPassBitNew->Print("all");
 
-  // pick up first pass hEventCount now that fout is open
-  for (int i = 0; i < fileListName.size(); ++i)
-  {
-    cout << "getPointers " << i << "  " << fileListName[i] << endl;
-    TString dirNameSlash = TString("caenData/");
-    TString fullName = dirNameSlash + fileListName[i];
-    TFile *f = new TFile(fullName, "READONLY");
-
-    TH1D *hEventPass = nullptr;
-    f->GetObject("EventPass", hEventPass);
-    if (hEventPass && fout)
-    {
-      TH1D *hEventPassFile = (TH1D *)hEventPass->Clone(Form("EventPassFile%i", i));
-      cout << "line466 append " << hEventPassFile->GetName() << endl;
-      fout->Add(hEventPassFile);
-      fout->Write();
-    }
-    f->Close();
-  }
-
   fout->ls();
-  // fout->Write();
+  fout->Write();
   // fout->ls();
 }
 
@@ -486,6 +480,7 @@ int main(int argc, char *argv[])
     exit(0);
   }
 
+  /* read gains from saved file */
   readGains = new TReadGains();
   // use nominal gains for now FIXME
   nominalGain = readGains->nominalGain;
@@ -496,6 +491,7 @@ int main(int argc, char *argv[])
   for (unsigned ch = 0; ch < readGains->sipmSumGain.size(); ++ch)
     qsumGain.push_back(readGains->sipmSumGain[ch]);
 
+  /* for failure bits */
   for (unsigned ic = 0; ic < TOTALCODES; ++ic)
     codeNames.push_back(TString("mixed"));
   codeNames[PASS] = TString("pass");
@@ -528,6 +524,10 @@ int main(int argc, char *argv[])
   bitNames[6] = TString("trigger");
   bitNames[7] = TString("trianlge");
 
+  printf("failure codes: \n");
+  for (int icode = 0; icode < 8; ++icode)
+    printf("bit %i hex value %i name %s \n", icode, failCode[icode], bitNames[icode].Data());
+
   TString dirName = TString("caenData");
   TString dirNameSlash = TString("caenData/");
   theStartTag = TString(argv[1]);
@@ -543,10 +543,12 @@ int main(int argc, char *argv[])
     theEndTag = TString(argv[2]);
   }
 
+  // convert string to dates
   setTime(theStartTag, theEndTag);
 
   dateTime = TDatime(2023, 3, 9, 22, 0, 0);
 
+  /* count files between dates */
   unsigned nfiles = countFiles();
   printf("count files from %s to %s total files  %ld \n", theStartTag.Data(), theEndTag.Data(), fileListName.size());
   if (nfiles == 0)
@@ -566,21 +568,40 @@ int main(int argc, char *argv[])
   tag = theStartTag + TString("-") + theEndTag;
   TString sentries;
   sentries.Form("-%llu", maxEntry);
-  fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "recreate");
 
+  fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "recreate");
   // pick up first pass hEventCount now that fout is open
   for (int i = 0; i < fileListName.size(); ++i)
   {
+    if (!fout)
+      fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "update");
     cout << i << "  " << fileListName[i] << endl;
-    /*
     TString dirNameSlash = TString("caenData/");
     TString fullName = dirNameSlash + fileListName[i];
+    /* open file in list */
     TFile *f = new TFile(fullName, "READONLY");
-    getPointers(f);
+    TH1D *hEventPass = nullptr;
+    f->GetObject("EventPass", hEventPass);
+    if (hEventPass && fout)
+    {
+      TH1D *hEventPassFile = (TH1D *)hEventPass->Clone(Form("EventPassFile%i", i));
+      cout << "line589 append " << hEventPassFile->GetName() << endl;
+      fout->Add(hEventPassFile);
+      fout->Write();
+      /* have to close output file to save*/
+      fout->Close();
+      delete fout;
+      fout = nullptr;
+    }
     f->Close();
-    */
   }
 
+  if (!fout)
+    fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "update");
+  printf("after added evenCount \n");
+  fout->ls();
+
   cout << " starting summary for   " << fileListName.size() << " on " << sdate << " writing to file " << fout->GetName() << endl;
+  /* here we loop over TChain */
   post(tag);
 }
