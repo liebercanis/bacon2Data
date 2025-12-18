@@ -66,9 +66,20 @@ TH1D *hEventPass;
 TH1D *eventCount;
 TH1D *hEventPassNew;
 TH1D *hPassBitNew;
+TH2D *hTriangle;
+TH2D *hTrianglePass;
+TH1D *hGammaPeak;
+TH1D *hGammaPeakPass;
+TH1D *hGammaCut;
+TH1D *hCosmicCut;
+
 std::vector<TH1D *> hLightCurve;
 
 std::vector<double> qsumGain; // read from class TReadGain
+
+// cut values
+double cosmicCut = 30.; // value normlized to nominalPmtGain
+double gammaCut = 140.; // was 150 normalized to nominalGain; //
 
 // pass bit failures hex
 enum FAILURECODES
@@ -126,6 +137,14 @@ int totalEvents;
 double nominalGain;
 double nominalTrigGain;
 
+//// https://mathworld.wolfram.com/TernaryDiagram.html
+void makeTernary(double a, double b, double c, double &x, double &y)
+{
+  double s = a + b + c;
+  x = 0.5 * (a + 2. * b) / s;
+  y = sqrt(3.) / 2. * a / s;
+}
+
 int passEventCuts(Long64_t entry)
 {
   // there is only 1 passbit but stored in all det. I admit is bad MGold
@@ -145,20 +164,12 @@ int passEventCuts(Long64_t entry)
     }
 
     TDet *det = (TDet *)aBranch->GetObject();
+    // collect TDet in list
     detList.push_back(det);
     // loop over hits
     if (idet == 9)
     {
       passBit = det->pass;
-      // loop over fail bits
-      for (int ic = 0; ic < FAILBITS; ++ic)
-      {
-        if (passBit & failCode[ic])
-        {
-          // printf("event %lld det %i bin %s pass %i \n", entry, idet, bitNames[ic].Data(), passBit);
-          hPassBitNew->SetBinContent(ic, hPassBitNew->GetBinContent(ic) + 1);
-        }
-      }
     }
   }
   // if recalculating a cut, would do it here
@@ -168,11 +179,58 @@ int passEventCuts(Long64_t entry)
   //}
 
   double triggerSum = detList[9]->totSum + detList[10]->totSum + detList[11]->totSum;
+  hGammaPeak->Fill(triggerSum);
   double qFraction[3];
   qFraction[0] = detList[9]->totSum / triggerSum;
   qFraction[1] = detList[10]->totSum / triggerSum;
   qFraction[2] = detList[11]->totSum / triggerSum;
 
+  double xternQ, yternQ;
+  makeTernary(qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
+  hTriangle->Fill(xternQ, yternQ);
+
+  /******   triangle cut ** try a cut like TUM */
+  bool passTriangle = true;
+  for (int itr = 0; itr < 3; ++itr)
+    if (qFraction[itr] < 0.2 || qFraction[itr] > 0.8)
+      passTriangle = false;
+
+  // plot passing
+  if (passTriangle)
+    hTrianglePass->Fill(xternQ, yternQ);
+
+  // clear old bits
+  passBit &= ~(COSMIC);
+  passBit &= ~(GAMMA);
+  passBit &= ~(TRIANGLE);
+
+  // gamma cut
+  hGammaCut->Fill(detList[12]->lateSum);
+  if (detList[12]->lateSum > gammaCut)
+    passBit |= GAMMA;
+
+  // cosmic cut on summed SIPM
+  hCosmicCut->Fill(detList[13]->totSum);
+  if (detList[13]->totSum > cosmicCut)
+    passBit |= COSMIC;
+
+  // set triangle bit
+  if (!passTriangle)
+    passBit |= TRIANGLE;
+
+  // loop over fail bits
+  for (int ic = 0; ic < FAILBITS; ++ic)
+  {
+    if (passBit & failCode[ic])
+    {
+      // printf("event %lld det %i bin %s pass %i \n", entry, idet, bitNames[ic].Data(), passBit);
+      hPassBitNew->SetBinContent(ic, hPassBitNew->GetBinContent(ic) + 1);
+    }
+  }
+
+  // fill passing gamma peak
+  if (passBit == 0)
+    hGammaPeakPass->Fill(triggerSum);
   return passBit;
 }
 
@@ -251,9 +309,9 @@ bool getPointers(TFile *f)
     isGoodFile = false;
   }
 
-  TH1D *hGammaPeak = nullptr;
-  f->GetObject("GammaPeak", hGammaPeak);
-  if (!hGammaPeak)
+  TH1D *hGammaPeakFile = nullptr;
+  f->GetObject("GammaPeak", hGammaPeakFile);
+  if (!hGammaPeakFile)
   {
     cout << "line1230 no GammaPeak " << name << endl;
   }
@@ -387,17 +445,17 @@ void loop()
 
     while ((aBranch = (TBranchElement *)next()))
     {
-      int idet = TString(TString(aBranch->GetName())(4, 2)).Atoi();
-      bool trig = false; // define trigger sipms
-      if (idet == 9 || idet == 10 || idet == 11)
-        trig = true;
-
       // skip eventData branch
       if (TString(aBranch->GetName()) == TString("eventData"))
       { // skip this branch
         continue;
       }
+      int idet = TString(TString(aBranch->GetName())(4, 2)).Atoi();
+      bool trig = false; // define trigger sipms
+      if (idet == 9 || idet == 10 || idet == 11)
+        trig = true;
 
+      /* the branch is class TDet so cast it as such */
       TDet *det = (TDet *)aBranch->GetObject();
       // printf("det %i hits %lu \n", idet, det->hits.size());
       //  check if passes eventCuts
@@ -413,6 +471,7 @@ void loop()
   }
 }
 
+/* build the TChain and call loop */
 void post(TString tag)
 {
   vecFail.resize(FAILBITS);
@@ -436,10 +495,17 @@ void post(TString tag)
   Long64_t ntriggers = RunTree->GetEntries();
   printf(" in post: tag %s total triggers in this chain %lld \n", tag.Data(), ntriggers);
   // RunTree->GetListOfBranches()->ls();
-  hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
 
   // make histograms
+  hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
   hEventPassNew = new TH1D("EventPassNew", " remade event failures", TOTALCODES, 0, TOTALCODES);
+  hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 /nominal gain ", 1000, 0, 10. * gammaCut);
+  hCosmicCut = new TH1D("CosmicCut", " PMT sum /nominal gain", 1000, 0, 10. * cosmicCut);
+  hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
+  hTrianglePass = new TH2D("TrianglePass", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
+  hGammaPeak = new TH1D("GammaPeak", "gamma peak (photons)", 150, 0., 300.);
+  hGammaPeakPass = new TH1D("GammaPeakPass", "gamma peak  pass triangle (photons)", 150, 0., 300.);
+
   for (unsigned i = 0; i < CHANNELS; ++i)
   {
     // normalized to SPE
@@ -447,7 +513,9 @@ void post(TString tag)
     hLightCurve[hLightCurve.size() - 1]->GetXaxis()->SetTitle("time [ns]");
     hLightCurve[hLightCurve.size() - 1]->GetYaxis()->SetTitle("normilized number of photons/2ns");
   }
-  // loop over events
+  /*
+   *  loop over events
+   */
   loop();
 
   printf("total %llu \n", maxEntry);
@@ -585,7 +653,7 @@ int main(int argc, char *argv[])
     if (hEventPass && fout)
     {
       TH1D *hEventPassFile = (TH1D *)hEventPass->Clone(Form("EventPassFile%i", i));
-      cout << "line589 append " << hEventPassFile->GetName() << endl;
+      // cout << "line589 append " << hEventPassFile->GetName() << endl;
       fout->Add(hEventPassFile);
       fout->Write();
       /* have to close output file to save*/
@@ -602,6 +670,6 @@ int main(int argc, char *argv[])
   fout->ls();
 
   cout << " starting summary for   " << fileListName.size() << " on " << sdate << " writing to file " << fout->GetName() << endl;
-  /* here we loop over TChain */
+  /* here we make the TCHain and them loop over it */
   post(tag);
 }
