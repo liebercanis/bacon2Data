@@ -2205,8 +2205,18 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
          theFile.Data(), maxEntries, firstEntry);
 
   // store qsumGain[ib];
+  // for (unsigned ch = 0; ch < readGains->sipmSumGain.size(); ++ch)
+  //  qsumGain.push_back(readGains->sipmSumGain[ch]);
+  // use fixed gains so we we know what we did
   for (unsigned ch = 0; ch < readGains->sipmSumGain.size(); ++ch)
-    qsumGain.push_back(readGains->sipmSumGain[ch]);
+  {
+    if (ch < 9)
+      qsumGain.push_back(readGains->nominalQsumGain);
+    else if (ch > 8 && ch < 12)
+      qsumGain.push_back(readGains->nominalQsumTrigGain);
+    else if (ch == 12)
+      qsumGain.push_back(readGains->nominalQsumPmtGain);
+  }
 
   if (theFirstFile)
   {
@@ -2215,6 +2225,9 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     for (unsigned j = 0; j < chanThreshold.size(); ++j)
       printf("chan %u chanThreshold %.3f \n", j, chanThreshold[j]);
     readGains->printGains();
+    printf("FIXED summed gains:\n");
+    for (unsigned ch = 0; ch < readGains->sipmSumGain.size(); ++ch)
+      printf("\t\t summed gain %u val %.3f \n", ch, qsumGain[ch]);
   }
 
   // need to fill rawBr[0]->rdigi.size()
