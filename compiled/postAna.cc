@@ -426,6 +426,7 @@ void setTime(TString startTag, TString endTag)
 
 void loop()
 {
+  printf(" start of entry loop maxEntry=%lld\n", maxEntry);
   // loop over entries
   for (Long64_t entry = 0; entry < maxEntry; ++entry)
   {
@@ -660,16 +661,15 @@ int main(int argc, char *argv[])
       fout->Close();
       delete fout;
       fout = nullptr;
+      f->Close();
     }
-    f->Close();
+
+    if (!fout)
+      fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "update");
+    printf("after added evenCount \n");
+    fout->ls();
+
+    cout << " starting summary for   " << fileListName.size() << " on " << sdate << " writing to file " << fout->GetName() << endl;
+    /* here we make the TCHain and them loop over it */
+    post(tag);
   }
-
-  if (!fout)
-    fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "update");
-  printf("after added evenCount \n");
-  fout->ls();
-
-  cout << " starting summary for   " << fileListName.size() << " on " << sdate << " writing to file " << fout->GetName() << endl;
-  /* here we make the TCHain and them loop over it */
-  post(tag);
-}
