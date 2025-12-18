@@ -429,7 +429,7 @@ void loop()
   // loop over entries
   for (Long64_t entry = 0; entry < maxEntry; ++entry)
   {
-    if (entry / 1000 * 1000 == entry)
+    if (entry / 10000 * 10000 == entry)
       printf("line330 .....loop entry %lld \n", entry);
     int passBit = passEventCuts(entry);
     hEventPassNew->SetBinContent(passBit, hEventPassNew->GetBinContent(passBit) + 1);
