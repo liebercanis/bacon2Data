@@ -64,6 +64,10 @@ TDirectory *cutDir;
 
 TH1D *hEventPass;
 TH1D *eventCount;
+TH1D *hEventPassNew;
+TH1D *hPassBitNew;
+std::vector<TH1D *> hLightCurve;
+
 std::vector<double> qsumGain; // read from class TReadGain
 
 // pass bit failures hex
@@ -85,6 +89,10 @@ enum
   FAILBITS = 8
 };
 
+std::vector<TString> bitNames;
+std::vector<TString> codeNames;
+int failCode[FAILBITS];
+
 //
 enum
 {
@@ -96,9 +104,6 @@ enum
 {
   MAXSAMPLES = 7500
 };
-
-std::vector<TString> bitNames;
-std::vector<TString> codeNames;
 
 std::vector<int> vTotal;
 std::vector<int> vPass;
@@ -121,12 +126,40 @@ int totalEvents;
 double nominalGain;
 double nominalTrigGain;
 
-std::vector<TH1D *> hLightCurve;
-TH1D *hPassBit;
-
-int passEventCuts()
+int passEventCuts(Long64_t entry)
 {
+  // there is only 1 passbit but stored in all det. I admit is bad MGold
+  RunTree->GetEntry(entry);
+  // RunTree->GetListOfBranches()->ls();
+  //   get branch pointers and save in detList
+  TIter next(RunTree->GetListOfBranches());
+  TBranchElement *aBranch = NULL;
   int passBit = 0;
+  while ((aBranch = (TBranchElement *)next()))
+  {
+    int idet = TString(TString(aBranch->GetName())(4, 2)).Atoi();
+    if (TString(aBranch->GetName()) == TString("eventData"))
+    { // skip this branch
+      continue;
+    }
+
+    TDet *det = (TDet *)aBranch->GetObject();
+    // loop over hits
+    if (idet == 9)
+    {
+      passBit = det->pass;
+      // loop over fail bits
+      for (int ic = 0; ic < FAILBITS; ++ic)
+      {
+        if (passBit & failCode[ic])
+        {
+          // printf("event %lld det %i bin %s pass %i \n", entry, idet, bitNames[ic].Data(), passBit);
+          hPassBitNew->SetBinContent(ic, hPassBitNew->GetBinContent(ic) + 1);
+        }
+      }
+    }
+    // if recalculating a cut, would do it here
+  }
   return passBit;
 }
 
@@ -197,9 +230,9 @@ bool getPointers(TFile *f)
     isGoodFile = false;
   }
 
-  TH1D *hEventPassFile = nullptr;
-  f->GetObject("EventPass", hEventPassFile);
-  if (!hEventPassFile)
+  TH1D *hEventPass = nullptr;
+  f->GetObject("EventPass", hEventPass);
+  if (!hEventPass)
   {
     cout << "line1230 skipping BAD file no EventPass " << name << endl;
     isGoodFile = false;
@@ -272,10 +305,7 @@ unsigned long countFiles()
       // cout << "line1148 skip out of time file " << name << endl;
       continue;
     }
-
-    // see if file is good
     TString fullName = dirNameSlash + TString(name.c_str());
-    // open file and get pointers
     TFile *f = new TFile(fullName, "READONLY");
     if (getPointers(f))
       fileListName.push_back(TString(name.c_str()));
@@ -327,11 +357,12 @@ void loop()
   // loop over entries
   for (Long64_t entry = 0; entry < maxEntry; ++entry)
   {
-    printf("line330 .....loop entry %lld \n", entry);
-    int passBit = passEventCuts();
-    hEventPass->SetBinContent(passBit, hEventPass->GetBinContent(passBit) + 1);
+    if (entry / 1000 * 1000 == entry)
+      printf("line330 .....loop entry %lld \n", entry);
+    int passBit = passEventCuts(entry);
+    hEventPassNew->SetBinContent(passBit, hEventPassNew->GetBinContent(passBit) + 1);
     if (passBit != 0)
-      return;
+      continue;
 
     RunTree->GetEntry(entry);
     // RunTree->GetListOfBranches()->ls();
@@ -373,7 +404,6 @@ void post(TString tag)
   vecFail.resize(FAILBITS);
   /*gains-2024-02-01-17-06.root*/
 
-  printf(" the tag is %s nominal gain = %f \n ", tag.Data(), nominalGain);
   gStyle->SetOptStat(1001101);
   /* get RunTree */
   RunTree = new TChain("RunTree");
@@ -390,12 +420,12 @@ void post(TString tag)
   printf("files in chain:\n");
   RunTree->GetListOfFiles()->Print();
   Long64_t ntriggers = RunTree->GetEntries();
-  printf(" in post: total triggers in this chain %lld \n", ntriggers);
-  RunTree->GetListOfBranches()->ls();
-  hPassBit = new TH1D("PassBit", "pass bit", 4, 0, 4);
+  printf(" in post: tag %s total triggers in this chain %lld \n", tag.Data(), ntriggers);
+  // RunTree->GetListOfBranches()->ls();
+  hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
 
   // make histograms
-  hEventPass = new TH1D("EventPass", " event failures", TOTALCODES, 0, TOTALCODES);
+  hEventPassNew = new TH1D("EventPassNew", " remade event failures", TOTALCODES, 0, TOTALCODES);
   for (unsigned i = 0; i < CHANNELS; ++i)
   {
     // normalized to SPE
@@ -407,26 +437,47 @@ void post(TString tag)
   loop();
 
   printf("total %llu \n", maxEntry);
-  // hEventPass->Print("all");
-  printf("pass fractions total = %.0f  \n", hEventPass->GetEntries());
-  /*
-  for (int ibin = 0; ibin < hEventPass->GetNbinsX(); ++ibin)
+  // hEventPassNew->Print("all");
+  printf("pass fractions total = %.0f  \n", hEventPassNew->GetEntries());
+  for (int ibin = 0; ibin < hEventPassNew->GetNbinsX(); ++ibin)
   { // inc/lude error on poisson probability
-    double nbin = hEventPass->GetBinContent(ibin);
-    double ntot = hEventPass->GetEntries();
+    double nbin = hEventPassNew->GetBinContent(ibin);
+    double ntot = hEventPassNew->GetEntries();
     double prob = nbin / ntot;
     double perror = sqrt(prob * (1. - prob) / ntot);
-    printf(" bin %i fail %.f frac %.3f +/- %.3f name %s \n", ibin, hEventPass->GetBinContent(ibin), prob, perror, codeNames[ibin].Data());
+    printf(" bin %i fail %.f frac %.3f +/- %.3f name %s \n", ibin, hEventPassNew->GetBinContent(ibin), prob, perror, codeNames[ibin].Data());
   }
-    */
 
-  fout->Write();
-  hPassBit->Print("all");
+  hPassBitNew->Print("all");
+
+  // pick up first pass hEventCount now that fout is open
+  for (int i = 0; i < fileListName.size(); ++i)
+  {
+    cout << "getPointers " << i << "  " << fileListName[i] << endl;
+    TString dirNameSlash = TString("caenData/");
+    TString fullName = dirNameSlash + fileListName[i];
+    TFile *f = new TFile(fullName, "READONLY");
+
+    TH1D *hEventPass = nullptr;
+    f->GetObject("EventPass", hEventPass);
+    if (hEventPass && fout)
+    {
+      TH1D *hEventPassFile = (TH1D *)hEventPass->Clone(Form("EventPassFile%i", i));
+      cout << "line466 append " << hEventPassFile->GetName() << endl;
+      fout->Add(hEventPassFile);
+      fout->Write();
+    }
+    f->Close();
+  }
+
+  fout->ls();
+  // fout->Write();
   // fout->ls();
 }
 
 int main(int argc, char *argv[])
 {
+  fout = nullptr;
   cout << "executing " << argv[0] << " post hit finding analysis  " << endl;
   printf(" usage:  start date string <stag> end date string <etag> max entries <default all> \n ");
   if (argc < 2)
@@ -434,6 +485,7 @@ int main(int argc, char *argv[])
     printf("require file date start string <stag> args.\n  exit \n");
     exit(0);
   }
+
   readGains = new TReadGains();
   // use nominal gains for now FIXME
   nominalGain = readGains->nominalGain;
@@ -453,6 +505,17 @@ int main(int argc, char *argv[])
   codeNames[FIRSTTIME] = TString("firsttime");
   codeNames[COSMIC] = TString("cosmic");
   codeNames[GAMMA] = TString("gamma");
+  codeNames[TRIGFAIL] = TString("trigfail");
+  codeNames[TRIANGLE] = TString("traingle");
+
+  failCode[0] = PASS;
+  failCode[1] = BASEFAIL;
+  failCode[2] = EARLYCUT;
+  failCode[3] = FIRSTTIME;
+  failCode[4] = COSMIC;
+  failCode[5] = GAMMA;
+  failCode[6] = TRIGFAIL;
+  failCode[7] = TRIANGLE;
 
   vecFail.resize(FAILBITS);
   bitNames.resize(FAILBITS);
@@ -463,6 +526,7 @@ int main(int argc, char *argv[])
   bitNames[4] = TString("cosmic");
   bitNames[5] = TString("gamma");
   bitNames[6] = TString("trigger");
+  bitNames[7] = TString("trianlge");
 
   TString dirName = TString("caenData");
   TString dirNameSlash = TString("caenData/");
@@ -498,14 +562,25 @@ int main(int argc, char *argv[])
 
   printf(" >>>>> analyze %u  files from %s to %s tag %s totalEntries %lld maxEntry %lldb<<<<<\n", nfiles, theStartTag.Data(), theEndTag.Data(), tag.Data(), totalEntries, maxEntry);
 
-  for (int i = 0; i < fileListName.size(); ++i)
-    cout << i << "  " << fileListName[i] << endl;
-
   sdate = currentDate();
   tag = theStartTag + TString("-") + theEndTag;
   TString sentries;
   sentries.Form("-%llu", maxEntry);
   fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "recreate");
+
+  // pick up first pass hEventCount now that fout is open
+  for (int i = 0; i < fileListName.size(); ++i)
+  {
+    cout << i << "  " << fileListName[i] << endl;
+    /*
+    TString dirNameSlash = TString("caenData/");
+    TString fullName = dirNameSlash + fileListName[i];
+    TFile *f = new TFile(fullName, "READONLY");
+    getPointers(f);
+    f->Close();
+    */
+  }
+
   cout << " starting summary for   " << fileListName.size() << " on " << sdate << " writing to file " << fout->GetName() << endl;
   post(tag);
 }
