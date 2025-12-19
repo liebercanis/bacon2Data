@@ -62,6 +62,11 @@ TBEventData *eventData;
 TDirectory *sumDir;
 TDirectory *anaDir; //
 TDirectory *cutDir;
+// directory for gain plots
+TDirectory *gainDir;
+// vectors for hist pointers
+std::vector<TH1D *> hQPeak;
+std::vector<TH1D *> hQSum;
 
 TH1D *hEventPass;
 TH1D *eventCount;
@@ -260,6 +265,7 @@ int passEventCuts(Long64_t entry)
   // fill passing gamma peak
   if (passBit == 0)
     hGammaPeakPass->Fill(triggerSum);
+
   return passBit;
 }
 
@@ -499,6 +505,9 @@ void loop()
         TDetHit thit = det->hits[ihit];
         // fill light curve
         hLightCurve[idet]->SetBinContent(thit.firstBin + 1, hLightCurve[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
+        /* fill gain histograms */
+        hQPeak[idet]->Fill(thit.qpeak);
+        hQSum[idet]->Fill(thit.qsum);
       } // end branch loop
     }
   }
@@ -550,6 +559,31 @@ void post(TString tag)
     hLightNorm[hLightNorm.size() - 1]->GetXaxis()->SetTitle("time [ns]");
     hLightNorm[hLightNorm.size() - 1]->GetYaxis()->SetTitle("normalized number of photons per event /2ns");
   }
+  /* make gain hisograms*/
+  fout->cd("gainDir");
+  double qpeakLimit;
+  double qsumLimit;
+  for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
+  {
+    qpeakLimit = 5. * readGains->nominalGain;
+    qsumLimit = 5. * readGains->nominalQsumGain;
+
+    bool trigger = ichan == 9 || ichan == 10 || ichan == 11;
+    if (trigger)
+    {
+      qpeakLimit = 5. * readGains->nominalTrigGain;
+      qsumLimit = 5. * readGains->nominalQsumTrigGain;
+    }
+    if (ichan == 12)
+    {
+      qpeakLimit = 5. * readGains->nominalPmtGain;
+      qsumLimit = 5. * readGains->nominalQsumPmtGain;
+    }
+
+    hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 2000, 0, qpeakLimit));
+    hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 2000, 0, qsumLimit));
+  }
+
   /*
    *  loop over events
    */
@@ -676,6 +710,7 @@ int main(int argc, char *argv[])
   sentries.Form("-%llu", maxEntry);
 
   fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "recreate");
+  gainDir = fout->mkdir("gainDir");
   // pick up first pass hEventCount now that fout is open
   for (int i = 0; i < fileListName.size(); ++i)
   {
