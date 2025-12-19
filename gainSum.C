@@ -109,7 +109,7 @@ void getHistosFromFile(int theChan)
 
   // get histos from file
   TDirectory *gainSumDir = nullptr;
-  fin->GetObject("gainSumDir", gainSumDir);
+  fin->GetObject("gainDir", gainSumDir);
 
   //
   TIter next(gainSumDir->GetListOfKeys());
@@ -287,7 +287,8 @@ void gainSum(int theChan = 13) // default all
   // put in explicit file name and get tag
   // TString fileName("summary-05_19_2025-05_19_2025-nfiles-31-created-2025-06-27-11-49.root");
 
-  TString fileName("summary-10_30_2025-10_30_2025-nfiles-93-created-2025-11-26-12-48.root");
+  //TString fileName("summary-10_30_2025-10_30_2025-nfiles-93-created-2025-11-26-12-48.root");
+  TString fileName("compiled/post-10_06_2025-10_06_2025-4302998.root");
   TString tag = TString(fileName(fileName.First("-") + 1, 21));
   cout << " gains from file " << fileName << " with date tag " << tag << endl;
 
