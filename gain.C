@@ -11,7 +11,7 @@
 
 TFile *fin;
 TFile *fout;
-bool doFit=false;
+bool doFit = true;
 // double nominalGain = 227.4; // average
 double theNominalGain;
 /**************** define nominal gains ***************/
@@ -286,7 +286,7 @@ void gain(int theChan = 13) // default all
   printf(" making cans on %s \n", sdate.c_str());
 
   // put in explicit file name and get tag
-  TString fileName("compiled/summary-10_30_2025-10_30_2025-nfiles-63-created-2025-11-24-14-48.root");
+  TString fileName("compiled/summary-10_30_2025-10_30_2025-nfiles-93-created-2025-11-26-12-48.root");
   TString tag = TString(fileName(fileName.First("-") + 1, 21));
   cout << " gains from file " << fileName << " with date tag " << tag << endl;
 
@@ -345,56 +345,59 @@ void gain(int theChan = 13) // default all
     if (fFitADC.size() < 1)
       continue;
 
-    if(doFit) {
-    // make graph from fit points
-    TGraphErrors *g = new TGraphErrors(fFitADC.size(), &fSpeNumber[0], &fFitADC[0], &fSpeNumberError[0], &fFitADCError[0]);
-    // g->Print();
-    g->SetMarkerStyle(23);
-    g->SetMarkerColor(kRed);
-    g->SetMarkerSize(1.3);
-
-    TString gname;
-    gname.Form("gainChanLineFit%i", i);
-    TString gtitle;
-    gtitle.Form(" gain channel  %i ;  number SPE ; ADC/SPE", i);
-    g->SetName(gname);
-    g->SetTitle(gtitle.Data());
-    line->SetParameters(0.5, 0);
-
-    /** fit to line slope is the gain */
-    g->Fit("myLine");
-    // g->GetHistogram()->GetListOfFunctions()->ls();
-    TF1 *gFit = g->GetFunction("myLine");
-    if (gFit == nullptr)
+    if (doFit)
     {
-      printf("line298 !!!!!! fit to myLine fails for hist %i \n", i);
-      continue;
-    }
-    TCanvas *gcan = new TCanvas(Form("GainMarkerChan%i", i), Form("chan%i", i));
-    gPad->SetLogy(0);
-    gStyle->SetOptFit();
-    // g->GetHistogram()->GetXaxis()->SetRangeUser(0, 4);
-    // g->GetHistogram()->GetYaxis()->SetRangeUser(0, 1.5E5);
-    gFit->SetLineStyle(5);
-    gFit->SetLineWidth(5);
-    g->Draw("APE1");
-    gFit->Draw("same");
-    gPad->SetGrid();
-    gcan->Print(".pdf");
-    fout->Add(g);
-    //  if (gFit->GetParameter(1) < 0)
-    //    continue;
-    printf("LINEFIT %i slope %f error %f \n", int(vchan[i]), gFit->GetParameter(1), gFit->GetParError(1));
-    sipmGain.push_back(gFit->GetParameter(1));
-    sipmGainError.push_back(gFit->GetParError(1));
-    sipmNumber.push_back(vchan[i]);
-    sipmNumberError.push_back(0);
+      // make graph from fit points
+      TGraphErrors *g = new TGraphErrors(fFitADC.size(), &fSpeNumber[0], &fFitADC[0], &fSpeNumberError[0], &fFitADCError[0]);
+      // g->Print();
+      g->SetMarkerStyle(23);
+      g->SetMarkerColor(kRed);
+      g->SetMarkerSize(1.3);
 
-    /* just take max bin */
-    } else {
+      TString gname;
+      gname.Form("gainChanLineFit%i", i);
+      TString gtitle;
+      gtitle.Form(" gain channel  %i ;  number SPE ; ADC/SPE", i);
+      g->SetName(gname);
+      g->SetTitle(gtitle.Data());
+      line->SetParameters(0.5, 0);
+
+      /** fit to line slope is the gain */
+      g->Fit("myLine");
+      // g->GetHistogram()->GetListOfFunctions()->ls();
+      TF1 *gFit = g->GetFunction("myLine");
+      if (gFit == nullptr)
+      {
+        printf("line298 !!!!!! fit to myLine fails for hist %i \n", i);
+        continue;
+      }
+      TCanvas *gcan = new TCanvas(Form("GainMarkerChan%i", i), Form("chan%i", i));
+      gPad->SetLogy(0);
+      gStyle->SetOptFit();
+      // g->GetHistogram()->GetXaxis()->SetRangeUser(0, 4);
+      // g->GetHistogram()->GetYaxis()->SetRangeUser(0, 1.5E5);
+      gFit->SetLineStyle(5);
+      gFit->SetLineWidth(5);
+      g->Draw("APE1");
+      gFit->Draw("same");
+      gPad->SetGrid();
+      gcan->Print(".pdf");
+      fout->Add(g);
+      //  if (gFit->GetParameter(1) < 0)
+      //    continue;
+      printf("LINEFIT %i slope %f error %f \n", int(vchan[i]), gFit->GetParameter(1), gFit->GetParError(1));
+      sipmGain.push_back(gFit->GetParameter(1));
+      sipmGainError.push_back(gFit->GetParError(1));
+      sipmNumber.push_back(vchan[i]);
+      sipmNumberError.push_back(0);
+
+      /* just take max bin */
+    }
+    else
+    {
       double maxValue = hlist[i]->GetBinCenter(hlist[i]->GetMaximumBin());
       sipmGain.push_back(maxValue);
-      sipmGainError.push_back( hlist[i]->GetBinWidth(1));
+      sipmGainError.push_back(hlist[i]->GetBinWidth(1));
       sipmNumber.push_back(vchan[i]);
       sipmNumberError.push_back(0);
     }
