@@ -81,7 +81,7 @@ std::vector<double> qsumGain; // read from class TReadGain
 
 // cut values
 double cosmicCut = 30.; // value normlized to nominalPmtGain
-double gammaCut = 140.; // was 150 normalized to nominalGain; //
+double gammaCut = 15;   // was 140.; // was 150 normalized to nominalGain; //
 
 // pass bit failures hex
 enum FAILURECODES
@@ -134,9 +134,6 @@ double npass;
 vector<int> filePass;
 vector<int> fileTotal;
 
-double nominalGain;
-double nominalTrigGain;
-
 void normalize(int ichan)
 {
   // printf("at line174 %s normalize to %d\n", hSave->GetName(), totalPass);
@@ -161,8 +158,7 @@ void makeTernary(double a, double b, double c, double &x, double &y)
 }
 
 int passEventCuts(Long64_t entry)
-{
-  // there is only 1 passbit but stored in all det. I admit is bad MGold
+{ // there is only 1 passbit but stored in all det. I admit is bad MGold
   RunTree->GetEntry(entry);
   // RunTree->GetListOfBranches()->ls();
   //   get branch pointers and save in detList
@@ -193,12 +189,21 @@ int passEventCuts(Long64_t entry)
   ///  printf("det %i totSum %f \n", idet, detList[idet]->totSum);
   //}
 
-  double triggerSum = detList[9]->totSum + detList[10]->totSum + detList[11]->totSum;
+  /* be careful to rmove nominal gain used in anaCRunGamma */
+  // scale factor to new gain
+  double scale[3];
+  double triggerSum = 0;
+  for (int i = 0; i < 3; ++i)
+  {
+    scale[i] = readGains->sipmSumGain[9 + i] / readGains->nominalQsumTrigGain;
+    triggerSum += detList[9 + i]->totSum * scale[i];
+  }
+
   hGammaPeak->Fill(triggerSum);
   double qFraction[3];
-  qFraction[0] = detList[9]->totSum / triggerSum;
-  qFraction[1] = detList[10]->totSum / triggerSum;
-  qFraction[2] = detList[11]->totSum / triggerSum;
+  qFraction[0] = detList[9]->totSum * scale[0] / triggerSum;
+  qFraction[1] = detList[10]->totSum * scale[1] / triggerSum;
+  qFraction[2] = detList[11]->totSum * scale[2] / triggerSum;
 
   double xternQ, yternQ;
   makeTernary(qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
@@ -214,24 +219,33 @@ int passEventCuts(Long64_t entry)
   if (passTriangle)
     hTrianglePass->Fill(xternQ, yternQ);
 
+  // set triangle bit
+  if (!passTriangle)
+    passBit |= TRIANGLE;
+
   // clear old bits
   passBit &= ~(COSMIC);
   passBit &= ~(GAMMA);
   passBit &= ~(TRIANGLE);
 
   // gamma cut
-  hGammaCut->Fill(detList[12]->lateSum);
-  if (detList[12]->lateSum > gammaCut)
+  double pmtLateSum = detList[12]->lateSum * readGains->sipmSumGain[12] / readGains->nominalQsumPmtGain;
+  hGammaCut->Fill(pmtLateSum);
+  if (pmtLateSum > gammaCut)
     passBit |= GAMMA;
 
   // cosmic cut on summed SIPM
-  hCosmicCut->Fill(detList[13]->totSum);
-  if (detList[13]->totSum > cosmicCut)
-    passBit |= COSMIC;
+  // det 13 is sum of alll SIPMS
+  double totSum13 = 0;
+  for (int i = 0; i < 9; ++i)
+    totSum13 += detList[i]->totSum * readGains->sipmSumGain[i] / readGains->nominalQsumGain;
 
-  // set triangle bit
-  if (!passTriangle)
-    passBit |= TRIANGLE;
+  for (int i = 9; i < 12; ++i)
+    totSum13 += detList[i]->totSum * readGains->sipmSumGain[i] / readGains->nominalQsumTrigGain;
+
+  hCosmicCut->Fill(totSum13);
+  if (totSum13 > cosmicCut)
+    passBit |= COSMIC;
 
   // loop over fail bits
   for (int ic = 0; ic < FAILBITS; ++ic)
@@ -577,11 +591,8 @@ int main(int argc, char *argv[])
 
   /* read gains from saved file */
   readGains = new TReadGains();
-  // use nominal gains for now FIXME
-  nominalGain = readGains->nominalGain;
-  nominalTrigGain = readGains->nominalTrigGain;
-  readGains->printGains();
 
+  // readGains->printGains(); // done inside class
   // store qsumGain[ib];
   for (unsigned ch = 0; ch < readGains->sipmSumGain.size(); ++ch)
     qsumGain.push_back(readGains->sipmSumGain[ch]);

@@ -8,8 +8,8 @@ ClassImp(TReadGains)
     nominalTrigGain = 735.688747; //
     nominalQsumGain = 4940.503519;
     nominalQsumTrigGain = 32056.789775;
-    nominalPmtGain = 502.;
-    nominalQsumPmtGain = 1713;
+    nominalPmtGain = 165.;      // changed for run 5 was 502.;
+    nominalQsumPmtGain = 1900.; // changed for run 5 was 1713;
     clear();
 
     // new gain file
@@ -140,8 +140,38 @@ bool TReadGains::readSumGains(TString fileName)
     for (int i = 0; i < gGain->GetN(); ++i)
     {
         int index = int(gGain->GetPointX(i));
-        sipmSumGain[index] = gGain->GetPointY(i);
-        sipmSumGainError[index] = gGain->GetErrorY(i);
+        // protect against bad values
+        double val = gGain->GetPointY(i);
+        if (i < 9)
+        {
+            if (val > nominalQsumGain / 2.)
+            {
+                sipmSumGain[index] = gGain->GetPointY(i);
+                sipmSumGainError[index] = gGain->GetErrorY(i);
+            }
+            else
+                printf("TReadGain WARNING gain val %f too small compared to %f\n", val, sipmSumGain[index]);
+        }
+        else if (i > 8 && i < 12)
+        {
+            if (val > nominalQsumTrigGain / 2.)
+            {
+                sipmSumGain[index] = gGain->GetPointY(i);
+                sipmSumGainError[index] = gGain->GetErrorY(i);
+            }
+            else
+                printf("TReadGain WARNING gain val %f too small compared to %f\n", val, sipmSumGain[index]);
+        }
+        else if (i == 12)
+        {
+            if (val > nominalQsumPmtGain / 2.)
+            {
+                sipmSumGain[index] = gGain->GetPointY(i);
+                sipmSumGainError[index] = gGain->GetErrorY(i);
+            }
+            else
+                printf("TReadGain WARNING gain val %f too small compared to %f\n", val, sipmSumGain[index]);
+        }
     }
 
     return true;

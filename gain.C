@@ -11,6 +11,7 @@
 
 TFile *fin;
 TFile *fout;
+bool doFit=false;
 // double nominalGain = 227.4; // average
 double theNominalGain;
 /**************** define nominal gains ***************/
@@ -285,7 +286,7 @@ void gain(int theChan = 13) // default all
   printf(" making cans on %s \n", sdate.c_str());
 
   // put in explicit file name and get tag
-  TString fileName("summary-05_19_2025-05_19_2025-nfiles-31-created-2025-06-27-11-49.root");
+  TString fileName("compiled/summary-10_30_2025-10_30_2025-nfiles-63-created-2025-11-24-14-48.root");
   TString tag = TString(fileName(fileName.First("-") + 1, 21));
   cout << " gains from file " << fileName << " with date tag " << tag << endl;
 
@@ -341,9 +342,10 @@ void gain(int theChan = 13) // default all
       printf("  FFFFFF point %lu  ADC %.2f +/- %.2f  y %.2f\n",
              j, fFitADC[j], fFitADCError[j], fFitADCY[j]);
 
-    if (fFitADC.size() < 2)
+    if (fFitADC.size() < 1)
       continue;
 
+    if(doFit) {
     // make graph from fit points
     TGraphErrors *g = new TGraphErrors(fFitADC.size(), &fSpeNumber[0], &fFitADC[0], &fSpeNumberError[0], &fFitADCError[0]);
     // g->Print();
@@ -387,6 +389,15 @@ void gain(int theChan = 13) // default all
     sipmGainError.push_back(gFit->GetParError(1));
     sipmNumber.push_back(vchan[i]);
     sipmNumberError.push_back(0);
+
+    /* just take max bin */
+    } else {
+      double maxValue = hlist[i]->GetBinCenter(hlist[i]->GetMaximumBin());
+      sipmGain.push_back(maxValue);
+      sipmGainError.push_back( hlist[i]->GetBinWidth(1));
+      sipmNumber.push_back(vchan[i]);
+      sipmNumberError.push_back(0);
+    }
 
     // plot
     TCanvas *can = new TCanvas(Form("PeaksChan%i", i), Form("chan%i", i));
