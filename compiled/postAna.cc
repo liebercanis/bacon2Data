@@ -233,7 +233,7 @@ int passEventCuts(Long64_t entry)
   if (!passTriangle)
     passBit |= TRIANGLE;
 
-    // gamma cut
+  // gamma cut
   double pmtLateSum = detList[12]->lateSum * readGains->sipmSumGain[12] / readGains->nominalQsumPmtGain;
   hGammaCut->Fill(pmtLateSum);
   if (pmtLateSum > gammaCut)
@@ -606,8 +606,14 @@ void post(TString tag)
     normalize(ich);
 
   hPassBitNew->Print("all");
+  // loop over fail bits
+  printf("summary of bit failures \n");
+  for (int ic = 0; ic < FAILBITS; ++ic)
+  {
+    printf("bit %i %s val %f \n", ic, bitNames[ic].Data(), hPassBitNew->GetBinContent(ic));
+  }
 
-  fout->ls();
+  // fout->ls();
   fout->Write();
   // fout->ls();
 }
