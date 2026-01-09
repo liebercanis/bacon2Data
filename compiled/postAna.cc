@@ -467,7 +467,10 @@ void loop()
   for (Long64_t entry = 0; entry < maxEntry; ++entry)
   {
     if (entry / 10000 * 10000 == entry)
+    {
       printf("line330 .....loop entry %lld \n", entry);
+      fflush(stdout);
+    }
     int passBit = passEventCuts(entry);
     hEventPassNew->SetBinContent(passBit, hEventPassNew->GetBinContent(passBit) + 1);
     if (passBit != 0)
@@ -756,9 +759,9 @@ int main(int argc, char *argv[])
   /* here we make the TCHain and them loop over it */
 
   // open log file
-  TString logFileName = TString("post-") + tag + sentries + TString(".log");
+  // TString logFileName = TString("post-") + tag + sentries + TString(".log");
   // Redirect stdout to a file
-  freopen(logFileName.Data(), "w", stdout);
+  // freopen(logFileName.Data(), "w", stdout);
   post(tag);
-  fclose(stdout); // It is good practice to close the redirected stdou
+  // fclose(stdout); // It is good practice to close the redirected stdou
 }
