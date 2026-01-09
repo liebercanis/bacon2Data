@@ -598,7 +598,8 @@ void post(TString tag)
     double ntot = hEventPassNew->GetEntries();
     double prob = nbin / ntot;
     double perror = sqrt(prob * (1. - prob) / ntot);
-    printf(" bin %i fail %.f frac %.3f +/- %.3f name %s \n", ibin, hEventPassNew->GetBinContent(ibin), prob, perror, codeNames[ibin].Data());
+    if (nbin > 0)
+      printf(" bin %i fail %.f frac %.3f +/- %.3f name %s \n", ibin, hEventPassNew->GetBinContent(ibin), prob, perror, codeNames[ibin].Data());
   }
 
   // do not normilzed summed chan 13
@@ -607,10 +608,12 @@ void post(TString tag)
 
   hPassBitNew->Print("all");
   // loop over fail bits
-  printf("summary of bit failures \n");
+  printf("summary of bit failures %llu pass %llu \n", maxEntry, totalPass);
   for (int ic = 0; ic < FAILBITS; ++ic)
   {
-    printf("bit %i %s val %f \n", ic, bitNames[ic].Data(), hPassBitNew->GetBinContent(ic));
+    double prob = hPassBitNew->GetBinContent(ic) / double(maxEntry);
+    double perror = sqrt(prob * (1. - prob)) / double(maxEntry);
+    printf("bit %i %s val %.0f frac %.3f +/- %.3f \n", ic, bitNames[ic].Data(), hPassBitNew->GetBinContent(ic), prob, perror);
   }
 
   // fout->ls();
