@@ -623,6 +623,7 @@ void post(TString tag)
 
 int main(int argc, char *argv[])
 {
+
   fout = nullptr;
   cout << "executing " << argv[0] << " post hit finding analysis  " << endl;
   printf(" usage:  start date string <stag> end date string <etag> max entries <default all> \n ");
@@ -753,5 +754,11 @@ int main(int argc, char *argv[])
 
   cout << " starting summary for   " << fileListName.size() << " on " << sdate << " writing to file " << fout->GetName() << endl;
   /* here we make the TCHain and them loop over it */
+
+  // open log file
+  TString logFileName = TString("post-") + tag + sentries + TString(".log");
+  // Redirect stdout to a file
+  freopen(logFileName.Data(), "w", stdout);
   post(tag);
+  fclose(stdout); // It is good practice to close the redirected stdou
 }
