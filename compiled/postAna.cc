@@ -188,6 +188,11 @@ int passEventCuts(Long64_t entry)
       passBit = det->pass;
     }
   }
+  // clear old bits
+  passBit &= ~(COSMIC);
+  passBit &= ~(GAMMA);
+  passBit &= ~(TRIANGLE);
+
   // if recalculating a cut, would do it here
   // for (int idet = 0; idet < detList.size(); ++idet)
   //{
@@ -228,12 +233,7 @@ int passEventCuts(Long64_t entry)
   if (!passTriangle)
     passBit |= TRIANGLE;
 
-  // clear old bits
-  passBit &= ~(COSMIC);
-  passBit &= ~(GAMMA);
-  passBit &= ~(TRIANGLE);
-
-  // gamma cut
+    // gamma cut
   double pmtLateSum = detList[12]->lateSum * readGains->sipmSumGain[12] / readGains->nominalQsumPmtGain;
   hGammaCut->Fill(pmtLateSum);
   if (pmtLateSum > gammaCut)
@@ -702,7 +702,7 @@ int main(int argc, char *argv[])
     maxEntry = atoi(argv[3]);
   }
 
-  printf(" >>>>> analyze %u  files from %s to %s tag %s totalEntries %lld maxEntry %lldb<<<<<\n", nfiles, theStartTag.Data(), theEndTag.Data(), tag.Data(), totalEntries, maxEntry);
+  printf(" >>>>> analyze %u  files from %s to %s tag %s totalEntries %lld maxEntry %lld <<<<<\n", nfiles, theStartTag.Data(), theEndTag.Data(), tag.Data(), totalEntries, maxEntry);
 
   sdate = currentDate();
   tag = theStartTag + TString("-") + theEndTag;
