@@ -50,9 +50,7 @@ TReadGains *readGains;
 TChain *RunTree;
 TFile *fout;
 TString tag;
-TNtuple *ntSum;
-TNtuple *ntHit;
-TNtuple *ntTDiff;
+TNtuple *ntTrig;
 Long64_t totalEntries;
 Long64_t maxEntry;
 Long64_t totalPass;
@@ -262,6 +260,8 @@ int passEventCuts(Long64_t entry)
     }
   }
 
+  ntTrig->Fill(pmtLateSum, totSum13, triggerSum, qFraction[0], qFraction[1], qFraction[2], double(passBit));
+
   // fill passing gamma peak
   if (passBit == 0)
     hGammaPeakPass->Fill(triggerSum);
@@ -469,6 +469,7 @@ void loop()
     if (entry / 10000 * 10000 == entry)
     {
       printf("line330 .....loop entry %lld \n", entry);
+      // force printing to log file
       fflush(stdout);
     }
     int passBit = passEventCuts(entry);
@@ -540,6 +541,10 @@ void post(TString tag)
   Long64_t ntriggers = RunTree->GetEntries();
   printf(" in post: tag %s total triggers in this chain %lld \n", tag.Data(), ntriggers);
   // RunTree->GetListOfBranches()->ls();
+
+  // trigger info ntuple
+  // ntTrig->Fill( pmtLateSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
+  ntTrig = new TNtuple("ntTrig", "trigger info", "pmtLateSum:totSum13:triggerSum:qFraction0:qFraction1:qFraction2:passBit");
 
   // make histograms
   hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
@@ -758,10 +763,5 @@ int main(int argc, char *argv[])
   cout << " starting summary for   " << fileListName.size() << " on " << sdate << " writing to file " << fout->GetName() << endl;
   /* here we make the TCHain and them loop over it */
 
-  // open log file
-  // TString logFileName = TString("post-") + tag + sentries + TString(".log");
-  // Redirect stdout to a file
-  // freopen(logFileName.Data(), "w", stdout);
   post(tag);
-  // fclose(stdout); // It is good practice to close the redirected stdou
 }
