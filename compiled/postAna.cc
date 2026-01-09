@@ -668,7 +668,7 @@ int main(int argc, char *argv[])
   bitNames[4] = TString("cosmic");
   bitNames[5] = TString("gamma");
   bitNames[6] = TString("trigger");
-  bitNames[7] = TString("trianlge");
+  bitNames[7] = TString("triangle");
 
   printf("failure codes: \n");
   for (int icode = 0; icode < 8; ++icode)
