@@ -205,6 +205,7 @@ int passEventCuts(Long64_t entry)
   {
     scale[i] = readGains->sipmSumGain[9 + i] / readGains->nominalQsumTrigGain;
     triggerSum += detList[9 + i]->totSum * scale[i];
+    scale[i] = 1.;
   }
 
   hGammaPeak->Fill(triggerSum);
@@ -549,8 +550,8 @@ void post(TString tag)
   // make histograms
   hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
   hEventPassNew = new TH1D("EventPassNew", " remade event failures", TOTALCODES, 0, TOTALCODES);
-  hGammaCut = new TH1D("GammaCut", "gamma late sum chan 13 /nominal gain ", 1000, 0, 10. * gammaCut);
-  hCosmicCut = new TH1D("CosmicCut", " PMT sum /nominal gain", 1000, 0, 10. * cosmicCut);
+  hGammaCut = new TH1D("GammaCut", "gamma pmt lateSum/nominal gain ", 1000, 0, 10. * gammaCut);
+  hCosmicCut = new TH1D("CosmicCut", " cosmic qsum13/nominal gain", 1000, 0, 10. * cosmicCut);
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hTrianglePass = new TH2D("TrianglePass", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hGammaPeak = new TH1D("GammaPeak", "gamma peak (photons)", 150, 0., 300.);
