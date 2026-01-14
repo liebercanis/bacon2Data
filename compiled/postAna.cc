@@ -70,7 +70,10 @@ TH1D *hEventPass;
 TH1D *eventCount;
 TH1D *hEventPassNew;
 TH1D *hPassBitNew;
+TH2D *hTriangleUn;
 TH2D *hTriangle;
+TH2D *hTriangleSecondUn;
+TH2D *hTriangleSecond;
 TH2D *hTrianglePass;
 TH1D *hGammaPeak;
 TH1D *hGammaPeakPass;
@@ -83,7 +86,7 @@ std::vector<TH1D *> hLightNorm;
 std::vector<double> qsumGain; // read from class TReadGain
 
 // cut values
-double cosmicCut = 30.; // value normlized to nominalPmtGain
+double cosmicCut = 58.; // value normlized to nominalPmtGain
 double gammaCut = 15;   // was 140.; // was 150 normalized to nominalGain; //
 
 // pass bit failures hex
@@ -107,7 +110,7 @@ enum
 
 std::vector<TString> bitNames;
 std::vector<TString> codeNames;
-int failCode[FAILBITS];
+std::vector<int> failCode;
 
 //
 enum
@@ -200,12 +203,19 @@ int passEventCuts(Long64_t entry)
   /* be careful to rmove nominal gain used in anaCRunGamma */
   // scale factor to new gain
   double scale[3];
+  for (int i = 0; i < 3; ++i)
+    scale[i] = readGains->sipmSumGain[9 + i] / readGains->nominalQsumTrigGain;
+
+  if (entry == 0)
+    for (int i = 0; i < 3; ++i)
+      printf("gain scale factor: channel %i  ratio gain/nominal Qsum %f  \n", i, scale[i]);
+
   double triggerSum = 0;
+  double triggerSumUn = 0;
   for (int i = 0; i < 3; ++i)
   {
-    scale[i] = readGains->sipmSumGain[9 + i] / readGains->nominalQsumTrigGain;
     triggerSum += detList[9 + i]->totSum * scale[i];
-    scale[i] = 1.;
+    triggerSumUn += detList[9 + i]->totSum;
   }
 
   hGammaPeak->Fill(triggerSum);
@@ -214,9 +224,27 @@ int passEventCuts(Long64_t entry)
   qFraction[1] = detList[10]->totSum * scale[1] / triggerSum;
   qFraction[2] = detList[11]->totSum * scale[2] / triggerSum;
 
+  double qFractionUn[3];
+  qFractionUn[0] = detList[9]->totSum / triggerSumUn;
+  qFractionUn[1] = detList[10]->totSum / triggerSumUn;
+  qFractionUn[2] = detList[11]->totSum / triggerSumUn;
+
   double xternQ, yternQ;
   makeTernary(qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
   hTriangle->Fill(xternQ, yternQ);
+
+  double xternQun, yternQun;
+  makeTernary(qFractionUn[0], qFractionUn[1], qFractionUn[2], xternQun, yternQun);
+  hTriangleUn->Fill(xternQun, yternQun);
+
+  /* look at second peak triangle*/
+
+  /* look at second peak triangle*/
+  if (triggerSumUn > 50.)
+    hTriangleSecondUn->Fill(xternQun, yternQun);
+
+  if (triggerSum > 50.)
+    hTriangleSecond->Fill(xternQ, yternQ);
 
   /******   triangle cut ** try a cut like TUM */
   bool passTriangle = true;
@@ -261,7 +289,7 @@ int passEventCuts(Long64_t entry)
     }
   }
 
-  ntTrig->Fill(pmtLateSum, totSum13, triggerSum, qFraction[0], qFraction[1], qFraction[2], double(passBit));
+  ntTrig->Fill(pmtLateSum, totSum13, triggerSum, qFractionUn[0], qFractionUn[1], qFractionUn[2], qFraction[0], qFraction[1], qFraction[2], xternQ, yternQun, double(passBit));
 
   // fill passing gamma peak
   if (passBit == 0)
@@ -545,14 +573,17 @@ void post(TString tag)
 
   // trigger info ntuple
   // ntTrig->Fill( pmtLateSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
-  ntTrig = new TNtuple("ntTrig", "trigger info", "pmtLateSum:totSum13:triggerSum:qFraction0:qFraction1:qFraction2:passBit");
+  ntTrig = new TNtuple("ntTrig", "trigger info", "pmtLateSum:totSum13:triggerSum:qFracUn0:qFracUn1:qFracUn2:qFraction0:qFraction1:qFraction2:xQ:yQ:passBit");
 
   // make histograms
   hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
   hEventPassNew = new TH1D("EventPassNew", " remade event failures", TOTALCODES, 0, TOTALCODES);
-  hGammaCut = new TH1D("GammaCut", "gamma pmt lateSum/nominal gain ", 1000, 0, 10. * gammaCut);
-  hCosmicCut = new TH1D("CosmicCut", " cosmic qsum13/nominal gain", 1000, 0, 10. * cosmicCut);
+  hGammaCut = new TH1D("GammaCut", "gamma pmt lateSum/nominal gain ", 4000, 0, 5. * gammaCut);
+  hCosmicCut = new TH1D("CosmicCut", " cosmic qsum13/nominal gain", 4000, 0, 5. * cosmicCut);
+  hTriangleUn = new TH2D("TriangleUn", "ytern vs xtern unscaled", 100, 0., 1., 100, 0., 1.);
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
+  hTriangleSecondUn = new TH2D("TriangleSecondUn", "ytern vs xtern in second gamma peak", 100, 0., 1., 100, 0., 1.);
+  hTriangleSecond = new TH2D("TriangleSecond", "ytern vs xtern in second gamma peak gains", 100, 0., 1., 100, 0., 1.);
   hTrianglePass = new TH2D("TrianglePass", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hGammaPeak = new TH1D("GammaPeak", "gamma peak (photons)", 150, 0., 300.);
   hGammaPeakPass = new TH1D("GammaPeakPass", "gamma peak  pass triangle (photons)", 150, 0., 300.);
@@ -645,24 +676,12 @@ int main(int argc, char *argv[])
   /* read gains from saved file */
   readGains = new TReadGains();
 
-  // readGains->printGains(); // done inside class
   // store qsumGain[ib];
   for (unsigned ch = 0; ch < readGains->sipmSumGain.size(); ++ch)
     qsumGain.push_back(readGains->sipmSumGain[ch]);
 
   /* for failure bits */
-  for (unsigned ic = 0; ic < TOTALCODES; ++ic)
-    codeNames.push_back(TString("mixed"));
-  codeNames[PASS] = TString("pass");
-  codeNames[BASEFAIL] = TString("baseline");
-  codeNames[TRIANGLE] = TString("triangle");
-  codeNames[EARLYCUT] = TString("earlycut");
-  codeNames[FIRSTTIME] = TString("firsttime");
-  codeNames[COSMIC] = TString("cosmic");
-  codeNames[GAMMA] = TString("gamma");
-  codeNames[TRIGFAIL] = TString("trigfail");
-  codeNames[TRIANGLE] = TString("traingle");
-
+  failCode.resize(FAILBITS);
   failCode[0] = PASS;
   failCode[1] = BASEFAIL;
   failCode[2] = EARLYCUT;
@@ -674,14 +693,25 @@ int main(int argc, char *argv[])
 
   vecFail.resize(FAILBITS);
   bitNames.resize(FAILBITS);
-  bitNames[0] = TString("pass");
-  bitNames[1] = TString("baseline");
-  bitNames[2] = TString("earlycut");
-  bitNames[3] = TString("firsttime");
-  bitNames[4] = TString("cosmic");
-  bitNames[5] = TString("gamma");
-  bitNames[6] = TString("trigger");
-  bitNames[7] = TString("triangle");
+  bitNames[0] = TString("Pass");
+  bitNames[1] = TString("Baseline");
+  bitNames[2] = TString("Earlycut");
+  bitNames[3] = TString("Firsttime");
+  bitNames[4] = TString("Cosmic");
+  bitNames[5] = TString("Gamma");
+  bitNames[6] = TString("Trigger");
+  bitNames[7] = TString("Triangle");
+
+  codeNames.resize(TOTALCODES);
+  // build trigger bit pattern names
+  for (int ic = 0; ic < TOTALCODES; ++ic)
+  {
+    for (int ibit = 0; ibit < FAILBITS; ++ibit)
+    {
+      if (ic & failCode[ibit])
+        codeNames[ic] += bitNames[ibit];
+    }
+  }
 
   printf("failure codes: \n");
   for (int icode = 0; icode < 8; ++icode)
