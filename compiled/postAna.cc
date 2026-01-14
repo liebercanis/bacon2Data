@@ -190,6 +190,7 @@ int passEventCuts(Long64_t entry)
     }
   }
   // clear old bits
+  passBit &= ~(TRIGFAIL); // triangle bit in anaCRunGamma.cc
   passBit &= ~(COSMIC);
   passBit &= ~(GAMMA);
   passBit &= ~(TRIANGLE);
