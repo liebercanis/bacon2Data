@@ -290,7 +290,7 @@ int passEventCuts(Long64_t entry)
     }
   }
 
-  ntTrig->Fill(pmtLateSum, totSum13, triggerSum, qFractionUn[0], qFractionUn[1], qFractionUn[2], qFraction[0], qFraction[1], qFraction[2], xternQ, yternQun, double(passBit));
+  ntTrig->Fill(double(entry), pmtLateSum, totSum13, triggerSum, qFractionUn[0], qFractionUn[1], qFractionUn[2], qFraction[0], qFraction[1], qFraction[2], xternQ, yternQun, double(passBit));
 
   // fill passing gamma peak
   if (passBit == 0)
@@ -574,7 +574,7 @@ void post(TString tag)
 
   // trigger info ntuple
   // ntTrig->Fill( pmtLateSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
-  ntTrig = new TNtuple("ntTrig", "trigger info", "pmtLateSum:totSum13:triggerSum:qFracUn0:qFracUn1:qFracUn2:qFraction0:qFraction1:qFraction2:xQ:yQ:passBit");
+  ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtLateSum:totSum13:triggerSum:qFracUn0:qFracUn1:qFracUn2:qFraction0:qFraction1:qFraction2:xQ:yQ:passBit");
 
   // make histograms
   hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
