@@ -219,6 +219,10 @@ int passEventCuts(Long64_t entry)
     triggerSumUn += detList[9 + i]->totSum;
   }
 
+  /* set trigfail if triggerSum>230 */
+  if (triggerSum.230)
+    passBit |= TRIGFAIL;
+
   hGammaPeak->Fill(triggerSum);
   double qFraction[3];
   qFraction[0] = detList[9]->totSum * scale[0] / triggerSum;
