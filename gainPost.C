@@ -26,15 +26,20 @@ std::vector<TH1D *> peakList;
 std::vector<TH1D *> sumList;
 
 TGraphErrors *gSavedGain;
-std::vector<double> sipmSavedGain;
-std::vector<double> sipmSavedGainError;
-std::vector<double> sipmGain;
-std::vector<double> sipmGainError;
+TGraphErrors *gNewGain;
 
 std::vector<double> firstPeak;
 std::vector<int> firstPeakChan;
 std::vector<double> firstSum;
 std::vector<int> firstSumChan;
+
+std::vector<double> sipmSavedGain;
+std::vector<double> sipmSavedGainError;
+/* for gain graph */
+std::vector<double> sipmGain;
+std::vector<double> sipmGainError;
+std::vector<double> sipmNumber;
+std::vector<double> sipmNumberError;
 
 std::string sdate;
 
@@ -161,11 +166,16 @@ void getHistosFromFile()
  * ******************* */
 void gainPost() // default all
 {
+  sipmGain.resize(13);
+  sipmGainError.resize(13);
+  sipmNumber.resize(13);
+  sipmNumberError.resize(13);
+
   sdate = currentDate();
   printf(" making cans on %s \n", sdate.c_str());
 
   // put in explicit file name and get tag
-  TString fileName("compiled/post-10_06_2025-10_06_2025-969976.root");
+  TString fileName("compiled/post-10_06_2025-10_06_2025-1951999.root");
   TString tag = TString(fileName(fileName.First("-") + 1, 21));
   cout << " gains from file " << fileName << " with date tag " << tag << endl;
 
@@ -249,7 +259,7 @@ void gainPost() // default all
         continue;
       ++nToFit;
       fFitAdc[ipeak] = peakList[i]->GetBinLowEdge(ipeakBin);
-      fFitAdcError[ipeak] = width;
+      fFitAdcError[ipeak] = width / sqrt(integral); // gaussian error sigma/sqrt(N)
       printf("point %i %f %f peak bin %i val %f integral %f \n", ipeak, fitStart, fitEnd, ipeakBin, peakList[i]->GetBinLowEdge(ipeakBin), integral);
     }
 
@@ -260,11 +270,58 @@ void gainPost() // default all
     TGraphErrors *g = new TGraphErrors(nToFit, &fSpeNumber[0], &fFitAdc[0], &fSpeNumberError[0], &fFitAdcError[0]);
     g->SetName(Form("GraphChan%i", i));
     g->SetTitle(Form("Graph to fit for Chan%i", i));
-    fout->Append(g);
-    /* fit line and get slope and error if nToFit greater than 1
-    collect into new graph of new gains
-    */
+    fout->Add(g);
+
+    // fit line
+    g->Fit("myLine", "Q");
+    // g->GetHistogram()->GetListOfFunctions()->ls();
+    TF1 *gFit = g->GetFunction("myLine");
+    if (gFit == nullptr)
+    {
+      printf("line270!!!!!! fit to myLine fails for hist %i \n", i);
+      continue;
+    }
+    TCanvas *gcan = new TCanvas(Form("GainMarkerChan%i", i), Form("chan%i", i));
+    gPad->SetLogy(0);
+    gStyle->SetOptFit();
+    // g->GetHistogram()->GetXaxis()->SetRangeUser(0, 4);
+    // g->GetHistogram()->GetYaxis()->SetRangeUser(0, 1.5E5);
+    gFit->SetLineStyle(5);
+    gFit->SetLineWidth(1);
+    g->SetMarkerStyle(20);
+    g->SetMarkerSize(.5);
+    g->Draw("APE1");
+    gFit->Draw("same");
+    gPad->SetGrid();
+    gcan->Print(".pdf");
+    fout->Add(g);
+    fout->Add(gcan);
+
+    printf("LINEFIT %i slope %f error %f \n", i, gFit->GetParameter(1), gFit->GetParError(1));
+    sipmGain[i] = gFit->GetParameter(1);
+    sipmGainError[i] = gFit->GetParError(1);
+    sipmNumber[i] = double(i);
+    sipmNumberError[i] = 0;
   }
+
+  // make final graph of gains
+  TGraphErrors *absGain = new TGraphErrors(sipmGain.size(), &sipmNumber[0], &sipmGain[0], &sipmNumberError[0], &sipmGainError[0]);
+  TString absoluteName;
+  absoluteName = Form("gainPeak");
+  TString absoluteTitle;
+  absoluteTitle = Form("absolute gain  %s", tag.Data());
+  absGain->SetName(absoluteName);
+  absGain->SetTitle(absoluteTitle);
+  absGain->GetHistogram()->GetYaxis()->SetTitle("absolute gain");
+  absGain->GetHistogram()->GetXaxis()->SetTitle("channel");
+  absGain->SetTitle(absoluteTitle);
+  absGain->SetMarkerStyle(23);
+  absGain->SetMarkerColor(kRed);
+  absGain->SetMarkerSize(1.3);
+  absGain->GetHistogram()->GetYaxis()->SetTitle("gain ADC/PE");
+  absGain->GetHistogram()->GetXaxis()->SetTitle("channel");
+
+  fout->Add(absGain);
 
   fout->ls();
   fout->Write();
