@@ -87,7 +87,7 @@ std::vector<double> qsumGain; // read from class TReadGain
 
 // cut values
 double cosmicCut = 58.; // value normlized to nominalPmtGain
-double gammaCut = 15;   // was 140.; // was 150 normalized to nominalGain; //
+double gammaCut = 10;   // was 140.; // was 150 normalized to nominalGain; //
 
 // pass bit failures hex
 enum FAILURECODES
