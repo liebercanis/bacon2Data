@@ -11,7 +11,7 @@
 
 TFile *fin;
 TFile *fout;
-bool doFit = false;
+TString tag;
 // double nominalGain = 227.4; // average
 double theNominalGain;
 /**************** define nominal gains ***************/
@@ -30,8 +30,6 @@ TGraphErrors *gNewGain;
 
 std::vector<double> firstPeak;
 std::vector<int> firstPeakChan;
-std::vector<double> firstSum;
-std::vector<int> firstSumChan;
 
 std::vector<double> sipmSavedGain;
 std::vector<double> sipmSavedGainError;
@@ -40,6 +38,10 @@ std::vector<double> sipmGain;
 std::vector<double> sipmGainError;
 std::vector<double> sipmNumber;
 std::vector<double> sipmNumberError;
+std::vector<double> fSpeNumber;
+std::vector<double> fSpeNumberError;
+std::vector<double> fFitAdc;
+std::vector<double> fFitAdcError;
 
 std::string sdate;
 
@@ -152,6 +154,7 @@ void getHistosFromFile()
     if (!cl->InheritsFrom("TH1D"))
       continue;
     TH1D *h = (TH1D *)key->ReadObj();
+    fout->Append(h);
 
     if (TString(h->GetName()).Contains("Peak"))
       peakList.push_back(h);
@@ -159,6 +162,142 @@ void getHistosFromFile()
     if (TString(h->GetName()).Contains("Sum"))
       sumList.push_back(h);
   }
+}
+
+void doGains(TString type)
+{
+  firstPeak.clear();
+  firstPeakChan.clear();
+  // find first peaks
+  cout << " do gains for type " << type << endl;
+  if (type.Contains("Peak")) // for peak hits
+  {
+    for (unsigned i = 0; i < NONSUMCHANNELS; ++i)
+    {
+      firstPeak.push_back(peakList[i]->GetBinCenter(peakList[i]->GetMaximumBin()));
+      firstPeakChan.push_back(getChan(peakList[i]));
+    }
+  }
+  else // for sum hits
+  {
+    for (unsigned i = 0; i < NONSUMCHANNELS; ++i)
+    {
+      firstPeak.push_back(sumList[i]->GetBinCenter(sumList[i]->GetMaximumBin()));
+      firstPeakChan.push_back(getChan(sumList[i]));
+    }
+  }
+
+  for (unsigned i = 0; i < firstPeak.size(); ++i)
+    printf(" type %s chan %i peak at %.2f\n", type.Data(), firstPeakChan[i], firstPeak[i]);
+
+  // just do for chan 9 for starters
+  // collect the points
+
+  fSpeNumber.clear();
+  fSpeNumberError.clear();
+  fFitAdc.clear();
+  fFitAdcError.clear();
+  fSpeNumber.resize(MAXPOINTS);
+  fSpeNumberError.resize(MAXPOINTS);
+  fFitAdc.resize(MAXPOINTS);
+  fFitAdcError.resize(MAXPOINTS);
+
+  for (int i = 0; i < NONSUMCHANNELS; ++i)
+  {
+    // collect the points//
+    printf("for channel %i :\n", i);
+    unsigned nToFit = 0;
+    // histogram to fit to from the appropriate list
+    TH1D *hFit = peakList[i];
+    if (type.Contains("Sum"))
+      hFit = sumList[i];
+    //
+    for (int ipeak = 0; ipeak < MAXPOINTS; ++ipeak)
+    {
+      fSpeNumber[ipeak] = ipeak + 1;
+      fSpeNumberError[ipeak] = 0;
+      double width = 0;
+      if (type.Contains("Sum"))
+        width = 400;
+      else
+        width = 10;
+      double fitStart = firstPeak[i] * double(ipeak + 1) - width;
+      double fitEnd = firstPeak[i] * double(ipeak + 1) + width;
+      double integral = 0;
+      int ipeakBin = findPeakBin(hFit, fitStart, fitEnd, integral);
+      if (integral < 10.)
+        continue;
+      ++nToFit;
+      fFitAdc[ipeak] = peakList[i]->GetBinLowEdge(ipeakBin);
+      fFitAdcError[ipeak] = width / sqrt(integral); // gaussian error sigma/sqrt(N)
+      // printf("point %i %f %f peak bin %i val %f integral %f \n", ipeak, fitStart, fitEnd, ipeakBin, peakList[i]->GetBinLowEdge(ipeakBin), integral);
+    }
+
+    // fit the line
+
+    /* collect list of ipeakBins for integral > something and fill a TGraphErrors
+     */
+    printf("THEFIT type %s channel %i fit to %i points \n", type.Data(), i, nToFit);
+    TGraphErrors *g = new TGraphErrors(nToFit, &fSpeNumber[0], &fFitAdc[0], &fSpeNumberError[0], &fFitAdcError[0]);
+    g->SetName(Form("Graph%sChan%i", type.Data(), i));
+    g->SetTitle(Form("Graph to fit for Chan%i", i));
+    fout->Add(g);
+
+    // fit line
+    g->Fit("myLine", "Q");
+    // g->GetHistogram()->GetListOfFunctions()->ls();
+    TF1 *gFit = g->GetFunction("myLine");
+    if (gFit != nullptr) // good fit
+    {
+      TCanvas *gcan = new TCanvas(Form("Gain%sMarkerChan%i", type.Data(), i), Form("%schan%i", type.Data(), i));
+      gPad->SetLogy(0);
+      gStyle->SetOptFit();
+      // g->GetHistogram()->GetXaxis()->SetRangeUser(0, 4);
+      // g->GetHistogram()->GetYaxis()->SetRangeUser(0, 1.5E5);
+      gFit->SetLineStyle(5);
+      gFit->SetLineWidth(1);
+      g->SetMarkerStyle(20);
+      g->SetMarkerSize(.5);
+      g->Draw("APE1");
+      gFit->Draw("same");
+      gPad->SetGrid();
+      gcan->Print(".pdf");
+      fout->Add(g);
+      fout->Add(gcan);
+
+      printf("%s LINEFIT %i slope %f error %f \n", type.Data(), i, gFit->GetParameter(1), gFit->GetParError(1));
+      sipmGain[i] = gFit->GetParameter(1);
+      sipmGainError[i] = gFit->GetParError(1);
+      sipmNumber[i] = double(i);
+      sipmNumberError[i] = 0;
+    }
+    else // fit fails
+    {
+      printf("line269 !!!!!! fit to myLine fails for hist %i \n", i);
+      for (unsigned ip = 0; ip < fSpeNumber.size(); ++ip)
+        printf("peak %i %f %f \n", ip, fSpeNumber[ip], fFitAdc[ip]);
+      sipmGain[i] = firstPeak[i];
+      sipmGainError[i] = 0;
+      sipmNumber[i] = double(i);
+      sipmNumberError[i] = 0;
+    }
+  }
+
+  // make final graph of gains
+  TGraphErrors *absGain = new TGraphErrors(sipmGain.size(), &sipmNumber[0], &sipmGain[0], &sipmNumberError[0], &sipmGainError[0]);
+  TString absoluteName;
+  absoluteName = Form("gain%s", type.Data());
+  TString absoluteTitle;
+  absoluteTitle = Form("absolute %s gain  %s", type.Data(), tag.Data());
+  absGain->SetName(absoluteName);
+  absGain->SetTitle(absoluteTitle);
+  absGain->GetHistogram()->GetYaxis()->SetTitle(absoluteTitle.Data());
+  absGain->GetHistogram()->GetXaxis()->SetTitle("channel");
+  absGain->SetTitle(absoluteTitle);
+  absGain->SetMarkerStyle(23);
+  absGain->SetMarkerColor(kRed);
+  absGain->SetMarkerSize(1.3);
+  fout->Append(absGain);
 }
 
 /***********************
@@ -176,7 +315,7 @@ void gainPost() // default all
 
   // put in explicit file name and get tag
   TString fileName("compiled/post-10_06_2025-10_06_2025-1951999.root");
-  TString tag = TString(fileName(fileName.First("-") + 1, 21));
+  tag = TString(fileName(fileName.First("-") + 1, 21));
   cout << " gains from file " << fileName << " with date tag " << tag << endl;
 
   // open file
@@ -186,7 +325,7 @@ void gainPost() // default all
 
   // open output file
   std::string sdate = currentDate();
-  fout = new TFile(Form("gainPeak-%s-%s.root", tag.Data(), sdate.c_str()), "recreate");
+  fout = new TFile(Form("gains-%s-%s.root", tag.Data(), sdate.c_str()), "recreate");
 
   // function to fit line
   TF1 *line = new TF1("myLine", fline, 0, 2.E5, 2);
@@ -207,121 +346,9 @@ void gainPost() // default all
   fout->Append(gSavedGain);
 
   getHistosFromFile();
-
   printf("line171 have peak gain hists %lu and sum gain hists %lu \n", peakList.size(), sumList.size());
-
-  // find first peaks
-  for (unsigned i = 0; i < NONSUMCHANNELS; ++i)
-  {
-    firstPeak.push_back(peakList[i]->GetBinCenter(peakList[i]->GetMaximumBin()));
-    firstPeakChan.push_back(getChan(peakList[i]));
-  }
-
-  for (unsigned i = 0; i < firstPeak.size(); ++i)
-    printf(" %i %s chan %i peak at %.2f\n", i, peakList[i]->GetName(), firstPeakChan[i], firstPeak[i]);
-
-  // find first sum peaks
-  for (unsigned i = 0; i < NONSUMCHANNELS; ++i)
-  {
-    firstSum.push_back(sumList[i]->GetBinCenter(sumList[i]->GetMaximumBin()));
-    firstSumChan.push_back(getChan(sumList[i]));
-  }
-
-  for (unsigned i = 0; i < firstPeak.size(); ++i)
-    printf("%i %s chan %i sum at %.2f\n", i, sumList[i]->GetName(), firstSumChan[i], firstSum[i]);
-
-  // just do for chan 9 for starters
-  // collect the points
-  std::vector<double> fSpeNumber;
-  std::vector<double> fSpeNumberError;
-  std::vector<double> fFitAdc;
-  std::vector<double> fFitAdcError;
-  fSpeNumber.resize(MAXPOINTS);
-  fSpeNumberError.resize(MAXPOINTS);
-  fFitAdc.resize(MAXPOINTS);
-  fFitAdcError.resize(MAXPOINTS);
-
-  for (int i = 0; i < NONSUMCHANNELS; ++i)
-  {
-    // collect the points//
-    printf("for channel %i :\n", i);
-    unsigned nToFit = 0;
-    for (int ipeak = 0; ipeak < 4; ++ipeak)
-    {
-      fSpeNumber[ipeak] = ipeak + 1;
-      fSpeNumberError[ipeak] = 0;
-      double width = firstPeak[i] / 10.;
-      double fitStart = firstPeak[i] * double(ipeak + 1) - width;
-      double fitEnd = firstPeak[i] * double(ipeak + 1) + width;
-      double integral = 0;
-      int ipeakBin = findPeakBin(peakList[i], fitStart, fitEnd, integral);
-      if (integral < 10.)
-        continue;
-      ++nToFit;
-      fFitAdc[ipeak] = peakList[i]->GetBinLowEdge(ipeakBin);
-      fFitAdcError[ipeak] = width / sqrt(integral); // gaussian error sigma/sqrt(N)
-      printf("point %i %f %f peak bin %i val %f integral %f \n", ipeak, fitStart, fitEnd, ipeakBin, peakList[i]->GetBinLowEdge(ipeakBin), integral);
-    }
-
-    // fit the line
-
-    /* collect list of ipeakBins for integral > something and fill a TGraphErrors
-     */
-    TGraphErrors *g = new TGraphErrors(nToFit, &fSpeNumber[0], &fFitAdc[0], &fSpeNumberError[0], &fFitAdcError[0]);
-    g->SetName(Form("GraphChan%i", i));
-    g->SetTitle(Form("Graph to fit for Chan%i", i));
-    fout->Add(g);
-
-    // fit line
-    g->Fit("myLine", "Q");
-    // g->GetHistogram()->GetListOfFunctions()->ls();
-    TF1 *gFit = g->GetFunction("myLine");
-    if (gFit == nullptr)
-    {
-      printf("line270!!!!!! fit to myLine fails for hist %i \n", i);
-      continue;
-    }
-    TCanvas *gcan = new TCanvas(Form("GainMarkerChan%i", i), Form("chan%i", i));
-    gPad->SetLogy(0);
-    gStyle->SetOptFit();
-    // g->GetHistogram()->GetXaxis()->SetRangeUser(0, 4);
-    // g->GetHistogram()->GetYaxis()->SetRangeUser(0, 1.5E5);
-    gFit->SetLineStyle(5);
-    gFit->SetLineWidth(1);
-    g->SetMarkerStyle(20);
-    g->SetMarkerSize(.5);
-    g->Draw("APE1");
-    gFit->Draw("same");
-    gPad->SetGrid();
-    gcan->Print(".pdf");
-    fout->Add(g);
-    fout->Add(gcan);
-
-    printf("LINEFIT %i slope %f error %f \n", i, gFit->GetParameter(1), gFit->GetParError(1));
-    sipmGain[i] = gFit->GetParameter(1);
-    sipmGainError[i] = gFit->GetParError(1);
-    sipmNumber[i] = double(i);
-    sipmNumberError[i] = 0;
-  }
-
-  // make final graph of gains
-  TGraphErrors *absGain = new TGraphErrors(sipmGain.size(), &sipmNumber[0], &sipmGain[0], &sipmNumberError[0], &sipmGainError[0]);
-  TString absoluteName;
-  absoluteName = Form("gainPeak");
-  TString absoluteTitle;
-  absoluteTitle = Form("absolute gain  %s", tag.Data());
-  absGain->SetName(absoluteName);
-  absGain->SetTitle(absoluteTitle);
-  absGain->GetHistogram()->GetYaxis()->SetTitle("absolute gain");
-  absGain->GetHistogram()->GetXaxis()->SetTitle("channel");
-  absGain->SetTitle(absoluteTitle);
-  absGain->SetMarkerStyle(23);
-  absGain->SetMarkerColor(kRed);
-  absGain->SetMarkerSize(1.3);
-  absGain->GetHistogram()->GetYaxis()->SetTitle("gain ADC/PE");
-  absGain->GetHistogram()->GetXaxis()->SetTitle("channel");
-
-  fout->Add(absGain);
+  doGains("Peak");
+  doGains("Sum");
 
   fout->ls();
   fout->Write();
