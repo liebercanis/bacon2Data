@@ -220,7 +220,7 @@ int passEventCuts(Long64_t entry)
   }
 
   /* set trigfail if triggerSum>230 */
-  if (triggerSum.230)
+  if (triggerSum > 230)
     passBit |= TRIGFAIL;
 
   hGammaPeak->Fill(triggerSum);

@@ -27,14 +27,16 @@ public:
   {
   }
 
-  bool readPeakGains(TString fileName);
-  bool readSumGains(TString fileName);
+  bool openFile();
+  bool readPeakGains();
+  bool readSumGains();
   void printGains();
   void clear();
 
   // data elements
-  TString gainFilePeakName;
-  TString gainFileSumName;
+  TString gainFileName;
+  TGraphErrors *gPeakGraph;
+  TGraphErrors *gSumGraph;
   std::vector<double> sipmPeakGain;
   std::vector<double> sipmPeakGainError;
   std::vector<double> sipmSumGain;

@@ -11,14 +11,66 @@ ClassImp(TReadGains)
     nominalPmtGain = 165.;      // changed for run 5 was 502.;
     nominalQsumPmtGain = 1900.; // changed for run 5 was 1713;
     clear();
+    gPeakGraph = NULL;
+    gSumGraph = NULL;
 
     // new gain file
-    gainFilePeakName = TString(getenv("BOBJ")) + TString("/gainPeakCurrent.root");
-    gainFileSumName = TString(getenv("BOBJ")) + TString("/gainSumCurrent.root");
-    cout << "read gains from file " << gainFilePeakName << "" << gainFileSumName << endl;
-    readPeakGains(gainFilePeakName);
-    readSumGains(gainFileSumName);
+    gainFileName = TString(getenv("BOBJ")) + TString("/gainsCurrent.root");
+    bool gotFile = openFile();
+    if (gotFile)
+        cout << "TReadGains:: read gains from file " << gainFileName << "" << gainFileName << endl;
+    else
+        cout << "TReadGains:: error failed to open file  " << gainFileName << "" << gainFileName << endl;
+
+    readPeakGains();
+    readSumGains();
     printGains();
+}
+
+bool TReadGains::openFile()
+{
+    /* look for gain file */
+    bool exists = false;
+    FILE *aFile;
+    aFile = fopen(gainFileName.Data(), "r");
+    if (aFile)
+    {
+        fclose(aFile);
+        exists = true;
+    }
+
+    if (!exists)
+    {
+        printf(" fopen couldnt open template file %s\n", gainFileName.Data());
+        return false;
+    }
+
+    TFile *fin = new TFile(gainFileName, "readonly");
+    if (fin->IsZombie())
+    {
+        std::cout << "Error opening file" << gainFileName << std::endl;
+        return false;
+    }
+    cout << " opened sipm gain file " << gainFileName << endl;
+
+    gPeakGraph = NULL;
+    fin->GetObject("gainPeak", gPeakGraph);
+    if (gPeakGraph == NULL)
+    {
+        cout << "no gainPeak in file " << endl;
+        return false;
+    }
+    cout << "found graph named " << gPeakGraph->GetName() << " in file " << gainFileName << endl;
+
+    gSumGraph = NULL;
+    fin->GetObject("gainSum", gSumGraph);
+    if (gSumGraph == NULL)
+    {
+        cout << "no gainSum in file " << endl;
+        return false;
+    }
+    cout << "found graph named " << gSumGraph->GetName() << " in file " << gainFileName << endl;
+    return true;
 }
 
 void TReadGains::clear()
@@ -29,9 +81,10 @@ void TReadGains::clear()
     sipmSumGainError.clear();
 }
 
-bool TReadGains::readPeakGains(TString fileName)
+bool TReadGains::readPeakGains()
 {
 
+    TGraphErrors *gGain = gPeakGraph;
     /* define nominal */
     sipmPeakGain.clear();
     sipmPeakGainError.clear();
@@ -43,41 +96,12 @@ bool TReadGains::readPeakGains(TString fileName)
     sipmPeakGain[10] = nominalTrigGain;
     sipmPeakGain[11] = nominalTrigGain;
     sipmPeakGain[12] = nominalPmtGain;
+    if (!gGain)
+        return false;
 
+    printf("peak gains with graph %s \n", gGain->GetName());
     for (int i = 0; i < NUMCHANNELS; ++i)
         sipmPeakGainError[i] = sqrt(sipmPeakGain[i]);
-
-    /* look for gain file */
-    bool exists = false;
-    FILE *aFile;
-    aFile = fopen(fileName.Data(), "r");
-    if (aFile)
-    {
-        fclose(aFile);
-        exists = true;
-    }
-
-    if (!exists)
-    {
-        printf(" fopen couldnt open template file %s\n", fileName.Data());
-        return false;
-    }
-
-    TFile *fin = new TFile(fileName, "readonly");
-    if (fin->IsZombie())
-    {
-        std::cout << "Error opening file" << fileName << std::endl;
-        return false;
-    }
-    cout << " opened sipm gain file " << fileName << endl;
-    TGraphErrors *gGain = NULL;
-    fin->GetObject("gainPeak", gGain);
-    if (gGain == NULL)
-    {
-        cout << "no gGain in file " << endl;
-        return false;
-    }
-    cout << "found graph named " << gGain->GetName() << " in file " << fileName << endl;
 
     for (int i = 0; i < gGain->GetN(); ++i)
     {
@@ -89,8 +113,9 @@ bool TReadGains::readPeakGains(TString fileName)
     return true;
 }
 
-bool TReadGains::readSumGains(TString fileName)
+bool TReadGains::readSumGains()
 {
+    TGraphErrors *gGain = gSumGraph;
     sipmSumGain.clear();
     sipmSumGainError.clear();
     sipmSumGain.resize(NUMCHANNELS);
@@ -101,42 +126,15 @@ bool TReadGains::readSumGains(TString fileName)
     sipmSumGain[10] = nominalQsumTrigGain;
     sipmSumGain[11] = nominalQsumTrigGain;
     sipmSumGain[12] = nominalQsumPmtGain;
+    if (!gGain)
+        return false;
+
+    printf("sum gains with graph %s \n", gGain->GetName());
 
     for (int i = 0; i < NUMCHANNELS; ++i)
         sipmSumGainError[i] = sqrt(sipmSumGain[i]);
 
-    /* look for gain file */
-    bool exists = false;
-    FILE *aFile;
-    aFile = fopen(fileName.Data(), "r");
-    if (aFile)
-    {
-        fclose(aFile);
-        exists = true;
-    }
-
-    if (!exists)
-    {
-        printf(" fopen couldnt open template file %s\n", fileName.Data());
-        return false;
-    }
-
-    TFile *fin = new TFile(fileName, "readonly");
-    if (fin->IsZombie())
-    {
-        std::cout << "Error opening file" << fileName << std::endl;
-        return false;
-    }
-    cout << " opened sipm gain file " << fileName << endl;
-    TGraphErrors *gGain = NULL;
-    fin->GetObject("gainSum", gGain);
-    if (gGain == NULL)
-    {
-        cout << "no gGain in file " << endl;
-        return false;
-    }
-    cout << "found graph named " << gGain->GetName() << " in file " << fileName << endl;
-
+    // protect against bad gain values
     for (int i = 0; i < gGain->GetN(); ++i)
     {
         int index = int(gGain->GetPointX(i));

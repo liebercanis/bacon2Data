@@ -228,7 +228,7 @@ void doGains(TString type)
       if (integral < 10.)
         continue;
       ++nToFit;
-      fFitAdc[ipeak] = peakList[i]->GetBinLowEdge(ipeakBin);
+      fFitAdc[ipeak] = hFit->GetBinLowEdge(ipeakBin);
       fFitAdcError[ipeak] = width / sqrt(integral); // gaussian error sigma/sqrt(N)
       // printf("point %i %f %f peak bin %i val %f integral %f \n", ipeak, fitStart, fitEnd, ipeakBin, peakList[i]->GetBinLowEdge(ipeakBin), integral);
     }
