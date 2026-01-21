@@ -205,7 +205,7 @@ int passEventCuts(Long64_t entry)
   // scale factor to new gain
   double scale[3];
   for (int i = 0; i < 3; ++i)
-    scale[i] = readGains->sipmSumGain[9 + i] / readGains->nominalQsumTrigGain;
+    scale[i] = readGains->nominalQsumTrigGain / readGains->sipmSumGain[9 + i];
 
   if (entry == 0)
     for (int i = 0; i < 3; ++i)
