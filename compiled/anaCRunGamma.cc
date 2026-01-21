@@ -1,6 +1,10 @@
-/*  This is GAMMA version Sept 25 2024  */
-// revised Jan 15 2025
+/*
+  /////////////////////////////////////////////////////////
+   This is GAMMA version Sept 25 2024
+  revised Jan 15 2025
+   add a bool useNewGains otherwise, use nominal gains Jan 20 2026
 /////////////////////////////////////////////////////////
+*/
 #include <sstream>
 #include <unistd.h>
 #include <iostream>
@@ -98,6 +102,7 @@ public:
   int failCosmic = 0;
   TH1D *hNominalBaselines;
 
+  bool useNewGains = false; // default is use nominal
   bool doNotOverWrite = true;
   bool theFirstFile = true;
   bool isSim = false;
@@ -943,7 +948,7 @@ int anaCRun::anaEvent(Long64_t entry)
     */
 
     // for debugging printf("entry %lld chan %u cut %.3f mode %.3f pass %i \n", entry, ib, baselineModeCut, mode, ;
-    if (ntBase->GetEntries() < 1.E6)
+    if (ntBase->GetEntries() < 1.E4)
       ntBase->Fill(entry, ib, nominalBaseline[ib], mode, baseRms, baselinePass);
 
     fout->cd();
@@ -979,7 +984,7 @@ int anaCRun::anaEvent(Long64_t entry)
     idet->maxAdc = maxAdc;
     idet->maxSample = maxSample;
     // I have added this to the TDet as  maxSample maxAdc
-    if (ntAdc->GetEntries() < 1E7)
+    if (ntAdc->GetEntries() < 1E5)
     {
       for (unsigned j = 0; j < rawBr[ichan]->rdigi.size(); ++j)
       {
@@ -1023,7 +1028,7 @@ int anaCRun::anaEvent(Long64_t entry)
     double val = 0;
     // get time for maximim val before triggerEnd
     unsigned time = getTriggerTime(ib, val); // include timeOffset in routine
-    if (ntSetTrigTime->GetEntries() < 1.E6)
+    if (ntSetTrigTime->GetEntries() < 1.E5)
       ntSetTrigTime->Fill(double(entry), double(ib), double(time), double(val));
     trigTimes[ib] = time;
     adcBin[ib] = val;
@@ -2218,6 +2223,14 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
       qsumGain.push_back(readGains->nominalQsumPmtGain);
   }
 
+  if (useNewGains)
+  {
+    qsumGain.clear();
+    qsumGain.resize(TReadGains::NUMCHANNELS);
+    for (unsigned ch = 0; ch < readGains->sipmSumGain.size(); ++ch)
+      qsumGain[ch] = readGains->sipmSumGain[ch];
+  }
+
   if (theFirstFile)
   {
     theFirstFile = false;
@@ -2225,7 +2238,10 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     for (unsigned j = 0; j < chanThreshold.size(); ++j)
       printf("chan %u chanThreshold %.3f \n", j, chanThreshold[j]);
     readGains->printGains();
-    printf("FIXED summed gains:\n");
+    if (useNewGains)
+      printf("using new gains file %s  gains:\n", readGains->gainFileName.Data());
+    else
+      printf("FIXED summed gains:\n");
     for (unsigned ch = 0; ch < readGains->sipmSumGain.size(); ++ch)
       printf("\t\t summed gain %u val %.3f \n", ch, qsumGain[ch]);
   }
@@ -2736,7 +2752,6 @@ anaCRun::anaCRun(TString theTag)
   nominalQsumTrigGain = readGains->nominalQsumTrigGain;
   nominalQsumPmtGain = readGains->nominalQsumPmtGain;
 
-  failCode[0] = PASS;
   failCode[1] = BASEFAIL;
   failCode[2] = EARLYCUT;
   failCode[3] = FIRSTTIME;
