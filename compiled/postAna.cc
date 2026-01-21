@@ -266,7 +266,7 @@ int passEventCuts(Long64_t entry)
     passBit |= TRIANGLE;
 
   // gamma cut
-  double pmtLateSum = detList[12]->lateSum * readGains->sipmSumGain[12] / readGains->nominalQsumPmtGain;
+  double pmtLateSum = detList[12]->lateSum * readGains->nominalQsumPmtGain / readGains->sipmSumGain[12];
   hGammaCut->Fill(pmtLateSum);
   if (pmtLateSum > gammaCut)
     passBit |= GAMMA;
@@ -275,10 +275,10 @@ int passEventCuts(Long64_t entry)
   // det 13 is sum of alll SIPMS
   double totSum13 = 0;
   for (int i = 0; i < 9; ++i)
-    totSum13 += detList[i]->totSum * readGains->sipmSumGain[i] / readGains->nominalQsumGain;
+    totSum13 += detList[i]->totSum * readGains->nominalQsumGain / readGains->sipmSumGain[i];
 
   for (int i = 9; i < 12; ++i)
-    totSum13 += detList[i]->totSum * readGains->sipmSumGain[i] / readGains->nominalQsumTrigGain;
+    totSum13 += detList[i]->totSum * readGains->nominalQsumTrigGain / readGains->sipmSumGain[i];
 
   hCosmicCut->Fill(totSum13);
   if (totSum13 > cosmicCut)
