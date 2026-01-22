@@ -1,4 +1,3 @@
-// simple sim of btb
 // April 28 2025
 #include <iostream>
 #include <fstream>
@@ -27,6 +26,8 @@ std::string sdate;
 using namespace TMath;
 TFile *fout;
 TRandom3 *ran;
+TString geoName;
+bool isFid;
 
 // for writing raw data
 TBRawEvent *rawEvent;
@@ -40,12 +41,14 @@ bool useMap = false;
 int reportInterval = 1000;
 double zZero = 0.3; // source position
 
+int trigCount9;
 TNtuple *ntOrigin;
 TNtuple *ntTrigCh;
 TNtuple *ntTrig;
 TNtuple *ntTern;
 TNtuple *ntMean;
 TNtuple *ntFit;
+TNtuple *ntGammaPeak;
 /* geant maps */
 TH3D *originPDF;     // pdf of event origins
 TH3D *fluxMapChan9;  // geo efficiency values
@@ -59,13 +62,31 @@ TH1D *hPhiMap;
 TH1D *hZMap;
 TH2D *hRhoZMap;
 TH3D *hRhoPhiZMap;
+
+TH2D *hXYMapFid;
+TH3D *hXYZMapFid;
+TH1D *hRadiusMapFid;
+TH1D *hRhoMapFid;
+TH1D *hPhiMapFid;
+TH1D *hZMapFid;
+TH2D *hRhoZMapFid;
+TH3D *hRhoPhiZMapFid;
+
 TH1D *hEffGeo;
 TH1D *hEffGeo9;
 TH1D *hEffGeo10;
 TH1D *hEffGeo11;
 TH1D *hPoisson;
+TH1D *hPhotonTrig[3];
+TH1D *hPhotonTrigSum;
 
+TH1D *hSignalPhotons[3];
+TH1D *hNumberSPE[3];
+TH1D *hSignalPhotonsEvent[3];
+TH1D *hGeoEff[NCHAN];
 TH1D *hPhoton[NCHAN];
+TH1D *hPhotonSum[NCHAN];
+TH1D *hSinglet[NCHAN];
 TH1D *hConvolve[NCHAN];
 TH1D *hSignalNb[NCHAN]; // no baseline
 TH1D *hSignal[NCHAN];
@@ -80,11 +101,12 @@ TH1D *hResponse;
 TH1D *hTime;
 TH1D *hTrigDiffTime;
 TH1D *hTrigDiffTime30;
-TH1D *hTrigDiffTime10;
+TH1D *hTrigDiffTimeCut;
+TH1D *hGammaPeak;
 TH2D *hTriangle;
 TH2D *hTriangleCut;
 TH2D *hTriangleMean;
-uint16_t maxAdc = pow(2, 14);
+// uint16_t maxAdc = pow(2, 14);
 double gain;
 double sigmaNoise;
 double landauMax = 0.018063;
@@ -93,11 +115,14 @@ double nominalGeo;
 /* parameters quoted in talk  "A new optical model for LEGEND-200
 with remage" Manuel Huber <ge38nap@mytum.de>, Luigi Pertoldi
 LEGEND collaboration meeting · March 25, 2025 */
-double singletFrac = 0.23;
-double numPhotons = LY * 60.; // 60 keV gamma
+double singletFrac = 0.14; //;0.23;   // Segretto PHYSICAL REVIEW D 103, 043001 (2021)
+// LY is in modelFitAll.hh
+double numPhotons = LY * 60.;
+//*50. / 34.; // scale to gamma peak in data  60 keV gamma
 double nominalGain = 227.4;
 double nominalTrigGain = 735.688747;
 double fillFactor = 1.0;
+double reflection = 1.; //.8; // guess.. angular dependance?
 int binWidth = 2;
 double noiseToSignal = 0.04;
 double baseline = 1100.; // 1100; // ADC
@@ -106,14 +131,16 @@ double meanFreePath = 1.53; // from table in cm3frmom rtabtable in cm3frmom rtab
 double totalEventEffiency;
 double triggerTimes[3];
 double cosMin = 0.851 / sqrt(pow(0.4, 2) + pow(0.851, 2));
-double maxTriggerTimeDiffernce = 30.;         // Aug 9
-unsigned timeOffset = 13;                     // changed from 17 may 13, 2024
-double nominalSimQsumTrigGain = 32056.789775; // rough estimate
+double maxTriggerTimeDifference = 24.0;  // Aug 9
+unsigned timeOffset = 13;                // changed from 17 may 13, 2024
+double nominalSipmQsumTrigGain = 31180.; // revised Nov 3 32056.789775; // rough estimate
+double trigTimeShift[3];
 
 double peakQsum[3];
 
+// Note that the actual coordinate origin is centered on the source.
 ROOT::Math::XYZVector eventOrigin(0, 0, 0);
-ROOT::Math::XYZVector eventOriginOffset(0, 0, zZero);
+// ROOT::Math::XYZVector eventOriginOffset(0, 0, zZero);
 
 // z is positive into array!
 // ROOT::Math::XYZVector positionSipm9(1.052, -0.608, 0.851);
@@ -176,42 +203,116 @@ bool getMap()
 }
 
 // trigger condition return maximum time between 3 SIPM first photons
-double eventTrigger()
+double eventTrigger(int iev)
 {
   // printf("line104 %0.f %0.f %0.f \n", hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries());
   // number of samples is 7500 each bin is 2 ns
   // hPhoton x-axis is in ns
-  double tdiff = double(2 * 7500);
+
+  double tdiff = double(2 * MAXSAMPLE); // better to put in overflow
+  // printf("line204 eventTrigger photon integrals 9) %.3f %.3f 10) %.3f %.3f 11) %.3f  %.3f\n", hPhoton[9]->GetEntries(), hSignalPhotonsEvent[0]->Integral(),
+  //        hPhoton[10]->GetEntries(), hSignalPhotonsEvent[1]->Integral(), hPhoton[11]->GetEntries(), hSignalPhotonsEvent[2]->Integral());
+  //  all must have at least 1 photon
+  /*
+  if (hSignalPhotonsEvent[0]->GetEntries() < 1)
+    return tdiff;
+  if (hSignalPhotonsEvent[1]->GetEntries() < 1)
+    return tdiff;
+  if (hSignalPhotonsEvent[2]->GetEntries() < 1)
+    return tdiff;
+  */
+
+  // TH1D *hclone9 = (TH1D *)hSignalPhotonsEvent[0]->Clone();
+
   // all must have at least 1 photon
+  double prompt9 = hPhoton[9]->Integral(730, 745) / gain;
+  double prompt10 = hPhoton[10]->Integral(730, 745) / gain;
+  double prompt11 = hPhoton[11]->Integral(730, 745) / gain;
+
+  hNumberSPE[0]->Fill(hPhoton[9]->GetEntries());
+  hNumberSPE[1]->Fill(hPhoton[10]->GetEntries());
+  hNumberSPE[2]->Fill(hPhoton[11]->GetEntries());
+
+  bool canTrig = true;
+  if (prompt9 < 1)
+    canTrig = false;
+  if (prompt10 < 1)
+    canTrig = false;
+  if (prompt11 < 1)
+    canTrig = false;
+  ;
+
+  // if (!canTrig)
+  // printf("line236 event %i %.0f %.0f %.0f\n", iev, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries());
+
+  if (!canTrig)
+  {
+    // printf("event %i cannot trig \n", iev);
+    return tdiff;
+  }
+
+  /*
   if (hPhoton[9]->GetEntries() < 1)
     return tdiff;
   if (hPhoton[10]->GetEntries() < 1)
     return tdiff;
   if (hPhoton[11]->GetEntries() < 1)
     return tdiff;
+    */
 
-  // collect first times hPhoton x-axis is in ns
+  ++trigCount9;
+
+  // collect first times hPhoton x-axis each bin is 2ns
   std::vector<double> ftimes;
-  for (int isipm = 9; isipm < NCHANPMT; ++isipm)
+
+  for (int isipm = 9; isipm < 12; ++isipm)
   {
-    for (int ibin = 1; ibin < hPhoton[isipm]->GetNbinsX(); ++ibin)
+    /* using convolution waveform
+    for (int ibin = 1; ibin < hSignalPhotonsEvent[isipm]->GetNbinsX(); ++ibin)
+    {
+      if (hSignalPhotonsEvent[isipm]->GetBinContent(ibin) > 1)
+        printf("chan %i bin %i val %f \n", isipm, ibin, hSignalPhotonsEvent[isipm]->GetBinContent(ibin));
+    }
+       */
+
+    /* based on photon arrival */
+    for (int ibin = 730; ibin < 746; ++ibin)
     {
       if (hPhoton[isipm]->GetBinContent(ibin) > 0)
       {
+        // ftimes.push_back(hPhoton[isipm]->GetBinLowEdge(ibin));
         ftimes.push_back(hPhoton[isipm]->GetBinCenter(ibin));
         break;
       }
     }
+    /* alternative logic
+    int nph = 0;
+    for (int ibin = 1; ibin < hPhoton[isipm]->GetNbinsX(); ++ibin)
+    {
+      if (hPhoton[isipm]->GetBinContent(ibin) > 0)
+        ++nph;
+      if (nph > 0) // number of photons to trigger
+      {
+        ftimes.push_back(hPhoton[isipm]->GetBinCenter(ibin)); // the time this photon is detected
+        break;
+      }
+    }
+    */
   }
   if (ftimes.size() < 3)
+  {
+    printf("event %i ftimes %ld  trig \n", iev, ftimes.size());
     return tdiff;
+  }
+  // this event can trigger
+  hEventPass->SetBinContent(3, hEventPass->GetBinContent(3) + 1);
 
   // Sort in ascending order (default)
   std::sort(ftimes.begin(), ftimes.end());
   tdiff = ftimes[2] - ftimes[0];
 
-  // printf("line189 (%f %f %f)  tdiff %f \n", ftimes[0], ftimes[1], ftimes[2], tdiff);
-
+  // printf("line189 %i (%.0f %.0f %.0f)  tdiff %.0f \n", iev, ftimes[0], ftimes[1], ftimes[2], tdiff);
+  //   convert to ns
   return tdiff;
 }
 
@@ -365,9 +466,20 @@ double effGeoSim(int ichan) // uses PositionVector3D eventOrigin;
 
 void btb(int ngen = 10000000)
 {
+  // zerp trig coount
+  trigCount9 = 0;
 
-  geoVersionOld = true;
+  // trigger time shifts
+  trigTimeShift[0] = 0.;
+  trigTimeShift[0] = -5.;
+  trigTimeShift[0] = +5.;
+
+  geoVersionOld = false;
   setDistanceLevels(geoVersionOld);
+  if (geoVersionOld)
+    geoName = TString("OLD");
+  else
+    geoName = TString("NEW");
 
   if (geoVersionOld)
   {
@@ -384,9 +496,9 @@ void btb(int ngen = 10000000)
       chan 10 1.062 -0.795 -0.459 -0.534
       chan 11 1.062 0.000 0.918 -0.534
     */
-    positionSipm9.SetCoordinates(0.795, -0.459, -0.534);
-    positionSipm10.SetCoordinates(-0.795, -0.459, -0.534);
-    positionSipm11.SetCoordinates(0.000, 0.918, -0.534);
+    positionSipm9.SetCoordinates(0.795, -0.459, 0.534);
+    positionSipm10.SetCoordinates(-0.795, -0.459, 0.534);
+    positionSipm11.SetCoordinates(0.000, 0.918, 0.534);
     printf(" btb sim NEW geometry NOMAP generate ngen =  %i LY %.1f photons/kev * 60 = %.1f nominalGain %f nominalTrigGain %f \n", ngen, LY, numPhotons, nominalGain, nominalTrigGain);
   }
 
@@ -417,14 +529,20 @@ void btb(int ngen = 10000000)
   /* nominal geo with SIPM at with R=0 origin detector origin */
   double trigDistanceR = positionSipm9.R();
   nominalGeo = pow(0.6, 2.) / pow(trigDistanceR, 2.) / (4.0 * TMath::Pi());
+  double nPhotonsNominal = nPhotons * pow(nominalGeo * SiPMQE128Ham, 3.0);
+  printf("\n ******************* nominal photon %.0f trig R %.3f nominal goem eff %.3f sum on 3 sipms %.2f ********************\n",
+         nPhotons, trigDistanceR, nominalGeo, nPhotonsNominal);
 
   /* channel efficiences */
+  double nominalGeo9;
   for (int i = 0; i < NCHAN - 1; ++i)
   {
     double effGeoSimi = effGeoSim(i);
     double trigRadius = distanceLevel[getLevel(i)];
     nominalGeo = pow(0.6, 2.) / pow(trigRadius, 2.) / (4.0 * TMath::Pi());
-    printf("chan %i eventOrgin R %.3f nominal effGeoSim %E (%E)  \n", i, eventOrigin.R(), effGeoFunc(i), nominalGeo);
+    if (i == 9)
+      nominalGeo9 = nominalGeo;
+    printf("chan %i eventOrgin R %.3f nominal effGeoSim %E (%E)  ratio %E \n", i, eventOrigin.R(), effGeoFunc(i), nominalGeo, nominalGeo9 / nominalGeo);
     eff[i] = effGeoSimi * SiPMQE128Ham * fillFactor;
     // double dist = distanceLevel[level(i)];
   }
@@ -466,11 +584,38 @@ void btb(int ngen = 10000000)
     rawRun->btree->SetTitle("simulation");
     // rawRun->print();a
   }
+  ntOrigin = new TNtuple("ntOrigin", " event origin ", "ev:r:cos:theta:phi:x:y:z");
+  ntTrig = new TNtuple("ntTrig", " trigger info by event  ", "ev:trigSum:nph9:nph10:nph11:r:rho:phi:x:y:z:tdiff:pass");
+  ntTrigCh = new TNtuple("ntTrigCh", " trigger info by channel ", "ev:ch:qsum:psum:nph:rho:phi:x:y:z:effgeo");
+  ntTern = new TNtuple("ntTern", " trigger sipm", "eventRho:eventPhi:eventZ:nph9:nph10:nph11:qsum9:qsum10:qsum11:mean9:mean10:mean11:xq:yq");
+  ntMean = new TNtuple("ntMean", "trigger means ", "ev:eventRho:eventPhi:eventZ:qsum9:qsum10:qsum11:mean9:mean10:mean11:xternq:yternq");
+  ntFit = new TNtuple("ntFit", "trigger peak fit", "ev:numPhotons:eventR:eventCos:eventPhi:qsum9:qsum10:qsum11:fitR:fitCos:fitPhi:errR:errTheta:ierr");
+  ntScan = new TNtuple("ntScan", "scan", "nll:mean9:mean10:mean11:qsum9:qsum10:qsum11:r:theta:phi");
+  ntGammaPeak = new TNtuple("ntGammaPeak", "nt gamma peak", "ev:nph9:nph10:nph11:sum");
+
   hPoisson = new TH1D("Poisson", " total photons in event  ", 200, 0, 200.);
+  hPhotonTrig[0] = new TH1D("PhotonTrig9", " total sipm 9 trigger photons in event  ", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+  hPhotonTrig[1] = new TH1D("PhotonTrig10", " total sipm 10 trigger photons in event  ", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+  hPhotonTrig[2] = new TH1D("PhotonTrig11", " total sipm 11 trigger photons in event  ", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+  hSignalPhotons[0] = new TH1D("SignalPhotons9", "photons/event channel 9", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+  hSignalPhotons[1] = new TH1D("SignalPhotons10", "photons/event channel 10", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+  hSignalPhotons[2] = new TH1D("SignalPhotons11", "photons/event channel 11", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+  hNumberSPE[0] = new TH1D("NumberSPE9", "photons/event channel 9", 50, 0, 50);
+  hNumberSPE[1] = new TH1D("NumberSPE10", "photons/event channel 10", 50, 0, 50);
+  hNumberSPE[2] = new TH1D("NumberSPE11", "photons/event channel 11", 50, 0, 50);
+
+  hSignalPhotonsEvent[0] = new TH1D("SignalPhotonsEvent9", "photons in event  channel 9", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+  hSignalPhotonsEvent[1] = new TH1D("SignalPhotonsEvent10", "photons in event channel 10", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+  hSignalPhotonsEvent[2] = new TH1D("SignalPhotonsEvent11", "photons in event channel 11", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+  hSignalPhotonsEvent[0]->SetDirectory(nullptr);
+  hSignalPhotonsEvent[1]->SetDirectory(nullptr);
+  hSignalPhotonsEvent[2]->SetDirectory(nullptr);
+
   hEffGeo = new TH1D("EffGeo", " geometric efficiency / nominal ", 150, 0, 1.5);
   hEffGeo9 = new TH1D("EffGeo9", " ch 9 geometric efficiency / nominal ", 150, 0, 1.5);
   hEffGeo10 = new TH1D("EffGeo10", " ch 10 geometric efficiency / nominal ", 150, 0, 1.5);
   hEffGeo11 = new TH1D("EffGeo11", " ch 11 geometric efficiency / nominal ", 150, 0, 1.5);
+
   /* define ntuples amd histograms here */
   hXYMap = new TH2D("XYMap", "event Y versus X  [cm] ", 100, -4., 4., 100, -4., 4.);
   hXYMap->GetXaxis()->SetTitle("event X [cm]");
@@ -487,7 +632,7 @@ void btb(int ngen = 10000000)
   hRhoMap = new TH1D("RhoMap", "event cylindrical rho [cm] ", 100, 0., 4.);
   hRhoMap->GetXaxis()->SetTitle("cylindrical rho [cm]");
   //
-  hZMap = new TH1D("ZMap", "event cylindrical Z [cm] ", 100, 0., 10.);
+  hZMap = new TH1D("ZMap", "event cylindrical Z [cm] ", 2000, -10., 10.);
   hZMap->GetXaxis()->SetTitle("event Z [cm]");
   //
   hPhiMap = new TH1D("PhiMap", "event phi", 100, -TMath::Pi(), TMath::Pi());
@@ -499,8 +644,38 @@ void btb(int ngen = 10000000)
   hRhoPhiZMap->GetXaxis()->SetTitle("cylindrical rho [cm]");
   hRhoPhiZMap->GetYaxis()->SetTitle("phi");
   hRhoPhiZMap->GetZaxis()->SetTitle("Z");
+
+  /** fid  */
+  hXYMapFid = new TH2D("XYMapFid", "event Y versus X  [cm] ", 100, -4., 4., 100, -4., 4.);
+  hXYMapFid->GetXaxis()->SetTitle("event X [cm]");
+  hXYMapFid->GetYaxis()->SetTitle("event Y [cm]");
+
+  hXYZMapFid = new TH3D("XYZMapFid", "event x y z  [cm] ", 100, -4., 4., 100, -4., 4., 50, 0, 4.);
+  hXYZMapFid->GetXaxis()->SetTitle("event X [cm]");
+  hXYZMapFid->GetYaxis()->SetTitle("event Y [cm]");
+  hXYZMapFid->GetZaxis()->SetTitle("event Z [cm]");
   //
-  hEventPass = new TH1D("hEventPass", "event pass", 3, 0, 3);
+  hRadiusMapFid = new TH1D("RadiusMapFid", "event radius [cm] ", 100, 0., 10.);
+  hRadiusMapFid->GetXaxis()->SetTitle("event radius R [cm]");
+  //
+  hRhoMapFid = new TH1D("RhoMapFid", "event cylindrical rho [cm] ", 100, 0., 4.);
+  hRhoMapFid->GetXaxis()->SetTitle("cylindrical rho [cm]");
+  //
+  hZMapFid = new TH1D("ZMapFid", "event cylindrical Z [cm] ", 2000, -10., 10.);
+  hZMapFid->GetXaxis()->SetTitle("event Z [cm]");
+  //
+  hPhiMapFid = new TH1D("PhiMapFid", "event phi", 100, -TMath::Pi(), TMath::Pi());
+  hRhoZMapFid = new TH2D("RhoZMapFid", "cylindrical rho z  map ", 100, 0., 2., 100, 0., 4.);
+  hRhoZMapFid->GetXaxis()->SetTitle("cylindrical rho [cm]");
+  hRhoZMapFid->GetYaxis()->SetTitle("Z");
+  //
+  hRhoPhiZMapFid = new TH3D("RhoZPhiMapFid", "cylindrical rho phi z  map ", 100, 0., 2., 100, -TMath::Pi(), TMath::Pi(), 100, 0., 4.);
+  hRhoPhiZMapFid->GetXaxis()->SetTitle("cylindrical rho [cm]");
+  hRhoPhiZMapFid->GetYaxis()->SetTitle("phi");
+  hRhoPhiZMapFid->GetZaxis()->SetTitle("Z");
+
+  //
+  hEventPass = new TH1D("hEventPass", "event pass", 4, 0, 4);
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hTriangle->GetXaxis()->SetTitle("xtern");
   hTriangle->GetYaxis()->SetTitle("ytern");
@@ -510,23 +685,20 @@ void btb(int ngen = 10000000)
   hTriangleMean = new TH2D("TriangleMean", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hTriangleMean->GetXaxis()->SetTitle("xtern");
   hTriangleMean->GetYaxis()->SetTitle("ytern");
-  ntOrigin = new TNtuple("ntOrigin", " event origin ", "ev:r:cos:theta:phi:x:y:z");
-  ntTrig = new TNtuple("ntTrig", " trigger info by event  ", "ev:nph9:nph10:nph11:rho:phi:x:y:z:tdiff:pass");
-  ntTrigCh = new TNtuple("ntTrigCh", " trigger info by channel ", "ev:ch:qsum:psum:nph:rho:phi:x:y:z:effgeo");
-  ntTern = new TNtuple("ntTern", " trigger sipm", "eventRho:eventPhi:eventZ:nph9:nph10:nph11:qsum9:qsum10:qsum11:mean9:mean10:mean11:xq:yq");
 
-  ntMean = new TNtuple("ntMean", "trigger means ", "ev:eventRho:eventPhi:eventZ:qsum9:qsum10:qsum11:mean9:mean10:mean11:xternq:yternq");
-  ntFit = new TNtuple("ntFit", "trigger peak fit", "ev:numPhotons:eventR:eventCos:eventPhi:qsum9:qsum10:qsum11:fitR:fitCos:fitPhi:errR:errTheta:ierr");
-  ntScan = new TNtuple("ntScan", "scan", "nll:mean9:mean10:mean11:qsum9:qsum10:qsum11:r:theta:phi");
   hCount = new TH1D("Count", "hit count", 13, 0, 13);
   hCountSinglet = new TH1D("CountSinglet", "hit count singlet", 13, 0, 13);
   hTime = new TH1D("Time", "photon time ", 7500, 0, 2 * 7500);
-  hTrigDiffTime = new TH1D("TrigDiffTime", " time difference ", 7500, 0, 7500);
-  hTrigDiffTime->GetXaxis()->SetTitle("max time diff [samples]");
-  hTrigDiffTime30 = new TH1D("TrigDiffTime30", " time difference <30 ns", 7500, 0, 7500);
+  hTrigDiffTime = new TH1D("TrigDiffTime", " time difference ", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+  hTrigDiffTime->GetXaxis()->SetTitle("max time diff [ns]");
+  hTrigDiffTime30 = new TH1D("TrigDiffTime30", " time difference <30 ns", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
   hTrigDiffTime30->GetXaxis()->SetTitle("max time diff [ns]");
-  hTrigDiffTime10 = new TH1D("TrigDiffTime10", " time difference <1000 ns", 7500, 0, 7500);
-  hTrigDiffTime10->GetXaxis()->SetTitle("max time diff [ns]");
+  hTrigDiffTimeCut = new TH1D("TrigDiffTimeCut", Form(" time difference <%.0f ns", maxTriggerTimeDifference), MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+  hTrigDiffTimeCut->GetXaxis()->SetTitle("max time diff [ns]");
+  hGammaPeak = new TH1D("GammaPeak", "sum of trigger sipms", 200, 0, 200);
+  hGammaPeak->GetXaxis()->SetTitle("trigger sipm sum [SPE]");
+  hGammaPeak->GetYaxis()->SetTitle("events per bin");
+
   // landau response function
   speLandau = new TF1("myLandau", myLandau, 0, MAXSAMPLE * binWidth, 3);
   // set SPE response parameters
@@ -549,8 +721,10 @@ void btb(int ngen = 10000000)
 
   sigmaNoise = gain * noiseToSignal;
   TH1D *hNoise = new TH1D("Noise", "Noise", 200, -10 * sigmaNoise, 10 * sigmaNoise);
+  TH1D *hPhotonSum9 = new TH1D("PhotonSum9", "photon sipm 9 sum/event", 50, 0., 50.);
+  TH1D *hSingletSum9 = new TH1D("SingletSum9", "photon sipm 9 sum/event", 50, 0., 50.);
   TH1D *hPhotonAll = new TH1D("PhotonAll", "all photons ", 200, 0.5 * numPhotons, 1.5 * numPhotons);
-  TH1D *hPhotonSum = new TH1D("PhotonSum", "photon sum", 200, 0., 40.);
+  TH1D *hPhotonTrigSum = new TH1D("PhotonTrigSum", "photon trig sum ", 200, 0., 40.);
   TH1D *hPhotonSumCut = new TH1D("PhotonSumCut", "photon sum cut", 200, 0., 40.);
 
   // make individual light curves
@@ -559,8 +733,23 @@ void btb(int ngen = 10000000)
     models[ih] = new modelFit(MODELALL, ih, 0);
   */
 
+  for (int ih = 0; ih < NCHAN; ++ih)
+  {
+    int ilevel = getLevel(ih);
+    hGeoEff[ih] = new TH1D(Form("GeoEff%i", ih), Form("Photon%i-level%i", ih, ilevel), 5000, 0, 100);
+  }
+
   TDirectory *histDir = fout->mkdir("histDir");
   histDir->cd();
+  for (int ih = 0; ih < NCHAN; ++ih)
+  {
+    // modelFit::modelFit(int theFit, int ichan, double ppm)
+    int ilevel = getLevel(ih);
+    hPhotonSum[ih] = new TH1D(Form("PhotonSum%i", ih), Form("PhotonSum%i-level%i", ih, ilevel), MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+    hPhotonSum[ih]->GetXaxis()->SetTitle("time [ns]");
+    hPhotonSum[ih]->GetYaxis()->SetTitle("photons/2ns");
+    //
+  }
   for (int ih = 0; ih < NCHAN; ++ih)
   {
     int ilevel = getLevel(ih);
@@ -569,6 +758,12 @@ void btb(int ngen = 10000000)
     hPhoton[ih]->GetXaxis()->SetTitle("time [ns]");
     hPhoton[ih]->GetYaxis()->SetTitle("photons/2ns");
     hPhoton[ih]->SetDirectory(nullptr);
+
+    // modelFit::modelFit(int theFit, int ichan, double ppm)
+    hSinglet[ih] = new TH1D(Form("Singlet%i", ih), Form("Singlet%i-level%i", ih, ilevel), MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+    hSinglet[ih]->GetXaxis()->SetTitle("time [ns]");
+    hSinglet[ih]->GetYaxis()->SetTitle("photons/2ns");
+    hSinglet[ih]->SetDirectory(nullptr);
     //
     hConvolve[ih] = new TH1D(Form("Convolve%i", ih), Form("Convolve%i-level%i", ih, ilevel), MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
     hConvolve[ih]->GetXaxis()->SetTitle("time [ns]");
@@ -631,6 +826,19 @@ void btb(int ngen = 10000000)
   int nTrigger = 0;
   for (int iev = 0; iev < ngen; ++iev) // start of event loop
   {
+    hSignalPhotonsEvent[0]->Reset("ICESM");
+    hSignalPhotonsEvent[1]->Reset("ICESM");
+    hSignalPhotonsEvent[2]->Reset("ICESM");
+    for (int ich = 0; ich < NCHAN; ++ich)
+    {
+      // histogram reset
+      hPhoton[ich]->Reset("ICESM");
+      hSinglet[ich]->Reset("ICESM");
+      hConvolve[ich]->Reset("ICESM");
+      hSignalNb[ich]->Reset("ICESM");
+      hSignal[ich]->Reset("ICESM");
+    }
+
     hEventPass->SetBinContent(1, hEventPass->GetBinContent(1) + 1); // generated over 4 PI
 
     // zero trigger times array
@@ -661,14 +869,15 @@ void btb(int ngen = 10000000)
     /* generate from Rndm */
     else
     {
-      gammaR = abs(ran->Exp(meanFreePath));
-      gammaCosTheta = 2.0 * ran->Rndm() - 1.;           // cos range is -1 to +1
+      gammaR = abs(ran->Exp(meanFreePath));             // See TMath Double_t TRandom::Exp	(	Double_t	tau	)	returns exp( -t/tau )
+      gammaCosTheta = 2.0 * ran->Rndm() - 1.;           // cos range ig -1 to +1
       gammaPhi = (2. * ran->Rndm() - 1.) * TMath::Pi(); // -pi to pi
     }
     eventOrigin = getXYZVector(gammaR, acos(gammaCosTheta), gammaPhi);
     /*  add z offset zZero if we are using new geometry */
-    if (!geoVersionOld)
-      eventOrigin = eventOrigin + eventOriginOffset;
+    // if (!geoVersionOld)
+    //   eventOrigin = eventOrigin;
+    //   +eventOriginOffset;
     double localPhi = eventOrigin.Phi() * 360. / TMath::TwoPi();
     if (localPhi < 0)
       localPhi += 360.;
@@ -678,6 +887,8 @@ void btb(int ngen = 10000000)
     hRhoZMap->Fill(eventOrigin.Rho(), eventOrigin.Z());
     hRhoPhiZMap->Fill(eventOrigin.Rho(), eventOrigin.Phi(), eventOrigin.Z());
     hPhiMap->Fill(eventOrigin.Phi());
+    hXYMap->Fill(eventOrigin.X(), eventOrigin.Y());
+    hXYZMap->Fill(eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
 
     // cut -Z (up going in btb) events
     /* this is how events were generated */
@@ -694,8 +905,8 @@ void btb(int ngen = 10000000)
     double effGeoSim9 = effGeoSim(9);
     double effGeoSim10 = effGeoSim(10);
     double effGeoSim11 = effGeoSim(11);
-    bool isFid = false;
-    if (eventOrigin.Z() > 0.0 && effGeoSim9 > 0 && effGeoSim10 > 0 && effGeoSim11)
+    isFid = false;
+    if (eventOrigin.Z() > 0.0 && effGeoSim9 > 0 && effGeoSim10 > 0 && effGeoSim11 > 0)
       isFid = true;
 
     if (!isFid)
@@ -704,8 +915,14 @@ void btb(int ngen = 10000000)
         printf(" skip event %i XYZ %.3f %.3f %.3f \n", iev, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
       continue;
     }
-    hXYMap->Fill(eventOrigin.X(), eventOrigin.Y());
-    hXYZMap->Fill(eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
+    hZMapFid->Fill(eventOrigin.Z());
+    hRadiusMapFid->Fill(eventOrigin.R());
+    hRhoMapFid->Fill(eventOrigin.Rho());
+    hRhoZMapFid->Fill(eventOrigin.Rho(), eventOrigin.Z());
+    hRhoPhiZMapFid->Fill(eventOrigin.Rho(), eventOrigin.Phi(), eventOrigin.Z());
+    hPhiMapFid->Fill(eventOrigin.Phi());
+    hXYMapFid->Fill(eventOrigin.X(), eventOrigin.Y());
+    hXYZMapFid->Fill(eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z());
 
     hEventPass->SetBinContent(2, hEventPass->GetBinContent(2) + 1); // for fiducial events
     // eventOrigin.SetZ(abs(eventOrigin.Z()));
@@ -725,16 +942,12 @@ void btb(int ngen = 10000000)
       if (ich > 8 && ich < 12)
       {
         gain = nominalTrigGain;
-        timeShift = timeOffset; // trig amp delay
+        timeShift = timeOffset + trigTimeShift[ich - 9]; // trig amp delay and gain shift effect on trigger threshold
       }
       //
       sigmaNoise = gain * noiseToSignal;
-      bool invert = ich > 8; // invert trigger 9,10,11 and PMT
-      // histogram reset
-      hPhoton[ich]->Reset("ICESM");
-      hConvolve[ich]->Reset("ICESM");
-      hSignalNb[ich]->Reset("ICESM");
-      hSignal[ich]->Reset("ICESM");
+      bool invert = ich > 8;
+
       if (rawRun)
       {
         rawEvent = rawRun->getDet(ich); // If channel branch doesn't exist getDet calls addDet
@@ -747,6 +960,7 @@ void btb(int ngen = 10000000)
       det->event = iev;
       det->trigger = iev;
       det->nspe = nsinglet + ntriplet;
+
       // simRun->btree->GetListOfBranches()->ls();
       // printf(" simRun ev %i  channel %i \n", iev, ich);
 
@@ -754,6 +968,7 @@ void btb(int ngen = 10000000)
       bool isTrig = false;
       isTrig = ich == 9 || ich == 10 || ich == 11;
       double effGeoSimi = effGeoSim(ich);
+      hGeoEff[ich]->Fill(nominalGeo9 / effGeoSimi);
       // printf("xxxxv event %i chan %i (r,cosTheta,phi) (%f,%f,%f) effGeo %E  \n", iev, ich, eventOrigin.R(), eventOrigin.Theta() * 360. / TMath::TwoPi(), localPhi, effGeoSimi);
       if (isTrig)
         hEffGeo->Fill(effGeoSimi / nominalGeo);
@@ -764,12 +979,11 @@ void btb(int ngen = 10000000)
       if (ich == 11)
         hEffGeo11->Fill(effGeoSimi / nominalGeo);
 
-      double eff = effGeoSimi * SiPMQE128Ham * fillFactor;
+      double eff = effGeoSimi * SiPMQE128Ham * fillFactor * reflection;
       double nsmean = double(nPhotonsEvent) * eff * singletFrac;
       double ntmean = double(nPhotonsEvent) * eff - nsmean;
       nsinglet = ran->Poisson(nsmean);
       ntriplet = ran->Poisson(ntmean);
-
       hPoisson->Fill(nsinglet + ntriplet);
 
       ncount[ich] += nsinglet + ntriplet;
@@ -780,8 +994,18 @@ void btb(int ngen = 10000000)
       {
         double time = timeShift + triggerStart + ran->Exp(tSinglet0);
         hPhoton[ich]->Fill(time, gain);
+        hSinglet[ich]->Fill(time, gain);
+        hPhotonSum[ich]->Fill(time, gain);
         convolve(hConvolve[ich], time);
         TH1D *hist = hConvolve[ich];
+
+        if (ich == 9)
+          hPhotonTrig[0]->Fill(time);
+        if (ich == 10)
+          hPhotonTrig[1]->Fill(time);
+        if (ich == 11)
+          hPhotonTrig[2]->Fill(time);
+
         // printf("event %i chan %i  max value %E\n", iev, ich, hist->GetBinContent(hist->GetMaximumBin()));
         hTime->Fill(time);
         // make a TDetHit for photon
@@ -796,14 +1020,26 @@ void btb(int ngen = 10000000)
       {
         double time = timeShift + triggerStart + ran->Exp(tTriplet0);
         hPhoton[ich]->Fill(time, gain);
+        hPhotonSum[ich]->Fill(time, gain);
         convolve(hConvolve[ich], time);
         hTime->Fill(time);
+        // save trigger
+        if (ich == 9)
+          hPhotonTrig[0]->Fill(time);
+        if (ich == 10)
+          hPhotonTrig[1]->Fill(time);
+        if (ich == 11)
+          hPhotonTrig[2]->Fill(time);
+
         TDetHit hit;
         hit.startTime = double(hTime->FindBin(time)); // convert to samples
         hit.qpeak = gain;
         det->hits.push_back(hit);
         // printf(" \t\t after triplets %iev %ch %lu \n", iev, ich, det->hits.size());
       }
+      // if (ich == 9)
+      //   printf("line960 event %i photons 9 entries %f photon trig0 %f \n", iev, hPhoton[9]->GetEntries(), hPhotonTrig[0]->GetEntries());
+
       // add baseline and noise
       for (int ibin = 1; ibin <= hSignal[ich]->GetNbinsX(); ++ibin)
       {
@@ -823,7 +1059,12 @@ void btb(int ngen = 10000000)
         {
           for (int ibin = 1; ibin <= hSignal[ich]->GetNbinsX(); ++ibin)
           {
-            uint16_t adc = maxAdc - hSignal[ich]->GetBinContent(ibin);
+            uint16_t adc = pow(2, 14) - hSignal[ich]->GetBinContent(ibin);
+            /*
+            uint16_t unAdc = -1. * (adc - pow(2, 14));
+            if (ibin == 1)
+              printf("line831 iev %i channnel %i bin %i adc %u %u \n", iev, ich, ibin, adc, unAdc);
+              */
             wave.push_back(adc);
           }
         }
@@ -835,35 +1076,78 @@ void btb(int ngen = 10000000)
           //  printf("iev %i ich %i ibin %i short %u float %f \n", iev, ich, ibin, (uint16_t)hSignal[ich]->GetBinContent(ibin), hSignal[ich]->GetBinContent(ibin));
         }
         rawEvent->rdigi = wave;
-        // printf(" .... ich %i wave size %lu \n", ich, wave.size());
-        double qsum = 0;
-        for (int ibin = 1; ibin <= hSignal[ich]->GetNbinsX(); ++ibin)
-          qsum += (hSignal[ich]->GetBinContent(ibin) - baseline) / gain * landauMax;
-
-        double psum = 0;
-        for (int ibin = 1; ibin <= hPhoton[ich]->GetNbinsX(); ++ibin)
-          psum += hPhoton[ich]->GetBinContent(ibin) / gain;
-
-        ntTrigCh->Fill(iev, ich, qsum, psum, hPhoton[ich]->GetEntries(), eventOrigin.Rho(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z(), effGeoSimi / nominalGeo);
-
-        // printf("line508 ch %i nPhotonsEvent %i eff %E nPhotonsEvent*eff %.0f nhotons %i %i \n", ich, nPhotonsEvent, eff, nPhotonsEvent * eff, nsinglet + ntriplet, int(hPhoton[ich]->GetEntries()));
       }
+      // printf(" .... ich %i wave size %lu \n", ich, wave.size());
+      double qsum = 0;
+      for (int ibin = 1; ibin <= hSignal[ich]->GetNbinsX(); ++ibin)
+        qsum += (hSignal[ich]->GetBinContent(ibin) - baseline) / gain * landauMax;
+
+      double psum = 0;
+      for (int ibin = 1; ibin <= hPhoton[ich]->GetNbinsX(); ++ibin)
+        psum += hPhoton[ich]->GetBinContent(ibin) / gain;
+
+      ntTrigCh->Fill(iev, ich, qsum, psum, hPhoton[ich]->GetEntries(), eventOrigin.Rho(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z(), effGeoSimi / nominalGeo);
+      // printf("line508 ch %i nPhotonsEvent %i eff %E nPhotonsEvent*eff %.0f nhotons %i %i \n", ich, nPhotonsEvent, eff, nPhotonsEvent * eff, nsinglet + ntriplet, int(hPhoton[ich]->GetEntries()));
       // if (iev / 1 * 1 == iev && ich < 12 && ich > 8)
 
+      // printf("line993 ich %i %f \n", ich, hPhoton[ich]->GetEntries());
     } // end channel loop
 
+    /* summed convolved waveforms  */
+    for (int ibin = 0; ibin < hSignalPhotons[0]->GetNbinsX(); ++ibin)
+    {
+      hSignalPhotons[0]->SetBinContent(ibin, hSignalPhotons[0]->GetBinContent(ibin) + hConvolve[9]->GetBinContent(ibin) / nominalSipmQsumTrigGain);
+      hSignalPhotons[1]->SetBinContent(ibin, hSignalPhotons[1]->GetBinContent(ibin) + hConvolve[10]->GetBinContent(ibin) / nominalSipmQsumTrigGain);
+      hSignalPhotons[2]->SetBinContent(ibin, hSignalPhotons[2]->GetBinContent(ibin) + hConvolve[11]->GetBinContent(ibin) / nominalSipmQsumTrigGain);
+      hSignalPhotonsEvent[0]->SetBinContent(ibin, hSignalPhotonsEvent[0]->GetBinContent(ibin) + hConvolve[9]->GetBinContent(ibin) / nominalSipmQsumTrigGain);
+      hSignalPhotonsEvent[1]->SetBinContent(ibin, hSignalPhotonsEvent[1]->GetBinContent(ibin) + hConvolve[10]->GetBinContent(ibin) / nominalSipmQsumTrigGain);
+      hSignalPhotonsEvent[2]->SetBinContent(ibin, hSignalPhotonsEvent[2]->GetBinContent(ibin) + hConvolve[11]->GetBinContent(ibin) / nominalSipmQsumTrigGain);
+    }
+    // printf("line991 event %i  photon integrals 9 %.3f %.3f 10 %.3f %.3f 11 %.3f  %.3f\n", iev, hPhoton[9]->Integral(), hSignalPhotonsEvent[9]->Integral(),
+    //        hPhoton[10]->Integral(), hSignalPhotonsEvent[10]->Integral(), hPhoton[11]->Integral(), hSignalPhotonsEvent[11]->Integral());
+    // printf("line993 event %i  photon integrals 9) %.3f %.3f 10) %.3f %.3f 11) %.3f  %.3f\n", iev, hPhoton[9]->GetEntries(), hSignalPhotons[0]->Integral(),
+    //       hPhoton[10]->GetEntries(), hSignalPhotons[1]->Integral(), hPhoton[11]->GetEntries(), hSignalPhotons[2]->Integral());
+
     // ensure the event triggers
-    double maxTriggerDiff = eventTrigger();
+    double maxTriggerDiff = eventTrigger(iev);
     hTrigDiffTime->Fill(maxTriggerDiff);
-    if (maxTriggerDiff < 10)
-      hTrigDiffTime10->Fill(maxTriggerDiff);
+    // printf("....%i %i %f \n", iev, isFid, maxTriggerDiff);
+    //  if (maxTriggerDiff < maxTriggerTimeDifference)
+    //  hTrigDiffTime10->Fill(maxTriggerDiff);
     if (maxTriggerDiff < 30)
       hTrigDiffTime30->Fill(maxTriggerDiff);
 
     // event passes trigger
-    bool trigPass = true;
-    if (maxTriggerDiff > maxTriggerTimeDiffernce)
-      trigPass = false;
+    bool trigPass = false;
+    if (maxTriggerDiff < maxTriggerTimeDifference)
+    {
+      hEventPass->SetBinContent(4, hEventPass->GetBinContent(4) + 1);
+      trigPass = true;
+    }
+    else if (maxTriggerDiff < double(2 * MAXSAMPLE))
+      printf("fails trigger time cut event %i tdiff %f \n", iev, maxTriggerDiff);
+
+    // as in real data qsum
+    peakQsum[0] = hSignalNb[9]->Integral() / nominalSipmQsumTrigGain;
+    peakQsum[1] = hSignalNb[10]->Integral() / nominalSipmQsumTrigGain;
+    peakQsum[2] = hSignalNb[11]->Integral() / nominalSipmQsumTrigGain;
+
+    // printf("line990 photons %f signal %f normed %f \n", hPhoton[9]->Integral(), hSignalNb[9]->Integral(), peakQsum[0]);
+
+    double gammaPeakSum = peakQsum[0] + peakQsum[1] + peakQsum[2];
+
+    /* trigger pass cut*/
+    /*
+    double prompt9 = hPhoton[9]->Integral(0, int(maxTriggerDiff / 2.)) / gain;
+    double prompt10 = hPhoton[10]->Integral(0, int(maxTriggerDiff / 2.)) / gain;
+    double prompt11 = hPhoton[11]->Integral(0, int(maxTriggerDiff / 2.)) / gain;
+    double prompt9 = hPhoton[9]->Integral(730, 745) / gain;
+    double prompt10 = hPhoton[10]->Integral(730, 745) / gain;
+    double prompt11 = hPhoton[11]->Integral(730, 745) / gain;
+    // printf("event %i %.0f, %.0f, %.0f \n", iev, prompt9, prompt10, prompt11);
+    if (prompt9 > 0 && prompt10 > 0 && prompt11 > 0)
+      hEventPass->SetBinContent(3, hEventPass->GetBinContent(3) + 1);
+    */
 
     if (!trigPass)
     {
@@ -872,12 +1156,12 @@ void btb(int ngen = 10000000)
       continue;
     }
     ++nTrigger;
-    hEventPass->SetBinContent(3, hEventPass->GetBinContent(3) + 1);
-
-    ntTrig->Fill(iev, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries(), eventOrigin.Rho(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z(), maxTriggerDiff, trigPass);
-
+    // printf("triggered event % i prompt sums %.0f, %.0f, %.0f \n", iev, prompt9, prompt10, prompt11);
+    hTrigDiffTimeCut->Fill(maxTriggerDiff);
     double photonSum = hPhoton[9]->GetEntries() + hPhoton[10]->GetEntries() + hPhoton[11]->GetEntries();
-    hPhotonSum->Fill(photonSum);
+    hPhotonTrigSum->Fill(photonSum);
+
+    ntTrig->Fill(iev, photonSum, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries(), eventOrigin.R(), eventOrigin.Rho(), localPhi, eventOrigin.X(), eventOrigin.Y(), eventOrigin.Z(), maxTriggerDiff, trigPass);
 
     if (show)
       printf("xxx event %i nph %.0f %.0f %.0f\n", iev, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries());
@@ -888,11 +1172,6 @@ void btb(int ngen = 10000000)
     peakFitQsum[0] = hPhoton[9]->GetEntries();
     peakFitQsum[1] = hPhoton[10]->GetEntries();
     peakFitQsum[2] = hPhoton[11]->GetEntries();
-
-    // as in real data qsum
-    peakQsum[0] = hSignalNb[9]->Integral() / nominalSimQsumTrigGain;
-    peakQsum[1] = hSignalNb[10]->Integral() / nominalSimQsumTrigGain;
-    peakQsum[2] = hSignalNb[11]->Integral() / nominalSimQsumTrigGain;
 
     // make fraction cut
     /* try a cut like TUM */
@@ -1010,6 +1289,9 @@ void btb(int ngen = 10000000)
       hTriangleCut->Fill(xternQ, yternQ);
       hPhotonSumCut->Fill(photonSum);
     }
+    // printf("line1197 %f\n", gammaPeakSum);
+    hGammaPeak->Fill(gammaPeakSum);
+    ntGammaPeak->Fill(iev, peakQsum[0], peakQsum[1], peakQsum[2], gammaPeakSum);
 
     // if (!passTriangle)
     //   printf("line959 event %i !passTriangle %f %f \n", iev, xternQ, yternQ);
@@ -1071,16 +1353,19 @@ void btb(int ngen = 10000000)
     if (rawRun)
       rawRun->fill();
     simRun->fill();
+    hPhotonSum9->Fill(hPhoton[9]->GetEntries());
+    hSingletSum9->Fill(hSinglet[9]->GetEntries());
     totalEventEffiency = hPhotonSumCut->Integral() / hPhotonAll->Integral();
+
   } // end of event loop
 
   for (int ich = 0; ich < NCHAN; ++ich)
   {
-    hCount->SetBinContent(ich + 1, ncount[ich]);
-    hCountSinglet->SetBinContent(ich + 1, ncountSinglet[ich]);
+    hCount->SetBinContent(ich + 1, double(ncount[ich]) / double(ngen));
+    hCountSinglet->SetBinContent(ich + 1, double(ncountSinglet[ich]) / double(ngen));
   }
   // summary
-  printf("****** generated %i events.\nphoton count:\n", ngen);
+  printf("****** generated %i events.\nphoton count: \n", ngen);
   for (int ih = 0; ih < NCHAN; ++ih)
   {
     if (nTrigger > 1)
@@ -1095,11 +1380,35 @@ void btb(int ngen = 10000000)
   passLabel.resize(hEventPass->GetNbinsX());
   passLabel[0] = TString("all");
   passLabel[1] = TString("fid");
-  passLabel[2] = TString("triggered");
+  passLabel[2] = TString("canTrig");
+  passLabel[3] = TString("triggered");
   for (int ibin = 1; ibin <= hEventPass->GetNbinsX(); ++ibin)
-    printf(" cut %i pass %.0f \n", ibin, hEventPass->GetBinContent(ibin));
+    printf(" cut %i  %s  %.0f \n", ibin, passLabel[ibin - 1].Data(), hEventPass->GetBinContent(ibin));
 
-  printf("********* end of btb with ngen %i triggers %i ********\n", ngen, nTrigger);
+  double trigRate = 0;
+  double gammaRate = 105450. * 0.36;
+  if (hEventPass->GetBinContent(1) > 0)
+    trigRate = gammaRate * hEventPass->GetBinContent(4) / hEventPass->GetBinContent(1);
+
+  // printf(" hTrigDiffTime10 entries %f \n", hTrigDiffTime10->GetEntries());
+
+  printf("trigger photons summary: \n");
+  for (int itrig = 0; itrig < 3; ++itrig)
+    printf("chan %i sum photons %.3E integral in SPE %.3E gain %f\n", itrig + 9, hPhotonTrig[itrig]->Integral(),
+           hSignalPhotons[itrig]->Integral(), hSignalPhotons[itrig]->Integral() / hPhotonTrig[itrig]->Integral());
+
+  // multiply single sipm rate by gamma rate from source
+  printf("trig sippm count %i rate %.3E Hz trig rate %.3E \n", trigCount9, double(trigCount9) / double(ngen) * gammaRate, trigRate);
+
+  for (int i = 0; i < 3; ++i)
+  {
+    printf("trig NSPE count %i mean %.2f   \n", i + 9, hNumberSPE[i]->GetMean());
+  }
+
+  for (int ich = 0; ich < 13; ++ich)
+    printf(" effScaleFactor[%i] = %.3f ;\n", ich, hGeoEff[ich]->GetMean());
+
+  printf("********* end of btb with ngen %i triggers %i rawRun %i LY %.2f coincidence %.3f rate %.3f Hz ********\n", ngen, nTrigger, int(rawRun->btree->GetEntries()), LY, maxTriggerTimeDifference, trigRate);
   // simRun->print();
 }
 
@@ -1137,13 +1446,9 @@ int main(int argc, char *argv[])
   triggerPeakFitShow = false;
   */
 
-  if (geoVersionOld)
-    printf("***** START of btb OLD geometry ngen = %.0E *****\n", double(ngen));
-  else
-    printf("***** START of btb NEW geometry ngen = %.0E *****\n", double(ngen));
-  printf("***** START of btb ngen = %.0E *****\n", double(ngen));
+  printf("***** START of btb geometry ngen = %.0E *****\n", double(ngen));
   btb(ngen);
-  printf("... %s ngen %i passed %lld total efficiency %.3f  file %s exit\n", argv[0], ngen, ntFit->GetEntries(), totalEventEffiency, fout->GetName());
+  printf("... end %s version %s ngen %i passed %lld total efficiency %.3f  file %s exit\n", argv[0], geoName.Data(), ngen, ntFit->GetEntries(), totalEventEffiency, fout->GetName());
   // fout->ls();
   fout->Write();
   fout->Close();
