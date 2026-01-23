@@ -826,6 +826,11 @@ void btb(int ngen = 10000000)
   int nTrigger = 0;
   for (int iev = 0; iev < ngen; ++iev) // start of event loop
   {
+    if (iev / 1000 * 1000 == iev)
+    {
+      printf("...btbSim event %i \n", iev);
+      fflush(stdout);
+    }
     hSignalPhotonsEvent[0]->Reset("ICESM");
     hSignalPhotonsEvent[1]->Reset("ICESM");
     hSignalPhotonsEvent[2]->Reset("ICESM");
