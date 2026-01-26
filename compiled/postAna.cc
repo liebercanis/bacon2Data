@@ -49,6 +49,7 @@ using namespace TMath;
 TReadGains *readGains;
 TChain *RunTree;
 TFile *fout;
+bool isSimulation = false;
 TString tag;
 TNtuple *ntTrig;
 Long64_t totalEntries;
@@ -150,8 +151,16 @@ void normalize(int ichan)
     double xbin = hist->GetBinContent(ibin);
     double ebin = sqrt(abs(hist->GetBinContent(ibin)));
     // divide by channel gain and totalPass
-    hSave->SetBinContent(ibin, xbin / double(totalPass) / readGains->sipmPeakGain[ichan]);
-    hSave->SetBinError(ibin, ebin / double(totalPass) / readGains->sipmPeakGain[ichan]);
+    if (!isSimulation)
+    {
+      hSave->SetBinContent(ibin, xbin / double(totalPass) / readGains->sipmPeakGain[ichan]);
+      hSave->SetBinError(ibin, ebin / double(totalPass) / readGains->sipmPeakGain[ichan]);
+    }
+    else
+    {
+      hSave->SetBinContent(ibin, xbin / double(totalPass));
+      hSave->SetBinError(ibin, ebin / double(totalPass));
+    }
   }
 }
 
@@ -205,7 +214,10 @@ int passEventCuts(Long64_t entry)
   // scale factor to new gain
   double scale[3];
   for (int i = 0; i < 3; ++i)
-    scale[i] = readGains->nominalQsumTrigGain / readGains->sipmSumGain[9 + i];
+    if (!isSimulation)
+      scale[i] = readGains->nominalQsumTrigGain / readGains->sipmSumGain[9 + i];
+    else
+      scale[i] = 1.0;
 
   if (entry == 0)
     for (int i = 0; i < 3; ++i)
@@ -266,7 +278,11 @@ int passEventCuts(Long64_t entry)
     passBit |= TRIANGLE;
 
   // gamma cut
-  double pmtLateSum = detList[12]->lateSum * readGains->nominalQsumPmtGain / readGains->sipmSumGain[12];
+  double pmtLateSum = 0;
+  if (!isSimulation)
+    pmtLateSum = detList[12]->lateSum * readGains->nominalQsumPmtGain / readGains->sipmSumGain[12];
+  else
+    pmtLateSum = detList[12]->lateSum;
   hGammaCut->Fill(pmtLateSum);
   if (pmtLateSum > gammaCut)
     passBit |= GAMMA;
@@ -275,10 +291,16 @@ int passEventCuts(Long64_t entry)
   // det 13 is sum of alll SIPMS
   double totSum13 = 0;
   for (int i = 0; i < 9; ++i)
-    totSum13 += detList[i]->totSum * readGains->nominalQsumGain / readGains->sipmSumGain[i];
+    if (!isSimulation)
+      totSum13 += detList[i]->totSum * readGains->nominalQsumGain / readGains->sipmSumGain[i];
+    else
+      totSum13 += detList[i]->totSum;
 
   for (int i = 9; i < 12; ++i)
-    totSum13 += detList[i]->totSum * readGains->nominalQsumTrigGain / readGains->sipmSumGain[i];
+    if (!isSimulation)
+      totSum13 += detList[i]->totSum * readGains->nominalQsumTrigGain / readGains->sipmSumGain[i];
+    else
+      totSum13 += detList[i]->totSum;
 
   hCosmicCut->Fill(totSum13);
   if (totSum13 > cosmicCut)
@@ -745,6 +767,8 @@ int main(int argc, char *argv[])
   /* count files between dates */
   unsigned nfiles = countFiles();
   printf("count files from %s to %s total files  %ld \n", theStartTag.Data(), theEndTag.Data(), fileListName.size());
+  if (theStartTag.Contains("btbSim"))
+    isSimulation = true;
   if (nfiles == 0)
   {
     printf(" >>>> datatype no files found <<<<\n");
@@ -755,6 +779,9 @@ int main(int argc, char *argv[])
   {
     maxEntry = atoi(argv[3]);
   }
+
+  if (isSimulation)
+    printf("****** this is simulation data **** \n");
 
   printf(" >>>>> analyze %u  files from %s to %s tag %s totalEntries %lld maxEntry %lld <<<<<\n", nfiles, theStartTag.Data(), theEndTag.Data(), tag.Data(), totalEntries, maxEntry);
 
