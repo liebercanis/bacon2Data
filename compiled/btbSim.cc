@@ -91,6 +91,8 @@ TH1D *hConvolve[NCHAN];
 TH1D *hSignalNb[NCHAN]; // no baseline
 TH1D *hSignal[NCHAN];
 TH1D *hSignalSum[NCHAN];
+TH1D *hSignalNorm[NCHAN];
+TH1D *hSignalEff[NCHAN];
 Long64_t totalPhotons;
 Long64_t ncount[NCHAN];
 Long64_t ncountSinglet[NCHAN];
@@ -785,6 +787,13 @@ void btb(int ngen = 10000000)
     hSignalSum[ih] = new TH1D(Form("SignalSum%i", ih), Form("SignalSum%i-level%i", ih, ilevel), MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
     hSignalSum[ih]->GetXaxis()->SetTitle("time [ns]");
     hSignalSum[ih]->GetYaxis()->SetTitle("photons/2ns");
+    hSignalNorm[ih] = new TH1D(Form("SignalNorm%i", ih), Form("SignalNorm%i-level%i", ih, ilevel), MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+    hSignalNorm[ih]->GetXaxis()->SetTitle("time [ns]");
+    hSignalNorm[ih]->GetYaxis()->SetTitle("photons/2ns");
+
+    hSignalEff[ih] = new TH1D(Form("SignalEff%i", ih), Form("SignalEff%i-level%i", ih, ilevel), MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+    hSignalEff[ih]->GetXaxis()->SetTitle("time [ns]");
+    hSignalEff[ih]->GetYaxis()->SetTitle("photons/2ns");
   }
   /* end of define ntuples amd histograms here */
 
@@ -1363,6 +1372,18 @@ void btb(int ngen = 10000000)
     totalEventEffiency = hPhotonSumCut->Integral() / hPhotonAll->Integral();
 
   } // end of event loop
+
+  // normalize
+  double totalPass = hEventPass->GetBinContent(1);
+  for (int ich = 0; ich < NCHAN; ++ich)
+  {
+    printf("*** normalize hSignal norm to total pass %.0f geo %.E \n", totalPass, effGeoSim(ich));
+    for (int ibin = 1; ibin <= hSignal[ich]->GetNbinsX(); ++ibin)
+    {
+      hSignalNorm[ich]->SetBinContent(ibin, hSignalSum[ich]->GetBinContent(ibin) / double(totalPass));
+      hSignalEff[ich]->SetBinContent(ibin, hSignalSum[ich]->GetBinContent(ibin) / effGeoSim(ich) / double(totalPass));
+    }
+  }
 
   for (int ich = 0; ich < NCHAN; ++ich)
   {
