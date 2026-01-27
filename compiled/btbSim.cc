@@ -40,6 +40,7 @@ bool writeRawData = true;
 bool useMap = false;
 int reportInterval = 1000;
 double zZero = 0.3; // source position
+TDirectory *histDir;
 
 int trigCount9;
 TNtuple *ntOrigin;
@@ -741,7 +742,7 @@ void btb(int ngen = 10000000)
     hGeoEff[ih] = new TH1D(Form("GeoEff%i", ih), Form("Photon%i-level%i", ih, ilevel), 5000, 0, 100);
   }
 
-  TDirectory *histDir = fout->mkdir("histDir");
+  histDir = fout->mkdir("histDir");
   histDir->cd();
   for (int ih = 0; ih < NCHAN; ++ih)
   {
@@ -783,7 +784,10 @@ void btb(int ngen = 10000000)
     hSignal[ih]->GetYaxis()->SetTitle("photons/2ns");
     hSignal[ih]->SetDirectory(nullptr);
 
-    //
+  } //
+  for (int ih = 0; ih < NCHAN; ++ih)
+  {
+    int ilevel = getLevel(ih);
     hSignalSum[ih] = new TH1D(Form("SignalSum%i", ih), Form("SignalSum%i-level%i", ih, ilevel), MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
     hSignalSum[ih]->GetXaxis()->SetTitle("time [ns]");
     hSignalSum[ih]->GetYaxis()->SetTitle("photons/2ns");
@@ -796,7 +800,6 @@ void btb(int ngen = 10000000)
     hSignalEff[ih]->GetYaxis()->SetTitle("photons/2ns");
   }
   /* end of define ntuples amd histograms here */
-
   // print info for channel
   printf("\n******* efficienies ****\n ");
   for (int ich = 8; ich >= 0; --ich)
@@ -1475,7 +1478,7 @@ int main(int argc, char *argv[])
   printf("***** START of btb geometry ngen = %.0E *****\n", double(ngen));
   btb(ngen);
   printf("... end %s version %s ngen %i passed %lld total efficiency %.3f  file %s exit\n", argv[0], geoName.Data(), ngen, ntFit->GetEntries(), totalEventEffiency, fout->GetName());
-  // fout->ls();
+  histDir->ls();
   fout->Write();
   fout->Close();
   exit(0);
