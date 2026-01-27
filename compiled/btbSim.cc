@@ -1327,7 +1327,7 @@ void btb(int ngen = 10000000)
     /* event histograms */
     TString histName;
     fout->cd();
-    if (histDir->GetList()->GetEntries() < 100)
+    if (histDir->GetList()->GetEntries() < 10)
       for (int ih = 0; ih < NCHAN; ++ih)
       {
         if (hPhoton[ih]->GetEntries() < 1)
