@@ -1327,7 +1327,8 @@ void btb(int ngen = 10000000)
     /* event histograms */
     TString histName;
     fout->cd();
-    if (histDir->GetList()->GetEntries() < 10)
+    if (histDir->GetList()->GetEntries() < 100)
+    {
       for (int ih = 0; ih < NCHAN; ++ih)
       {
         if (hPhoton[ih]->GetEntries() < 1)
@@ -1345,30 +1346,11 @@ void btb(int ngen = 10000000)
         TH1D *hSignalEvent = (TH1D *)hSignal[ih]->Clone(histName);
         hSignalEvent->SetTitle(histName);
       }
-
-    for (int ih = 0; ih < NCHAN; ++ih)
-    {
-      if (hPhoton[ih]->GetEntries() < 40)
-        continue;
-
-      // printf("BIG EVENT %i chan %i nphoton%i \n", iev, ih, (int)hPhoton[ih]->GetEntries());
-
-      histDir->cd();
-      histName.Form("hPhotonCh%iEv%i", ih, iev);
-      TH1D *hPhotonEvent = (TH1D *)hPhoton[ih]->Clone(histName);
-      hPhotonEvent->SetTitle(histName);
-      //
-      histName.Form("hConvolCh%iEv%i", ih, iev);
-      TH1D *hConvolveEvent = (TH1D *)hConvolve[ih]->Clone(histName);
-      hConvolveEvent->SetTitle(histName);
-      //
-      histName.Form("hSignalCh%iEv%i", ih, iev);
-      TH1D *hSignalEvent = (TH1D *)hSignal[ih]->Clone(histName);
-      hSignalEvent->SetTitle(histName);
     }
 
     if (rawRun)
       rawRun->fill();
+
     simRun->fill();
     hPhotonSum9->Fill(hPhoton[9]->GetEntries());
     hSingletSum9->Fill(hSinglet[9]->GetEntries());
@@ -1393,6 +1375,7 @@ void btb(int ngen = 10000000)
     hCount->SetBinContent(ich + 1, double(ncount[ich]) / double(ngen));
     hCountSinglet->SetBinContent(ich + 1, double(ncountSinglet[ich]) / double(ngen));
   }
+
   // summary
   printf("****** generated %i events.\nphoton count: \n", ngen);
   for (int ih = 0; ih < NCHAN; ++ih)
