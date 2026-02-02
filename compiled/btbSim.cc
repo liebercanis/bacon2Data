@@ -69,7 +69,7 @@ TH3D *hXYZMapFid;
 TH1D *hRadiusMapFid;
 TH1D *hRhoMapFid;
 TH1D *hPhiMapFid;
-TH1D *hZMapFid;
+TH1D *hZMapFid; ///
 TH2D *hRhoZMapFid;
 TH3D *hRhoPhiZMapFid;
 
@@ -91,6 +91,7 @@ TH1D *hSinglet[NCHAN];
 TH1D *hConvolve[NCHAN];
 TH1D *hSignalNb[NCHAN]; // no baseline
 TH1D *hSignal[NCHAN];
+TH1D *hSignalSumNoBaseline[NCHAN];
 TH1D *hSignalSum[NCHAN];
 TH1D *hSignalNorm[NCHAN];
 TH1D *hSignalEff[NCHAN];
@@ -171,11 +172,11 @@ enum
 {
   MAXSCANPLOTS = 10 // interaction point + total photons
 };
-
 /*
 efficiencies  PMTQE175 = 0.38;
 static double QEff128(double ppm, double dist)
 */
+int nChannel[NCHAN];
 double eff[NCHAN];
 int triggerStart = binWidth * 730; // 730; sipm rise time convert to ns
 double speMPV = double(triggerStart);
@@ -469,6 +470,8 @@ double effGeoSim(int ichan) // uses PositionVector3D eventOrigin;
 
 void btb(int ngen = 10000000)
 {
+  for (int il = 0; il < NCHAN; ++il)
+    nChannel[il] = 0;
   // zerp trig coount
   trigCount9 = 0;
 
@@ -723,7 +726,6 @@ void btb(int ngen = 10000000)
   printf(" landau response integral %E  gain %f  landauMax %f SPE %E \n", hResponse->Integral(), gain, landauMax, gain / landauMax);
 
   sigmaNoise = gain * noiseToSignal;
-  TH1D *hNoise = new TH1D("Noise", "Noise", 200, -10 * sigmaNoise, 10 * sigmaNoise);
   TH1D *hPhotonSum9 = new TH1D("PhotonSum9", "photon sipm 9 sum/event", 50, 0., 50.);
   TH1D *hSingletSum9 = new TH1D("SingletSum9", "photon sipm 9 sum/event", 50, 0., 50.);
   TH1D *hPhotonAll = new TH1D("PhotonAll", "all photons ", 200, 0.5 * numPhotons, 1.5 * numPhotons);
@@ -744,6 +746,7 @@ void btb(int ngen = 10000000)
 
   histDir = fout->mkdir("histDir");
   histDir->cd();
+  TH1D *hNoise = new TH1D("Noise", "Noise", 200, -10 * sigmaNoise, 10 * sigmaNoise);
   for (int ih = 0; ih < NCHAN; ++ih)
   {
     // modelFit::modelFit(int theFit, int ichan, double ppm)
@@ -788,6 +791,11 @@ void btb(int ngen = 10000000)
   for (int ih = 0; ih < NCHAN; ++ih)
   {
     int ilevel = getLevel(ih);
+
+    hSignalSumNoBaseline[ih] = new TH1D(Form("SignalSumNoBaseline%i", ih), Form("SignalSumNoBaseline%i-level%i", ih, ilevel), MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+    hSignalSumNoBaseline[ih]->GetXaxis()->SetTitle("time [ns]");
+    hSignalSumNoBaseline[ih]->GetYaxis()->SetTitle("photons/2ns");
+
     hSignalSum[ih] = new TH1D(Form("SignalSum%i", ih), Form("SignalSum%i-level%i", ih, ilevel), MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
     hSignalSum[ih]->GetXaxis()->SetTitle("time [ns]");
     hSignalSum[ih]->GetYaxis()->SetTitle("photons/2ns");
@@ -1012,7 +1020,9 @@ void btb(int ngen = 10000000)
         double time = timeShift + triggerStart + ran->Exp(tSinglet0);
         hPhoton[ich]->Fill(time, gain);
         hSinglet[ich]->Fill(time, gain);
-        hPhotonSum[ich]->Fill(time, gain);
+        // hPhotonSum[ich]->Fill(time, gain);
+        hPhotonSum[ich]->Fill(time);
+        nChannel[ich] = nChannel[ich] + 1;
         convolve(hConvolve[ich], time);
         TH1D *hist = hConvolve[ich];
 
@@ -1037,7 +1047,9 @@ void btb(int ngen = 10000000)
       {
         double time = timeShift + triggerStart + ran->Exp(tTriplet0);
         hPhoton[ich]->Fill(time, gain);
-        hPhotonSum[ich]->Fill(time, gain);
+        // hPhotonSum[ich]->Fill(time, gain);
+        hPhotonSum[ich]->Fill(time);
+        nChannel[ich] = nChannel[ich] + 1;
         convolve(hConvolve[ich], time);
         hTime->Fill(time);
         // save trigger
@@ -1064,6 +1076,8 @@ void btb(int ngen = 10000000)
         hNoise->Fill(binNoise);
         hSignalNb[ich]->SetBinContent(ibin, binNoise + hConvolve[ich]->GetBinContent(ibin));
         hSignal[ich]->SetBinContent(ibin, baseline + binNoise + hConvolve[ich]->GetBinContent(ibin));
+        hSignalSumNoBaseline[ich]->SetBinContent(ibin, binNoise +
+                                                           hConvolve[ich]->GetBinContent(ibin) + hSignalSumNoBaseline[ich]->GetBinContent(ibin));
         hSignalSum[ich]->SetBinContent(ibin, baseline + binNoise +
                                                  hConvolve[ich]->GetBinContent(ibin) + hSignalSum[ich]->GetBinContent(ibin));
       }
@@ -1360,13 +1374,14 @@ void btb(int ngen = 10000000)
 
   // normalize
   double totalPass = hEventPass->GetBinContent(1);
+
   for (int ich = 0; ich < NCHAN; ++ich)
   {
     printf("*** normalize hSignal norm to total pass %.0f geo %.E \n", totalPass, effGeoSim(ich));
     for (int ibin = 1; ibin <= hSignal[ich]->GetNbinsX(); ++ibin)
     {
-      hSignalNorm[ich]->SetBinContent(ibin, hSignalSum[ich]->GetBinContent(ibin) / double(totalPass));
-      hSignalEff[ich]->SetBinContent(ibin, hSignalSum[ich]->GetBinContent(ibin) / effGeoSim(ich) / double(totalPass));
+      hSignalNorm[ich]->SetBinContent(ibin, hSignalSumNoBaseline[ich]->GetBinContent(ibin) / double(totalPass));
+      hSignalEff[ich]->SetBinContent(ibin, hSignalSumNoBaseline[ich]->GetBinContent(ibin) / effGeoSim(ich) / double(totalPass));
     }
   }
 
@@ -1385,6 +1400,12 @@ void btb(int ngen = 10000000)
              ih, (int)ncountSinglet[ih], (int)ncount[ih], double(ncountSinglet[ih]) / double(nTrigger), double(ncount[ih]) / double(nTrigger));
     else
       printf("nTrigger = 0\n");
+  }
+  printf("Photon count by level:\n");
+  for (int ich = 0; ich < NCHAN; ++ich)
+  {
+    double eff = effGeoFunc(ich);
+    printf("channel %i eff %.3E nphotons %i eff corrected %.3E photon sum %.3E Sum %.3E Norm %.3E Eff %.3E \n", ich, eff, nChannel[ich], double(nChannel[ich]) / eff, hPhotonSum[ich]->Integral(), hSignalSumNoBaseline[ich]->Integral(), hSignalNorm[ich]->Integral(), hSignalEff[ich]->Integral());
   }
   // fout->ls();
   // hEventPass->Print("all");
@@ -1418,7 +1439,7 @@ void btb(int ngen = 10000000)
   }
 
   for (int ich = 0; ich < 13; ++ich)
-    printf(" effScaleFactor[%i] = %.3f ;\n", ich, hGeoEff[ich]->GetMean());
+    printf(" effScaleFactor[%i] = %.3E ;\n", ich, hGeoEff[ich]->GetMean());
 
   printf("********* end of btb with ngen %i triggers %i rawRun %i LY %.2f coincidence %.3f rate %.3f Hz ********\n", ngen, nTrigger, int(rawRun->btree->GetEntries()), LY, maxTriggerTimeDifference, trigRate);
   // simRun->print();
@@ -1461,7 +1482,7 @@ int main(int argc, char *argv[])
   printf("***** START of btb geometry ngen = %.0E *****\n", double(ngen));
   btb(ngen);
   printf("... end %s version %s ngen %i passed %lld total efficiency %.3f  file %s exit\n", argv[0], geoName.Data(), ngen, ntFit->GetEntries(), totalEventEffiency, fout->GetName());
-  histDir->ls();
+  // histDir->ls();
   fout->Write();
   fout->Close();
   exit(0);
