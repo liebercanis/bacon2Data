@@ -83,6 +83,7 @@ TH1D *hCosmicCut;
 
 std::vector<TH1D *> hLightCurve;
 std::vector<TH1D *> hLightNorm;
+std::vector<TH1D *> hLightEff;
 
 std::vector<double> qsumGain; // read from class TReadGain
 
@@ -141,25 +142,38 @@ double npass;
 vector<int> filePass;
 vector<int> fileTotal;
 
+double gainFunc(int ich)
+{
+  double gain = readGains->sipmPeakGain[ich];
+  if (!isSimulation)
+    return gain;
+  if (ich < 9)
+    gain = readGains->nominalGain;
+  else if (ich > 8 && ich < 12)
+    gain = readGains->nominalTrigGain;
+  else
+    gain = readGains->nominalPmtGain;
+  return gain;
+}
+
 void normalize(int ichan)
 {
+  double gain = gainFunc(ichan);
+
   // printf("at line174 %s normalize to %d\n", hSave->GetName(), totalPass);
   TH1D *hist = hLightCurve[ichan];
-  TH1D *hSave = hLightNorm[ichan];
+  TH1D *hSave = hLightNorm[ichan]; /// normalized to total pass and gain
+  TH1D *hSave2 = hLightEff[ichan]; /// normalized to total pass and gain
   for (int ibin = 0; ibin < hist->GetNbinsX(); ++ibin)
   {
     double xbin = hist->GetBinContent(ibin);
     double ebin = sqrt(abs(hist->GetBinContent(ibin)));
     // divide by channel gain and totalPass
-    if (!isSimulation)
     {
-      hSave->SetBinContent(ibin, xbin / double(totalPass) / readGains->sipmPeakGain[ichan]);
-      hSave->SetBinError(ibin, ebin / double(totalPass) / readGains->sipmPeakGain[ichan]);
-    }
-    else
-    {
-      hSave->SetBinContent(ibin, xbin / double(totalPass));
-      hSave->SetBinError(ibin, ebin / double(totalPass));
+      hSave->SetBinContent(ibin, xbin / double(totalPass) / gain);
+      hSave->SetBinError(ibin, ebin / double(totalPass) / gain);
+      hSave2->SetBinContent(ibin, xbin / double(totalPass) / gain);
+      hSave2->SetBinError(ibin, ebin / double(totalPass) / gain);
     }
   }
 }
@@ -625,6 +639,10 @@ void post(TString tag)
     hLightNorm.push_back(new TH1D(Form("LightNormChan%i", i), Form("LightNormChan%i", i), MAXSAMPLES, 0, 2 * MAXSAMPLES));
     hLightNorm[hLightNorm.size() - 1]->GetXaxis()->SetTitle("time [ns]");
     hLightNorm[hLightNorm.size() - 1]->GetYaxis()->SetTitle("normalized number of photons per event /2ns");
+
+    hLightEff.push_back(new TH1D(Form("LightEffChan%i", i), Form("LightEffChan%i eff corrected ", i), MAXSAMPLES, 0, 2 * MAXSAMPLES));
+    hLightEff[hLightEff.size() - 1]->GetXaxis()->SetTitle("time [ns]");
+    hLightEff[hLightEff.size() - 1]->GetYaxis()->SetTitle("normalized number of photons per event /2ns");
   }
   /* make gain hisograms*/
   fout->cd("gainDir");
