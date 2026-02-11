@@ -51,8 +51,9 @@ TChain *RunTree;
 TFile *fout;
 bool isSimulation = false;
 TString tag;
-TNtuple *ntTrig;
 Long64_t totalEntries;
+TNtuple *ntTrig;
+TNtuple *ntGamma;
 Long64_t maxEntry;
 Long64_t totalPass;
 std::vector<TString> fileListName;
@@ -556,6 +557,14 @@ void loop()
     TBranchElement *aBranch = NULL;
     // loop over branches
 
+    double triggerSum = 0;
+    double photonSum[CHANNELS];
+    double qsumSum[CHANNELS];
+    for (int ich = 0; ich < CHANNELS; ++ich)
+    {
+      photonSum[ich] = 0;
+      qsumSum[ich] = 0;
+    }
     while ((aBranch = (TBranchElement *)next()))
     {
       // skip eventData branch
@@ -582,9 +591,19 @@ void loop()
         /* fill gain histograms */
         hQPeak[idet]->Fill(thit.qpeak);
         hQSum[idet]->Fill(thit.qsum);
+        photonSum[idet] += thit.qpeak / readGains->sipmPeakGain[idet];
+        qsumSum[idet] += thit.qsum / readGains->sipmSumGain[idet];
+        if (trig)
+        {
+          triggerSum += thit.qsum / readGains->sipmSumGain[idet];
+        }
       } // end branch loop
-    }
-  }
+    } // branch
+
+    // ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:peak");
+    ntGamma->Fill(double(entry), photonSum[9], qsumSum[9], photonSum[10], qsumSum[10], photonSum[11], qsumSum[11], triggerSum);
+
+  } // entry
 }
 
 /* build the TChain and call loop */
@@ -615,6 +634,7 @@ void post(TString tag)
   // trigger info ntuple
   // ntTrig->Fill( pmtLateSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
   ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtLateSum:totSum13:triggerSum:qFracUn0:qFracUn1:qFracUn2:qFraction0:qFraction1:qFraction2:xQ:yQ:passBit");
+  ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:peak");
 
   // make histograms
   hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
