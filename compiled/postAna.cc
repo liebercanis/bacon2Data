@@ -50,6 +50,8 @@ TReadGains *readGains;
 TChain *RunTree;
 TFile *fout;
 bool isSimulation = false;
+double triggerSum;
+
 TString tag;
 Long64_t totalEntries;
 TNtuple *ntTrig;
@@ -238,7 +240,7 @@ int passEventCuts(Long64_t entry)
     for (int i = 0; i < 3; ++i)
       printf("gain scale factor: channel %i  ratio gain/nominal Qsum %f  \n", i, scale[i]);
 
-  double triggerSum = 0;
+  triggerSum = 0;
   double triggerSumUn = 0;
   for (int i = 0; i < 3; ++i)
   {
@@ -557,7 +559,7 @@ void loop()
     TBranchElement *aBranch = NULL;
     // loop over branches
 
-    double triggerSum = 0;
+    double eventTriggerSum = 0;
     double photonSum[CHANNELS];
     double qsumSum[CHANNELS];
     for (int ich = 0; ich < CHANNELS; ++ich)
@@ -595,13 +597,13 @@ void loop()
         qsumSum[idet] += thit.qsum / readGains->sipmSumGain[idet];
         if (trig)
         {
-          triggerSum += thit.qsum / readGains->sipmSumGain[idet];
+          eventTriggerSum += thit.qsum / readGains->sipmSumGain[idet];
         }
       } // end branch loop
     } // branch
 
     // ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:peak");
-    ntGamma->Fill(double(entry), photonSum[9], qsumSum[9], photonSum[10], qsumSum[10], photonSum[11], qsumSum[11], triggerSum);
+    ntGamma->Fill(double(entry), photonSum[9], qsumSum[9], photonSum[10], qsumSum[10], photonSum[11], qsumSum[11], eventTriggerSum, triggerSum);
 
   } // entry
 }
@@ -634,7 +636,7 @@ void post(TString tag)
   // trigger info ntuple
   // ntTrig->Fill( pmtLateSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
   ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtLateSum:totSum13:triggerSum:qFracUn0:qFracUn1:qFracUn2:qFraction0:qFraction1:qFraction2:xQ:yQ:passBit");
-  ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:peak");
+  ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:eventSum:sum");
 
   // make histograms
   hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
