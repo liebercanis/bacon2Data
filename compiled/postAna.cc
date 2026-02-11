@@ -244,7 +244,8 @@ int passEventCuts(Long64_t entry)
   double triggerSumUn = 0;
   for (int i = 0; i < 3; ++i)
   {
-    triggerSum += detList[9 + i]->totSum * scale[i];
+    // triggerSum += detList[9 + i]->totSum * scale[i];
+    triggerSum += detList[9 + i]->totSum;
     triggerSumUn += detList[9 + i]->totSum;
   }
 
