@@ -249,7 +249,7 @@ int passEventCuts(Long64_t entry)
     triggerSumUn += detList[9 + i]->totSum;
   }
 
-  printf("postAna .... %lld totSum %f\n,", entry, detList[9]->totSum);
+  // printf("postAna .... %lld totSum %f\n,", entry, detList[9]->totSum);
 
   /* set trigfail if triggerSum>230 */
   if (triggerSum > 230)
