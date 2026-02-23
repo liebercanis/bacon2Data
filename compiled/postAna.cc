@@ -148,6 +148,7 @@ vector<int> fileTotal;
 double gainFunc(int ich)
 {
   double gain = readGains->sipmPeakGain[ich];
+  /* use same gains in simulation
   if (!isSimulation)
     return gain;
   if (ich < 9)
@@ -156,6 +157,7 @@ double gainFunc(int ich)
     gain = readGains->nominalTrigGain;
   else
     gain = readGains->nominalPmtGain;
+  */
   return gain;
 }
 
@@ -744,13 +746,6 @@ int main(int argc, char *argv[])
     exit(0);
   }
 
-  /* read gains from saved file */
-  readGains = new TReadGains();
-
-  // store qsumGain[ib];
-  for (unsigned ch = 0; ch < readGains->sipmSumGain.size(); ++ch)
-    qsumGain.push_back(readGains->sipmSumGain[ch]);
-
   /* for failure bits */
   failCode.resize(FAILBITS);
   failCode[0] = PASS;
@@ -818,16 +813,26 @@ int main(int argc, char *argv[])
     printf(" >>>> datatype no files found <<<<\n");
     exit(0);
   }
+  if (isSimulation)
+    printf("****** this is simulation data **** \n");
+
+  /** set gains read gains from saved file */
+
+  if (isSimulation) // use default gains
+    readGains = new TReadGains(false);
+  else // use gains from file
+    readGains = new TReadGains();
+
+  // store qsumGain[ib];
+  for (unsigned ch = 0; ch < readGains->sipmSumGain.size(); ++ch)
+    qsumGain.push_back(readGains->sipmSumGain[ch]);
 
   if (argc > 3)
   {
     maxEntry = atoi(argv[3]);
   }
 
-  if (isSimulation)
-    printf("****** this is simulation data **** \n");
-
-  printf(" >>>>> analyze %u  files from %s to %s tag %s totalEntries %lld maxEntry %lld <<<<<\n", nfiles, theStartTag.Data(), theEndTag.Data(), tag.Data(), totalEntries, maxEntry);
+    printf(" >>>>> analyze %u  files from %s to %s tag %s totalEntries %lld maxEntry %lld <<<<<\n", nfiles, theStartTag.Data(), theEndTag.Data(), tag.Data(), totalEntries, maxEntry);
 
   sdate = currentDate();
   tag = theStartTag + TString("-") + theEndTag;

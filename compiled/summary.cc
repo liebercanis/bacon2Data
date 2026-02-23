@@ -1,4 +1,4 @@
-// removed SumHitWave July 25, 2024
+/// removed SumHitWave July 25, 2024
 #include <ctime>
 #include <iostream>
 #include <iterator>

@@ -15,7 +15,7 @@ static void setDistanceLevels(bool isOld = true)
   geoVersionOld = isOld;
   if (!geoVersionOld)
   {
-    distanceLevel[0] = 1.062;
+    distanceLevel[0] = 1.062; // trigger
     distanceLevel[1] = 11.48;
     distanceLevel[2] = 21.41;
     distanceLevel[3] = 31.35;
@@ -23,7 +23,7 @@ static void setDistanceLevels(bool isOld = true)
   }
   else
   {
-    distanceLevel[0] = 1.251;
+    distanceLevel[0] = 1.251; // trigger
     distanceLevel[1] = 11.789;
     distanceLevel[2] = 21.723;
     distanceLevel[3] = 31.668;

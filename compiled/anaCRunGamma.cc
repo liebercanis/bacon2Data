@@ -111,7 +111,7 @@ public:
   int badEventDirMax = 1000;
   int exampleDirMax = 1000;
   int missedDirMax = 1000;
-  bool reportFailures = true;
+  bool reportFailures = false;
   double noiseToSignal = 0.04;
   TBRun *tbrun;
   TFile *fout;
@@ -475,9 +475,11 @@ bool anaCRun::openFile(TString theFile)
     printf(" eventData not found in file  %s\n", fileName.Data());
     return false;
   }
-  printf(" rawTree has %u channels stored in rawBr \n", getBranches());
-  for (unsigned i = 0; i < rawBr.size(); ++i)
-    printf(" branch %s chan %i \n", rawBr[i]->GetName(), i);
+  else
+  {
+    printf("rawEventData\n");
+    rawEventData->ls();
+  }
 
   simTree = nullptr;
   isSim = false;
@@ -496,8 +498,8 @@ void anaCRun::getSummedHists()
 {
   rawSumDir->cd();
   TIter next(fin->GetListOfKeys());
-  printf(" getSummedHists ........ list of fin \n");
-  fin->GetListOfKeys()->ls();
+  printf(" getSummedHists \n");
+  // fin->GetListOfKeys()->ls();
   TKey *key;
   while (TKey *key = (TKey *)next())
   {
@@ -670,6 +672,7 @@ void anaCRun::doTimeShiftAndNorm()
     // after doing time shift set jstsart,jstop,absShift
     ULong_t jstart = TMath::Max(-timeShift, 0);
     ULong_t jstop = TMath::Min(int(rawBr[0]->rdigi.size()), int(rawBr[0]->rdigi.size()) - timeShift);
+    // printf("channel %u rdigi size = %i  start %lu stop %lu\n", ib, int(rawBr[0]->rdigi.size()), jstart, jstop);
     int absShift = TMath::Abs(timeShift);
     hTriggerShift->Fill(timeShift);
     TDet *idet = tbrun->getDet(ib);
@@ -678,12 +681,15 @@ void anaCRun::doTimeShiftAndNorm()
     // which nominal gain, hit threshold id the samea
     for (ULong_t j = jstart; j < jstop; ++j)
     {
+      fDigi[j] = 0;
       double val = double(rawBr[ib]->rdigi[j]) - idet->base;
       // scale all channels by nominal gain
       // val *= nominalGain / sipmGain[ib];
+      ULong_t jbin = j - ULong_t(absShift);
       if (timeShift > 0)
         fDigi[j + ULong_t(absShift)] = val;
-      else
+      /** added for sim feb 12 2026 why now? */
+      else if (j - ULong_t(absShift) > 0)
         fDigi[j - ULong_t(absShift)] = val;
     }
     fixedDigi.push_back(fDigi);
@@ -1980,7 +1986,7 @@ int anaCRun::anaEvent(Long64_t entry)
             TH1D *EvRawWave = (TH1D *)hEvRawWave[idet]->Clone(Form("EvRawEvent%lld-Ch%itime%i", entry, idet, int(simTimeBin)));
             EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, idet));
             finder->plotEvent(missedDir, tbrun->getDet(idet)->channel, entry);
-            printf("@line1089 MISSING HIT print event %llu det %i time bin %i printed %i \n", entry, idet, int(simTimeBin), missedDir->GetList()->GetEntries());
+            // printf("@line1089 MISSING HIT print event %llu det %i time bin %i printed %i \n", entry, idet, int(simTimeBin), missedDir->GetList()->GetEntries());
           }
         }
       }
@@ -2172,6 +2178,11 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     return -1;
   }
 
+  printf(" @@@@@@@@@@@ rawTree has %u channels stored in rawBr  \n", getBranches());
+  for (unsigned i = 0; i < rawBr.size(); ++i)
+    printf(" branch %s chan %i rdigi size %lu  \n", rawBr[i]->GetName(), i, rawBr[i]->rdigi.size());
+  // rawEventData->print();
+
   // open outout file
   TString outFileName;
   outFileName.Form("caenData/anaCRun-%s-%llu.root", shortName.c_str(), maxEntries);
@@ -2257,22 +2268,34 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   cout << " rawTree return " << rawTree->GetEntry(0) << endl;
   printf("got rawTree entry 0 \n");
   printf("\n\n\t\t >>>>>>>>> start of file %i %i %i : %i <<<<<<<<<<<< \n", rawEventData->day, rawEventData->mon, rawEventData->year, rawEventData->hour);
-  printf("\t\t SIZE OF WAVEFORM = %lu \n", rawBr[0]->rdigi.size());
+
+  for (int iev = 0; iev < 100; ++iev)
+  {
+    rawTree->GetEntry(iev);
+    for (unsigned ib = 0; ib < rawBr.size(); ++ib)
+      printf("\t\t event %u SIZE OF WAVEFORM = %lu \n", iev, rawBr[ib]->rdigi.size());
+  }
   if (rawBr[0]->rdigi.size() != WAVELENGTH)
   {
     printf(" \n\n\n\n ERROR rdigi size %lu !!! \n", rawBr[0]->rdigi.size());
-    // return 0;
+    return 0;
   }
+
   Long64_t nentries = rawTree->GetEntries();
   if (maxEntries > 0)
     nentries = TMath::Min(maxEntries, nentries);
-  printf("... total entries  %llu looping over %llu starting from %llu \n ", rawTree->GetEntries(), nentries, firstEntry);
+  printf("... total entries  %llu looping over %llu starting from %llu call getSummedHists\n ", rawTree->GetEntries(), nentries, firstEntry);
 
   getSummedHists();
   // fout->ls();
 
   // make output tree
-  printf("line 2096 TBRun\n");
+  printf("line 2096 TBRun rawBr size %lu \n", rawBr.size());
+
+  printf(" 22222@@@@@@@@@@@ rawTree has %u channels stored in rawBr  \n", getBranches());
+  for (unsigned i = 0; i < rawBr.size(); ++i)
+    printf(" branch %s chan %i rdigi size %lu  \n", rawBr[i]->GetName(), i, rawBr[i]->rdigi.size());
+
   tbrun = new TBRun(tag);
   fout->Append(tbrun->btree);
   // and event time
@@ -2283,6 +2306,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   {
     tbrun->addDet(it);
   }
+
   // store nominal baselines
   TString hName;
   hName.Form("NominalBaselines N=%i", int(baselineSum));
@@ -2520,7 +2544,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     return 0;
   }
   /* get the nominal baselines for this file*/
-  printf("line2327 getNominalBaselines\n");
+  // printf("line2327 getNominalBaselines\n");
   getBaselines(baselineSum);
 
   npass = 0;
@@ -2529,8 +2553,14 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   printf("... total entries  %llu looping over %llu firstEntry %llu last %lld \n ", rawTree->GetEntries(), nentries, firstEntry, lastEntry);
   for (Long64_t entry = firstEntry; entry < lastEntry; ++entry)
   {
+    if (entry / 1000 * 1000 == entry)
+    {
+      printf("...... entry %lld \n", entry);
+      fflush(stdout);
+    }
     tbrun->clear();
     rawTree->GetEntry(entry);
+    // printf("$$$$$$$$$$$$$$$$ rawTree rdigi size %lu\n", rawBr[0]->rdigi.size());
 
     // main ana routine
     int passBit = anaEvent(entry);

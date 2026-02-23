@@ -1,19 +1,124 @@
+/*
+  fit one curve
+  modified to use modelAllFit.hh
+  M.Gold Feb 17 2026
+*/
 #include <iostream>
 #include <fstream>
-#include "modelFit.hh"
+#include "TGraph.h"
+#include "TMinuit.h"
+#include "modelAllFit.hh"
 // time is in microseconds
 using namespace TMath;
 TFile *fin;
-TDirectory *runSumDir;
+TFile *fout;
+TNtuple *ntParScan;
+std::vector<TH1D *> hnorm;
+std::vector<TH1D *> hcurve;
+std::vector<TH1D *> hffit;
+std::vector<TH1D *> hmodel;
 
 int nominalTrigger = 729;
-double startTime = 700.; // hWave->GetBinLowEdge(maxBin) + hWave->GetBinWidth(maxBin) / 2.;
 double singletStart = 700;
 double singletEnd = 750;
 // 3603795;
+static Double_t vstart[NPARS];
+static Double_t step[NPARS];
+double xTrigger = 686.;
 
-double
-fitBack(TH1D *hist)
+int colors[NCHAN] = {kRed, kGreen, kBlue, kYellow, kMagenta, kCyan, kOrange, kSpring, kTeal, kAzure, kViolet, kPink, kGray};
+
+TGraph *myScan(int thePar, double xlow, double xhigh)
+{
+  int maxPoints = 100;
+  std::vector<double> xval;
+  std::vector<double> yval;
+
+  // get min parameters
+  double fitVal[NPARS];
+  double fitErr[NPARS];
+  for (int ipar = 0; ipar < NPARS; ++ipar)
+  {
+    gMinuit->GetParameter(ipar, fitVal[ipar], fitErr[ipar]);
+    // printf("line141 ipar %i par %f err %f \n", ipar, fitVal[ipar], fitErr[ipar]);
+  }
+
+  double *fGin;
+  double nLL;
+  for (int i = 0; i < maxPoints; ++i)
+  {
+    double x = xlow + double(i) * (xhigh - xlow) / double(maxPoints);
+    fitVal[thePar] = x;
+    gMinuit->Eval(thePar, fGin, nLL, &fitVal[0], 4);
+    xval.push_back(x);
+    yval.push_back(nLL);
+    // printf("line53 i %i par nph %f r %f theta %f  phi %f \n", i, fitVal[0], fitVal[1], fitVal[2], fitVal[3]);
+    ntScan->Fill(nLL, fitVal[1], fitVal[2], fitVal[3]);
+    // printf("mySCAN par %i x= %f nLL %E \n", i, x, nLL);
+  }
+  // make and return graph
+  return new TGraph(maxPoints, &xval[0], &yval[0]);
+}
+
+/* stored in modelAllFit..
+ static double fitWave[NCHAN][MAXSAMPLE];
+static double fitComp[NCHAN][NUMCOMP][MAXSAMPLE];
+*/
+
+void fillFitWave(int ichan, TH1D *hist)
+{
+  std::cout << " fillFitWave " << ichan << "  " << hist->GetName() << std::endl;
+  hist->Reset("ICES");
+  for (int ib = 1; ib < hist->GetNbinsX(); ++ib)
+  {
+    double val = max(fitWave[ichan][ib], 1.E-9);
+    hist->SetBinContent(ib, val);
+    hist->SetBinError(ib, 0);
+    hist->GetYaxis()->SetTitle("yield");
+    hist->GetXaxis()->SetTitle("time [ns]");
+    hffit[ichan] = hist;
+  }
+}
+void fillCompWave(int ichan, int icomp, TH1D *hist)
+{
+  // std::cout << " fillFitWave " << ichan << "  " << hist->GetName() << std::endl;
+  hist->Reset("ICES");
+  for (int ib = 1; ib < hist->GetNbinsX(); ++ib)
+  {
+    double val = max(fitComp[ichan][icomp][ib], 1.E-9);
+    // if (ichan == 8 && ib == 1500)
+    //   printf("!!!! chan %i sample %i val %E \n", ichan, ib, val);
+    hist->SetBinContent(ib, val);
+    hist->SetBinError(ib, 0);
+    hist->GetYaxis()->SetTitle("yield");
+    hist->GetXaxis()->SetTitle("time [ns]");
+  }
+  std::cout << std::endl;
+}
+
+void getCurves()
+{
+
+  TIter next(fin->GetListOfKeys());
+  TKey *key;
+  int ifile = 0;
+  while (TKey *key = (TKey *)next())
+  {
+    TClass *cl = gROOT->GetClass(key->GetClassName());
+
+    if (!cl->InheritsFrom("TH1D"))
+      continue;
+    TH1D *h = (TH1D *)key->ReadObj();
+
+    if (TString(h->GetName()).Contains("CurveChan"))
+      hcurve.push_back(h);
+
+    if (TString(h->GetName()).Contains("NormChan"))
+      hnorm.push_back(h);
+  }
+}
+
+double fitBack(TH1D *hist)
 {
   double lowCut = 12000;
   double highCut = 15000;
@@ -22,9 +127,9 @@ fitBack(TH1D *hist)
   int lowBins = hist->FindBin(lowCut);
   int highBins = hist->FindBin(highCut);
   auto fitBack = new TF1("fitBack", "pol0", lowCut, highCut);
-  fitBack->SetParameter(0,1E-1);
-  fitBack->SetParLimits(0,1.E-9,1E2);
-  
+  fitBack->SetParameter(0, 1E-1);
+  fitBack->SetParLimits(0, 1.E-9, 1E2);
+
   hist->Fit("fitBack", "LF", " ", lowCut, highCut);
   gfit = (TF1 *)hist->GetListOfFunctions()->FindObject("fitBack");
   if (gfit)
@@ -33,24 +138,12 @@ fitBack(TH1D *hist)
   }
   else
     printf("P1 Fit to hist fails \n");
-  double aveb = hist->Integral(lowCut,highCut) / double(highBins-lowBins);
+  double aveb = hist->Integral(lowCut, highCut) / double(highBins - lowBins);
   printf(" \t\t ave %E aveb %E \n\n", ave, aveb);
   return ave;
 }
 
-static double singletPeak(double *xx, double *par)
-{
-  double t = xx[0];
-  double norm = par[0];
-  double mean = par[1];
-  double sigma = par[2];
-  double arg = (t - mean) / sigma;
-  double binwidth = 2.; // 2 ns
-  double g = binwidth * norm / sqrt(TMath::TwoPi()) / sigma * TMath::Exp(-0.5 * arg * arg);
-  return g;
-}
-
-bool openFile(TString fileName = "summary-01_25_2024-nfiles-10-dir-caenDataGoldSave-2024-05-20-14-17.root")
+bool openFile(TString fileName)
 {
   // open input file and make some histograms
   printf(" looking for file %s\n", fileName.Data());
@@ -71,158 +164,238 @@ bool openFile(TString fileName = "summary-01_25_2024-nfiles-10-dir-caenDataGoldS
 
   fin = new TFile(fileName, "readonly");
   printf(" opened file %s\n", fileName.Data());
-  runSumDir = NULL;
-  fin->GetObject("runSumDir", runSumDir);
-  if (!runSumDir)
-  {
-    printf(" no runSumDir in file %s\n", fileName.Data());
-    return false;
-  }
-  runSumDir->ls();
   return true;
 }
 
-void tbFit(int ichan = 8)
+void tbFit(int ichan = 9)
 {
 
-  if (!openFile())
-    return;
-  TFile *fout = new TFile("tbFit", "recreate");
-  TString hname;
-  hname.Form("RunHitWaveChan%i", ichan);
-  TH1D *hWave = NULL;
-  runSumDir->GetObject(hname, hWave);
-  if (!hWave)
+  hffit.resize(NCHAN);
+  hmodel.resize(NCHAN);
+
+  TString inputFile = TString("post-anaCRun-btbSimNEW-2026-02-13-100000-7857.root");
+
+  if (!openFile(inputFile))
     return;
 
-  hWave->GetListOfFunctions()->Clear();
+  geoVersionOld = false;
+  setDistanceLevels(geoVersionOld);
+  printf("setParNames and setCompNames\n");
+  setParNames();
+  setCompNames();
 
-  cout << " got " << hWave->GetName() << endl;
-  double ppm = 0.05;
+  double dopant = 1.E-2; // PPM
 
-  // peak singlet fit
-  TH1D *hSinglet = (TH1D *)hWave->Clone("SingletWave");
-  gStyle->SetOptStat();
-  gStyle->SetOptFit(1111);
-  auto fsinglet = new TF1("singlet", singletPeak, singletStart,singletEnd, 3);
-  fsinglet->SetParameters(1,double(nominalTrigger), 10.);
-  fsinglet->SetParNames("norm", "mean", "sigma");
+  // is this simulation?
+  bool isSim = false;
+  if (inputFile.Contains("btb"))
+  {
+    isSim = true;
+  }
+  if (isSim)
+    fout = new TFile(Form("tbFitSimPPM%.2f.root", dopant), "recreate");
+  else
+    fout = new TFile(Form("tbFitPPM%.2f.root", dopant), "recreate");
 
-  TCanvas *canSinglet = new TCanvas(Form("SingletFit-%.3f-PPM", ppm), Form("SingletFit-%.3f-PPM", ppm));
-  hSinglet->Fit("singlet");
-  hSinglet->GetXaxis()->SetRangeUser(700,800);
-  hSinglet->Draw();
-  double sumSinglet = hWave->Integral(hWave->FindBin(700), hWave->FindBin(800));
+  if (geoVersionOld)
+    printf("OLD level distances 0 = %.3f 1= %.3f 2= %.3f 3 %.3f 4 %.3f \n", distanceLevel[0], distanceLevel[1], distanceLevel[2], distanceLevel[3], distanceLevel[4]);
+  else
+    printf("NEW level distances 0 = %.3f 1= %.3f 2= %.3f 3 %.3f 4 %.3f \n", distanceLevel[0], distanceLevel[1], distanceLevel[2], distanceLevel[3], distanceLevel[4]);
 
-  TCanvas *canSingletFunc = new TCanvas(Form("SingletFitFunc-%.3f-PPM", ppm), Form("SingletFitFunc-%.3f-PPM", ppm));
-  fsinglet->Draw();
+  getCurves();
 
-  printf(" singlet  integral 700 to 800 = %.3E\n", sumSinglet);
+  /* total photons per event */
+  double startNorm = 60. * LY;
+  fout->Append(hnorm[ichan]);
 
-  // fit background
-  //TH1D *hBack = (TH1D *)hWave->Clone("BackWave");
-  //double back = fitBack(hBack);
-  //cout << " fitted back  " << back << endl;
+  for (unsigned ih = 0; ih < hnorm.size(); ++ih)
+  {
+    printf("%u %s inte %E \n", ih, hnorm[ih]->GetName(), hnorm[ih]->Integral());
+    hnorm[ih]->GetListOfFunctions()->Clear();
+  }
 
-  //hWave->GetXaxis()->SetRangeUser(0, 15000);
-  double back = 0;
-  double markerSize = 0.5;
+  /* fill buffer */
+  printf("fill buff \n");
+  for (unsigned ichan = 0; ichan < NCHANPMT; ++ichan)
+  {
+    printf(".... fill buffer for channel %i  hist %s maximum bin %i \n", ichan, hnorm[ichan]->GetName(), hnorm[ichan]->GetMaximumBin());
+    // fill data buffer
+    for (int isample = 1; isample < MAXSAMPLE; ++isample)
+    {
+      buff[ichan][isample - 1] = hnorm[ichan]->GetBinContent(isample); // C starts array from zero
+    }
+  }
 
-  /***** fitting *****/
-  hWave->GetListOfFunctions()->Clear();
-  Double_t binwidth = hWave->GetBinWidth(1);
-  int maxBin = hWave->GetMaximumBin();
-  double hnorm = hWave->Integral(1, 7500);
+  /* setup fit */
+  TMinuit *gMinuit = new TMinuit(NPARS); // initialize TMinuit with a maximum of 5 params
+  gMinuit->SetFCN(fcn);
 
-  printf("startTime %f hnorm %f \n",startTime,hnorm);
+  double currentValue;
+  double currentError;
 
-  int theFit = 4;
-  modelFit *model = new modelFit(theFit, ichan, ppm);
-  TF1 *fp = model->fp;
-  double sFrac = 0.2;
+  Double_t arglist[10];
+  int ierflg = 0;
+  arglist[0] = 0.5; // for likelihood
+  gMinuit->mnexcm("SET ERR", arglist, 1, ierflg);
 
-  int ilevel = level(ichan);
-  double dist = distanceLevel[ilevel];
-  double ab = Absorption(ppm, dist);
-  double kplus = 1;
-  double kPrime = 1;
+  // fit starting values
+  vstart[NORM] = startNorm;
+  vstart[TRIGSTART] = xTrigger;
+  vstart[SFRAC] = 0.14; //;0.23;   // Segretto PHYSICAL REVIEW D 103, 043001 (2021)
+  vstart[PPM] = dopant;
+  vstart[TAU3] = tTriplet0;
+  vstart[TAUM] = 4700.0;
+  vstart[BKGCONST] = 0;
+  vstart[BKGTAU] = 5000.;
+  vstart[THECHANNEL] = ichan;
+  /*
+  printf("starting parameter values \n");
+  for (int ip = 0; ip < NPARS; ++ip)
+    printf(" par %i %s start val %.3f \n", ip, lparNames[ip].Data(), vstart[ip]);
+    */
+
+  // copy into Minuit
+  /* have to put some errors here otherwise it will be constant*/
+  for (unsigned j = 0; j < NPARS; ++j)
+  {
+    step[j] = 1.E-6 * vstart[j];
+    gMinuit->mnparm(j, lparNames[j].Data(), vstart[j], step[j], 0.1 * vstart[j], 10. * vstart[j], ierflg);
+    lpar[j] = vstart[j];
+  }
+
+  /******************************/
+  // fix parameters minuit is fortran!
+  /******************************/
+
+  arglist[0] = TRIGSTART + 1; // trigger
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+
+  arglist[0] = TAUM + 1; // par tau3
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+
+  arglist[0] = SFRAC + 1; // kp
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+
+  arglist[0] = BKGCONST + 1; //
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+
+  arglist[0] = BKGTAU + 1; //
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
   /*
+      set limits ... here par starts with 1 so add 1
+   */
+  arglist[0] = NORM + 1;         // par
+  arglist[1] = 0.01 * startNorm; // low
+  arglist[2] = 10. * startNorm;  // high
+  // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  gMinuit->mnexcm("FIX", arglist, 3, ierflg);
 
-  fp->SetParName(0, "norm");
-  fp->SetParName(1, "PPM");
-  fp->SetParName(2, "tau3");
-  fp->SetParName(3, "kp");
-  fp->SetParName(4, "sfrac");
-  fp->SetParName(5, "rfrac"); // recombination this is starting value Eur. Phys. J. C (2013) 73:2618
-  fp->SetParName(6, "ab");
-  fp->SetParName(7, "kxprime");
-  fp->SetParName(8, "tmix");
-  fp->SetParName(9, "bgk");
-  fp->SetParName(10, "chan");
-  fp->SetParName(11, "binw");
-  fp->SetParName(12, "type");
-  */
+  // set limits ... here par starts with 1 so add 1
+  arglist[0] = TAU3 + 1;        // par
+  arglist[1] = 0.1 * tTriplet0; // low
+  arglist[2] = 2.0 * tTriplet0; // high
+  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
-  fp->SetParameter(0,nPhotons);
-  // up to 8 parameters
-  fp->FixParameter(1, ppm);
-  fp->SetParLimits(2, 800.,2000. );
-  //fp->FixParameter(2, tTriplet);
-  fp->FixParameter(3, kplus);
-  //fp->FixParameter(4, sFrac); // not fitting singlet
-  fp->FixParameter(5, 1.E-5);
-  fp->SetParLimits(5, 1.E-6 , 1.E-4);
-  fp->FixParameter(6,ab);
-  // fp->SetParLimits(6, 1.E-9, 1.);
-  //fp->FixParameter(7, 2 * kPrime);
-  fp->FixParameter(8, tMix);
-  fp->FixParameter(9, back);
-  //fp->FixParameter(12,0); // model fit
+  // set limits ... here par starts with 1 so add 1
+  arglist[0] = PPM + 1; // par
+  arglist[1] = 0.0;     // low
+  arglist[2] = 100.;    // high
+  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
-  printf("  >>> modelFit initial value parameters fit chan %i ppm %.3f \n", (int)fp->GetParameter(10), fp->GetParameter(1));
+  // arglist[0] = PPM + 1; //
+  // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+
+  /*
+  printf(" \n\n >>> tbFit modelFit start parameters fit ppm %f \n", vstart[PPM]);
   for (int ii = 0; ii < NPARS; ++ii)
   {
-    printf("\t  param %i %s %.3E +/- %.3E \n", ii, fp->GetParName(ii), fp->GetParameter(ii), fp->GetParError(ii));
+    gMinuit->GetParameter(ii, currentValue, currentError);
+    printf("\t  param %i %s %.4E  \n", ii, lparNames[ii].Data(), currentValue);
   }
-  cout << " ---------------  " << endl;
+  */
+  double amin;
+  printf("call mnprin starting values \n");
+  gMinuit->mnprin(1, amin);
 
-  gStyle->cd();
-  gStyle->SetOptFit(1111111);
-  TCanvas *canShow = new TCanvas(Form("WaveShow-%.3f-PPM", ppm), Form("WaveShow-%.3f-PPM", ppm));
-  canShow->SetLogy();
-  hWave->Draw();
-  fp->Draw("sames");
-  fp->SetRange(xMin, xMax);
+  /* look at sarting model */
 
-  /* do the fit here */
-  TFitResultPtr fptr = hWave->Fit(fp, "RLE0S+", "", 0, xMax);
-  TMatrixDSym cov = fptr->GetCorrelationMatrix();
-  printf(" correlation chan %i cov(2,3) %f \n", ichan, cov(2, 3));
-  fptr->Print("V");
+  // void printModel(int ibin, Double_t *par, double *fsChan, double *ftChan)
+  // printModel(hnorm[ichan]->GetMaximumBin(), &vstart[0]);
 
-  gStyle->cd();
-  gStyle->SetOptFit(1111111);
-  TCanvas *canFit = new TCanvas(Form("WaveFit-%.3f-PPM", ppm), Form("WaveFit-%.3f-PPM", ppm));
-  canFit->SetLogy();
-  // hWave->GetYaxis()->SetRangeUser(1E-1,1E3);
-  hWave->SetMarkerSize(0.2);
-  fout->Append(hWave);
-  fout->Append(fp);
-  hWave->Draw("p");
-  fp->SetLineColor(kRed);
-  fp->SetLineStyle(5);
-  fp->SetLineWidth(4);
-  fp->Draw("same");
-  TPaveStats *st = (TPaveStats *)hWave->GetListOfFunctions()->FindObject("stats");
-  gStyle->SetOptFit(); // for example
-  canFit->Modified();
-  canFit->Update();
-  hWave->GetListOfFunctions()->ls();
-  double xlow, xhigh;
-  fp->GetRange(xlow, xhigh);
-  cout << " trigger Time " <<  nominalTrigger << " hist integral  " << hnorm << " fit from " << xlow << " to " << xhigh << endl;
-  printf(" singlet  integral 1360 to 1460 = %.3E\n", sumSinglet);
-  model->show();
-  //model->showEff();
+  /******************
+   *  now fit
+   *****************/
+
+  double fval = 0;
+  double gin[NPARS];
+  int npar = NPARS;
+  // Call the function once and get the return value.
+  int llist = NPARS; // Number of parameters
+  fcn(llist, gin, fval, lpar, ierflg);
+  printf(" starting value >>>>   fval %E \n", fval);
+  double fvalStart = fval;
+  if (isnan(fval))
+  {
+    printf("gMinuit returns NAN\n");
+    return;
+  }
+
+  // minimize with MIGRADfill
+  // Now ready for minimization step
+  arglist[0] = 1000000; // maxcalls
+  arglist[1] = 1.E-5;   // tolerance
+
+  /* MIGrad[maxcalls][tolerance]*/
+  gMinuit->mnexcm("MIGRAD", arglist, 2, ierflg);
+  printf("\n...  after fit, call to  MIGRAD returns ierflg %i \n", ierflg);
+
+  // Print results
+  Double_t edm, errdef;
+  Int_t nvpar, nparx, icstat;
+  printf("...  call mnstat \n");
+  gMinuit->mnstat(amin, edm, errdef, nvpar, nparx, icstat);
+  /*
+  Prints the values of the parameters at the time of the call.
+  According to the value of IKODE, the printout is: IKODE=INKODE=
+
+  0 only info about function value
+  1 parameter values, errors, limits
+  2 values, errors, step sizes, internal values
+  3 values, errors, step sizes, first derivs.
+  4 values, parabolic errors, MINOS errors
+  when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
+  */
+  printf("\n...  call mnprin \n");
+  gMinuit->mnprin(1, amin);
+
+  // for (unsigned ic = 0; ic < NCHANPMT; ++ic)
+  int ic = ichan;
+  // fout->ls();
+  TH1D *hFit = (TH1D *)hnorm[ic]->Clone(Form("fitWaveFitChan%i", ic));
+  hFit->Reset("ICES");
+  hFit->SetTitle((Form("fitWaveFitChan%i", ic)));
+  hFit->SetLineColor(colors[ic]);
+  fillFitWave(ic, hFit);
+
+  TDirectory *compDir = fout->mkdir("components");
+  compDir->cd();
+
+  // plot by channel first
+  for (int icomp = 0; icomp < NUMCOMP; ++icomp)
+  {
+    TH1D *hFit = (TH1D *)hnorm[ichan]->Clone(Form("fit%sChan%i", compNames[icomp].Data(), ichan));
+    hFit->Reset("ICES");
+    hFit->SetTitle((Form("fit%sChan%i", compNames[icomp].Data(), ichan)));
+    hFit->SetLineColor(colors[ichan]);
+    fillCompWave(ichan, icomp, hFit);
+  }
+
+  ntParScan = new TNtuple("ntParScan", "parameter scan", "nll:fitVal1:fitVal2:fitVal3");
+
+  int thePar = TAU3;
+  TGraph *graph = myScan(thePar, 1000, 5000);
+  graph->SetName(Form("ScanPar%i", thePar));
+  graph->SetTitle(Form("ScanPar%i", thePar));
+  fout->Add(graph);
 }

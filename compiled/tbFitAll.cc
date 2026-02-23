@@ -18,12 +18,11 @@ Nov 13 2025
 using namespace TMath;
 TFile *fin;
 TFile *fout;
-TDirectory *histoDir;
-std::vector<TH1D *> hwave;
+std::vector<TH1D *> hnorm;
+std::vector<TH1D *> hcurve;
 std::vector<TH1D *> hffit;
 std::vector<TH1D *> hmodel;
-std::vector<TH1D *> hffitPmt;
-std::vector<TH1D *> hffitChan;
+
 TString histSet;
 double dopant[4];
 TString summaryFile[4];
@@ -38,6 +37,28 @@ kBlue   = 600, kYellow = 400, kMagenta = 616,  kCyan   = 432,  kOrange = 800,
 kSpring = 820, kTeal   = 840, kAzure   =  860, kViolet = 880,  kPink   = 900
 */
 int colors[NCHAN] = {kRed, kGreen, kBlue, kYellow, kMagenta, kCyan, kOrange, kSpring, kTeal, kAzure, kViolet, kPink, kGray};
+
+void getCurves()
+{
+
+  TIter next(fin->GetListOfKeys());
+  TKey *key;
+  int ifile = 0;
+  while (TKey *key = (TKey *)next())
+  {
+    TClass *cl = gROOT->GetClass(key->GetClassName());
+
+    if (!cl->InheritsFrom("TH1D"))
+      continue;
+    TH1D *h = (TH1D *)key->ReadObj();
+
+    if (TString(h->GetName()).Contains("CurveChan"))
+      hcurve.push_back(h);
+
+    if (TString(h->GetName()).Contains("NormChan"))
+      hnorm.push_back(h);
+  }
+}
 
 void fillHistogram(TF1 *func, TH1D *hist)
 {
@@ -116,13 +137,12 @@ double fitBack(TH1D *hist)
   return ave;
 }
 
-int openFile(int fileNum = 0)
+bool openFile(int fileNum = 0)
 {
   TString fileName = summaryFile[fileNum];
   // open input filex
   hffit.resize(NCHAN);
   hmodel.resize(NCHAN);
-  hffitPmt.resize(NCHAN);
 
   printf(" looking for summary file %s\n", fileName.Data());
 
@@ -142,83 +162,14 @@ int openFile(int fileNum = 0)
   // file exists, so open with TFile
   fin = new TFile(fileName, "readonly");
   printf(" opened file %s\n", fileName.Data());
-  TString fileString;
-  histoDir = nullptr;
-  if (isSim)
-  {
-    isSim = true;
-    fin->GetObject("sumDir", histoDir);
-    fileString = TString("sumPeakWave");
-    printf("line127 file %s IS SIMULATION\n", fileName.Data());
-  }
-  else
-  {
-    // get subdirectory pointer
-    fin->GetObject("runSumDir", histoDir);
-    fileString = TString("RunPeakWave");
-    printf("line139 file %s IS BTB Data\n", fileName.Data());
-  }
-
-  if (!histoDir)
-  {
-    printf(" no histoDir in file %s\n", fileName.Data());
-    return false;
-  }
-
-  /* get sum histos from file0 */
-  TIter next(histoDir->GetListOfKeys());
-  TKey *key;
-  int iGot = 0;
-  while ((key = (TKey *)next()))
-  {
-    TClass *cl = gROOT->GetClass(key->GetClassName());
-    if (!cl->InheritsFrom("TH1D"))
-      continue;
-    TH1D *h = (TH1D *)key->ReadObj();
-    TString hname(h->GetName());
-    if (hname.Contains(fileString))
-    {
-      h->SetName(Form("%s", h->GetName()));
-      h->SetTitle(Form("%s", h->GetName()));
-      // see if we already have this cycle histo
-      bool addIt = true;
-      for (unsigned ihist = 0; ihist < hwave.size(); ++ihist)
-      {
-        if (h->GetName() == hwave[ihist]->GetName())
-        {
-          addIt = false;
-          printf("skip %s cycle %i\n", h->GetName(), int(key->GetCycle()));
-        }
-      }
-      if (addIt)
-      {
-        printf("add %s cycle %i\n", h->GetName(), int(key->GetCycle()));
-        TString oldName(h->GetName());
-        // rename so sim a data have same name. first get the chan number
-        TString tchan = oldName(oldName.Last('e') + 1, 1);
-        TString newName(Form("RunPeakWave%s", tchan.Data()));
-        h->SetName(newName);
-        fout->Add(h);
-        hwave.push_back(h);
-        ++iGot;
-      }
-    }
-  }
-  // fin->Close(); // cannot close because histograms are on input file
-  return iGot;
+  return exists;
 }
 
 void tbFitAll(int fileNum = 0)
 {
 
-  summaryFile[0] = TString("summary-05_19_2025-05_19_2025-nfiles-14-created-2025-09-09-15-58.root");
-  summaryFile[1] = TString("summary-05_27_2025-05_27_2025-nfiles-22-created-2025-09-09-15-56.root");
-  summaryFile[2] = TString("caenData/anaCRun-btbSimOffset-2025-09-09-16-09-1000000-0.root"); // new geometry
-  summaryFile[3] = TString("rootData/btbSimOLD-2025-10-03-13-35-100000.root");
-  dopant[0] = 0.40; //
-  dopant[1] = 0.00;
-  dopant[2] = 0.00;
-  dopant[3] = 0.00;
+  summaryFile[0] = TString("post-anaCRun-btbSimNEW-2026-02-13-100000-7857.root");
+  dopant[0] = 0.00;
 
   geoVersionOld = false;
   setDistanceLevels(geoVersionOld);
@@ -247,55 +198,34 @@ void tbFitAll(int fileNum = 0)
 
   printf(" opened output file %s dopant %f \n", fout->GetName(), dopant[fileNum]);
   // get data histograms from file
-  int iGot = openFile(fileNum);
-  printf(" got %i data histograms %lu \n", iGot, hwave.size());
-  if (iGot < 1)
+  if (!openFile(fileNum))
     return;
 
+  getCurves();
+  printf(" got data histograms %lu \n", hcurve.size());
+  double startNorm = 0;
+  for (unsigned ich = 0; ich < hcurve.size(); ++ich)
+  {
+    printf(" chan %i integral s %f \n", ich, hcurve[ich]->Integral());
+    if (ich < NCHANPMT)
+      startNorm += hcurve[ich]->Integral();
+  }
+  printf("starting norm %E \n", startNorm);
   // fout->ls();
 
   /* fill buffer */
   printf("fill buff \n");
-  for (unsigned ichan = 0; ichan < NCHAN; ++ichan)
+  for (unsigned ichan = 0; ichan < NCHANPMT; ++ichan)
   {
-    printf(".... fill buffer for channel %i  hist %s maximum bin %i \n", ichan, hwave[ichan]->GetName(), hwave[ichan]->GetMaximumBin());
+    printf(".... fill buffer for channel %i  hist %s maximum bin %i \n", ichan, hcurve[ichan]->GetName(), hcurve[ichan]->GetMaximumBin());
     // fill data buffer
     for (int isample = 1; isample < MAXSAMPLE; ++isample)
     {
-      buff[ichan][isample - 1] = hwave[ichan]->GetBinContent(isample); // C starts array from zero
+      buff[ichan][isample - 1] = hcurve[ichan]->GetBinContent(isample); // C starts array from zero
       // if (buff[ichan][isample] == 0)
       //   printf("sample %i val %E  ... ", isample, buff[ichan][isample]);
     }
   }
-
-  // clones to store fit histos
-  /*
-  for (unsigned ih = 0; ih < hwave.size(); ++ih)
-  {
-    if (hwave[ih] == NULL)
-      continue;
-    hwave[ih]->GetListOfFunctions()->Clear();
-    hffit[ih] = (TH1D *)hwave[ih]->Clone(Form("hFitCh%i", ih));
-    fout->Add(hffit[ih]);
-    hmodel[ih] = (TH1D *)hwave[ih]->Clone(Form("hModelCh%i", ih));
-    fout->Add(hmodel[ih]);
-  }
-    */
-
-  // clones to store fit components histos
-  /*
-  for (unsigned ih = 0; ih < NCOMP; ++ih)
-  {
-    TString histString;
-    histString.Form("ModelPmt%s", compName[ih].Data());
-    hffitPmt[ih] = (TH1D *)hwave[0]->Clone(histString);
-    hffitPmt[ih]->SetTitle(histString);
-    fout->Add(hffitPmt[ih]);
-    hffitChan[ih] = (TH1D *)hwave[0]->Clone(Form("ModelCh7%s", compName[ih].Data()));
-    hffitChan[ih]->SetTitle(Form("ModelCh7%s", compName[ih].Data()));
-    fout->Add(hffitChan[ih]);
-  }
-    */
 
   printf("setParNames and setCompNames\n");
   setParNames();
@@ -320,7 +250,7 @@ void tbFitAll(int fileNum = 0)
     xTrigger = 705;
 
   // fit starting values
-  vstart[NORM] = 2.06322e+03;
+  vstart[NORM] = startNorm;
   vstart[TRIGSTART] = xTrigger;
   vstart[SFRAC] = 0.14; //;0.23;   // Segretto PHYSICAL REVIEW D 103, 043001 (2021)
   vstart[PPM] = dopant[fileNum];
@@ -445,21 +375,19 @@ void tbFitAll(int fileNum = 0)
 
   /** look at model prior to fitting  */
   // plot by channel first
-  for (int ichan = 0; ichan < NCHAN; ++ichan)
+  for (int ichan = 0; ichan < hcurve.size(); ++ichan)
   {
     if (ichan != 8)
       continue;
     for (int icomp = 0; icomp < NUMCOMP; ++icomp)
     {
-      TH1D *hFit = (TH1D *)hwave[ichan]->Clone(Form("fit%sChan%i", compNames[icomp].Data(), ichan));
+      TH1D *hFit = (TH1D *)hcurve[ichan]->Clone(Form("fit%sChan%i", compNames[icomp].Data(), ichan));
       hFit->Reset("ICES");
       hFit->SetTitle((Form("fit%sChan%i", compNames[icomp].Data(), ichan)));
       hFit->SetLineColor(colors[ichan]);
       fillCompWave(ichan, icomp, hFit);
     }
   }
-
-  return;
 
   // minimize with MIGRADfill
   // Now ready for minimization step
@@ -468,7 +396,7 @@ void tbFitAll(int fileNum = 0)
 
   /* MIGrad[maxcalls][tolerance]*/
   gMinuit->mnexcm("MIGRAD", arglist, 2, ierflg);
-  printf("\n...  call to  MIGRAD returns ierflg %i \n", ierflg);
+  printf("\n...  after fit, call to  MIGRAD returns ierflg %i \n", ierflg);
 
   // Print results
   Double_t edm, errdef;
@@ -479,12 +407,12 @@ void tbFitAll(int fileNum = 0)
   Prints the values of the parameters at the time of the call.
   According to the value of IKODE, the printout is: IKODE=INKODE=
 
-0 only info about function value
-1 parameter values, errors, limits
-2 values, errors, step sizes, internal values
-3 values, errors, step sizes, first derivs.
-4 values, parabolic errors, MINOS errors
-when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
+  0 only info about function value
+  1 parameter values, errors, limits
+  2 values, errors, step sizes, internal values
+  3 values, errors, step sizes, first derivs.
+  4 values, parabolic errors, MINOS errors
+  when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
   */
   printf("\n...  call mnprin \n");
   gMinuit->mnprin(1, amin);
@@ -508,11 +436,12 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
   // int(xTrigger);
   printModel(ibin, lpar, fsChan, ftChan);
   // printf("... add fit waves to ouput file \n");
+
   fout->cd(); // add to output file
   // fout->ls();
   for (int ichan = 0; ichan < NCHAN; ++ichan)
   {
-    TH1D *hFit = (TH1D *)hwave[ichan]->Clone(Form("fitWaveFitChan%i", ichan));
+    TH1D *hFit = (TH1D *)hcurve[ichan]->Clone(Form("fitWaveFitChan%i", ichan));
     hFit->Reset("ICES");
     hFit->SetTitle((Form("fitWaveFitChan%i", ichan)));
     hFit->SetLineColor(colors[ichan]);
@@ -527,7 +456,7 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
   {
     for (int icomp = 0; icomp < NUMCOMP; ++icomp)
     {
-      TH1D *hFit = (TH1D *)hwave[ichan]->Clone(Form("fit%sChan%i", compNames[icomp].Data(), ichan));
+      TH1D *hFit = (TH1D *)hcurve[ichan]->Clone(Form("fit%sChan%i", compNames[icomp].Data(), ichan));
       hFit->Reset("ICES");
       hFit->SetTitle((Form("fit%sChan%i", compNames[icomp].Data(), ichan)));
       hFit->SetLineColor(colors[ichan]);
@@ -536,6 +465,8 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
   }
 
   fout->cd();
+  return;
+
   // graph single peaks
   std::vector<double> dataPeak;
   std::vector<double> fitPeak;
@@ -546,8 +477,8 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
   printf("peak fit results: \n");
   for (int ichan = 0; ichan < 13; ++ichan)
   {
-    int peakBin = hwave[ichan]->GetMaximumBin();
-    dataPeakBin.push_back(hwave[ichan]->GetBinContent(peakBin));
+    int peakBin = hcurve[ichan]->GetMaximumBin();
+    dataPeakBin.push_back(hcurve[ichan]->GetBinContent(peakBin));
     if (fitWave[ichan][peakBin] == 0)
       continue;
     fchan.push_back(ichan);
@@ -624,21 +555,21 @@ when INKODE=5, MNPRIN chooses IKODE=1,2, or 3, according to fISW[1]
   bool firstPlot = true;
   for (int i = 0; i < 13; ++i)
   {
-    if (fitWave[i][hwave[i]->GetMaximumBin()] == 0)
+    if (fitWave[i][hcurve[i]->GetMaximumBin()] == 0)
       continue;
     // int ichan = atoi(string(fsname.substr(fsname.find_last_of("n") + 1, 1)).c_str());
-    printf("%s %s \n", hwave[i]->GetName(), hffit[i]->GetName());
-    // hwave[i]->Draw("");
+    printf("%s %s \n", hcurve[i]->GetName(), hffit[i]->GetName());
+    // hcurve[i]->Draw("");
     canChan = new TCanvas(Form("lightCurveChan%i", i), Form("lightCurveChan%i", i));
     printf("ffit %i max %f \n", i, hffit[i]->GetBinContent(hffit[i]->GetMaximumBin()));
     printf("chan %i data bin %i val %f peak bin fit %i val %f \n", i,
-           hwave[i]->GetMaximumBin(), hwave[i]->GetBinContent(hwave[i]->GetMaximumBin()),
+           hcurve[i]->GetMaximumBin(), hcurve[i]->GetBinContent(hcurve[i]->GetMaximumBin()),
            hffit[i]->GetMaximumBin(), hffit[i]->GetBinContent(hffit[i]->GetMaximumBin()));
     hffit[i]->GetYaxis()->SetRangeUser(10, 1.1 * hffit[i]->GetBinContent(hffit[i]->GetMaximumBin()));
     hffit[i]->GetXaxis()->SetRangeUser(650., 5000.);
-    hwave[i]->GetYaxis()->SetRangeUser(10, 1.1 * hffit[i]->GetBinContent(hffit[i]->GetMaximumBin()));
-    hwave[i]->GetXaxis()->SetRangeUser(650., 5000.);
-    hwave[i]->Draw("");
+    hcurve[i]->GetYaxis()->SetRangeUser(10, 1.1 * hffit[i]->GetBinContent(hffit[i]->GetMaximumBin()));
+    hcurve[i]->GetXaxis()->SetRangeUser(650., 5000.);
+    hcurve[i]->Draw("");
     hffit[i]->Draw("sames");
     canChan->BuildLegend();
     canChan->SetLogy();
