@@ -1,8 +1,9 @@
 #include "TReadGains.hxx"
 ClassImp(TReadGains)
 
-    TReadGains::TReadGains()
+    TReadGains::TReadGains(bool useFile)
 {
+    readFromFile = useFile;
     /**************** define nominal gains ***************/
     nominalGain = 134.786401;     // 170.;     // was 160.0; set Jue 13 2025
     nominalTrigGain = 735.688747; //
@@ -17,10 +18,12 @@ ClassImp(TReadGains)
     // new gain file
     gainFileName = TString(getenv("BOBJ")) + TString("/gainsCurrent.root");
     bool gotFile = openFile();
-    if (gotFile)
+    if (gotFile && readFromFile)
         cout << "TReadGains:: read gains from file " << gainFileName << "" << gainFileName << endl;
-    else
+    else if (!gotFile)
         cout << "TReadGains:: error failed to open file  " << gainFileName << "" << gainFileName << endl;
+    else
+        cout << "TReadGains:: using nominal gains " << endl;
 
     readPeakGains();
     readSumGains();
@@ -96,7 +99,7 @@ bool TReadGains::readPeakGains()
     sipmPeakGain[10] = nominalTrigGain;
     sipmPeakGain[11] = nominalTrigGain;
     sipmPeakGain[12] = nominalPmtGain;
-    if (!gGain)
+    if (!gGain || !readFromFile)
         return false;
 
     printf("peak gains with graph %s \n", gGain->GetName());
@@ -126,7 +129,7 @@ bool TReadGains::readSumGains()
     sipmSumGain[10] = nominalQsumTrigGain;
     sipmSumGain[11] = nominalQsumTrigGain;
     sipmSumGain[12] = nominalQsumPmtGain;
-    if (!gGain)
+    if (!gGain || !readFromFile)
         return false;
 
     printf("sum gains with graph %s \n", gGain->GetName());

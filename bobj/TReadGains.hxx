@@ -22,7 +22,7 @@ public:
     NUMCHANNELS = 13
   };
 
-  TReadGains();
+  TReadGains(bool useFile = true);
   virtual ~TReadGains()
   {
   }
@@ -34,6 +34,7 @@ public:
   void clear();
 
   // data elements
+  bool readFromFile;
   TString gainFileName;
   TGraphErrors *gPeakGraph;
   TGraphErrors *gSumGraph;
