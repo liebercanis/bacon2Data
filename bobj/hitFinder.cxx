@@ -230,7 +230,7 @@ hitFinder::hitFinder(TFile *theFile, TBRun *brun, TString theTag, int nSamples, 
     printf("index %i chan %i mapped to index  %i %s %s\n", index, vchan[index], id,
            hEvWave[id]->GetName(), hEvWave[id]->GetTitle());
   }
-  printf("GAINS: \n");
+  printf("hitFinder::QSUM GAINS are detGains as: \n");
   for (unsigned ichan = 0; ichan < detGains.size(); ++ichan)
     printf("chan %i gain %f ; ", ichan, detGains[ichan]);
   printf("\n");
@@ -1179,7 +1179,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     {
       double xbin = hEvWave[idet]->GetBinLowEdge(peakt);
       double offset = fSinglet->Eval(xbin);
-      if (ntPeakFix->GetEntries() < 1.E6)
+      if (ntPeakFix->GetEntries() < 1.E5)
         ntPeakFix->Fill(float(detHits.size()), float(idet), float(singletPeakTime), float(peakt), qpeak, qpeak - offset);
       if (verbose)
         printf("line919 list size %lu idet %i singlett %u peakt %u qpeak %f fixed %f\n", detHits.size(), idet, singletPeakTime, peakt, dhit.qpeak, dhit.qpeak - offset);
@@ -1195,7 +1195,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
     // ntFinder = new TNtuple("ntFinder", " hit finder ", "event:chan:nhit:startt:peakBin:lastBin:qpeak");
     // if (idet == 12)
     //  printf("line990  detHits fill ntFinder %lu  %i  peakt %f qpeak %f  \n", detHits.size(), idet, dhit.startTime, dhit.qpeak);
-    if (ntFinder->GetEntries() < 1.E6)
+    if (ntFinder->GetEntries() < 1.E5)
       ntFinder->Fill(float(theEvent), float(idet), float(detHits.size()), float(dhit.startTime), float(dhit.peakBin), float(dhit.lastBin), dhit.qpeak);
 
     if (dhit.qpeak < hitThreshold && idet == 12)
