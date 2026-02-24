@@ -133,6 +133,16 @@ void getTriggerBits()
 
 void postMacro()
 {
+
+    /* set bad channels */
+    for (unsigned ic = 0; ic < NCHAN; ++ic)
+    {
+        badChannel[ic] = false;
+    }
+    badChannel[0] = true;
+    badChannel[1] = true;
+    badChannel[8] = true;
+
     sdate = currentDate();
     printf(" postMacro on %s \n", sdate.c_str());
 
@@ -173,6 +183,7 @@ void postMacro()
     // TString fileName("post-10_16_2025-10_16_2025-2371051.root");
     // TString fileName("post-10_16_2025-10_16_2025-2371051.root");
     TString fileName("post-anaCRun-btbSimNEW-2026-02-13-100000-7857.root");
+    fileName = TString("post-11_19_2025-11_19_2025-1000000.root");
     TString tag = TString(fileName(fileName.First("-") + 1, 21));
     cout << " gains from file " << fileName << " with date tag " << tag << endl;
 
@@ -198,6 +209,9 @@ void postMacro()
 
     // light curves
     getCurves();
+    for (unsigned ic = 0; ic < hcurve.size(); ++ic)
+        printf("chan%i %s int %.3E \n", ic, hcurve[ic]->GetName(), hcurve[ic]->Integral());
+
     int color[12] = {1, 2, 3, 4, 5, 6, 7, 8, 9, kTeal, kOrange, kAzure};
 
     double ymax = 0;
@@ -237,21 +251,26 @@ void postMacro()
         hEffNorm[i]->SetLineWidth(1);
     }
 
+    bool firstPlot = true;
     // make canvas// make canvas
     TCanvas *canUn = new TCanvas("cutNormed", "cutNormed");
     for (int i = 11; i >= 0; --i)
     {
         //// hnorm[i]->GetYaxis()->SetRangeUser(tiny, ymax);
         hnorm[i]->GetXaxis()->SetRangeUser(1200, 6000);
-        printf("draw %i \n", i);
+        // printf("draw %i \n", i);
         hnorm[i]->SetLineColor(color[i]);
-        if (i == 11)
+        if (firstPlot)
+        {
             hnorm[i]->Draw("HIST");
-        else if (i != 1)
+            firstPlot = false;
+        }
+        else if (!isBadChannel(i))
             hnorm[i]->Draw("HISTSAME");
     }
     canUn->BuildLegend();
 
+    firstPlot = true;
     TCanvas *canEffNorm = new TCanvas("EffNormed", "EffNormed");
     tiny = 1.E-1;
     ymax = 30;
@@ -260,14 +279,18 @@ void postMacro()
         // hEffNorm[i]->GetYaxis()->SetRangeUser(tiny, ymax);
         hEffNorm[i]->GetYaxis()->SetRangeUser(0.1, 15);
         hEffNorm[i]->GetXaxis()->SetRangeUser(1300, 2000);
-        printf("eff draw %i \n", i);
-        if (i == 11)
-            hEffNorm[i]->Draw("HIST");
-        else if (i != 1)
+        // printf("eff draw %i \n", i);
+        if (firstPlot)
+        {
+            hnorm[i]->Draw("HIST");
+            firstPlot = false;
+        }
+        else if (!isBadChannel(i))
             hEffNorm[i]->Draw("HISTSAME");
     }
     canEffNorm->BuildLegend();
 
+    firstPlot = true;
     TCanvas *canEffNormTrig = new TCanvas("EffNormedTrig", "EffNormedTrig");
     tiny = 1.E-9;
     ymax = 30;
@@ -275,14 +298,18 @@ void postMacro()
     {
         // hEffNorm[i]->GetYaxis()->SetRangeUser(tiny, ymax);
         hEffNorm[i]->GetXaxis()->SetRangeUser(1000, 75000);
-        printf("eff draw %i \n", i);
-        if (i == 11)
+        // printf("eff draw %i \n", i);
+        if (firstPlot)
+        {
             hEffNorm[i]->Draw("HIST");
-        else if (i != 1)
+            firstPlot = false;
+        }
+        else if (!isBadChannel(i))
             hEffNorm[i]->Draw("HISTSAME");
     }
     canEffNormTrig->BuildLegend();
 
+    firstPlot = true;
     TCanvas *canEffNormLevel0 = new TCanvas("EffNormedLevel0", "EffNormedLevel0");
     tiny = 1.E-2;
     ymax = .1;
@@ -290,14 +317,18 @@ void postMacro()
     {
         // hEffNorm[i]->GetYaxis()->SetRangeUser(tiny, ymax);
         hEffNorm[i]->GetXaxis()->SetRangeUser(1000, 75000);
-        printf("eff draw %i \n", i);
-        if (i == 11)
+        // printf("eff draw %i \n", i);
+        if (firstPlot)
+        {
             hEffNorm[i]->Draw("HIST");
-        else if (i != 1)
+            firstPlot = false;
+        }
+        else if (!isBadChannel(i))
             hEffNorm[i]->Draw("HISTSAME");
     }
     canEffNormLevel0->BuildLegend();
 
+    firstPlot = true;
     TCanvas *canEffNormLevel1 = new TCanvas("EffNormedLevel1", "EffNormedLevel1");
     tiny = 1.E-2;
     ymax = .1;
@@ -305,14 +336,20 @@ void postMacro()
     {
         // hEffNorm[i]->GetYaxis()->SetRangeUser(tiny, ymax);
         hEffNorm[i]->GetXaxis()->SetRangeUser(1000, 75000);
-        printf("eff draw %i \n", i);
-        hEffNorm[i]->Draw("HIST");
-        if (i != 5)
+        // printf("eff draw %i \n", i);
+        if (isBadChannel(i))
             continue;
-        hEffNorm[i]->Draw("HISTSAME");
+        if (firstPlot)
+        {
+            hEffNorm[i]->Draw("HIST");
+            firstPlot = false;
+        }
+        else if (!isBadChannel(i))
+            hEffNorm[i]->Draw("HISTSAME");
     }
     canEffNormLevel1->BuildLegend();
 
+    firstPlot = true;
     TCanvas *canEffNormLevel2 = new TCanvas("EffNormedLevel2", "EffNormedLevel2");
     tiny = 1.E-2;
     ymax = .1;
@@ -320,14 +357,20 @@ void postMacro()
     {
         // hEffNorm[i]->GetYaxis()->SetRangeUser(tiny, ymax);
         hEffNorm[i]->GetXaxis()->SetRangeUser(1000, 75000);
-        printf("eff draw %i \n", i);
-        if (i == 11)
+        // printf("eff draw %i \n", i);
+        if (isBadChannel(i))
+            continue;
+        if (firstPlot)
+        {
             hEffNorm[i]->Draw("HIST");
-        else if (i != 1)
+            firstPlot = false;
+        }
+        else
             hEffNorm[i]->Draw("HISTSAME");
     }
     canEffNormLevel2->BuildLegend();
 
+    firstPlot = true;
     TCanvas *canEffNormLevelAll = new TCanvas("EffNormedAll", "EffNormedAll");
     tiny = 1.E-2;
     ymax = .1;
@@ -336,10 +379,13 @@ void postMacro()
         // hEffNorm[i]->GetYaxis()->SetRangeUser(tiny, ymax);
         hEffNorm[i]->GetYaxis()->SetRangeUser(0.1, 30);
         hEffNorm[i]->GetXaxis()->SetRangeUser(1000, 4000);
-        printf("eff draw %i \n", i);
-        if (i == 11)
+        // printf("eff draw %i \n", i);
+        if (firstPlot)
+        {
             hEffNorm[i]->Draw("HIST");
-        else if (i != 1 && i != 8 && i != 0)
+            firstPlot = false;
+        }
+        else if (!isBadChannel(i))
             hEffNorm[i]->Draw("HISTSAME");
     }
     canEffNormLevelAll->BuildLegend();

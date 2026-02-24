@@ -114,7 +114,10 @@ void getCurves()
       hcurve.push_back(h);
 
     if (TString(h->GetName()).Contains("NormChan"))
+    {
       hnorm.push_back(h);
+      fout->Append(h);
+    }
   }
 }
 
@@ -167,13 +170,15 @@ bool openFile(TString fileName)
   return true;
 }
 
-void tbFit(int ichan = 9)
+/* fit to channel -1 = ALL */
+void tbFit(int theFitChannel = -1)
 {
 
   hffit.resize(NCHAN);
   hmodel.resize(NCHAN);
 
   TString inputFile = TString("post-anaCRun-btbSimNEW-2026-02-13-100000-7857.root");
+  inputFile = TString("post-11_19_2025-11_19_2025-10000000.root");
 
   if (!openFile(inputFile))
     return;
@@ -206,13 +211,21 @@ void tbFit(int ichan = 9)
 
   /* total photons per event */
   double startNorm = 60. * LY;
-  fout->Append(hnorm[ichan]);
 
   for (unsigned ih = 0; ih < hnorm.size(); ++ih)
   {
     printf("%u %s inte %E \n", ih, hnorm[ih]->GetName(), hnorm[ih]->Integral());
     hnorm[ih]->GetListOfFunctions()->Clear();
   }
+
+  /* set bad channels */
+  for (unsigned ic = 0; ic < NCHAN; ++ic)
+  {
+    badChannel[ic] = false;
+  }
+  badChannel[0] = true;
+  badChannel[1] = true;
+  badChannel[8] = true;
 
   /* fill buffer */
   printf("fill buff \n");
@@ -247,7 +260,7 @@ void tbFit(int ichan = 9)
   vstart[TAUM] = 4700.0;
   vstart[BKGCONST] = 0;
   vstart[BKGTAU] = 5000.;
-  vstart[THECHANNEL] = ichan;
+  vstart[THECHANNEL] = theFitChannel;
   /*
   printf("starting parameter values \n");
   for (int ip = 0; ip < NPARS; ++ip)
@@ -273,8 +286,8 @@ void tbFit(int ichan = 9)
   arglist[0] = TAUM + 1; // par tau3
   gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
-  arglist[0] = SFRAC + 1; // kp
-  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+  // arglist[0] = SFRAC + 1; // kp
+  // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
   arglist[0] = BKGCONST + 1; //
   gMinuit->mnexcm("FIX", arglist, 1, ierflg);
@@ -288,13 +301,19 @@ void tbFit(int ichan = 9)
   arglist[0] = NORM + 1;         // par
   arglist[1] = 0.01 * startNorm; // low
   arglist[2] = 10. * startNorm;  // high
-  // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
-  gMinuit->mnexcm("FIX", arglist, 3, ierflg);
+  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  // gMinuit->mnexcm("FIX", arglist, 3, ierflg);
+
+  arglist[0] = SFRAC + 1; // par
+  arglist[1] = 0.01;      // low
+  arglist[2] = 1.0;
+  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  // gMinuit->mnexcm("FIX", arglist, 3, ierflg);
 
   // set limits ... here par starts with 1 so add 1
-  arglist[0] = TAU3 + 1;        // par
-  arglist[1] = 0.1 * tTriplet0; // low
-  arglist[2] = 2.0 * tTriplet0; // high
+  arglist[0] = TAU3 + 1;         // par
+  arglist[1] = 0.01 * tTriplet0; // low
+  arglist[2] = 2.0 * tTriplet0;  // high
   gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
   // set limits ... here par starts with 1 so add 1
@@ -369,33 +388,57 @@ void tbFit(int ichan = 9)
   printf("\n...  call mnprin \n");
   gMinuit->mnprin(1, amin);
 
-  // for (unsigned ic = 0; ic < NCHANPMT; ++ic)
-  int ic = ichan;
-  // fout->ls();
-  TH1D *hFit = (TH1D *)hnorm[ic]->Clone(Form("fitWaveFitChan%i", ic));
-  hFit->Reset("ICES");
-  hFit->SetTitle((Form("fitWaveFitChan%i", ic)));
-  hFit->SetLineColor(colors[ic]);
-  fillFitWave(ic, hFit);
+  for (unsigned ic = 0; ic < NCHANPMT; ++ic)
+  {
+    TH1D *hFit = (TH1D *)hnorm[ic]->Clone(Form("fitWaveFitChan%i", ic));
+    hFit->Reset("ICES");
+    hFit->SetTitle((Form("fitWaveFitChan%i", ic)));
+    hFit->SetLineColor(colors[ic]);
+    fillFitWave(ic, hFit);
+  }
 
   TDirectory *compDir = fout->mkdir("components");
   compDir->cd();
 
   // plot by channel first
-  for (int icomp = 0; icomp < NUMCOMP; ++icomp)
+  if (theFitChannel == -1)
   {
-    TH1D *hFit = (TH1D *)hnorm[ichan]->Clone(Form("fit%sChan%i", compNames[icomp].Data(), ichan));
-    hFit->Reset("ICES");
-    hFit->SetTitle((Form("fit%sChan%i", compNames[icomp].Data(), ichan)));
-    hFit->SetLineColor(colors[ichan]);
-    fillCompWave(ichan, icomp, hFit);
+    for (unsigned ic = 0; ic < NCHANPMT; ++ic)
+    {
+      for (int icomp = 0; icomp < NUMCOMP; ++icomp)
+      {
+        TH1D *hFit = (TH1D *)hnorm[ic]->Clone(Form("fit%sChan%i", compNames[icomp].Data(), ic));
+        hFit->Reset("ICES");
+        hFit->SetTitle((Form("fit%sChan%i", compNames[icomp].Data(), ic)));
+        hFit->SetLineColor(colors[ic]);
+        if (ic == 9)
+          fillCompWave(ic, icomp, hFit); // only need one of these
+      }
+    }
+  }
+  else
+  {
+    for (int icomp = 0; icomp < NUMCOMP; ++icomp)
+    {
+      TH1D *hFit = (TH1D *)hnorm[theFitChannel]->Clone(Form("fit%sChan%i", compNames[icomp].Data(), theFitChannel));
+      hFit->Reset("ICES");
+      hFit->SetTitle((Form("fit%sChan%i", compNames[icomp].Data(), theFitChannel)));
+      hFit->SetLineColor(colors[theFitChannel]);
+      fillCompWave(theFitChannel, icomp, hFit);
+    }
   }
 
   ntParScan = new TNtuple("ntParScan", "parameter scan", "nll:fitVal1:fitVal2:fitVal3");
 
   int thePar = TAU3;
-  TGraph *graph = myScan(thePar, 1000, 5000);
+  printf("scan parameter %i %s from %f to %f \n", thePar, lparNames[thePar].Data(), 0.001 * lpar[thePar], 2. * lpar[thePar]);
+
+  TGraph *graph = myScan(thePar, 0.001 * lpar[thePar], 2. * lpar[thePar]);
   graph->SetName(Form("ScanPar%i", thePar));
   graph->SetTitle(Form("ScanPar%i", thePar));
+  graph->GetYaxis()->SetTitle("FCN likelihood value");
+  graph->GetXaxis()->SetTitle(Form("parameter %s", lparNames[thePar].Data()));
   fout->Add(graph);
+
+  printf("\n...  finished tbFit \n");
 }

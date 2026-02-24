@@ -27,6 +27,7 @@ enum
   TAUM,
   BKGCONST,
   BKGTAU,
+  THECHANNEL,
   NPARS
 };
 
@@ -58,7 +59,7 @@ static double LY = 41.; // Doke, April 2009 https://arxiv.org/abs/0910.4956v1
 // LEGEND value 25.6;                              //  photons/kev LEGEND number , ref see Doke
 static double nPhotons = 60. * LY; // 60 keV gamma
 //
-static int iTrigger = 695;
+static int iTrigger = 686;
 
 // NOT USING THIS
 /* Ion-beam excitation of liquid argon M. Hofmann et al.  Eur. Phys. J. C (2013) 73:2618 */
@@ -72,6 +73,7 @@ Electron transport and electron–ion recombination in liquid argon simulation b
 static double lpar[NPARS];       // pass parameters to light model
 static TString lparNames[NPARS]; // parameter names
 static TString compNames[NPARS]; // parameter names
+static bool badChannel[NCHAN];
 
 // effiecienies
 static double SiPMQE128Ham = 0.15; // 0.15;
@@ -81,6 +83,11 @@ static double SiPMQE175 = 0.238;
 static double PMTQE150 = 0.01;
 static double PMTQE175 = 0.38;
 static double PMTQE400 = 0.35;
+
+static bool isBadChannel(int ichan)
+{
+  return badChannel[ichan];
+}
 
 static void setParNames() // tousif
 {
@@ -92,6 +99,7 @@ static void setParNames() // tousif
   lparNames[TAUM] = TString("taumix");
   lparNames[BKGCONST] = TString("bkgconst");
   lparNames[BKGTAU] = TString("bkgtau");
+  lparNames[THECHANNEL] = TString("theChannel");
 }
 
 static void setCompNames() // tousif
@@ -167,12 +175,21 @@ static double expGaus(double x, double tau)
 fcn is required by Minuit to have exactly these argements
 returns likelihood value for some set of parameters
 */
-static void printModel(int ibin, Double_t *par, double *fsChan, double *ftChan)
+static void printModel(int ibin, Double_t *par)
 {
+
+  printf(" \n\n >>> printModel modelFit parameters\n");
+  for (int ii = 0; ii < NPARS; ++ii)
+  {
+    printf("\t  param %i %s %.4E  \n", ii, lparNames[ii].Data(), par[ii]);
+  }
+
+  printf(" printModel ppm %.2f sample %i \n", par[PPM], ibin);
+
   double xTrigger = par[TRIGSTART];
   double x = double(ibin) - xTrigger; // subract trigger sample
   double bw = 2.;                     // ns
-  double ppm = par[PPM];
+  double ppm = max(1.0E-9, par[PPM]);
   double norm = par[NORM];
   double tTriplet = par[TAU3];
   double sfrac = par[SFRAC];
@@ -192,9 +209,11 @@ static void printModel(int ibin, Double_t *par, double *fsChan, double *ftChan)
   double t1 = 1. / l1;
   double t3 = 1. / l3;
 
+  double fsChan[NCHAN];
+  double ftChan[NCHAN];
+  double mVal[NCHAN];
   double effChan[NCHAN];
   double abChan[NCHAN];
-
   double alpha1Chan[NCHAN];
   double alpha3Chan[NCHAN];
 
@@ -253,20 +272,16 @@ static void printModel(int ibin, Double_t *par, double *fsChan, double *ftChan)
     double mterm1 = alpha1 * c1 / (l1 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t1));
     double mterm3 = alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
     double fm = (mterm1 + mterm3) / tMix; // mixed
-    printf("chan %i xterm1 %E xterm3 %E fx %E mterm1 %E mterm3 %E fm %E \n", ic, xterm1, xterm3, fx, mterm1, mterm3, fm);
+    // total light for channel
+    mVal[ic] = (fsChan[ic] + ftChan[ic] + fx + fm) * SiPMQE128Ham;
+    printf("plotMoedl chan %i ibin %i time %f eff %.2E alpha1 %.2E alpha3 %.2E c1 %.2E c3 %.2E t1  %.2E fs %.2E ft %.2E ft.2E fx %.2E fm %.2E mval%.2E \n", ic, ibin, x, effChan[ic], alpha1, alpha3, c1, c3, t1, fsChan[ic], ftChan[ic], fx, fm, mVal[ic]);
+    printf("printxxxx alpha1 %.2E sfrac %.2E bw %.2E norm %.2E eff %.2E \n", alpha1, sfrac, bw, norm, effChan[ic]);
   }
 
-  printf(" \n\n >>> modelFit parameters\n");
-  for (int ii = 0; ii < NPARS; ++ii)
-  {
-    printf("\t  param %i %s %.4E  \n", ii, lparNames[ii].Data(), par[ii]);
-  }
-
-  printf(" printModel ppm %.2f sample %i \n", ppm, ibin);
   for (int ic = 9; ic < NCHAN; ++ic)
-    printf("chan ic %i effGeo %E abs %f fs %E ft %E alpha1 %E alpha3 %E \n", ic, effChan[ic], abChan[ic], fsChan[ic], ftChan[ic], alpha1Chan[ic], alpha3Chan[ic]);
+    printf("chan ic %i mval %.2E effGeo %E abs %f fs %E ft %E alpha1 %E alpha3 %E \n", ic, mVal[ic], effChan[ic], abChan[ic], fsChan[ic], ftChan[ic], alpha1Chan[ic], alpha3Chan[ic]);
 
-  printf("siPMQE128Ham %.3f tSinglet0 %E kx %E kxPrime %E l1 %E l3 %E lX %E \n", SiPMQE128Ham, tSinglet0, kx, kxPrime, l1, l3, lX);
+  printf("time %i = %.3f  siPMQE128Ham %.3f tSinglet0 %E kx %E kxPrime %E l1 %E l3 %E lX %E \n", ibin, x, SiPMQE128Ham, tSinglet0, kx, kxPrime, l1, l3, lX);
 
   printf("DENOMINATORS lx - kxPrime %E lx - l1 %E lx - l3 %E\n", lX - kxPrime, lX - l1, lX - l3);
 }
@@ -279,7 +294,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
 
   f = 0;          // return value
   double bw = 2.; // ns
-  double ppm = par[PPM];
+  double ppm = max(1.0E-9, par[PPM]);
   double norm = par[NORM];
   double tTriplet = par[TAU3];
   double sfrac = par[SFRAC];
@@ -290,6 +305,10 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
   // double chanList[3] = {8, 5, 0};
   for (int ic = 0; ic < NCHAN; ++ic)
   {
+    /* for fitting single channel
+    par[THECHANNEL] =-1 for all */
+    if (par[THECHANNEL] > 0 && ic != par[THECHANNEL])
+      continue;
     // int ic = chanList[ichan];
     //  if (ic == 5 || ic == 6 || ic == 8 || ic == 3 || ic == 9 || ic == 10 || ic == 11)
     //    continue;
@@ -333,7 +352,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     {
       /* skip dip region */
       bool dip = j > 1450 / 2 && j < 1540 / 2;
-      if (0) // comment out dip
+      if (dip) //
         continue;
       double x = bw * (double(j - iTrigger) + 0.5);      // bin center convert to ns mutiplying by bin width
       double alpha1 = sfrac * bw * norm * effGeo;        // singlet norm N1 in paper
@@ -408,9 +427,11 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       fitComp[ic][BKGCOMP][j] = bkg;
       // output fitted function
       fitWave[ic][j] = mval;
-      /*if (ic == 9 && (j > 1000 && j < 2000))
-        printf("xxxx %i %i %E ", ic, j, fitWave[ic][j]);
-        */
+      if (ic == -1 && j == iTrigger)
+      {
+        printf("fcnxxx chan %i j %i time %f eff %.2E alpha1 %.2E alpha3 %.2E c1 %.2E c3 %.2E t1 %.2E fs%.2E ft %.2E ft.2E fx %.2E fm %.2E mval%.2E \n", ic, j, x, effGeo, alpha1, alpha3, c1, c3, t1, fs, ft, fx, fm, mval);
+        printf("fcnxxxx alpha1 %.2E sfrac %.2E bw %.2E norm %.2E eff %.2E \n", alpha1, sfrac, bw, norm, effGeo);
+      }
 
       /*******/
       if (mval <= 0)
