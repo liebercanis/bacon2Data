@@ -219,13 +219,11 @@ void tbFit(int theFitChannel = -1)
   }
 
   /* set bad channels */
-  for (unsigned ic = 0; ic < NCHAN; ++ic)
-  {
-    badChannel[ic] = false;
-  }
-  badChannel[0] = true;
-  badChannel[1] = true;
-  badChannel[8] = true;
+  std::vector<unsigned> badList;
+  badList.push_back(0);
+  badList.push_back(1);
+  badList.push_back(8);
+  setBadChannels(badList);
 
   /* fill buffer */
   printf("fill buff \n");

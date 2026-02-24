@@ -89,6 +89,24 @@ static bool isBadChannel(int ichan)
   return badChannel[ichan];
 }
 
+static void setBadChannels(std::vector<unsigned> list)
+{
+  for (unsigned ic = 0; ic < NCHAN; ++ic)
+  {
+    badChannel[ic] = false;
+  }
+  for (unsigned ib = 0; ib < list.size(); ++ib)
+  {
+    badChannel[list[ib]] = true;
+  }
+  printf("modelAllFit::setBadChannels \n");
+  for (unsigned ic = 0; ic < NCHAN; ++ic)
+  {
+    if (badChannel[ic])
+      printf("\t bad channel %u  \n", ic);
+  }
+}
+
 static void setParNames() // tousif
 {
   lparNames[NORM] = TString("norm");
@@ -312,6 +330,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     // int ic = chanList[ichan];
     //  if (ic == 5 || ic == 6 || ic == 8 || ic == 3 || ic == 9 || ic == 10 || ic == 11)
     //    continue;
+    if (isBadChannel(ic))
+      continue;
 
     // **** level
     int ilevel = 0; // triggger 9,10,11
