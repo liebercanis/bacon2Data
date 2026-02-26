@@ -42,6 +42,7 @@ enum
 static double buff[NCHAN][MAXSAMPLE]; // buffer to store light curve data
 static double fitWave[NCHAN][MAXSAMPLE];
 static double fitComp[NCHAN][NUMCOMP][MAXSAMPLE];
+static double lateBkg[NCHAN];
 
 TNtuple *ntScan = new TNtuple("ntScan", "ntScan", "ppm:fx:f");
 /***** units are nanoseconds ****/
@@ -74,6 +75,7 @@ static double lpar[NPARS];       // pass parameters to light model
 static TString lparNames[NPARS]; // parameter names
 static TString compNames[NPARS]; // parameter names
 static bool badChannel[NCHAN];
+static bool isCovered[NCHAN];
 
 // effiecienies
 static double SiPMQE128Ham = 0.15; // 0.15;
@@ -129,6 +131,31 @@ static void setCompNames() // tousif
   compNames[BKGCOMP] = TString("bkgComp");
 }
 
+static void setupModelAllFit()
+{
+  /* set geomegtry version for modelAllFit,hh */
+  geoVersionOld = false;
+  setDistanceLevels(geoVersionOld);
+  printf("setParNames and setCompNames\n");
+  setParNames();
+  setCompNames();
+
+  /* set bad channels used in fit modelAllFit.hh */
+  std::vector<unsigned> badList;
+  badList.push_back(0);
+  badList.push_back(1);
+  badList.push_back(8);
+  setBadChannels(badList);
+
+  // covered channels
+  for (unsigned ic = 0; ic < NCHAN; ++ic)
+    isCovered[ic] = false;
+
+  // covered set to true
+  isCovered[1] = true;
+  // isCovered[3] = true;
+}
+
 // level
 static int getLevel(int ichan)
 {
@@ -168,6 +195,8 @@ static double Absorbtion(double ppm, double dist)
 {
   // Calculate absorption as a function of distance and xenon concentration.%
   // Taken from fits to Neumeier data at 0.1 PPM and scaled;
+  if (ppm == 0)
+    return 1.;
   double A = 0.615;
   ppm = max(1.0E-9, ppm);
   double lambda1 = 12.7 * 0.1 / ppm;
@@ -212,7 +241,7 @@ static void printModel(int ibin, Double_t *par)
   double tTriplet = par[TAU3];
   double sfrac = par[SFRAC];
   double tMix = par[TAUM];
-  double bkg = par[BKGCONST];
+  // double bkg = par[BKGCONST];
 
   double kx = kxZero * ppm;                 // rate of tansfer to mixed state
   double kxPrime = kqZero + kx + 1. / tMix; // k_x^\prime in paper
@@ -237,6 +266,13 @@ static void printModel(int ibin, Double_t *par)
 
   /* geometric efficiencies */
   double fourPi = 2. * TMath::TwoPi();
+  /*
+    distanceLevel[0] = 1.251; // trigger
+    distanceLevel[1] = 11.789;
+    distanceLevel[2] = 21.723;
+    distanceLevel[3] = 31.668;
+    distanceLevel[4] = 42.017; // PMT
+  */
   for (int ic = 0; ic < NCHAN; ++ic)
   {
     // level
@@ -258,10 +294,14 @@ static void printModel(int ibin, Double_t *par)
       effChan[ic] = aPmt / fourPi / pow(distanceLevel[ilevel], 2.);
 
     // absorption
-    double lambda1 = 12.7 * 0.1 / ppm;
-    double lambda2 = 740 * 0.1 / ppm;
-    double Tr128 = 0.615 * exp(-distanceLevel[ilevel] / lambda1) + (1 - 0.615) * exp(-distanceLevel[ilevel] / lambda2);
-    double ab = 1. - Tr128;
+    double ab = 1.0;
+    if (ppm > 1.0E-3)
+    {
+      double lambda1 = 12.7 * 0.1 / ppm;
+      double lambda2 = 740 * 0.1 / ppm;
+      double Tr128 = 0.615 * exp(-distanceLevel[ilevel] / lambda1) + (1 - 0.615) * exp(-distanceLevel[ilevel] / lambda2);
+      ab = 1. - Tr128;
+    }
     abChan[ic] = ab;
 
     double alpha1 = sfrac * bw * norm * effChan[ic];        // singlet norm N1 in paper
@@ -317,7 +357,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
   double tTriplet = par[TAU3];
   double sfrac = par[SFRAC];
   double tMix = par[TAUM];
-  double bkg = par[BKGCONST];
+  // double bkg = par[BKGCONST];
 
   // loop over channels
   // double chanList[3] = {8, 5, 0};
@@ -327,9 +367,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     par[THECHANNEL] =-1 for all */
     if (par[THECHANNEL] > 0 && ic != par[THECHANNEL])
       continue;
-    // int ic = chanList[ichan];
-    //  if (ic == 5 || ic == 6 || ic == 8 || ic == 3 || ic == 9 || ic == 10 || ic == 11)
-    //    continue;
+
+    /* skip bad channels */
     if (isBadChannel(ic))
       continue;
 
@@ -350,10 +389,14 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     double SiPMQ128 = SiPMQE128Ham;
 
     // absorption
-    double lambda1 = 12.7 * 0.1 / ppm;
-    double lambda2 = 740 * 0.1 / ppm;
-    double Tr128 = 0.615 * exp(-dist / lambda1) + (1 - 0.615) * exp(-dist / lambda2);
-    double ab = 1. - Tr128;
+    double ab = 1.0;
+    if (ppm > 1.0E-3)
+    {
+      double lambda1 = 12.7 * 0.1 / ppm;
+      double lambda2 = 740 * 0.1 / ppm;
+      double Tr128 = 0.615 * exp(-dist / lambda1) + (1 - 0.615) * exp(-dist / lambda2);
+      ab = 1. - Tr128;
+    }
 
     /* geometric efficiencies */
     double fourPi = 2. * TMath::TwoPi();
@@ -416,7 +459,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       fm = fm * SiPMQE150;
 
       // additional factors depend on SIPM channel
-      if (ic == 1 || ic == 3) // glass covered sees only  175
+      if (isCovered[ic]) // glass covered sees only  175
       {
         fs = 0;
         ft = 0;
@@ -435,7 +478,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       }
 
       // total light for channel
-      double mval = fs + ft + fx + fm + bkg;
+      double mval = fs + ft + fx + fm + lateBkg[ic];
       // mval = fs + ft;
       //  for plottting components
       fitComp[ic][SINGLETCOMP][j] = fs;
@@ -444,7 +487,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       // if (ic == 8 && j == 1500)
       //   printf("....line418 sample %i fx %E \n", j, fx);
       fitComp[ic][MIXEDCOMP][j] = fm;
-      fitComp[ic][BKGCOMP][j] = bkg;
+      fitComp[ic][BKGCOMP][j] = lateBkg[j];
       // output fitted function
       fitWave[ic][j] = mval;
       if (ic == -1 && j == iTrigger)
@@ -470,7 +513,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       yterm = y - y * log(y);
       if (isnan(yterm))
       {
-        printf("line255  ibin YTERM is NAN chan %i sample  %i f=%E  y = %E fs %E ft %E fx %E fm %E bkg %E \n", ic, j, f, y, fs, ft, fx, fm, bkg);
+        printf("line255  ibin YTERM is NAN chan %i sample  %i f=%E  y = %E fs %E ft %E fx %E fm %E bkg %E \n", ic, j, f, y, fs, ft, fx, fm, lateBkg[j]);
       }
       else
       {
@@ -481,7 +524,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       //  leave warnning printout
       if (isnan(f))
       {
-        printf("line265  ibin F is NAN chan %i sample %i f=%E mval = %E x = %E y = %E yterm %E effGeo  %E t1 %E t3 %E fs %E ft %E fx %E fm %E bkg %E \n", ic, j, f, mval, x, y, yterm, effGeo, t1, t3, fs, ft, fx, fm, bkg);
+        printf("line265  ibin F is NAN chan %i sample %i f=%E mval = %E x = %E y = %E yterm %E effGeo  %E t1 %E t3 %E fs %E ft %E fx %E fm %E bkg %E \n", ic, j, f, mval, x, y, yterm, effGeo, t1, t3, fs, ft, fx, fm, lateBkg[j]);
       }
     }
   } // loop over channels

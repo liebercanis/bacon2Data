@@ -1,8 +1,8 @@
-/*
-  fit one curve
-  modified to use modelAllFit.hh
-  M.Gold Feb 17 2026
-*/
+/*********
+ * fit one or all curves with theFitChannel = -1 this routine superceeds tbFitAll.cc which is deprecated
+ modified to use modelAllFit.hh
+ M.Gold Feb 17 2026 *
+ ******************/
 #include <iostream>
 #include <fstream>
 #include "TGraph.h"
@@ -17,6 +17,7 @@ std::vector<TH1D *> hnorm;
 std::vector<TH1D *> hcurve;
 std::vector<TH1D *> hffit;
 std::vector<TH1D *> hmodel;
+std::vector<TH1D *> hfitModel;
 
 int nominalTrigger = 729;
 double singletStart = 700;
@@ -24,9 +25,46 @@ double singletEnd = 750;
 // 3603795;
 static Double_t vstart[NPARS];
 static Double_t step[NPARS];
-double xTrigger = 686.;
 
 int colors[NCHAN] = {kRed, kGreen, kBlue, kYellow, kMagenta, kCyan, kOrange, kSpring, kTeal, kAzure, kViolet, kPink, kGray};
+
+TCanvas *makeCanFit(int i1, int i2, TString canName)
+{
+  printf(" makeCanFit %s from %i to %i size %lu \n", canName.Data(), i1, 12, hnorm.size());
+  bool firstPlot = true;
+  TCanvas *can = new TCanvas(canName, canName);
+  can->Divide(2, 2);
+  int ipanel = 0;
+  for (int i = i1; i <= i2; ++i)
+  {
+    ++ipanel;
+    if (isBadChannel(i))
+      continue;
+    hnorm[i]->GetXaxis()->SetRangeUser(1000, 4000);
+    hfitModel[i]->GetXaxis()->SetRangeUser(1000, 4000);
+    hfitModel[i]->SetLineWidth(2);
+    can->cd(ipanel);
+    gPad->SetLogy();
+    hnorm[i]->Draw("");
+    hfitModel[i]->Draw("HISTSAME");
+  }
+  // can->BuildLegend();
+  can->SetLogy();
+  can->Print(".pdf");
+  return can;
+}
+
+/* fill background array lateBkg in modelAllFit.hh */
+void fillLateBkg()
+{
+
+  for (unsigned ih = 0; ih < hnorm.size(); ++ih)
+  {
+    // integrate bin ranges
+    lateBkg[ih] = hnorm[ih]->Integral(6000, 7500) / double(1500);
+    printf("%u %s late int inte %E per bin \n", ih, hnorm[ih]->GetName(), lateBkg[ih]);
+  }
+}
 
 TGraph *myScan(int thePar, double xlow, double xhigh)
 {
@@ -178,18 +216,17 @@ void tbFit(int theFitChannel = -1)
   hmodel.resize(NCHAN);
 
   TString inputFile = TString("post-anaCRun-btbSimNEW-2026-02-13-100000-7857.root");
-  inputFile = TString("post-11_19_2025-11_19_2025-10000000.root");
+  inputFile = TString("post-11_19_2025-11_19_2025-1371746.root");
 
   if (!openFile(inputFile))
     return;
 
-  geoVersionOld = false;
-  setDistanceLevels(geoVersionOld);
-  printf("setParNames and setCompNames\n");
-  setParNames();
-  setCompNames();
-
   double dopant = 1.E-2; // PPM
+
+  /*
+    do all setups here
+  */
+  setupModelAllFit();
 
   // is this simulation?
   bool isSim = false;
@@ -207,10 +244,8 @@ void tbFit(int theFitChannel = -1)
   else
     printf("NEW level distances 0 = %.3f 1= %.3f 2= %.3f 3 %.3f 4 %.3f \n", distanceLevel[0], distanceLevel[1], distanceLevel[2], distanceLevel[3], distanceLevel[4]);
 
+  /* read in all needed histogrms */
   getCurves();
-
-  /* total photons per event */
-  double startNorm = 60. * LY;
 
   for (unsigned ih = 0; ih < hnorm.size(); ++ih)
   {
@@ -218,12 +253,8 @@ void tbFit(int theFitChannel = -1)
     hnorm[ih]->GetListOfFunctions()->Clear();
   }
 
-  /* set bad channels */
-  std::vector<unsigned> badList;
-  badList.push_back(0);
-  badList.push_back(1);
-  badList.push_back(8);
-  setBadChannels(badList);
+  /* add constant late average background */
+  fillLateBkg();
 
   /* fill buffer */
   printf("fill buff \n");
@@ -244,19 +275,21 @@ void tbFit(int theFitChannel = -1)
   double currentValue;
   double currentError;
 
+  /* total photons per event LY defined in modelAllFit.hh */
+  double startNorm = 60. * LY;
   Double_t arglist[10];
   int ierflg = 0;
-  arglist[0] = 0.5; // for likelihood
+  arglist[0] = 0.5; // for likelihood up from minimum for 1 sigma errors
   gMinuit->mnexcm("SET ERR", arglist, 1, ierflg);
 
-  // fit starting values
+  /**  fit starting values **/
   vstart[NORM] = startNorm;
-  vstart[TRIGSTART] = xTrigger;
+  vstart[TRIGSTART] = 2. * hnorm[9]->GetMaximumBin();
   vstart[SFRAC] = 0.14; //;0.23;   // Segretto PHYSICAL REVIEW D 103, 043001 (2021)
   vstart[PPM] = dopant;
   vstart[TAU3] = tTriplet0;
   vstart[TAUM] = 4700.0;
-  vstart[BKGCONST] = 0;
+  vstart[BKGCONST] = 4.0E-6;
   vstart[BKGTAU] = 5000.;
   vstart[THECHANNEL] = theFitChannel;
   /*
@@ -275,7 +308,7 @@ void tbFit(int theFitChannel = -1)
   }
 
   /******************************/
-  // fix parameters minuit is fortran!
+  // fix parameters minuit is fortran hence +1!
   /******************************/
 
   arglist[0] = TRIGSTART + 1; // trigger
@@ -284,18 +317,18 @@ void tbFit(int theFitChannel = -1)
   arglist[0] = TAUM + 1; // par tau3
   gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
+  arglist[0] = BKGCONST + 1; // par
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+
+  arglist[0] = BKGTAU + 1; // par
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+
   // arglist[0] = SFRAC + 1; // kp
   // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
-  arglist[0] = BKGCONST + 1; //
-  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
-
-  arglist[0] = BKGTAU + 1; //
-  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
-
-  /*
+  /******************************
       set limits ... here par starts with 1 so add 1
-   */
+   *****************************/
   arglist[0] = NORM + 1;         // par
   arglist[1] = 0.01 * startNorm; // low
   arglist[2] = 10. * startNorm;  // high
@@ -318,19 +351,20 @@ void tbFit(int theFitChannel = -1)
   arglist[0] = PPM + 1; // par
   arglist[1] = 0.0;     // low
   arglist[2] = 100.;    // high
-  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
-  // arglist[0] = PPM + 1; //
-  // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+  // printModel(2. * hnorm[9]->GetMaximumBin(), &lpar[0]);
+  // return;
 
   /*
-  printf(" \n\n >>> tbFit modelFit start parameters fit ppm %f \n", vstart[PPM]);
-  for (int ii = 0; ii < NPARS; ++ii)
-  {
-    gMinuit->GetParameter(ii, currentValue, currentError);
-    printf("\t  param %i %s %.4E  \n", ii, lparNames[ii].Data(), currentValue);
-  }
-  */
+printf(" \n\n >>> tbFit modelFit start parameters fit ppm %f \n", vstart[PPM]);
+for (int ii = 0; ii < NPARS; ++ii)
+{
+  gMinuit->GetParameter(ii, currentValue, currentError);
+  printf("\t  param %i %s %.4E  \n", ii, lparNames[ii].Data(), currentValue);
+}
+*/
   double amin;
   printf("call mnprin starting values \n");
   gMinuit->mnprin(1, amin);
@@ -386,12 +420,16 @@ void tbFit(int theFitChannel = -1)
   printf("\n...  call mnprin \n");
   gMinuit->mnprin(1, amin);
 
+  /* fit model waves */
+  hfitModel.resize(NCHANPMT);
+
   for (unsigned ic = 0; ic < NCHANPMT; ++ic)
   {
     TH1D *hFit = (TH1D *)hnorm[ic]->Clone(Form("fitWaveFitChan%i", ic));
     hFit->Reset("ICES");
     hFit->SetTitle((Form("fitWaveFitChan%i", ic)));
     hFit->SetLineColor(colors[ic]);
+    hfitModel[ic] = hFit;
     fillFitWave(ic, hFit);
   }
 
@@ -409,8 +447,7 @@ void tbFit(int theFitChannel = -1)
         hFit->Reset("ICES");
         hFit->SetTitle((Form("fit%sChan%i", compNames[icomp].Data(), ic)));
         hFit->SetLineColor(colors[ic]);
-        if (ic == 9)
-          fillCompWave(ic, icomp, hFit); // only need one of these
+        fillCompWave(ic, icomp, hFit); // only need one of these
       }
     }
   }
@@ -437,6 +474,14 @@ void tbFit(int theFitChannel = -1)
   graph->GetYaxis()->SetTitle("FCN likelihood value");
   graph->GetXaxis()->SetTitle(Form("parameter %s", lparNames[thePar].Data()));
   fout->Add(graph);
+
+  if (theFitChannel == -1)
+  {
+    makeCanFit(0, 2, TString("canFitLevel0"));
+    makeCanFit(3, 5, TString("canFitLevel1"));
+    makeCanFit(6, 8, TString("canFitLevel2"));
+    makeCanFit(9, 11, TString("canFitTrig"));
+  }
 
   printf("\n...  finished tbFit \n");
 }
