@@ -46,6 +46,7 @@ static double lateBkg[NCHAN];
 
 TNtuple *ntScan = new TNtuple("ntScan", "ntScan", "ppm:fx:f");
 /***** units are nanoseconds ****/
+static double shift = 12.;
 static double tResolution = 7.0;
 static double tTriplet0 = 1600.0; // 2100.0;
 static double tSinglet0 = 7.0;
@@ -207,7 +208,7 @@ static double Absorbtion(double ppm, double dist)
 
 static double expGaus(double x, double tau)
 {
-  x += 7.2; // compensate for shift in mean due to smearing of 10 percent
+  x -= shift; // compensate for shift in mean due to smearing of 10 percent
   double arg1 = (tResolution * tResolution / tau - 2. * x) / 2. / tau;
   double arg2 = (tResolution * tResolution / tau - x) / sqrt(2) / tResolution;
   double f = 0.5 * TMath::Exp(arg1) * TMath::Erfc(arg2);
@@ -414,8 +415,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     for (int j = ilow; j < ihigh; ++j) // 7500 is total samples
     {
       /* skip dip region */
-      bool dip = j > 1450 / 2 && j < 1540 / 2;
-      if (dip) //
+      bool dip = j > 1400 / 2 && j < 1700 / 2;
+      if (dip && ilevel == 0) //
         continue;
       double x = bw * (double(j - iTrigger) + 0.5);      // bin center convert to ns mutiplying by bin width
       double alpha1 = sfrac * bw * norm * effGeo;        // singlet norm N1 in paper
