@@ -396,10 +396,11 @@ void tbFit(int theFitChannel = -1)
   // ============================================================================
   //  DATA LOADING AND PREPROCESSING
   // ============================================================================
-  // Load all detector waveforms from input file
+  // Load all detector waveforms from input file hcurve and hnorm === hcurve is used for fit
   getCurves();
 
   // Extract and characterize late-time background for each channel
+  // either from average or from fit to poly1
   fillLateBkg();
 
   // Transfer histogram data to buffer arrays for fitting algorithm
@@ -506,7 +507,7 @@ void tbFit(int theFitChannel = -1)
   arglist[0] = TAUM + 1;     // par tau mixed
   arglist[1] = 0.01 * tMix0; // low
   arglist[2] = 10. * tMix0;  // high
-                             // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
   gMinuit->mnexcm("FIX", arglist, 3, ierflg);
 
   // ============================================================================
