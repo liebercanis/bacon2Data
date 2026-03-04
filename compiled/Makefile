@@ -33,6 +33,9 @@ ifeq ($(ARCH),macosx64)
 else ifeq ($(ARCH),macosxarm64)
 				CXX := clang++ -ggdb 
 				CPP= $(CXX) $(CXXFLAGS)
+else ifeq ($(ARCH),linuxx8664gcc)
+				CXX := $(GCC_PATH)/g++ -ggdb 
+				CPP= $(CXX) $(CXXFLAGS)
 else
 				CXX := g++ -g 
 				CXXFLAGS += -O -Wall -fPIC 
