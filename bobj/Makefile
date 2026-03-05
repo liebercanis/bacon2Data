@@ -65,6 +65,14 @@ lib: $(DICTS) $(OBJS)
 	rootcint -f  $@ -c $(CINTFLAGS) $^
 	@echo "$@ done"
 
+else ifeq ($(ARCH),linuxx8664gcc)
+    CXX := $(GCC_PATH)/g++ -ggdb
+    CXXFLAGS += -fPIC 
+    CPP= $(CXX) $(CXXFLAGS)
+else
+	CXX := g++ -ggdb 
+	CXXFLAGS += -O -Wall -fPIC 
+
 	
 %.o: %.cxx %.cxx
 	@echo "compiling ... $(CXX) $(CXXFLAGS) "
