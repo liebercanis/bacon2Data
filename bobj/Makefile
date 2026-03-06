@@ -31,6 +31,10 @@ else ifeq ($(ARCH),macosxarm64)
 				CXX = clang++  -ggdb 
   			    CXXFLAGS += -fPIC
 				CPP= $(CXX) $(CXXFLAGS)
+else ifeq ($(ARCH),linuxx8664gcc)
+				CXX := $(GCC_PATH)/g++ -ggdb
+				CXXFLAGS += -fPIC 
+				CPP= $(CXX) $(CXXFLAGS)
 else
 				CXX := g++ -ggdb 
 				CXXFLAGS += -O -Wall -fPIC 
@@ -64,14 +68,6 @@ lib: $(DICTS) $(OBJS)
 	@echo $(shell which rootcint)
 	rootcint -f  $@ -c $(CINTFLAGS) $^
 	@echo "$@ done"
-
-else ifeq ($(ARCH),linuxx8664gcc)
-    CXX := $(GCC_PATH)/g++ -ggdb
-    CXXFLAGS += -fPIC 
-    CPP= $(CXX) $(CXXFLAGS)
-else
-	CXX := g++ -ggdb 
-	CXXFLAGS += -O -Wall -fPIC 
 
 	
 %.o: %.cxx %.cxx
