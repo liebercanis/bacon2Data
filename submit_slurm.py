@@ -17,7 +17,7 @@ def get_matching_files(date_tag, rootdata_dir='rootData'):
     try:
         for filename in os.listdir(rootdata_dir):
             if date_tag in filename:
-                files.append(os.path.join(rootdata_dir, filename))
+                files.append(filename)
     except FileNotFoundError:
         print(f"Error: Directory '{rootdata_dir}' not found", file=sys.stderr)
         return []
