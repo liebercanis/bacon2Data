@@ -46,8 +46,11 @@ def submit_slurm_job(date_tag, num_files=None, parallel_jobs=8, time_limit="01:0
     os.makedirs('logs', exist_ok=True)
     
     # Build sbatch command
+    # The special Python variable __file__ contains the pathname of the file from which the module was loaded. 
     script_path = os.path.join(os.path.dirname(__file__), 'submit_slurm.sh')
-    
+
+    print('script_path= ',script_path) 
+
     sbatch_cmd = [
         'sbatch',
         f'--array=0-{num_tasks-1}%{parallel_jobs}',
@@ -56,6 +59,8 @@ def submit_slurm_job(date_tag, num_files=None, parallel_jobs=8, time_limit="01:0
         date_tag
     ]
     
+    print('sbatch_cmd = ',sbatch_cmd) 
+
     print(f"Running: {' '.join(sbatch_cmd)}")
     
     try:
@@ -87,6 +92,21 @@ Examples:
                        help='Time limit in HH:MM:SS format (default: 01:00:00)')
     
     args = parser.parse_args()
+    
+    files = get_matching_files(args.date_tag)
+    n = len(files)
+    ntot = n
+
+     #print(" files %i ", len(p), " files %i ", len(files))
+    if (len(sys.argv) > 2):
+        n = int(args.max_files)
+
+    print(" number of files to run  %i of %i  " % (n, ntot))
+    
+
+    #for i in range(0, n):
+    #    print(" file ", i, " file ", files[i]) 
+    
     
     return submit_slurm_job(args.date_tag, args.max_files, args.parallel, args.time_limit)
 
