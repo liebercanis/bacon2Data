@@ -25,23 +25,32 @@ CXXFLAGS     += -I$(LOCAL) -I/$/usr/include -I/usr/local/include -I$(BOBJ)
 LIBS         := -L$(BOBJ) -lBaconAna $(ROOTLIBS) -L$(ROOTSYS)/lib/root -lMinuit  
 ## remove CXXFLAGS += -fPIC  -fsanitize=address 
 
+
 ifeq ($(ARCH),macosx64)
-				CXX := clang++ -arch x86_64 -glldb 
-				LD=clang++ -arch x86_64 -delay-lx 
-				CXXFLAGS += -fPIC  
+                SOFLAGS = -dynamiclib -install_name $(INSTALLNAME)
+				CXX = clang++ -arch x86_64 -ggdb 
+				LD=clang++ -arch x86_64  
+				CXXFLAGS += -fPIC
 				CPP= $(CXX) $(CXXFLAGS)
+
 else ifeq ($(ARCH),macosxarm64)
-				CXX := clang++ -ggdb 
+                SOFLAGS = -dynamiclib -install_name $(INSTALLNAME)
+				CXX = clang++  -ggdb 
+  			    CXXFLAGS += -fPIC
 				CPP= $(CXX) $(CXXFLAGS)
+
 else ifeq ($(ARCH),linuxx8664gcc)
-				CXX := $(GCC_PATH)/g++ -ggdb 
+				CXX := $(GCC_PATH)/g++ -ggdb
+				CXXFLAGS += -fPIC 
 				CPP= $(CXX) $(CXXFLAGS)
+
 else
-				CXX := g++ -g 
+				CXX := g++ -ggdb 
 				CXXFLAGS += -O -Wall -fPIC 
 				CPP= $(CXX) $(CXXFLAGS) 
-				
+
 endif 
+
 
 #CPP+=-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
 
