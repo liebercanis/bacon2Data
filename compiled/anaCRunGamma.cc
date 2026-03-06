@@ -440,7 +440,9 @@ bool anaCRun::openFile(TString theFile)
 {
   // open input file and make some histograms
   TString fileName;
-  fileName.Form("rootData/%s", theFile.Data());
+  const char *rootDataEnv = std::getenv("ROOTDATA");
+  printf("ROOTDATA = %s\n", rootDataEnv);
+  fileName.Form("%s/%s", rootDataEnv, theFile.Data());
   printf(" looking for file %s\n", fileName.Data());
 
   bool exists = false;
@@ -2175,6 +2177,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   if (!openFile(theFile)) // and get branches
   {
     printf("anaCRun no such file %s \n", theFile.Data());
+
     return -1;
   }
 
@@ -2185,7 +2188,9 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   // open outout file
   TString outFileName;
-  outFileName.Form("caenData/anaCRun-%s-%llu.root", shortName.c_str(), maxEntries);
+  const char *caenDataEnv = std::getenv("CAENDATA");
+  printf("\n ****** CAENDATA = %s\n", caenDataEnv);
+  outFileName.Form("%s/anaCRun-%s-%llu.root", caenDataEnv, shortName.c_str(), maxEntries);
   if (doNotOverWrite)
     if (outFileCheck(outFileName))
     {
@@ -2194,7 +2199,8 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
     }
 
   fout = new TFile(outFileName, "recreate");
-  cout << " opened output file " << fout->GetName() << endl;
+  cout << " \n ******* opened output file " << fout->GetName() << "******* \n"
+       << endl;
 
   cutDir = fout->mkdir("cutDir");
   templateDir = fout->mkdir("templateDir");
@@ -2269,11 +2275,11 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   printf("got rawTree entry 0 \n");
   printf("\n\n\t\t >>>>>>>>> start of file %i %i %i : %i <<<<<<<<<<<< \n", rawEventData->day, rawEventData->mon, rawEventData->year, rawEventData->hour);
 
-  for (int iev = 0; iev < 100; ++iev)
+  for (int iev = 0; iev < 2; ++iev)
   {
     rawTree->GetEntry(iev);
     for (unsigned ib = 0; ib < rawBr.size(); ++ib)
-      printf("\t\t event %u SIZE OF WAVEFORM = %lu \n", iev, rawBr[ib]->rdigi.size());
+      printf("\t\t event %u branch %u SIZE OF WAVEFORM = %lu \n", iev, ib, rawBr[ib]->rdigi.size());
   }
   if (rawBr[0]->rdigi.size() != WAVELENGTH)
   {
@@ -2282,6 +2288,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
 
   Long64_t nentries = rawTree->GetEntries();
+  cout << " nentries = " << nentries << endl;
   if (maxEntries > 0)
     nentries = TMath::Min(maxEntries, nentries);
   printf("... total entries  %llu looping over %llu starting from %llu call getSummedHists\n ", rawTree->GetEntries(), nentries, firstEntry);
@@ -2306,6 +2313,10 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   {
     tbrun->addDet(it);
   }
+
+  printf("tbrun btree branches: \n");
+
+  tbrun->btree->GetListOfBranches()->ls();
 
   // store nominal baselines
   TString hName;
