@@ -27,8 +27,12 @@ def get_matching_files(date_tag, rootdata_dir='rootData'):
 
 def submit_slurm_job(date_tag, num_files=None, parallel_jobs=8, time_limit="01:00:00"):
     """Submit SLURM job array"""
-    
-    files = get_matching_files(date_tag)
+   
+    rootData = os.getenv("ROOTDATA")
+    files = get_matching_files(date_tag,rootData)
+
+    for(i, f) in enumerate(files):
+        print(f" file {i}  file {f} ")
     
     if not files:
         print(f"Error: No files found matching tag '{date_tag}'", file=sys.stderr)
