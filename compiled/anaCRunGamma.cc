@@ -455,7 +455,7 @@ bool anaCRun::openFile(TString theFile)
   }
   if (!exists)
   {
-    printf(" couldnt open file %s\n", fileName.Data());
+    printf(" openFile couldnt open file %s\n", fileName.Data());
     return false;
   }
 
@@ -2170,13 +2170,14 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   //
   string sfilename(theFile.Data());
-  string shortName = sfilename.substr(0, sfilename.find_last_of("."));
+  //string shortName = sfilename.substr(0, sfilename.find_last_of("."));
+  string shortName = sfilename.substr(sfilename.find_last_of("/") + 1, sfilename.length() - sfilename.find_last_of("/"));
 
-  cout << " anaCRunFile  for rootData/ input file shortName= " << theFile << endl;
+  cout << " anaCRunFile  for ROOTDATA input file shortName= " << shortName  << " full name= " << theFile<< endl;
 
-  if (!openFile(theFile)) // and get branches
+  if (!openFile(shortName)) // and get branches
   {
-    printf("anaCRun no such file %s \n", theFile.Data());
+    printf("anaCRun no such file %s \n", shortName.c_str());
 
     return -1;
   }
