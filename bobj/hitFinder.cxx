@@ -1288,7 +1288,7 @@ void hitFinder::makeHits(int idet, Double_t &triggerTime, Double_t &firstCharge)
           // fit is in axis value fit to previous peak
           double fitStart = hEvWave[idet]->GetBinCenter(hitj.peakBin);
           double fitEnd = hEvWave[idet]->GetBinCenter(hitj.lastBin);
-          hEvWave[idet]->Fit("landau", "Q", "", fitStart, fitEnd); // Q for quiet
+          hEvWave[idet]->Fit("landau", "Q0", "", fitStart, fitEnd); // Q for quiet
           //  switch to landau ?? offset too small!
           // TFitResultPtr fitptr = hEvWave[idet]->Fit("landau", "QS0", "", hitj.peakBin, hitj.lastBin); // was 20
           TF1 *expFit = (TF1 *)hEvWave[idet]->GetListOfFunctions()->FindObject("landau");
