@@ -1,26 +1,10 @@
 /*
- * ============================================================================
- * anaCRunGamma.cc
- * ============================================================================
- * Purpose: Gamma-ray event analysis for BACoN (Boron-loaded Active Scintillator)
- *          detector using derivative-based pulse finding algorithm
- *
- * Version: GAMMA (derivative pulse finding)
- * Original:  Sept 25, 2024
- * Revised:   Jan 15, 2025 - Added useNewGains configuration
- * Updated:   Jan 20, 2026 - Default to nominal gains if useNewGains=false
- *
- * Key Features:
- *   - Pulse detection via derivative crossing analysis
- *   - Multi-channel waveform analysis (12 SiPMs + 1 PMT)
- *   - Event classification and QC cuts (baseline, early peak, cosmic, gamma)
- *   - Trigger time determination and normalization
- *   - Spectral analysis with histogram generation
- *
- * Author:  [Gamma Analysis Team]
- * Contact: [TBD]
- * ============================================================================
- */
+  /////////////////////////////////////////////////////////
+   This is GAMMA version Sept 25 2024
+  revised Jan 15 2025
+   add a bool useNewGains otherwise, use nominal gains Jan 20 2026
+/////////////////////////////////////////////////////////
+*/
 #include <sstream>
 #include <unistd.h>
 #include <iostream>
@@ -31,9 +15,7 @@
 #include <valarray>
 #include <numeric>
 #include <algorithm> // std::sort
-// ============================================================================
-// Root/Channel Includes
-// ============================================================================
+// root/chan
 #include <TROOT.h>
 #include <TKey.h>
 #include <TBranch.h>
@@ -52,9 +34,7 @@
 #include <TStyle.h>
 #include <TCanvas.h>
 #include <TGraphErrors.h>
-// ============================================================================
-// BACoN Object Library Includes
-// ============================================================================
+// bobj classes
 #include "TBWave.hxx"
 #include "TBEventData.hxx"
 #include "TBRawEvent.hxx"
@@ -62,566 +42,316 @@
 #include "TBFile.hxx"
 #include "TReadGains.hxx"
 
-// ============================================================================
-// Class: anaCRun
-// ============================================================================
-/**
- * @class anaCRun
- * @brief Main analysis engine for BACoN detector event processing
- *
- * This class performs comprehensive analysis of BACoN detector events including:
- *   - Waveform processing and baseline correction
- *   - Multi-channel pulse detection via derivative analysis
- *   - Event classification through QC cuts
- *   - Trigger time determination and event synchronization
- *   - Spectral and temporal analysis
- *   - Monte Carlo simulation comparison (when enabled)
- *
- * The analysis workflow:
- *   1. Open raw event data (RawTree)
- *   2. Establish baseline and RMS for each channel
- *   3. Apply digital filtering (differentiation)
- *   4. Detect pulses via threshold crossings
- *   5. Apply QC cuts (baseline, early peak, cosmic, gamma selection)
- *   6. Extract physics parameters (timing, energy, multiplicity)
- *   7. Populate histograms and ntuples for further analysis
- *
- * @note Channel Convention: 0-11 = SiPMs, 12 = PMT, 13 = Summed waveform
- * @note NONSUMCHANNELS = 13 (does not include summed channel for certain operations)
- */
-
-// ============================================================================
-// Enumeration: Threshold Crossing Modes
-// ============================================================================
-/// Crossing direction indicators for pulse detection algorithm
-enum
+class anaCRun
 {
-  UPCROSS,        ///< Rising edge crossing
-  DOWNCROSS,      ///< Falling edge crossing
-  DOUBLEUPCROSS,  ///< Sharp rising transition
-  DOUBLEDOWNCROSS ///< Sharp falling transition
+public:
+  enum
+  {
+    UPCROSS,
+    DOWNCROSS,
+    DOUBLEUPCROSS,
+    DOUBLEDOWNCROSS
+  };
+  // add ONE for summed waveform = 12 SIPM + PMT +1 summed = 14
+  // NONSUMCANNELS do not include channel 13
+  enum
+  {
+    CHANNELS = 14,
+    NONSUMCHANNELS = CHANNELS - 1
+  };
+  enum
+  {
+    WAVELENGTH = 7500
+  };
+
+  // pass bit failures hex
+  enum FAILURECODES
+  {
+    PASS = 0,
+    BASEFAIL = 0x1,
+    EARLYCUT = 0x2,
+    FIRSTTIME = 0x4,
+    COSMIC = 0x8,
+    GAMMA = 0x10,
+    TRIANGLE = 0x20,
+    TOTALCODES = 2 * TRIANGLE
+  };
+
+  enum
+  {
+    FAILBITS = 7
+  };
+
+  double tSinglet0 = 7.0; // ns
+  ULong64_t baselineSum = 1000;
+
+  // class to read and store gains
+  TReadGains *readGains;
+
+  std::vector<TString> bitNames;
+  std::vector<double> bitCutValues;
+  int failCode[FAILBITS];
+
+  std::vector<TString> codeNames;
+
+  int npass;
+  int nfail;
+
+  int badEvent = 5671;
+  int failGamma = 0;
+  int failCosmic = 0;
+  TH1D *hNominalBaselines;
+
+  bool useNewGains = false; // default is use nominal
+  bool doNotOverWrite = true;
+  bool theFirstFile = true;
+  bool isSim = false;
+  std::vector<TDet *> simDet;
+  TH1D *hSimFoundTimeDiff;
+  int badEventDirMax = 1000;
+  int exampleDirMax = 1000;
+  int missedDirMax = 1000;
+  bool reportFailures = false;
+  double noiseToSignal = 0.04;
+  TBRun *tbrun;
+  TFile *fout;
+  TFile *fin;
+  TTree *rawTree;
+  TTree *simTree;
+  // ntuples to check cuts
+  TNtuple *ntBase;
+  TNtuple *ntTrig;
+  TNtuple *ntNonTrig;
+  TH1D *hBaselineRmsCut;
+  TH1D *hEarlyCut;
+  TH1D *hCosmicCut;
+  TH1D *hCosmicCutFail;
+  TH1D *hCosmicCutPass;
+  TH1D *hGammaCut;
+  TH1D *hNEventPhotons[3];
+  TNtuple *ntHit;
+  TNtuple *ntSimMatch;
+  unsigned orderFraction = 10;
+  // vectors for gains
+  //
+  std::map<int, int> chanMap;
+  vector<int> nSpeSum;
+  vector<TBRawEvent *> rawBr;
+  TBEventData *eventData;
+  TBEventData *rawEventData;
+  TNtuple *ntThresholdAll;
+  TNtuple *ntThresholdAdc;
+  TNtuple *ntThreshold;
+  TNtuple *ntChan;
+  TNtuple *ntChanSum;
+  TNtuple *ntTrigTime;
+  TNtuple *ntSetTrigTime;
+  TNtuple *ntSpeYield;
+  TNtuple *ntAdc;
+  TNtuple *ntFailures;
+  TNtuple *ntGammaPeak;
+  vector<TH1D *> baseHist;
+  vector<TH1D *> sumWave;
+  vector<TH1D *> sumHitWave;
+  vector<TH1D *> sumPeakWave;
+  vector<TH1D *> sumWaveA;
+  vector<TH1D *> sumWaveB;
+  std::vector<std::vector<TH1D *>> sumWaveFail;
+
+  vector<TH1D *> hMult;
+  vector<TH1D *> hQSum;
+  vector<TH1D *> hQPeak;
+  vector<TH1D *> hQSpe;
+  vector<TH1D *> hEvGaus;
+  vector<TH1D *> hEvRawWave;
+  vector<TH1D *> hChannelGaus;
+  std::vector<std::vector<TH1D *>> hSPEShape; // 4 shapes per channel
+  std::vector<TH1D *> hSPEShapeLate;
+  // for sums needed for gains
+  std::vector<TH1D *> hTotSum;
+  std::vector<TH1D *> hPreSum;
+  std::vector<TH1D *> hTrigSum;
+  std::vector<TH1D *> hLateSum;
+  std::vector<TH1D *> hWave;
+
+  TH1D *hTrigFailCut;
+  TH1D *hGammaPeak;
+  TH1D *hGammaPeakPass;
+  TH1D *hGammaPeakPassAll;
+  TH1D *hGammaFailsCut;
+  TH1D *hGammaPeakCut;
+  TH2D *hTriangleCut;
+  std::vector<TH1D *> hQFracRatio;
+  TH1D *hPreQpeak;
+  TH1D *hLateQpeak;
+  // TH1D *hCountPre;
+  // TH1D *hCountLate;
+  TH1D *hCountLateTime;
+  TH2D *hCountLateTimeQpeak;
+  TH2D *hTriangle;
+  TH2D *hTriangleLow;
+  TH2D *hTriangleHigh;
+  TH1D *evCount;
+  TH1D *histQSum;
+  TH1D *hEventPass;
+  TH1D *hEventFail;
+  TH1D *histHitCount;
+  TH1D *hNoPeak;
+  TH1D *hSumPMT;
+  TH1D *threshHist;
+  TH2D *threshValueHist;
+  TH1D *crossHist;
+  TH1D *hCosmicMult;
+  // TH1D *histQPE;
+  TH1D *histQPrompt;
+  TH1D *hFirstTimeDiff;
+  TH1D *hFirstTimeAllVal;
+  TH1D *hFirstTimeAllValPmt;
+  TH1D *hTriggerHitTimeAll;
+  TH1D *hFirstTime;
+  TH1D *hTriggerShift;
+
+  // sim comparison histos by channel
+  std::vector<TH1D *> hWaveHitSim;
+  std::vector<TH1D *> hWaveHitFound;
+  std::vector<TH1D *> hWaveHitMissed;
+  std::vector<TH1D *> hWaveHitNoise;
+
+  //
+  vector<double> nominalBaseline;
+  vector<double> nominalBaselineRms;
+  vector<double> channelSigma;
+  vector<double> channelSigmaValue;
+  vector<double> channelSigmaErr;
+  vector<double> digi;
+  vector<double> ddigi;
+  vector<double> hdigi;
+  std::vector<unsigned> thresholds;
+  std::vector<unsigned> crossings;
+  std::vector<unsigned> crossingBin;
+  std::vector<double> crossingTime;
+
+  vector<double> slope;
+  vector<double> eslope;
+  vector<double> chan;
+  vector<double> echan;
+  vector<double> chanThreshold;
+  // sums
+  ofstream dumpFile;
+  // vector<TBWave *> waveList;/
+  hitFinder *finder;
+  TString tag;
+  int currentBuffer;
+  Long64_t currentBufferCount;
+  Long64_t eventNumber;
+  anaCRun(TString theTag = TString("dirName"));
+  ~anaCRun() {}
+  Long64_t anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t firstEntry = 0);
+  void clear();
+  bool openFile(TString fileName);
+  bool outFileCheck(TString outFileName);
+  unsigned getListOfFiles(TString dir);
+
+  void getSummedHists();
+  unsigned getBranches();
+  int anaEvent(Long64_t entry);                   // return passBit
+  void differentiate(double step);                //
+  void derivativeCount(TDet *idet, Double_t rms); // not used
+  void negativeCrossingCount(int ichan);
+  void thresholdCrossingCount(double thresh);
+  std::vector<double> sumDigi();
+  unsigned getTriggerTime(int ichan, double &adc);
+  void getTriggerTimeStats(unsigned *timeArray, double &ave, double &sigma, unsigned &ichan, double &dmax);
+  unsigned fixedTriggerTime(int ichan, double &adc);
+  void doTimeShiftAndNorm();
+  void getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample);
+  bool simTimeMatch(double stime, double ftime);
+  void calcError(double pass, double fail, double &fraction, double &error);
+  void getBaselines(ULong64_t nBaselineAverage);
+
+  /*
+  void setTBRun(TBRun *theTBRun)
+  {
+    tbrun = theTBRun;
+  }
+  */
+  void makeTernary(double a, double b, double c, double &x, double &y);
+  std::vector<std::vector<double>> fixedDigi; // all the fixed waveforms
+  std::vector<unsigned> trigTimes;
+  std::vector<unsigned> sTrigTimes; // after correction
+  std::vector<double> adcBin;
+  std::vector<double> speCount;
+  TDirectory *cutDir;
+  TDirectory *threshDir;
+  TDirectory *earlyPeakDir;
+  TDirectory *rawSumDir;
+  TDirectory *exampleDir;
+  TDirectory *missedDir;
+  TDirectory *sumDir;
+  TDirectory *anaDir;
+  TDirectory *badEventDir;
+  TDirectory *pmtDir;
+  TDirectory *fftDir;
+  TDirectory *templateDir;
+  TDirectory *simDir;
+
+  Long64_t nentries;
+  double QPEPeak;
+  //
+  int MaxSPEShape = 4;
+  unsigned preTrigEnd = 600;
+  int nominalTrigger = 753; // was 729; this is nominal trigger sample
+  double nominalGain;
+  double nominalTrigGain;
+  double nominalPmtGain;
+  double nominalQsumGain;
+  double nominalQsumTrigGain;
+  double nominalQsumPmtGain;
+
+  double landauMax = 1.0;       // 0.018063;
+  std::vector<double> qsumGain; // read from class TReadGain
+  //  227.4; // average
+  //   double nominalGain = 160.0; // average
+  unsigned firstTime;       // corrected trigger time for event
+  unsigned timeOffset = 13; // changed from 17 may 13, 2024
+  double passValEarlyCut = 100.0;
+  /// double passValEarlyPmtCut = 225.0;
+  ULong_t lateTimeStart = 900;
+  ULong_t triggerStart = 730;               // 740;
+  ULong_t afterTrigger = triggerStart + 20; //  2*20 = 40 ns after trigger
+
+  ULong_t timeVeryLateCut = 3500;
+  ULong_t triggerEnd = 800; // 740;
+  /* need to tune these cuts on data */
+  double trigRatioCutLow = 0.2;  // qsum fraction
+  double trigRatioCutHigh = 0.8; // qsum fraction
+
+  double diffStepSipm = 3.; // 6 ns steps for SIPM
+  double diffStepPmt = 1.;  // back to one on Oct 15 2024
+  /****************
+   * event cleanup cuts
+   ****************/
+  double baselineRmsCut = 3.0;
+  double earlyCut = 20.0; // normalized to nominalGain; ///
+  double firstTimeCut = double(triggerEnd);
+  double cosmicCut = 30.; // value normlized to nominalPmtGain
+  double gammaCut = 140.; // was 150 normalized to nominalGain; //
+  double trigSumCut = 3.0;
+  double hitThresholdPmt = 30.; // set Nov 13 2024
+  // double qpeakCosmicCut = 3. * nominalGain; // 3*SPE
 };
-
-// ========================================================================
-// Enumeration: Channel Configuration
-// ========================================================================
-/// Detector channel layout: 12 SiPMs + 1 PMT + 1 Summed = 14 total
-enum
-{
-  CHANNELS = 14,                ///< Total channels including summed waveform
-  NONSUMCHANNELS = CHANNELS - 1 ///< Individual channels (0-12)
-};
-
-// ========================================================================
-// Enumeration: Waveform Parameters
-// ========================================================================
-enum
-{
-  WAVELENGTH = 7500 ///< Typical samples per waveform (7.5 µs @ 1 GS/s)
-};
-
-// ========================================================================
-// Enumeration: Event Quality Control Failure Codes
-// ========================================================================
-/// Bitwise failure codes for event classification
-enum FAILURECODES
-{
-  PASS = 0,                 ///< Event passed all QC cuts
-  BASEFAIL = 0x1,           ///< Baseline RMS exceeds threshold
-  EARLYCUT = 0x2,           ///< Early pulse detected before trigger window
-  FIRSTTIME = 0x4,          ///< First hit time outside acceptable range
-  COSMIC = 0x8,             ///< PMT signal consistent with cosmic ray
-  GAMMA = 0x10,             ///< Weak gamma signal (below energy threshold)
-  TRIANGLE = 0x20,          ///< Triangle cut anomaly (timing/energy correlation)
-  TOTALCODES = 2 * TRIANGLE ///< Total number of failure modes
-};
-
-enum
-{
-  FAILBITS = 7 ///< Number of failure classification bits
-};
-
-// ========================================================================
-// Singlet Lifetime and Analysis Window Parameters
-// ========================================================================
-double tSinglet0 = 7.0;       ///< Singlet lifetime reference (nanoseconds)
-ULong64_t baselineSum = 1000; ///< Number of samples to average for baseline
-
-// class to read and store gains
-TReadGains *readGains;
-
-std::vector<TString> bitNames;
-std::vector<double> bitCutValues;
-int failCode[FAILBITS];
-
-std::vector<TString> codeNames;
-
-int npass; ///< Count of events passing QC selections
-int nfail; ///< Count of events failing QC selections
-
-// ========================================================================
-// Event Classification and Configuration
-// ========================================================================
-int badEvent;            ///< Event ID marked as anomalous for debugging (default: 5671)
-int failGamma;           ///< Counter: events rejected by gamma cut
-int failCosmic;          ///< Counter: events rejected by cosmic cut
-TH1D *hNominalBaselines; ///< Histogram of nominal baseline values per channel
-
-/// Configuration: Use recalibrated gains (true) or nominal defaults (false)
-bool useNewGains = false;
-
-bool doNotOverWrite = true; ///< Preserve existing output files
-bool theFirstFile = true;   ///< Flag indicating first file in batch
-bool isSim = false;         ///< Data contains Monte Carlo simulation events
-std::vector<TDet *> simDet;
-TH1D *hSimFoundTimeDiff;
-int badEventDirMax = 1000;
-int exampleDirMax = 1000;
-int missedDirMax = 1000;
-bool reportFailures = false;
-double noiseToSignal = 0.04;
-TBRun *tbrun;
-TFile *fout;
-TFile *fin;
-TTree *rawTree;
-TTree *simTree;
-// ntuples to check cuts
-TNtuple *ntBase;
-TNtuple *ntTrig;
-TNtuple *ntNonTrig;
-TH1D *hBaselineRmsCut;
-TH1D *hEarlyCut;
-TH1D *hCosmicCut;
-TH1D *hCosmicCutFail;
-TH1D *hCosmicCutPass;
-TH1D *hGammaCut;
-TH1D *hNEventPhotons[3];
-TNtuple *ntHit;
-TNtuple *ntSimMatch;
-unsigned orderFraction = 10;
-// vectors for gains
-//
-std::map<int, int> chanMap;
-vector<int> nSpeSum;
-vector<TBRawEvent *> rawBr;
-TBEventData *eventData;
-TBEventData *rawEventData;
-TNtuple *ntThresholdAll;
-TNtuple *ntThresholdAdc;
-TNtuple *ntThreshold;
-TNtuple *ntChan;
-TNtuple *ntChanSum;
-TNtuple *ntTrigTime;
-TNtuple *ntSetTrigTime;
-TNtuple *ntSpeYield;
-TNtuple *ntAdc;
-TNtuple *ntFailures;
-TNtuple *ntGammaPeak;
-vector<TH1D *> baseHist;
-vector<TH1D *> sumWave;
-vector<TH1D *> sumHitWave;
-vector<TH1D *> sumPeakWave;
-vector<TH1D *> sumWaveA;
-vector<TH1D *> sumWaveB;
-std::vector<std::vector<TH1D *>> sumWaveFail;
-
-vector<TH1D *> hMult;
-vector<TH1D *> hQSum;
-vector<TH1D *> hQPeak;
-vector<TH1D *> hQSpe;
-vector<TH1D *> hEvGaus;
-vector<TH1D *> hEvRawWave;
-vector<TH1D *> hChannelGaus;
-std::vector<std::vector<TH1D *>> hSPEShape; // 4 shapes per channel
-std::vector<TH1D *> hSPEShapeLate;
-// for sums needed for gains
-std::vector<TH1D *> hTotSum;
-std::vector<TH1D *> hPreSum;
-std::vector<TH1D *> hTrigSum;
-std::vector<TH1D *> hLateSum;
-std::vector<TH1D *> hWave;
-
-TH1D *hTrigFailCut;
-TH1D *hGammaPeak;
-TH1D *hGammaPeakPass;
-TH1D *hGammaPeakPassAll;
-TH1D *hGammaFailsCut;
-TH1D *hGammaPeakCut;
-TH2D *hTriangleCut;
-std::vector<TH1D *> hQFracRatio;
-TH1D *hPreQpeak;
-TH1D *hLateQpeak;
-// TH1D *hCountPre;
-// TH1D *hCountLate;
-TH1D *hCountLateTime;
-TH2D *hCountLateTimeQpeak;
-TH2D *hTriangle;
-TH2D *hTriangleLow;
-TH2D *hTriangleHigh;
-TH1D *evCount;
-TH1D *histQSum;
-TH1D *hEventPass;
-TH1D *hEventFail;
-TH1D *histHitCount;
-TH1D *hNoPeak;
-TH1D *hSumPMT;
-TH1D *threshHist;
-TH2D *threshValueHist;
-TH1D *crossHist;
-TH1D *hCosmicMult;
-// TH1D *histQPE;
-TH1D *histQPrompt;
-TH1D *hFirstTimeDiff;
-TH1D *hFirstTimeAllVal;
-TH1D *hFirstTimeAllValPmt;
-TH1D *hTriggerHitTimeAll;
-TH1D *hFirstTime;
-TH1D *hTriggerShift;
-
-// sim comparison histos by channel
-std::vector<TH1D *> hWaveHitSim;
-std::vector<TH1D *> hWaveHitFound;
-std::vector<TH1D *> hWaveHitMissed;
-std::vector<TH1D *> hWaveHitNoise;
-
-//
-vector<double> nominalBaseline;
-vector<double> nominalBaselineRms;
-vector<double> channelSigma;
-vector<double> channelSigmaValue;
-vector<double> channelSigmaErr;
-vector<double> digi;
-vector<double> ddigi;
-vector<double> hdigi;
-std::vector<unsigned> thresholds;
-std::vector<unsigned> crossings;
-std::vector<unsigned> crossingBin;
-std::vector<double> crossingTime;
-
-vector<double> slope;
-vector<double> eslope;
-vector<double> chan;
-vector<double> echan;
-vector<double> chanThreshold;
-// sums
-ofstream dumpFile;
-// vector<TBWave *> waveList;/
-hitFinder *finder;
-TString tag;
-int currentBuffer;
-Long64_t currentBufferCount;
-Long64_t eventNumber;
-
-// ========================================================================
-// Constructor and Destructor
-// ========================================================================
-/**
- * @brief Default constructor for anaCRun analysis engine
- * @param theTag Analysis run identifier/directory name
- */
-anaCRun(TString theTag = TString("dirName"));
-
-/// Destructor
-~anaCRun() {}
-
-// ========================================================================
-// File I/O and Initialization Methods
-// ========================================================================
-/**
- * @brief Process a single data file
- * @param theFile Input ROOT file path
- * @param maxEntries Maximum events to process (-1 for all)
- * @param firstEntry Starting event offset (default 0)
- * @return Number of entries processed
- */
-Long64_t anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t firstEntry = 0);
-
-/// Clear all event data and histograms for fresh processing
-void clear();
-
-/**
- * @brief Open ROOT data file and verify structure
- * @param fileName Path to input file
- * @return true if file opened successfully with valid tree structure
- */
-bool openFile(TString fileName);
-
-/**
- * @brief Check output file path and establish write permissions
- * @param outFileName Target output path
- * @return true if output location is valid and writable
- */
-bool outFileCheck(TString outFileName);
-
-/**
- * @brief Scan directory and build list of data files
- * @param dir Directory path to scan
- * @return Number of files found and queued
- */
-unsigned getListOfFiles(TString dir);
-
-// ========================================================================
-// Core Analysis Methods
-// ========================================================================
-/**
- * @brief Retrieve and populate summed waveforms from individual channels
- */
-void getSummedHists();
-
-/**
- * @brief Connect ROOT tree branches to internal data structures
- * @return Number of branches successfully linked
- */
-unsigned getBranches();
-
-/**
- * @brief Process single event: baseline correction, pulse finding, QC cuts
- * @param entry Tree entry index
- * @return Failure code bitmask (PASS=0, or combination of FAILURECODES bits)
- */
-int anaEvent(Long64_t entry);
-
-// ========================================================================
-// Signal Processing Methods
-// ========================================================================
-/**
- * @brief Apply finite-difference derivative filtering to all channels
- * @param step Interpolation step size (nanoseconds)
- */
-void differentiate(double step);
-
-/// @deprecated Legacy method for derivative peak counting
-void derivativeCount(TDet *idet, Double_t rms);
-
-/**
- * @brief Analyze negative-crossing threshold transitions in waveform
- * @param ichan Channel index to analyze
- */
-void negativeCrossingCount(int ichan);
-
-/**
- * @brief Detect and enumerate threshold crossings from baseline
- * @param thresh ADC threshold value for crossing detection
- */
-void thresholdCrossingCount(double thresh);
-
-/**
- * @brief Compute sum waveform across all SiPM channels
- * @return Vector of summed ADC values for each time sample
- */
-std::vector<double> sumDigi();
-
-// ========================================================================
-// Trigger and Timing Methods
-// ========================================================================
-/**
- * @brief Determine trigger time from rising edge in specified channel
- * @param ichan Channel to analyze
- * @param adc [OUT] Peak ADC value at trigger
- * @return Sample index of trigger crossing
- */
-unsigned getTriggerTime(int ichan, double &adc);
-
-/**
- * @brief Compute mean and variance of trigger time across channels
- * @param timeArray Input array of trigger samples
- * @param ave [OUT] Mean trigger sample
- * @param sigma [OUT] Standard deviation
- * @param ichan [OUT] Channel with maximum deviation
- * @param dmax [OUT] Maximum deviation value
- */
-void getTriggerTimeStats(unsigned *timeArray, double &ave, double &sigma, unsigned &ichan, double &dmax);
-
-/**
- * @brief Establish fixed trigger window for event alignment
- * @param ichan Primary trigger channel
- * @param adc [OUT] Trigger peak amplitude
- * @return Corrected trigger sample index
- */
-unsigned fixedTriggerTime(int ichan, double &adc);
-
-/// Apply time shift and amplitude normalization using trigger reference
-void doTimeShiftAndNorm();
-
-/**
- * @brief Find maximum raw ADC value in specified window
- * @param ichan Channel to search
- * @param base Baseline to subtract
- * @param maxAdc [OUT] Maximum ADC value
- * @param maxSample [OUT] Sample index of maximum
- */
-void getMaxRawAdc(int ichan, double base, double &maxAdc, int &maxSample);
-
-// ========================================================================
-// Monte Carlo Simulation Methods
-// ========================================================================
-/**
- * @brief Check if simulated hit time matches generated event time
- * @param stime Simulated particle arrival time
- * @param ftime First detected hit time
- * @return true if times are correlated within acceptance window
- */
-bool simTimeMatch(double stime, double ftime);
-
-// ========================================================================
-// Statistical Helper Methods
-// ========================================================================
-/**
- * @brief Compute binomial fraction and error from pass/fail counts
- * @param pass Number of successful events
- * @param fail Number of failed events
- * @param fraction [OUT] Pass fraction: pass/(pass+fail)
- * @param error [OUT] 1-sigma uncertainty band
- */
-void calcError(double pass, double fail, double &fraction, double &error);
-
-/**
- * @brief Establish baseline and RMS for all channels from early events
- * @param nBaselineAverage Number of events to average for baseline
- */
-void getBaselines(ULong64_t nBaselineAverage);
-
-/// Ternary coordinate transformation for 3-body analysis
-void makeTernary(double a, double b, double c, double &x, double &y);
-
-// ========================================================================
-// Data Storage and Access
-// ========================================================================
-/// All corrected/shifted waveforms after time alignment
-std::vector<std::vector<double>> fixedDigi;
-
-/// Trigger sample index per event (time calibration)
-std::vector<unsigned> trigTimes;
-
-/// Trigger times after correction/shift
-std::vector<unsigned> sTrigTimes;
-
-/// ADC bin centers for energy spectrum
-std::vector<double> adcBin;
-
-/// Single photoelectron yield per event
-std::vector<double> speCount;
-
-// ========================================================================
-// Output Directory Structure
-// ========================================================================
-/// ROOT directory: QC cut diagnostic histograms
-TDirectory *cutDir;
-
-/// ROOT directory: Threshold scan results
-TDirectory *threshDir;
-
-/// ROOT directory: Early pulse detection plots
-TDirectory *earlyPeakDir;
-
-/// ROOT directory: Raw summed waveform examples
-TDirectory *rawSumDir;
-
-/// ROOT directory: Representative event waveforms
-TDirectory *exampleDir;
-
-/// ROOT directory: Events with missed hits
-TDirectory *missedDir;
-
-/// ROOT directory: Summed spectral histograms
-TDirectory *sumDir;
-
-/// ROOT directory: Physics analysis results
-TDirectory *anaDir;
-
-/// ROOT directory: Events flagged as problematic
-TDirectory *badEventDir;
-
-/// ROOT directory: PMT-channel-specific analysis
-TDirectory *pmtDir;
-TDirectory *fftDir;
-TDirectory *templateDir;
-TDirectory *simDir;
-
-Long64_t nentries;
-double QPEPeak;
-//
-int MaxSPEShape = 4;
-unsigned preTrigEnd = 600;
-int nominalTrigger = 753; // was 729; this is nominal trigger sample
-double nominalGain;
-double nominalTrigGain;
-double nominalPmtGain;
-double nominalQsumGain;
-double nominalQsumTrigGain;
-double nominalQsumPmtGain;
-
-double landauMax = 1.0;       // 0.018063;
-std::vector<double> qsumGain; // read from class TReadGain
-//  227.4; // average
-//   double nominalGain = 160.0; // average
-unsigned firstTime;       // corrected trigger time for event
-unsigned timeOffset = 13; // changed from 17 may 13, 2024
-double passValEarlyCut = 100.0;
-/// double passValEarlyPmtCut = 225.0;
-ULong_t lateTimeStart = 900;
-ULong_t triggerStart = 730;               // 740;
-ULong_t afterTrigger = triggerStart + 20; //  2*20 = 40 ns after trigger
-
-ULong_t timeVeryLateCut = 3500;
-ULong_t triggerEnd = 800; // 740;
-/* need to tune these cuts on data */
-double trigRatioCutLow = 0.2;  // qsum fraction
-double trigRatioCutHigh = 0.8; // qsum fraction
-
-double diffStepSipm = 3.; // 6 ns steps for SIPM
-double diffStepPmt = 1.;  // back to one on Oct 15 2024
-/****************
- * event cleanup cuts
- ****************/
-double baselineRmsCut = 3.0;
-double earlyCut = 20.0; // normalized to nominalGain; ///
-double firstTimeCut = double(triggerEnd);
-double cosmicCut = 30.; // value normlized to nominalPmtGain
-double gammaCut = 140.; // was 150 normalized to nominalGain; //
-double trigSumCut = 3.0;
-double hitThresholdPmt = 30.; // set Nov 13 2024
-// double qpeakCosmicCut = 3. * nominalGain; // 3*SPE
-}
-;
 
 /*
   nominal baseline
   calculate nominal and RMS
   note: Automatic Destruction: When an std::variant variables lifetime ends its destructor is automatically invoked.
  */
-
-// ============================================================================
-// Implementation: anaCRun::getBaselines
-// ============================================================================
-/**
- * Establish nominal baseline and RMS for all detector channels.
- *
- * Algorithm:
- *   1. Iterate through first N events (nBaselineAverage)
- *   2. For each event: average samples [0, preTrigEnd) before trigger
- *   3. Account for trigger channel sign convention (invert PMT pulse)
- *   4. Compute mean baseline across events per channel
- *   5. Calculate per-channel RMS scatter
- *   6. Store results in histogram for debugging
- *
- * Note: Pre-trigger window (samples 0-600) contains only baseline noise,
- *       avoiding any signal contamination before trigger activation.
- *
- * @param nBaselineAverage Number of events to average (capped at tree size)
- * @see preTrigEnd, NONSUMCHANNELS, nominalBaseline, nominalBaselineRms
- */
 void anaCRun::getBaselines(ULong64_t nBaselineAverage)
 {
-  /// Clear and resize baseline storage for this analysis
-  nominalBaseline.clear();                // class scope vector
-  nominalBaseline.resize(NONSUMCHANNELS); // size is 12 sipms + PMT
-
-  /// 2D collection: eventBase[event_idx][channel_idx] = baseline ADC
-  std::vector<std::vector<double>> eventBase;
-
-  /// Temporary: per-channel baselines for current event
-  std::vector<double> channelBase;
+  nominalBaseline.clear();                    // class scope vector
+  nominalBaseline.resize(NONSUMCHANNELS);     // size is 12 sipms + PMT
+  std::vector<std::vector<double>> eventBase; // by event baselines [row][column]  where each row is an event and column is channel
+  std::vector<double> channelBase;            // vector of baselines by channel for an event
   // printf("line342 GET BASELINES  total events  %i  \n", int(rawTree->GetEntries()));
   int nToAverage = min(ULong64_t(rawTree->GetEntries()), nBaselineAverage);
   for (ULong64_t iev = 0; iev < nToAverage; ++iev)
@@ -686,67 +416,26 @@ void anaCRun::getBaselines(ULong64_t nBaselineAverage)
   }
 }
 
-// ============================================================================
-// Implementation: anaCRun::getBranches
-// ============================================================================
-/**
- * Connect ROOT tree branches to internal data structures.
- *
- * This method scans the RawTree for all branch names matching the pattern
- * "raw*_chN" where N is the channel number (0-12). The channel is extracted
- * from the suffix and used to index the rawBr array. The eventData branch
- * is skipped as it's handled separately during initialization.
- *
- * Branch naming convention: raw<detector>_ch<N>
- *   Example: raw_ch0, raw_ch12 (PMT)
- *
- * @return Total number of successfully linked branches (typically 13)
- * @see rawBr vector, rawTree
- */
+/* get rawBr */
 unsigned anaCRun::getBranches()
 {
-  /// Retrieve all branches from the ROOT tree
   TObjArray *brList = rawTree->GetListOfBranches();
   TString cname;
   TIter next(brList);
   TBranch *aBranch = NULL;
-
-  /// Iterate through branches and link data containers
   while ((aBranch = (TBranch *)next()))
   {
     TString s(aBranch->GetName());
-
-    /// Skip non-waveform metadata branch
     if (s != TString("eventData"))
     {
-      /// Extract channel index from branch name suffix
       int ichan = TString(s(s.Last('n') + 1, s.Length())).Atoi();
-
-      /// Establish ROOT connection between branch and rawBr[ichan]
+      // rawTree->GetBranch(aBranch->GetName())->SetAutoDelete(kTRUE);
       cout << s << "  " << aBranch->GetName() << " return val =  " << rawTree->SetBranchAddress(aBranch->GetName(), &rawBr[ichan]) << endl;
     }
   }
   return rawBr.size();
 }
 
-// ============================================================================
-// Implementation: anaCRun::openFile
-// ============================================================================
-/**
- * Open and validate input ROOT data file.
- *
- * Verification steps:
- *   1. Construct full file path from ROOTDATA environment variable
- *   2. Check file existence on filesystem
- *   3. Open as ROOT TFile
- *   4. Verify required "RawTree" tree exists
- *   5. Validate eventData branch structure
- *   6. Check for optional SimTree (Monte Carlo mode)
- *
- * @param theFile Relative file path (resolved via $ROOTDATA env var)
- * @return true if all validation passed; false if any check failed
- * @throws No exceptions - prints diagnostic messages to stdout
- */
 bool anaCRun::openFile(TString theFile)
 {
   // open input file and make some histograms
@@ -2475,16 +2164,16 @@ void anaCRun::derivativeCount(TDet *idet, Double_t rms)
   return;
 }
 
-Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t firstEntry//
+Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t firstEntry)
 {
   clear();
 
   //
   string sfilename(theFile.Data());
-  // string shortName = sfilename.substr(0, sfilename.find_last_of("."));
+  //string shortName = sfilename.substr(0, sfilename.find_last_of("."));
   string shortName = sfilename.substr(sfilename.find_last_of("/") + 1, sfilename.length() - sfilename.find_last_of("/"));
 
-  cout << " anaCRunFile  for ROOTDATA input file shortName= " << shortName << " full name= " << theFile << endl;
+  cout << " anaCRunFile  for ROOTDATA input file shortName= " << shortName  << " full name= " << theFile<< endl;
 
   if (!openFile(shortName)) // and get branches
   {
@@ -2627,6 +2316,7 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
   }
 
   printf("tbrun btree branches: \n");
+
   tbrun->btree->GetListOfBranches()->ls();
 
   // store nominal baselines
