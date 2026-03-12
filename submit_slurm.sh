@@ -1,5 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=anacDir
+#SBATCH --job-name=postAna_mgold
+#SBATCH -N 1
+#SBATCH -q shared
 #SBATCH -C cpu
 #SBATCH --time=00:30:00
 #SBATCH --nodes=1
