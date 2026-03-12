@@ -3,6 +3,8 @@
 SBATCH -N 1
 #SBATCH -q shared
 #SBATCH -C cpu
+#SBATCH --qos=debug
+#SBATCH --constraint=cpu
 #SBATCH --time=02:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
