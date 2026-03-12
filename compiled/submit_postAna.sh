@@ -1,5 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=anacDir
+SBATCH -N 1
+#SBATCH -q shared
 #SBATCH -C cpu
 #SBATCH --time=02:00:00
 #SBATCH --nodes=1
