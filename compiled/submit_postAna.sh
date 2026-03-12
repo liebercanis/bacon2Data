@@ -1,11 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=anacDir
-SBATCH -N 1
+#SBATCH -N 1
 #SBATCH -q shared
 #SBATCH --qos=debug 
 #SBATCH --constraint=cpu
 #SBATCH --constraint=cpu #user regular for production, debug for testing
-#SBATCH --constraint=x86_64
 #SBATCH --time=02:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
