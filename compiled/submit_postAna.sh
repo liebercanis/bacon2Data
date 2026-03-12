@@ -1,4 +1,3 @@
-
 #!/bin/bash
 #SBATCH --qos=debug
 #SBATCH --constraint=cpu
