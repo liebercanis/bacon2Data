@@ -235,7 +235,7 @@ void postMacro()
     // TString fileName("post-10_16_2025-10_16_2025-2371051.root");
     // TString fileName("post-10_16_2025-10_16_2025-2371051.root");
     TString fileName("post-anaCRun-btbSimNEW-2026-02-13-100000-7857.root");
-    fileName = TString("post-11_19_2025-11_19_2025-1000000.root");
+    fileName = TString("post-11_19_2025-11_19_2025-1371746.root");
     TString tag = TString(fileName(fileName.First("-") + 1, 21));
     cout << " gains from file " << fileName << " with date tag " << tag << endl;
 

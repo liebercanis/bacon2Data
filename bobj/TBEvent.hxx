@@ -1,6 +1,7 @@
 /**
-** MG, July 2020
-**/
+   MG, July 2020
+   updated Nov 11 2025! to include event cut variables
+*/
 #ifndef TBEVENT_DEFINED
 #define TBEVENT_DEFINED
 #include <iostream>
@@ -20,6 +21,24 @@ class TBEvent : public TNamed
 public:
   TBEvent(TString runName = "run0");
   //~TBEvent();
+
+  // pass bit failures hex
+  enum FAILURECODES
+  {
+    PASS = 0,
+    BASEFAIL = 0x1,
+    EARLYCUT = 0x2,
+    FIRSTTIME = 0x4,
+    COSMIC = 0x8,
+    GAMMA = 0x10,
+    TRIGFAIL = 0x20,
+    TOTALCODES = 2 * TRIGFAIL
+  };
+
+  enum
+  {
+    FAILBITS = 7
+  };
 
   Long64_t event;
   int channel;

@@ -130,7 +130,8 @@ void fillLateBkg()
     if (fit)
     {
       printf("%u %s late int inte %E per bin fit %E slope %E \n", ih, hnorm[ih]->GetName(), lateBkg[ih], fit->GetParameter(0), fit->GetParameter(1));
-      lateBkg[ih] = fit->GetParameter(0);
+      // or just use average
+      // lateBkg[ih] = fit->GetParameter(0);
     }
   }
   for (unsigned ih = 0; ih < hnorm.size(); ++ih)
