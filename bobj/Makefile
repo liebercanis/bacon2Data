@@ -35,7 +35,7 @@ else ifeq ($(ARCH),linuxx8664gcc)
 				CXX := $(GCC_PATH)/g++ -ggdb
 				CXXFLAGS += -fPIC 
 				CPP= $(CXX) $(CXXFLAGS)
-else
+else 
 				CXX := g++ -ggdb 
 				CXXFLAGS += -O -Wall -fPIC 
 				CPP= $(CXX) $(CXXFLAGS) 
