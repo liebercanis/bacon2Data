@@ -57,7 +57,7 @@ TString tag;
 Long64_t totalEntries;
 TNtuple *ntTrig;
 TNtuple *ntGamma;
-TNtuple ntLateSum;
+TNtuple *ntLateSum;
 Long64_t maxEntry;
 Long64_t totalPass;
 std::vector<TString> fileListName;
