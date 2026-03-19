@@ -57,6 +57,7 @@ TString tag;
 Long64_t totalEntries;
 TNtuple *ntTrig;
 TNtuple *ntGamma;
+TNtuple ntLateSum;
 Long64_t maxEntry;
 Long64_t totalPass;
 std::vector<TString> fileListName;
@@ -602,6 +603,7 @@ void loop()
         hQSum[idet]->Fill(thit.qsum);
         photonSum[idet] += thit.qpeak / readGains->sipmPeakGain[idet];
         qsumSum[idet] += thit.qsum / readGains->sipmSumGain[idet];
+        ntLateSum->Fill(double(entry), double(idet), thit.qsum / readGains->sipmSumGain[idet]);
         if (trig)
         {
           eventTriggerSum += thit.qsum / readGains->sipmSumGain[idet];
@@ -645,6 +647,7 @@ void post(TString tag)
   ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
   ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:eventSum:sum");
 
+  ntLateSum = new TNtuple("ntLateSum", "late sum info", "event:chan:lateSum");
   // make histograms
   hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
   hEventPassNew = new TH1D("EventPassNew", " remade event failures", TOTALCODES, 0, TOTALCODES);
