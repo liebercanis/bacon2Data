@@ -554,7 +554,7 @@ void loop()
     }
     int passBit = passEventCuts(entry);
     hEventPassNew->SetBinContent(passBit, hEventPassNew->GetBinContent(passBit) + 1);
-    if (passBit != 0)
+    if (passBit != 0 && !isLedRun)
       continue;
 
     ++totalPass;
