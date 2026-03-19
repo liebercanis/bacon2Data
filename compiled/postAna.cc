@@ -50,6 +50,7 @@ TReadGains *readGains;
 TChain *RunTree;
 TFile *fout;
 bool isSimulation = false;
+bool isLedRun = false;
 double triggerSum;
 
 TString tag;
@@ -787,10 +788,18 @@ int main(int argc, char *argv[])
   TString dirNameSlash = TString("caenData/");
   theStartTag = TString(argv[1]);
 
+  isLedRun = false;
+  if (theStartTag.Contains("02_26_2026"))
+    isLedRun = true;
+
   printf(" input args %i \n ", argc);
   for (int jarg = 1; jarg < argc; ++jarg)
     printf(" %i= %s ", jarg, argv[jarg]);
   printf("\n");
+  if (isLedRun)
+  {
+    printf("\n\n*************** THIS IS LED RUN ***************\n\n");
+  }
 
   theEndTag = TString(argv[1]);
   if (argc == 3)
@@ -832,7 +841,7 @@ int main(int argc, char *argv[])
     maxEntry = atoi(argv[3]);
   }
 
-    printf(" >>>>> analyze %u  files from %s to %s tag %s totalEntries %lld maxEntry %lld <<<<<\n", nfiles, theStartTag.Data(), theEndTag.Data(), tag.Data(), totalEntries, maxEntry);
+  printf(" >>>>> analyze %u  files from %s to %s tag %s totalEntries %lld maxEntry %lld <<<<<\n", nfiles, theStartTag.Data(), theEndTag.Data(), tag.Data(), totalEntries, maxEntry);
 
   sdate = currentDate();
   tag = theStartTag + TString("-") + theEndTag;
