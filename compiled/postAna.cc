@@ -86,6 +86,7 @@ TH1D *hGammaPeakPass;
 TH1D *hGammaCut;
 TH1D *hCosmicCut;
 
+std::vector<TH1D *> hLateSumChan;
 std::vector<TH1D *> hLightCurve;
 std::vector<TH1D *> hLightNorm;
 std::vector<TH1D *> hLightEff;
@@ -603,6 +604,7 @@ void loop()
         hQSum[idet]->Fill(thit.qsum);
         photonSum[idet] += thit.qpeak / readGains->sipmPeakGain[idet];
         qsumSum[idet] += thit.qsum / readGains->sipmSumGain[idet];
+        hLateSumChan[idet]->Fill(thit.qsum / readGains->sipmSumGain[idet]);
         ntLateSum->Fill(double(entry), double(idet), thit.qsum / readGains->sipmSumGain[idet]);
         if (trig)
         {
@@ -664,6 +666,7 @@ void post(TString tag)
   for (unsigned i = 0; i < CHANNELS; ++i)
   {
     // normalized to SPE
+    hLateSumChan.push_back(new TH1D(Form("LateSumChan%i", i), Form("LateSumChan%i", i), MAXSAMPLES, 100, 2.0));
     hLightCurve.push_back(new TH1D(Form("LightCurveChan%i", i), Form("LightCurveChan%i", i), MAXSAMPLES, 0, 2 * MAXSAMPLES));
     hLightCurve[hLightCurve.size() - 1]->GetXaxis()->SetTitle("time [ns]");
     hLightCurve[hLightCurve.size() - 1]->GetYaxis()->SetTitle("number of photons/2ns");
