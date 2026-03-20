@@ -593,6 +593,7 @@ void loop()
       // printf("det %i hits %lu \n", idet, det->hits.size());
       //  check if passes eventCuts
 
+      ntLateSum->Fill(double(entry), double(idet), det->lateSum / readGains->sipmSumGain[idet]);
       // loop over hits
       for (unsigned ihit = 0; ihit < det->hits.size(); ++ihit)
       {
@@ -605,7 +606,6 @@ void loop()
         photonSum[idet] += thit.qpeak / readGains->sipmPeakGain[idet];
         qsumSum[idet] += thit.qsum / readGains->sipmSumGain[idet];
         hLateSumChan[idet]->Fill(thit.qsum / readGains->sipmSumGain[idet]);
-        ntLateSum->Fill(double(entry), double(idet), thit.qsum / readGains->sipmSumGain[idet]);
         if (trig)
         {
           eventTriggerSum += thit.qsum / readGains->sipmSumGain[idet];
