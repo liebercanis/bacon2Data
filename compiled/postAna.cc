@@ -42,6 +42,7 @@
 #include "hitFinder.hxx"
 #include "TBFile.hxx"
 #include "TReadGains.hxx"
+#include "modelAllFit.hh" // for geo ff function and distance levels
 
 using namespace TMath;
 
@@ -593,7 +594,7 @@ void loop()
       // printf("det %i hits %lu \n", idet, det->hits.size());
       //  check if passes eventCuts
 
-      ntLateSum->Fill(double(entry), double(idet), det->lateSum / readGains->sipmSumGain[idet]);
+      ntLateSum->Fill(double(entry), double(idet), effGeoFunc(idet), det->lateSum / readGains->sipmSumGain[idet]);
       // loop over hits
       for (unsigned ihit = 0; ihit < det->hits.size(); ++ihit)
       {
@@ -644,12 +645,20 @@ void post(TString tag)
   printf(" in post: tag %s total triggers in this chain %lld \n", tag.Data(), ntriggers);
   // RunTree->GetListOfBranches()->ls();
 
+  // geometric eff
+  bool geoVersionOld = false;
+  setDistanceLevels(geoVersionOld);
+  for (unsigned i = 0; i < 12; ++i)
+  {
+    printf("chan %i distance %f geo eff %.2E\n", i, distanceLevel[getLevel(i)], effGeoFunc(i));
+  }
+
   // trigger info ntuple
   // ntTrig->Fill( pmtLateSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
   ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
   ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:eventSum:sum");
 
-  ntLateSum = new TNtuple("ntLateSum", "late sum info", "event:chan:lateSum");
+  ntLateSum = new TNtuple("ntLateSum", "late sum info", "event:chan:geo:lateSum");
   // make histograms
   hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
   hEventPassNew = new TH1D("EventPassNew", " remade event failures", TOTALCODES, 0, TOTALCODES);
