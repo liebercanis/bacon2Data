@@ -383,10 +383,27 @@ void anaCRun::getBaselines(ULong64_t nBaselineAverage)
         channelBase[ib] += rawBr[ib]->rdigi[j];
       }
       channelBase[ib] /= double(preTrigEnd); // normalize time window
+                                             /* for LED debug
+                                             if (ib == 5)
+                                             {
+                                               hEvRawWave[ib]->Reset("ICES");
+                                               for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
+                                               {
+                                                 double val = double(rawBr[ib]->rdigi[j]);
+                                                 hEvRawWave[ib]->SetBinContent(j + 1, val); // also fill baseline subracted RawWave light curve
+                                               }
+                                               exampleDir->cd();
+                                               // TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lld-Ch%i-qpeak%0.f", entry, ib, tbrun->getDet(ib)->hits[0].qpeak));
+                                               TH1D *EvRawWaveEvent = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lldCh%i", iev, ib));
+                                               EvRawWaveEvent->SetTitle(Form("EvRawEvent % lld - Ch %i ", iev, ib));
+                                               // printf("@line1192 print event %llu start %i printed %i \n", entry, startLast, exampleDir->GetList()->GetEntries());
+                                               printf("line386 event %lld ch %i base %f \n", iev, ib, channelBase[ib]);
+                                             }
+                                               */
     }
-    // store event baselines for this event
-    eventBase.push_back(channelBase); // baselines by channel for this event
   }
+  // store event baselines for this event
+  eventBase.push_back(channelBase); // baselines by channel for this event
   // calculate average over events and save as nominal baseline
   for (unsigned ib = 0; ib < NONSUMCHANNELS; ++ib)
   {
@@ -674,23 +691,23 @@ void anaCRun::doTimeShiftAndNorm()
     // after doing time shift set jstsart,jstop,absShift
     ULong_t jstart = TMath::Max(-timeShift, 0);
     ULong_t jstop = TMath::Min(int(rawBr[0]->rdigi.size()), int(rawBr[0]->rdigi.size()) - timeShift);
-    // printf("channel %u rdigi size = %i  start %lu stop %lu\n", ib, int(rawBr[0]->rdigi.size()), jstart, jstop);
+    // printf("line694 channel %u first %u nominal  %u timeshift %i  rdigi size = %i  start %lu stop %lu\n",
+    //        ib, firstTime, nominalTrigger, timeShift, int(rawBr[0]->rdigi.size()), jstart, jstop);
     int absShift = TMath::Abs(timeShift);
     hTriggerShift->Fill(timeShift);
     TDet *idet = tbrun->getDet(ib);
     // printf(" chan %u nominal %i first %i shift %i\n",ib,nominalTrigger,firstTime,timeShift);
     /* take care here for summed ib=CHANNELS-2 and set appropriate hitThreshold */
     // which nominal gain, hit threshold id the samea
-    for (ULong_t j = jstart; j < jstop; ++j)
+    for (Long64_t j = jstart; j < jstop; ++j)
     {
-      fDigi[j] = 0;
+      // fDigi[j] = 0; this was a bug that I fixed Nov 24 2024, was resetting to zero after filling shifted value
       double val = double(rawBr[ib]->rdigi[j]) - idet->base;
       // scale all channels by nominal gain
       // val *= nominalGain / sipmGain[ib];
-      ULong_t jbin = j - ULong_t(absShift);
+
       if (timeShift > 0)
         fDigi[j + ULong_t(absShift)] = val;
-      /** added for sim feb 12 2026 why now? */
       else if (j - ULong_t(absShift) > 0)
         fDigi[j - ULong_t(absShift)] = val;
     }
@@ -887,7 +904,6 @@ int anaCRun::anaEvent(Long64_t entry)
     */
     // find the mode by filling histogram and taking most probable bin
     hEvGaus[ib]->Reset("ICES");
-    hEvRawWave[ib]->Reset("ICES");
     double baseRms2 = 0;
     for (unsigned j = 0; j < rawBr[ib]->rdigi.size(); ++j)
     {
@@ -957,7 +973,7 @@ int anaCRun::anaEvent(Long64_t entry)
 
     // for debugging printf("entry %lld chan %u cut %.3f mode %.3f pass %i \n", entry, ib, baselineModeCut, mode, ;
     if (ntBase->GetEntries() < 1.E4)
-      ntBase->Fill(entry, ib, nominalBaseline[ib], mode, baseRms, baselinePass);
+      ntBase->Fill(entry, ib, idet->base, mode, baseRms, baselinePass);
 
     fout->cd();
 
@@ -1016,7 +1032,7 @@ int anaCRun::anaEvent(Long64_t entry)
   hEarlyCut->Fill(preSum);
   if (preSum > earlyCut)
   {
-    printf("line919 fail EARLYCUT cut %f val %f \n", earlyCut, preSum);
+    // printf("line919 fail EARLYCUT cut %f val %f \n", earlyCut, preSum);
     if (badEventDir->GetList()->GetEntries() < badEventDirMax)
     {
       badEventDir->cd();
@@ -1188,7 +1204,7 @@ int anaCRun::anaEvent(Long64_t entry)
     hQFracRatio[iratio]->Fill(qFraction[iratio]);
 
   /* just collect some events */
-  if (qSumTrigPhotons > 80)
+  /*if (qSumTrigPhotons > 80)
   //&& (tbrun->getDet(ib)->hits[0].qpeak > 200 && tbrun->getDet(ib)->hits[0].qpeak < 250)
   {
     if (exampleDir->GetList()->GetEntries() < exampleDirMax)
@@ -1202,7 +1218,7 @@ int anaCRun::anaEvent(Long64_t entry)
         finder->plotEvent(exampleDir, tbrun->getDet(ib)->channel, entry);
       }
     }
-  }
+  }*/
 
   double xternQ, yternQ;
   makeTernary(qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
@@ -1657,11 +1673,13 @@ int anaCRun::anaEvent(Long64_t entry)
     //{
 
     /* just collect some events */
-    /* if (passBit == 0 && tbrun->getDet(ib)->hits.size() > 0)
+    // if (passBit == 0 && tbrun->getDet(ib)->hits.size() > 0)
+    if (tbrun->getDet(ib)->hits.size() > 0 && ib < 9) // for LED data
     //&& (tbrun->getDet(ib)->hits[0].qpeak > 200 && tbrun->getDet(ib)->hits[0].qpeak < 250)
     {
       if (exampleDir->GetList()->GetEntries() < exampleDirMax)
       {
+        // printf("line1665 plot chan %u hits %lu \n", ib, tbrun->getDet(ib)->hits.size());
         exampleDir->cd();
         // TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lld-Ch%i-qpeak%0.f", entry, ib, tbrun->getDet(ib)->hits[0].qpeak));
         TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lldCh%inhit%lu", entry, ib, tbrun->getDet(ib)->hits.size()));
@@ -1669,7 +1687,7 @@ int anaCRun::anaEvent(Long64_t entry)
         finder->plotEvent(exampleDir, tbrun->getDet(ib)->channel, entry);
         // printf("@line1192 print event %llu start %i printed %i \n", entry, startLast, exampleDir->GetList()->GetEntries());
       }
-    }*/
+    }
 
     //}
   }
@@ -1690,17 +1708,18 @@ int anaCRun::anaEvent(Long64_t entry)
   **** good events, passBit ==0 ******
   ****************************************/
 
-  if (exampleDir->GetList()->GetEntries() < exampleDirMax)
-  {
-    for (int ib = 9; ib < 12; ++ib)
+  /*if (exampleDir->GetList()->GetEntries() < exampleDirMax)
     {
-      exampleDir->cd();
-      // TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lld-Ch%i-qpeak%0.f", entry, ib, tbrun->getDet(ib)->hits[0].qpeak));
-      TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lldCh%iGamma%.0f", entry, ib, qSumTrigPhotons));
-      EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, ib));
-      finder->plotEvent(exampleDir, tbrun->getDet(ib)->channel, entry);
+      for (int ib = 9; ib < 12; ++ib)
+      {
+        exampleDir->cd();
+        // TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lld-Ch%i-qpeak%0.f", entry, ib, tbrun->getDet(ib)->hits[0].qpeak));
+        TH1D *EvRawWave = (TH1D *)hEvRawWave[ib]->Clone(Form("EvRawEvent%lldCh%iGamma%.0f", entry, ib, qSumTrigPhotons));
+        EvRawWave->SetTitle(Form("EvRawEvent%lld-Ch%i", entry, ib));
+        finder->plotEvent(exampleDir, tbrun->getDet(ib)->channel, entry);
+      }
     }
-  }
+  */
 
   // fill total light
   vector<float> fsum;
@@ -2170,10 +2189,10 @@ Long64_t anaCRun::anaCRunFile(TString theFile, Long64_t maxEntries, Long64_t fir
 
   //
   string sfilename(theFile.Data());
-  //string shortName = sfilename.substr(0, sfilename.find_last_of("."));
+  // string shortName = sfilename.substr(0, sfilename.find_last_of("."));
   string shortName = sfilename.substr(sfilename.find_last_of("/") + 1, sfilename.length() - sfilename.find_last_of("/"));
 
-  cout << " anaCRunFile  for ROOTDATA input file shortName= " << shortName  << " full name= " << theFile<< endl;
+  cout << " anaCRunFile  for ROOTDATA input file shortName= " << shortName << " full name= " << theFile << endl;
 
   if (!openFile(shortName)) // and get branches
   {
