@@ -602,8 +602,6 @@ void loop()
         // fill light curve
         hLightCurve[idet]->SetBinContent(thit.firstBin + 1, hLightCurve[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
         /* fill gain histograms */
-        hQPeak[idet]->Fill(thit.qpeak);
-        hQSum[idet]->Fill(thit.qsum);
         photonSum[idet] += thit.qpeak / readGains->sipmPeakGain[idet];
         qsumSum[idet] += thit.qsum / readGains->sipmSumGain[idet];
         hLateSumChan[idet]->Fill(thit.qsum / readGains->sipmSumGain[idet]);
@@ -611,6 +609,11 @@ void loop()
         {
           eventTriggerSum += thit.qsum / readGains->sipmSumGain[idet];
         }
+        // for ledData only look after 6000
+        if (isLedRun && thit.firstBin < 6000)
+          continue;
+        hQPeak[idet]->Fill(thit.qpeak);
+        hQSum[idet]->Fill(thit.qsum);
       } // end branch loop
     } // branch
 
