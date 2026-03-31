@@ -86,6 +86,7 @@ TH1D *hGammaPeak;
 TH1D *hGammaPeakPass;
 TH1D *hGammaCut;
 TH1D *hCosmicCut;
+TH1D *hQsumChannel;
 
 std::vector<TH1D *> hLateSumChan;
 std::vector<TH1D *> hLightCurve;
@@ -348,6 +349,9 @@ int passEventCuts(Long64_t entry)
   // fill passing gamma peak
   if (passBit == 0)
     hGammaPeakPass->Fill(triggerSum);
+
+  for (unsigned i = 0; i < 9; ++i)
+    hQsumChannel->Fill(i + 1, detList[i]->lateSum * scale[i]);
 
   return passBit;
 }
@@ -674,7 +678,7 @@ void post(TString tag)
   hTrianglePass = new TH2D("TrianglePass", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hGammaPeak = new TH1D("GammaPeak", "gamma peak (photons)", 150, 0., 300.);
   hGammaPeakPass = new TH1D("GammaPeakPass", "gamma peak  pass triangle (photons)", 150, 0., 300.);
-
+  hQsumChannel = new TH1D("QsumChannel", "qsum channel (photons)", 9, 9., 9.);
   for (unsigned i = 0; i < CHANNELS; ++i)
   {
     // normalized to SPE
