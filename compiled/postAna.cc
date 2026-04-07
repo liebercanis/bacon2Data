@@ -59,6 +59,7 @@ Long64_t totalEntries;
 TNtuple *ntTrig;
 TNtuple *ntGamma;
 TNtuple *ntLateSum;
+TNtuple *ntLateInt;
 Long64_t maxEntry;
 Long64_t totalPass;
 std::vector<TString> fileListName;
@@ -580,10 +581,12 @@ void loop()
     double eventTriggerSum = 0;
     double photonSum[CHANNELS];
     double qsumSum[CHANNELS];
+    double qsumLate[CHANNELS];
     for (int ich = 0; ich < CHANNELS; ++ich)
     {
       photonSum[ich] = 0;
       qsumSum[ich] = 0;
+      qsumLate[ich] = 0;
     }
     while ((aBranch = (TBranchElement *)next()))
     {
@@ -599,6 +602,7 @@ void loop()
 
       /* the branch is class TDet so cast it as such */
       TDet *det = (TDet *)aBranch->GetObject();
+      qsumLate[idet] = det->lateSum;
       // printf("det %i hits %lu \n", idet, det->hits.size());
       //  check if passes eventCuts
 
@@ -623,6 +627,7 @@ void loop()
         hQPeak[idet]->Fill(thit.qpeak);
         hQSum[idet]->Fill(thit.qsum);
       } // end branch loop
+      ntLateInt->Fill(double(entry), double(idet), qsumLate[0], qsumLate[1], qsumLate[2], qsumLate[3], qsumLate[4], qsumLate[5], qsumLate[6], qsumLate[7], qsumLate[8], qsumLate[9], qsumLate[10], qsumLate[11]);
     } // branch
 
     // ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:peak");
@@ -670,6 +675,7 @@ void post(TString tag)
   ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:eventSum:sum");
 
   ntLateSum = new TNtuple("ntLateSum", "late sum info", "event:chan:geo:lateSum");
+  ntLateInt = new TNtuple("ntLateInt", "late integral by channel", "event:chan:int0:int1:int2:int3:int4:int5:int6:int7:int8:int9:int10:int11");
   // make histograms
   hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
   hEventPassNew = new TH1D("EventPassNew", " remade event failures", TOTALCODES, 0, TOTALCODES);
