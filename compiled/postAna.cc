@@ -606,6 +606,7 @@ void loop()
       // printf("det %i hits %lu \n", idet, det->hits.size());
       //  check if passes eventCuts
 
+      hLateSumChan[idet]->Fill(det->lateSum / readGains->sipmSumGain[idet]);
       ntLateSum->Fill(double(entry), double(idet), effGeoFunc(idet), det->lateSum / readGains->sipmSumGain[idet]);
       // loop over hits
       for (unsigned ihit = 0; ihit < det->hits.size(); ++ihit)
@@ -616,7 +617,6 @@ void loop()
         /* fill gain histograms */
         photonSum[idet] += thit.qpeak / readGains->sipmPeakGain[idet];
         qsumSum[idet] += thit.qsum / readGains->sipmSumGain[idet];
-        hLateSumChan[idet]->Fill(thit.qsum / readGains->sipmSumGain[idet]);
         if (trig)
         {
           eventTriggerSum += thit.qsum / readGains->sipmSumGain[idet];
@@ -690,10 +690,19 @@ void post(TString tag)
   hGammaPeakPass = new TH1D("GammaPeakPass", "gamma peak  pass triangle (photons)", 150, 0., 300.);
   hQsumChannel = new TH1D("QsumChannel", "qsum channel (photons)", 9, 0., 9.);
   hQsumChannelEff = new TH1D("QsumChannelEff", "qsum channel (photons)", 9, 0., 9.);
+
+  TDirectory *ledDir = fout->mkdir("ledDir");
+  ledDir->cd();
+  for (unsigned i = 0; i < CHANNELS; ++i)
+  {
+    hLateSumChan.push_back(new TH1D(Form("LateSumChan%i", i), Form("LateSumChan%i", i), 700, -0.02, .05));
+    hLateSumChan[hLateSumChan.size() - 1]->GetXaxis()->SetTitle("summed late photons [SPE]");
+    hLateSumChan[hLateSumChan.size() - 1]->GetYaxis()->SetTitle("evemts");
+  }
+
   for (unsigned i = 0; i < CHANNELS; ++i)
   {
     // normalized to SPE
-    hLateSumChan.push_back(new TH1D(Form("LateSumChan%i", i), Form("LateSumChan%i", i), MAXSAMPLES, 100, 2.0));
     hLightCurve.push_back(new TH1D(Form("LightCurveChan%i", i), Form("LightCurveChan%i", i), MAXSAMPLES, 0, 2 * MAXSAMPLES));
     hLightCurve[hLightCurve.size() - 1]->GetXaxis()->SetTitle("time [ns]");
     hLightCurve[hLightCurve.size() - 1]->GetYaxis()->SetTitle("number of photons/2ns");
