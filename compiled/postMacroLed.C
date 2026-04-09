@@ -50,7 +50,7 @@ void postMacroLed()
 {
 
     // set file name and tag
-    TString fileName = TString("post-02_26_2026-02_26_2026-31341.root");
+    TString fileName = TString("post-02_26_2026-02_26_2026-265584.root");
     TString tag = TString(fileName(fileName.First("-") + 1, 21));
     cout << " led data file " << fileName << " with date tag " << tag << endl;
 
@@ -106,9 +106,9 @@ void postMacroLed()
     can0->BuildLegend();
 
     TCanvas *can1 = new TCanvas("canLateSumLevel1", "canLateSumLevel1");
-    for (unsigned i = 3; i < 6; ++i)
+    for (unsigned i = 5; i >= 3; --i)
     {
-        if (i == 3)
+        if (i == 5)
             hLateSumChan[i]->Draw("hist");
         else
             hLateSumChan[i]->Draw("histsame");
