@@ -988,8 +988,7 @@ int anaCRun::anaEvent(Long64_t entry)
         continue;                           // cut noise
       idet->totSum += val / qsumGain[ib];   // convert to approximate number of photons
       tdet13->totSum += val / qsumGain[ib]; // convert to approximate number of photons
-      if (j >= 3000 && j <= 5500)           // intermediate time window for LED light monitoring
-                                            // if (j < triggerStart)
+      if (j < triggerStart)
         idet->preSum += val / qsumGain[ib];
       if (j > afterTrigger)
       {
@@ -1301,13 +1300,9 @@ int anaCRun::anaEvent(Long64_t entry)
     idet->lateSum = 0;
     for (unsigned j = 0; j < digi.size(); ++j)
     {
-      if (digi[j] < 3. * idet->sigma)
-        continue;
       idet->totSum += digi[j] / qsumGain[ib];
-      if (j >= 3000 && j <= 5500) // intermediate time window for LED light monitoring
-                                  // if (j < triggerStart)
+      if (j < triggerStart)
         idet->preSum += digi[j] / qsumGain[ib];
-
       if (j > triggerStart && j < triggerEnd)
       {
         idet->trigSum += digi[j] / qsumGain[ib];
@@ -1315,7 +1310,9 @@ int anaCRun::anaEvent(Long64_t entry)
           peakMax = digi[j];
       }
 
-      if (j > lateTimeStart)
+      // intermediate time window for LED light monitoring
+      if (j > 3500 && j < 5000) // intermediate time window for LED light monitoring
+                                // if (j > lateTimeStart)
         idet->lateSum += digi[j] / qsumGain[ib];
     }
     // add some other variables
