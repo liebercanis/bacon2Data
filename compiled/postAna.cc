@@ -1,10 +1,10 @@
 /*
-       program to analyze RunTree chain from date tag this is second pass after pulse findiing anacRunGamma.cc has been run
-           uses TTree RunTree making a chain from date tag xx_xx_yyyy
-               M Gold Nov 12 2025
+  program to analyze RunTree chain from date tag this is second pass after pulse findiing anacRunGamma.cc has been run
+        uses TTree RunTree making a chain from date tag xx_xx_yyyy
+            M Gold Nov 12 2025
 
-       ........modified impliment event cuts...... Dec 2025 *
-*/
+    ........modified impliment event cuts...... Dec 2025 *
+    */
 #include <sstream>
 #include <unistd.h>
 #include <iostream>
@@ -59,6 +59,7 @@ Long64_t totalEntries;
 TNtuple *ntTrig;
 TNtuple *ntGamma;
 TNtuple *ntLateSum;
+TNtuple *ntPreSum;
 TNtuple *ntLateInt;
 Long64_t maxEntry;
 Long64_t totalPass;
@@ -602,11 +603,13 @@ void loop()
 
       /* the branch is class TDet so cast it as such */
       TDet *det = (TDet *)aBranch->GetObject();
+      // want to subtract off noise hits from preSum lateSum 3000-5500 ULong_t triggerStart = 730;
       qsumLate[idet] = det->lateSum;
       // printf("det %i hits %lu \n", idet, det->hits.size());
       //  check if passes eventCuts
 
       hLateSumChan[idet]->Fill(det->lateSum / readGains->sipmSumGain[idet]);
+      ntPreSum->Fill(double(entry), double(idet), effGeoFunc(idet), det->preSum / readGains->sipmSumGain[idet]);
       ntLateSum->Fill(double(entry), double(idet), effGeoFunc(idet), det->lateSum / readGains->sipmSumGain[idet]);
       // loop over hits
       for (unsigned ihit = 0; ihit < det->hits.size(); ++ihit)
@@ -627,6 +630,7 @@ void loop()
         hQPeak[idet]->Fill(thit.qpeak);
         hQSum[idet]->Fill(thit.qsum);
       } // end branch loop
+      // want to subtract off noise hits from preSum
       ntLateInt->Fill(double(entry), double(idet), qsumLate[0], qsumLate[1], qsumLate[2], qsumLate[3], qsumLate[4], qsumLate[5], qsumLate[6], qsumLate[7], qsumLate[8], qsumLate[9], qsumLate[10], qsumLate[11]);
     } // branch
 
@@ -675,6 +679,7 @@ void post(TString tag)
   ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:eventSum:sum");
 
   ntLateSum = new TNtuple("ntLateSum", "late sum info", "event:chan:geo:lateSum");
+  ntPreSum = new TNtuple("ntPreSum", "pre sum info", "event:chan:geo:preSum");
   ntLateInt = new TNtuple("ntLateInt", "late integral by channel", "event:chan:int0:int1:int2:int3:int4:int5:int6:int7:int8:int9:int10:int11");
   // make histograms
   hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
