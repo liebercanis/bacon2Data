@@ -554,6 +554,7 @@ void setTime(TString startTag, TString endTag)
 
 void loop()
 {
+  /* nominal gains have been applied in pulse finding step */
   totalPass = 0;
   printf(" start of entry loop maxEntry=%lld\n", maxEntry);
   // loop over entries
@@ -604,13 +605,14 @@ void loop()
       /* the branch is class TDet so cast it as such */
       TDet *det = (TDet *)aBranch->GetObject();
       // want to subtract off noise hits from preSum lateSum 3000-5500 ULong_t triggerStart = 730;
-      qsumLate[idet] = det->lateSum;
+      double scale = readGains->nominalQsumGain[idet] / readGains->sipmSumGain[idet];
+      qsumLate[idet] = det->lateSum * scale; // nominal gain applied in pulse finding step
       // printf("det %i hits %lu \n", idet, det->hits.size());
       //  check if passes eventCuts
 
-      hLateSumChan[idet]->Fill(det->lateSum / readGains->sipmSumGain[idet]);
-      ntPreSum->Fill(double(entry), double(idet), effGeoFunc(idet), det->preSum / readGains->sipmSumGain[idet]);
-      ntLateSum->Fill(double(entry), double(idet), effGeoFunc(idet), det->lateSum / readGains->sipmSumGain[idet]);
+      hLateSumChan[idet]->Fill(det->lateSum);
+      ntPreSum->Fill(double(entry), double(idet), effGeoFunc(idet), det->preSum);
+      ntLateSum->Fill(double(entry), double(idet), effGeoFunc(idet), det->lateSum);
       // loop over hits
       for (unsigned ihit = 0; ihit < det->hits.size(); ++ihit)
       {
@@ -618,17 +620,17 @@ void loop()
         // fill light curve
         hLightCurve[idet]->SetBinContent(thit.firstBin + 1, hLightCurve[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
         /* fill gain histograms */
-        photonSum[idet] += thit.qpeak / readGains->sipmPeakGain[idet];
-        qsumSum[idet] += thit.qsum / readGains->sipmSumGain[idet];
+        photonSum[idet] += thit.qpeak * scale;
+        qsumSum[idet] += thit.qsum * scale;
         if (trig)
         {
-          eventTriggerSum += thit.qsum / readGains->sipmSumGain[idet];
+          eventTriggerSum += thit.qsum * scale;
         }
         // for ledData only look after 6000
         if (isLedRun && thit.firstBin < 6000)
           continue;
-        hQPeak[idet]->Fill(thit.qpeak);
-        hQSum[idet]->Fill(thit.qsum);
+        hQPeak[idet]->Fill(thit.qpeak * scale);
+        hQSum[idet]->Fill(thit.qsum * scale);
       } // end branch loop
       // want to subtract off noise hits from preSum
       ntLateInt->Fill(double(entry), double(idet), qsumLate[0], qsumLate[1], qsumLate[2], qsumLate[3], qsumLate[4], qsumLate[5], qsumLate[6], qsumLate[7], qsumLate[8], qsumLate[9], qsumLate[10], qsumLate[11]);
