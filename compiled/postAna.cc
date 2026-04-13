@@ -702,7 +702,7 @@ void post(TString tag)
   ledDir->cd();
   for (unsigned i = 0; i < CHANNELS; ++i)
   {
-    hLateSumChan.push_back(new TH1D(Form("LateSumChan%i", i), Form("LateSumChan%i", i), 700, -0.02, .05));
+    hLateSumChan.push_back(new TH1D(Form("LateSumChan%i", i), Form("LateSumChan%i", i), 600, -10., 50.));
     hLateSumChan[hLateSumChan.size() - 1]->GetXaxis()->SetTitle("summed late photons [SPE]");
     hLateSumChan[hLateSumChan.size() - 1]->GetYaxis()->SetTitle("evemts");
   }
