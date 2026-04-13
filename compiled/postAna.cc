@@ -610,7 +610,7 @@ void loop()
       // printf("det %i hits %lu \n", idet, det->hits.size());
       //  check if passes eventCuts
 
-      hLateSumChan[idet]->Fill(det->lateSum);
+      hLateSumChan[idet]->Fill(det->lateSum * scale);
       ntPreSum->Fill(double(entry), double(idet), effGeoFunc(idet), det->preSum);
       ntLateSum->Fill(double(entry), double(idet), effGeoFunc(idet), det->lateSum);
       // loop over hits
