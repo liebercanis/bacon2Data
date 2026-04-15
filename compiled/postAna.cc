@@ -678,7 +678,7 @@ void post(TString tag)
   }
 
   aveGain = 0;
-  for (int i = 0; i < readGains->sipmSumGain.size(); ++i)
+  for (int i = 0; i < 9; ++i)
   {
     printf("chan %i gain %f \n", i, readGains->sipmSumGain[i]);
     aveGain += readGains->sipmSumGain[i];
