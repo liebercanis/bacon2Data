@@ -97,6 +97,7 @@ std::vector<TH1D *> hLightNorm;
 std::vector<TH1D *> hLightEff;
 
 std::vector<double> qsumGain; // read from class TReadGain
+double aveGain;
 
 // cut values
 double cosmicCut = 100.; // value normlized to nominalPmtGain
@@ -605,7 +606,8 @@ void loop()
       /* the branch is class TDet so cast it as such */
       TDet *det = (TDet *)aBranch->GetObject();
       // want to subtract off noise hits from preSum lateSum 3000-5500 ULong_t triggerStart = 730;
-      double scale = readGains->nominalQsumGain / readGains->sipmSumGain[idet];
+      // double scale = readGains->nominalQsumGain / readGains->sipmSumGain[idet];
+      double scale = readGains->nominalQsumGain / aveGain;
       qsumLate[idet] = det->lateSum * scale; // nominal gain applied in pulse finding step
       // printf("det %i hits %lu \n", idet, det->hits.size());
       //  check if passes eventCuts
@@ -674,6 +676,15 @@ void post(TString tag)
   {
     printf("chan %i distance %f geo eff %.2E\n", i, distanceLevel[getLevel(i)], effGeoFunc(i));
   }
+
+  aveGain = 0;
+  for (int i = 0; i < readGains->sipmSumGain.size(); ++i)
+  {
+    printf("chan %i gain %f \n", i, readGains->sipmSumGain[i]);
+    aveGain += readGains->sipmSumGain[i];
+  }
+  aveGain /= readGains->sipmSumGain.size();
+  printf("average gain %f \n", aveGain);
 
   // trigger info ntuple
   // ntTrig->Fill( pmtLateSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
