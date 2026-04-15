@@ -683,7 +683,7 @@ void post(TString tag)
     printf("chan %i gain %f \n", i, readGains->sipmSumGain[i]);
     aveGain += readGains->sipmSumGain[i];
   }
-  aveGain /= readGains->sipmSumGain.size();
+  aveGain /= double(9);
   printf("average gain %f \n", aveGain);
 
   // trigger info ntuple
