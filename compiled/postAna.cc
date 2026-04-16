@@ -606,8 +606,8 @@ void loop()
       /* the branch is class TDet so cast it as such */
       TDet *det = (TDet *)aBranch->GetObject();
       // want to subtract off noise hits from preSum lateSum 3000-5500 ULong_t triggerStart = 730;
-      // double scale = readGains->nominalQsumGain / readGains->sipmSumGain[idet];
-      double scale = readGains->nominalQsumGain / aveGain;
+      double scale = readGains->nominalQsumGain / readGains->sipmSumGain[idet];
+      // double scale = readGains->nominalQsumGain / aveGain;
       qsumLate[idet] = det->lateSum * scale; // nominal gain applied in pulse finding step
       // printf("det %i hits %lu \n", idet, det->hits.size());
       //  check if passes eventCuts
