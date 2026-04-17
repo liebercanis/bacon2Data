@@ -30,7 +30,7 @@ cd "$WORK_DIR"
 mkdir -p logs
 
 # Get list of files matching the date tag
-files=(rootData/*"$DATE_TAG"*)
+files=($ROOTDATA/*"$DATE_TAG"*)
 
 # Check if any files were found
 if [[ ${#files[@]} -eq 0 ]]; then
