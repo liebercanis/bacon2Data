@@ -85,6 +85,7 @@ TH2D *hTriangleSecondUn;
 TH2D *hTriangleSecond;
 TH2D *hTrianglePass;
 TH1D *hGammaPeak;
+TH1D *hGammaPeakHit;
 TH1D *hGammaPeakPass;
 TH1D *hGammaCut;
 TH1D *hCosmicCut;
@@ -585,6 +586,10 @@ void loop()
     double photonSum[CHANNELS];
     double qsumSum[CHANNELS];
     double qsumLate[CHANNELS];
+    double scale[CHANNELS];
+    for (unsigned j = 0; j < readGains->sipmSumGain.size(); ++j)
+      scale[j] = 1.0 / readGains->sipmSumGain[j];
+
     for (int ich = 0; ich < CHANNELS; ++ich)
     {
       photonSum[ich] = 0;
@@ -606,13 +611,12 @@ void loop()
       /* the branch is class TDet so cast it as such */
       TDet *det = (TDet *)aBranch->GetObject();
       // want to subtract off noise hits from preSum lateSum 3000-5500 ULong_t triggerStart = 730;
-      double scale = readGains->nominalQsumGain / readGains->sipmSumGain[idet];
       // double scale = readGains->nominalQsumGain / aveGain;
-      qsumLate[idet] = det->lateSum * scale; // nominal gain applied in pulse finding step
+      qsumLate[idet] = det->lateSum * scale[idet]; // nominal gain applied in pulse finding step
       // printf("det %i hits %lu \n", idet, det->hits.size());
       //  check if passes eventCuts
 
-      hLateSumChan[idet]->Fill(det->lateSum * scale);
+      hLateSumChan[idet]->Fill(det->lateSum * scale[idet]);
       ntPreSum->Fill(double(entry), double(idet), effGeoFunc(idet), det->preSum);
       ntLateSum->Fill(double(entry), double(idet), effGeoFunc(idet), det->lateSum);
       // loop over hits
@@ -622,19 +626,21 @@ void loop()
         // fill light curve
         hLightCurve[idet]->SetBinContent(thit.firstBin + 1, hLightCurve[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
         /* fill gain histograms */
-        photonSum[idet] += thit.qpeak * scale;
-        qsumSum[idet] += thit.qsum * scale;
+        photonSum[idet] += thit.qpeak * scale[idet];
+        qsumSum[idet] += thit.qsum * scale[idet];
         if (trig)
         {
-          eventTriggerSum += thit.qsum * scale;
+          eventTriggerSum += thit.qsum * scale[idet];
         }
         // for ledData only look after 6000
         if (isLedRun && thit.firstBin < 6000)
           continue;
-        hQPeak[idet]->Fill(thit.qpeak * scale);
-        hQSum[idet]->Fill(thit.qsum * scale);
+        hQPeak[idet]->Fill(thit.qpeak * scale[idet]);
+        hQSum[idet]->Fill(thit.qsum * scale[idet]);
+        // want to subtract off noise hits from preSum
+        // if (idet > 8 && idet < 12)
+        //  printf("... idet %i scale %f qsum %f eventTriggerSum %f \n", idet, scale[idet], thit.qsum, eventTriggerSum);
       } // end branch loop
-      // want to subtract off noise hits from preSum
       ntLateInt->Fill(double(entry), double(idet), qsumLate[0], qsumLate[1], qsumLate[2], qsumLate[3], qsumLate[4], qsumLate[5], qsumLate[6], qsumLate[7], qsumLate[8], qsumLate[9], qsumLate[10], qsumLate[11]);
     } // branch
 
@@ -706,6 +712,7 @@ void post(TString tag)
   hTrianglePass = new TH2D("TrianglePass", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hGammaPeak = new TH1D("GammaPeak", "gamma peak (photons)", 150, 0., 300.);
   hGammaPeakPass = new TH1D("GammaPeakPass", "gamma peak  pass triangle (photons)", 150, 0., 300.);
+  hGammaPeakHit = new TH1D("GammaPeakHit", "gamma peak (photons)", 150, 0., 300.);
   hQsumChannel = new TH1D("QsumChannel", "qsum channel (photons)", 9, 0., 9.);
   hQsumChannelEff = new TH1D("QsumChannelEff", "qsum channel (photons)", 9, 0., 9.);
 
