@@ -624,9 +624,9 @@ void loop()
       {
         TDetHit thit = det->hits[ihit];
         // fill light curve
-        hLightCurve[idet]->SetBinContent(thit.firstBin + 1, hLightCurve[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak);
+        hLightCurve[idet]->SetBinContent(thit.firstBin + 1, hLightCurve[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak / readGains->sipmPeakGain[idet]);
         /* fill gain histograms */
-        photonSum[idet] += thit.qpeak * scale[idet];
+        photonSum[idet] += thit.qpeak / readGains->sipmPeakGain[idet];
         qsumSum[idet] += thit.qsum * scale[idet];
         if (trig)
         {
@@ -635,7 +635,7 @@ void loop()
         // for ledData only look after 6000
         if (isLedRun && thit.firstBin < 6000)
           continue;
-        hQPeak[idet]->Fill(thit.qpeak * scale[idet]);
+        hQPeak[idet]->Fill(thit.qpeak / readGains->sipmPeakGain[idet]);
         hQSum[idet]->Fill(thit.qsum * scale[idet]);
         // want to subtract off noise hits from preSum
         // if (idet > 8 && idet < 12)
