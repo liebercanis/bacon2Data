@@ -181,9 +181,28 @@ bool TReadGains::readSumGains()
 void TReadGains::printGains()
 {
     printf("TReadGains:: %lu gains \n", sipmPeakGain.size());
+    double peakToNominal = 1;
+    double sumToNominal = 1;
     for (unsigned long j = 0; j < sipmPeakGain.size(); ++j)
     {
-        printf(" chan %lu  peak gain %.4f error %.4f  sum gain %.4f error %.4f \n", j, sipmPeakGain[j], sipmPeakGainError[j],
-               sipmSumGain[j], sipmSumGainError[j]);
+        if (j >= 0 && j < 9)
+        {
+            peakToNominal = sipmPeakGain[j] / nominalGain;
+            sumToNominal = sipmSumGain[j] / nominalQsumGain;
+        }
+        if (j > 8 && j < 12)
+        {
+            peakToNominal = sipmPeakGain[j] / nominalTrigGain;
+            sumToNominal = sipmSumGain[j] / nominalQsumTrigGain;
+        }
+
+        if (j == 12)
+        {
+            peakToNominal = sipmPeakGain[j] / nominalPmtGain;
+            sumToNominal = sipmSumGain[j] / nominalQsumPmtGain;
+        }
+
+        printf(" chan %lu  peak gain %.4f error %.4f  sum gain %.4f error %.4f peak to nominal %.4f sum to nominal %.4f  \n", j, sipmPeakGain[j], sipmPeakGainError[j],
+               sipmSumGain[j], sipmSumGainError[j], peakToNominal, sumToNominal);
     }
 }
