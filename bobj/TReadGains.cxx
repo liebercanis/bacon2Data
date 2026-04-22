@@ -178,6 +178,44 @@ bool TReadGains::readSumGains()
     return true;
 }
 
+double TReadGains::getNominalPeak(int j)
+{
+    double nominal = 0;
+    if (j >= 0 && j < 9)
+    {
+        nominal = nominalGain;
+    }
+    if (j > 8 && j < 12)
+    {
+        nominal = nominalTrigGain;
+    }
+
+    if (j == 12)
+    {
+        nominal = nominalPmtGain;
+    }
+    return nominal;
+}
+
+double TReadGains::getNominalSum(int j)
+{
+    double nominal = 0;
+    if (j >= 0 && j < 9)
+    {
+        nominal = nominalQsumGain;
+    }
+    if (j > 8 && j < 12)
+    {
+        nominal = nominalQsumTrigGain;
+    }
+
+    if (j == 12)
+    {
+        nominal = nominalQsumPmtGain;
+    }
+    return nominal;
+}
+
 void TReadGains::printGains()
 {
     printf("TReadGains:: %lu gains \n", sipmPeakGain.size());
