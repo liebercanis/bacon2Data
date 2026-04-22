@@ -569,7 +569,7 @@ void loop()
     TBranchElement *aBranch = NULL;
     // loop over branches
 
-    double eventTriggerSum = 0;
+    double eventTriggerHitQsum = 0;
     double photonSum[CHANNELS];
     double qsumSum[CHANNELS];
     double qsumLate[CHANNELS];
@@ -611,25 +611,27 @@ void loop()
         hLightCurve[idet]->SetBinContent(thit.firstBin + 1, hLightCurve[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak / readGains->sipmPeakGain[idet]);
         /* fill gain histograms */
         photonSum[idet] += thit.qpeak / readGains->sipmPeakGain[idet];
-        qsumSum[idet] += thit.qsum * scaleSum[idet];
+        qsumSum[idet] += thit.qsum / readGains->sipmSumGain[idet];
         if (trig)
         {
-          eventTriggerSum += thit.qsum * scaleSum[idet];
+          eventTriggerHitQsum += thit.qsum / readGains->sipmSumGain[idet];
         }
         // for ledData only look after 6000
         if (isLedRun && thit.firstBin < 6000)
           continue;
         hQPeak[idet]->Fill(thit.qpeak / readGains->sipmPeakGain[idet]);
-        hQSum[idet]->Fill(thit.qsum * scaleSum[idet]);
+        hQSum[idet]->Fill(thit.qsum / readGains->sipmSumGain[idet]);
         // want to subtract off noise hits from preSum
         // if (idet > 8 && idet < 12)
-        //  printf("... idet %i scale %f qsum %f eventTriggerSum %f \n", idet, scale[idet], thit.qsum, eventTriggerSum);
+        //  printf("... idet %i scale %f qsum %f eventTriggerHitQsum %f \n", idet, scale[idet], thit.qsum, eventTriggerHitQsum);
       } // end branch loop
       ntLateInt->Fill(double(entry), double(idet), qsumLate[0], qsumLate[1], qsumLate[2], qsumLate[3], qsumLate[4], qsumLate[5], qsumLate[6], qsumLate[7], qsumLate[8], qsumLate[9], qsumLate[10], qsumLate[11]);
     } // branch
 
+    hGammaPeakHit->Fill(eventTriggerHitQsum);
+
     // ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:peak");
-    ntGamma->Fill(double(entry), photonSum[9], qsumSum[9], photonSum[10], qsumSum[10], photonSum[11], qsumSum[11], eventTriggerSum, triggerSum);
+    ntGamma->Fill(double(entry), photonSum[9], qsumSum[9], photonSum[10], qsumSum[10], photonSum[11], qsumSum[11], eventTriggerHitQsum, triggerSum);
 
   } // entry
 }
@@ -710,10 +712,17 @@ void post(TString tag)
   hTriangleSecond = new TH2D("TriangleSecond", "ytern vs xtern in second gamma peak gains", 100, 0., 1., 100, 0., 1.);
   hTrianglePass = new TH2D("TrianglePass", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hGammaPeak = new TH1D("GammaPeak", "gamma peak (photons)", 150, 0., 300.);
+  hGammaPeak->GetXaxis()->SetTitle("gamma peak (summed ADC)");
   hGammaPeakPass = new TH1D("GammaPeakPass", "gamma peak  pass triangle (photons)", 150, 0., 300.);
+  hGammaPeakPass->GetXaxis()->SetTitle("gamma peak (summed ADC)");
   hGammaPeakHit = new TH1D("GammaPeakHit", "gamma peak (photons)", 150, 0., 300.);
+  hGammaPeakHit->GetXaxis()->SetTitle("gamma peak (hit area qsum)");
   hQsumChannel = new TH1D("QsumChannel", "qsum channel (photons)", 9, 0., 9.);
+  hQsumChannel->GetYaxis()->SetTitle("summed qsum [SPE]");
+  hQsumChannel->GetXaxis()->SetTitle("channel");
   hQsumChannelEff = new TH1D("QsumChannelEff", "qsum channel (photons)", 9, 0., 9.);
+  hQsumChannelEff->GetYaxis()->SetTitle("summed qsum [geo scaled]");
+  hQsumChannelEff->GetXaxis()->SetTitle("channel");
 
   TDirectory *ledDir = fout->mkdir("ledDir");
   ledDir->cd();
