@@ -54,6 +54,9 @@ bool isSimulation = false;
 bool isLedRun = false;
 double triggerSum;
 
+std::vector<double> scaleSum;
+std::vector<double> scalePeak;
+
 TString tag;
 Long64_t totalEntries;
 TNtuple *ntTrig;
@@ -240,25 +243,18 @@ int passEventCuts(Long64_t entry)
   //}
 
   /* be careful to rmove nominal gain used in anaCRunGamma */
-  // scale factor to new gain
-  double scale[3];
-  for (int i = 0; i < 3; ++i)
-    if (!isSimulation)
-      scale[i] = readGains->nominalQsumTrigGain / readGains->sipmSumGain[9 + i];
-    else
-      scale[i] = 1.0;
 
   if (entry == 0)
-    for (int i = 0; i < 3; ++i)
-      printf("gain scale factor: channel %i  ratio gain/nominal Qsum %f  \n", i, scale[i]);
+    for (int i = 0; i < scaleSum.size(); ++i)
+      printf("gain scale factor: channel %i  ratio gain/nominal Qsum %f  \n", i, scaleSum[i]);
 
   triggerSum = 0;
   double triggerSumUn = 0;
-  for (int i = 0; i < 3; ++i)
+  for (int i = 9; i < 12; ++i)
   {
     // triggerSum += detList[9 + i]->totSum * scale[i];
-    triggerSum += detList[9 + i]->totSum * scale[i];
-    triggerSumUn += detList[9 + i]->totSum;
+    triggerSum += detList[i]->totSum * scaleSum[i];
+    triggerSumUn += detList[i]->totSum;
   }
 
   // printf("postAna .... %lld totSum %f\n,", entry, detList[9]->totSum);
@@ -269,9 +265,9 @@ int passEventCuts(Long64_t entry)
 
   hGammaPeak->Fill(triggerSum);
   double qFraction[3];
-  qFraction[0] = detList[9]->totSum * scale[0] / triggerSum;
-  qFraction[1] = detList[10]->totSum * scale[1] / triggerSum;
-  qFraction[2] = detList[11]->totSum * scale[2] / triggerSum;
+  qFraction[0] = detList[9]->totSum * scaleSum[9] / triggerSum;
+  qFraction[1] = detList[10]->totSum * scaleSum[10] / triggerSum;
+  qFraction[2] = detList[11]->totSum * scaleSum[11] / triggerSum;
 
   double qFractionUn[3];
   qFractionUn[0] = detList[9]->totSum / triggerSumUn;
@@ -312,7 +308,7 @@ int passEventCuts(Long64_t entry)
   // gamma cut
   double pmtLateSum = 0;
   if (!isSimulation)
-    pmtLateSum = detList[12]->lateSum * readGains->nominalQsumPmtGain / readGains->sipmSumGain[12];
+    pmtLateSum = detList[12]->lateSum * scaleSum[12];
   else
     pmtLateSum = detList[12]->lateSum;
   hGammaCut->Fill(pmtLateSum);
@@ -322,17 +318,8 @@ int passEventCuts(Long64_t entry)
   // cosmic cut on summed SIPM
   // det 13 is sum of alll SIPMS
   double totSum13 = 0;
-  for (int i = 0; i < 9; ++i)
-    if (!isSimulation)
-      totSum13 += detList[i]->totSum * readGains->nominalQsumGain / readGains->sipmSumGain[i];
-    else
-      totSum13 += detList[i]->totSum;
-
-  for (int i = 9; i < 12; ++i)
-    if (!isSimulation)
-      totSum13 += detList[i]->totSum * readGains->nominalQsumTrigGain / readGains->sipmSumGain[i];
-    else
-      totSum13 += detList[i]->totSum;
+  for (int i = 0; i < 12; ++i)
+    totSum13 += detList[i]->totSum * scaleSum[i];
 
   hCosmicCut->Fill(totSum13);
   if (totSum13 > cosmicCut)
@@ -349,7 +336,7 @@ int passEventCuts(Long64_t entry)
   }
 
   ntTrig->Fill(double(entry), pmtLateSum, totSum13, triggerSum, detList[9]->totSum, detList[10]->totSum, detList[11]->totSum,
-               detList[9]->totSum * scale[0], detList[10]->totSum * scale[1], detList[11]->totSum * scale[2], xternQ, yternQun, double(passBit));
+               detList[9]->totSum * scaleSum[9], detList[10]->totSum * scaleSum[10], detList[11]->totSum * scaleSum[11], xternQ, yternQun, double(passBit));
 
   // fill passing gamma peak
   if (passBit == 0)
@@ -358,7 +345,7 @@ int passEventCuts(Long64_t entry)
   for (unsigned i = 0; i < 9; ++i)
   {
     hQsumChannel->Fill(i + 1, detList[i]->totSum);
-    hQsumChannelEff->Fill(i + 1, detList[i]->totSum * scale[i]);
+    hQsumChannelEff->Fill(i + 1, detList[i]->totSum * scaleSum[i] / effGeoFunc(i));
   }
 
   return passBit;
@@ -586,9 +573,6 @@ void loop()
     double photonSum[CHANNELS];
     double qsumSum[CHANNELS];
     double qsumLate[CHANNELS];
-    double scale[CHANNELS];
-    for (unsigned j = 0; j < readGains->sipmSumGain.size(); ++j)
-      scale[j] = 1.0 / readGains->sipmSumGain[j];
 
     for (int ich = 0; ich < CHANNELS; ++ich)
     {
@@ -612,11 +596,11 @@ void loop()
       TDet *det = (TDet *)aBranch->GetObject();
       // want to subtract off noise hits from preSum lateSum 3000-5500 ULong_t triggerStart = 730;
       // double scale = readGains->nominalQsumGain / aveGain;
-      qsumLate[idet] = det->lateSum * scale[idet]; // nominal gain applied in pulse finding step
+      qsumLate[idet] = det->lateSum * scaleSum[idet]; // nominal gain applied in pulse finding step
       // printf("det %i hits %lu \n", idet, det->hits.size());
       //  check if passes eventCuts
 
-      hLateSumChan[idet]->Fill(det->lateSum * scale[idet]);
+      hLateSumChan[idet]->Fill(det->lateSum * scaleSum[idet]);
       ntPreSum->Fill(double(entry), double(idet), effGeoFunc(idet), det->preSum);
       ntLateSum->Fill(double(entry), double(idet), effGeoFunc(idet), det->lateSum);
       // loop over hits
@@ -627,16 +611,16 @@ void loop()
         hLightCurve[idet]->SetBinContent(thit.firstBin + 1, hLightCurve[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak / readGains->sipmPeakGain[idet]);
         /* fill gain histograms */
         photonSum[idet] += thit.qpeak / readGains->sipmPeakGain[idet];
-        qsumSum[idet] += thit.qsum * scale[idet];
+        qsumSum[idet] += thit.qsum * scaleSum[idet];
         if (trig)
         {
-          eventTriggerSum += thit.qsum * scale[idet];
+          eventTriggerSum += thit.qsum * scaleSum[idet];
         }
         // for ledData only look after 6000
         if (isLedRun && thit.firstBin < 6000)
           continue;
         hQPeak[idet]->Fill(thit.qpeak / readGains->sipmPeakGain[idet]);
-        hQSum[idet]->Fill(thit.qsum * scale[idet]);
+        hQSum[idet]->Fill(thit.qsum * scaleSum[idet]);
         // want to subtract off noise hits from preSum
         // if (idet > 8 && idet < 12)
         //  printf("... idet %i scale %f qsum %f eventTriggerSum %f \n", idet, scale[idet], thit.qsum, eventTriggerSum);
@@ -691,6 +675,21 @@ void post(TString tag)
   }
   aveGain /= double(9);
   printf("average gain %f \n", aveGain);
+
+  /* get scale factor */
+  // scale factor to new gain
+  scaleSum.resize(readGains->sipmSumGain.size());
+  scalePeak.resize(readGains->sipmSumGain.size());
+  for (unsigned i = 0; i < readGains->sipmSumGain.size(); ++i)
+  {
+    scalePeak[i] = 1.0;
+    scaleSum[i] = 1.0;
+    if (!isSimulation)
+    {
+      scalePeak[i] = readGains->getNominalPeak(i) / readGains->sipmPeakGain[i];
+      scaleSum[i] = readGains->getNominalSum(i) / readGains->sipmSumGain[i];
+    }
+  }
 
   // trigger info ntuple
   // ntTrig->Fill( pmtLateSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
