@@ -245,8 +245,7 @@ int passEventCuts(Long64_t entry)
   /* be careful to rmove nominal gain used in anaCRunGamma */
 
   if (entry == 0)
-    for (int i = 0; i < scaleSum.size(); ++i)
-      printf("gain scale factor: channel %i  ratio gain/nominal Qsum %f  \n", i, scaleSum[i]);
+    readGains->printGains();
 
   triggerSum = 0;
   double triggerSumUn = 0;
@@ -619,8 +618,8 @@ void loop()
         // for ledData only look after 6000
         if (isLedRun && thit.firstBin < 6000)
           continue;
-        hQPeak[idet]->Fill(thit.qpeak / readGains->sipmPeakGain[idet]);
-        hQSum[idet]->Fill(thit.qsum / readGains->sipmSumGain[idet]);
+        hQPeak[idet]->Fill(thit.qpeak);
+        hQSum[idet]->Fill(thit.qsum);
         // want to subtract off noise hits from preSum
         // if (idet > 8 && idet < 12)
         //  printf("... idet %i scale %f qsum %f eventTriggerHitQsum %f \n", idet, scale[idet], thit.qsum, eventTriggerHitQsum);
@@ -754,21 +753,8 @@ void post(TString tag)
   double qsumLimit;
   for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
   {
-    qpeakLimit = 5. * readGains->nominalGain;
-    qsumLimit = 5. * readGains->nominalQsumGain;
-
-    bool trigger = ichan == 9 || ichan == 10 || ichan == 11;
-    if (trigger)
-    {
-      qpeakLimit = 5. * readGains->nominalTrigGain;
-      qsumLimit = 5. * readGains->nominalQsumTrigGain;
-    }
-    if (ichan == 12)
-    {
-      qpeakLimit = 5. * readGains->nominalPmtGain;
-      qsumLimit = 5. * readGains->nominalQsumPmtGain;
-    }
-
+    qpeakLimit = 10. * (readGains->sipmPeakGain[ichan]);
+    qsumLimit = 10. * (readGains->sipmSumGain[ichan]);
     hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 2000, 0, qpeakLimit));
     hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 2000, 0, qsumLimit));
   }
