@@ -145,7 +145,7 @@ bool TReadGains::readSumGains()
         double val = gGain->GetPointY(i);
         if (i < 9)
         {
-            if (val > nominalQsumGain / 2.)
+            if (val > nominalQsumGain / 10.)
             {
                 sipmSumGain[index] = gGain->GetPointY(i);
                 sipmSumGainError[index] = gGain->GetErrorY(i);
