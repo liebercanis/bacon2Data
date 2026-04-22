@@ -32,8 +32,8 @@ public:
   bool readSumGains();
   void printGains();
   void clear();
-  double getNominalPeak(int ich);
-  double getNominalSum(int ich);
+  double getNominalPeak(unsigned ich);
+  double getNominalSum(unsigned ich);
 
   // data elements
   bool readFromFile;

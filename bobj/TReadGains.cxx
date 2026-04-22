@@ -178,7 +178,7 @@ bool TReadGains::readSumGains()
     return true;
 }
 
-double TReadGains::getNominalPeak(int j)
+double TReadGains::getNominalPeak(unsigned j)
 {
     double nominal = 0;
     if (j >= 0 && j < 9)
@@ -197,7 +197,7 @@ double TReadGains::getNominalPeak(int j)
     return nominal;
 }
 
-double TReadGains::getNominalSum(int j)
+double TReadGains::getNominalSum(unsigned j)
 {
     double nominal = 0;
     if (j >= 0 && j < 9)
