@@ -151,17 +151,17 @@ bool TReadGains::readSumGains()
                 sipmSumGainError[index] = gGain->GetErrorY(i);
             }
             else
-                printf("TReadGain WARNING gain val %f too small compared to %f\n", val, sipmSumGain[index]);
+                printf("TReadGain WARNING gain val %f too small compared to %f\n", val, nominalQsumGain);
         }
         else if (i > 8 && i < 12)
         {
-            if (val > nominalQsumTrigGain / 2.)
+            if (val > nominalQsumTrigGain / 10.)
             {
                 sipmSumGain[index] = gGain->GetPointY(i);
                 sipmSumGainError[index] = gGain->GetErrorY(i);
             }
             else
-                printf("TReadGain WARNING gain val %f too small compared to %f\n", val, sipmSumGain[index]);
+                printf("TReadGain WARNING gain val %f too small compared to %f\n", val, nominalQsumTrigGain);
         }
         else if (i == 12)
         {
