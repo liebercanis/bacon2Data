@@ -753,8 +753,8 @@ void post(TString tag)
   double qsumLimit;
   for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
   {
-    qpeakLimit = 10. * (readGains->sipmPeakGain[ichan]);
-    qsumLimit = 10. * (readGains->sipmSumGain[ichan]);
+    qpeakLimit = 50. * (readGains->sipmPeakGain[ichan]);
+    qsumLimit = 50. * (readGains->sipmSumGain[ichan]);
     hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 2000, 0, qpeakLimit));
     hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 2000, 0, qsumLimit));
   }
