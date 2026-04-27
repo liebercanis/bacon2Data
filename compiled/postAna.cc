@@ -732,6 +732,8 @@ void post(TString tag)
     hLateSumChan[hLateSumChan.size() - 1]->GetYaxis()->SetTitle("evemts");
   }
 
+  fout->cd();
+
   for (unsigned i = 0; i < CHANNELS; ++i)
   {
     // normalized to SPE
