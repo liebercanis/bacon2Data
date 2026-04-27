@@ -939,11 +939,11 @@ int main(int argc, char *argv[])
 
   if (!fout)
     fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "update");
-  printf("after added evenCount \n");
-  fout->ls();
 
   cout << " starting summary for   " << fileListName.size() << " on " << sdate << " writing to file " << fout->GetName() << endl;
   /* here we make the TCHain and them loop over it */
 
   post(tag);
+  printf("end of job \n");
+  fout->ls();
 }
