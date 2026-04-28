@@ -1311,8 +1311,8 @@ int anaCRun::anaEvent(Long64_t entry)
       }
 
       // intermediate time window for LED light monitoring
-      if (j > 3500 && j < 5000) // intermediate time window for LED light monitoring
-                                // if (j > lateTimeStart)
+      // if (j > 3500 && j < 5000) // intermediate time window for LED light monitoring
+      if (j > lateTimeStart)
         idet->lateSum += digi[j] / qsumGain[ib];
     }
     // add some other variables
