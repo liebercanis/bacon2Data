@@ -573,6 +573,7 @@ void loop()
     ++totalPass;
 
     RunTree->GetEntry(entry);
+    printf("Processing entry %lld in file %s\n", entry, RunTree->GetCurrentFile()->GetName());
 
     if (RunTree->GetFileNumber() != currentFileNumber)
     {
