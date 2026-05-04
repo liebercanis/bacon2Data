@@ -53,9 +53,18 @@ TFile *fout;
 bool isSimulation = false;
 bool isLedRun = false;
 double triggerSum;
+int currentFileNumber = -1;
 
 std::vector<double> scaleSum;
 std::vector<double> scalePeak;
+
+std::vector<double> scaleLateSum;
+std::vector<double> scalePreSum;
+
+std::vector<double> earlyHitCount;
+std::vector<double> lateHitCount;
+double earlyHitCountFile = 0;
+double lateHitCountFile = 0;
 
 TString tag;
 Long64_t totalEntries;
@@ -544,6 +553,7 @@ void loop()
 {
   /* nominal gains have been applied in pulse finding step */
   totalPass = 0;
+
   printf(" start of entry loop maxEntry=%lld\n", maxEntry);
   // loop over entries
   for (Long64_t entry = 0; entry < maxEntry; ++entry)
@@ -562,6 +572,20 @@ void loop()
     ++totalPass;
 
     RunTree->GetEntry(entry);
+
+    if (RunTree->GetFileNumber() != currentFileNumber)
+    {
+      printf("Processing file %d previous early %.0f late %.0f \n", currentFileNumber, earlyHitCountFile, lateHitCountFile);
+      if (currentFileNumber >= 0)
+      {
+        earlyHitCount.push_back(earlyHitCountFile);
+        lateHitCount.push_back(lateHitCountFile);
+      }
+      earlyHitCountFile = 0;
+      lateHitCountFile = 0;
+      currentFileNumber = RunTree->GetFileNumber();
+    }
+
     // RunTree->GetListOfBranches()->ls();
     //   get branch pointers and save in detList
     TIter next(RunTree->GetListOfBranches());
@@ -606,6 +630,11 @@ void loop()
       for (unsigned ihit = 0; ihit < det->hits.size(); ++ihit)
       {
         TDetHit thit = det->hits[ihit];
+        // count early and late hits
+        if (thit.firstBin < 600)
+          earlyHitCountFile++;
+        if (thit.firstBin >= 7500 - 600)
+          lateHitCountFile++;
         // fill light curve
         hLightCurve[idet]->SetBinContent(thit.firstBin + 1, hLightCurve[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak / readGains->sipmPeakGain[idet]);
         /* fill gain histograms */
@@ -764,7 +793,17 @@ void post(TString tag)
   /*
    *  loop over events
    */
+  earlyHitCountFile = 0;
+  lateHitCountFile = 0;
   loop();
+
+  earlyHitCount.push_back(earlyHitCountFile);
+  lateHitCount.push_back(lateHitCountFile);
+
+  for (unsigned i = 0; i < earlyHitCount.size(); ++i)
+  {
+    printf("File %d: Early hits = %.0f, Late hits = %.0f\n", i, earlyHitCount[i], lateHitCount[i]);
+  }
 
   printf("total %llu pass %llu \n", maxEntry, totalPass);
   // hEventPassNew->Print("all");
@@ -947,5 +986,5 @@ int main(int argc, char *argv[])
 
   post(tag);
   printf("end of job \n");
-  fout->ls();
+  // fout->ls();
 }
