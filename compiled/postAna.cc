@@ -574,10 +574,11 @@ void loop()
 
     RunTree->GetEntry(entry);
 
-    printf("Processing file %d previous early %.0f late %.0f \n", currentFileNumber, earlyHitCountFile, lateHitCountFile);
     if (RunTree->GetFileNumber() != currentFileNumber)
     {
       printf("Processing file %d previous early %.0f late %.0f \n", currentFileNumber, earlyHitCountFile, lateHitCountFile);
+      fflush(stdout);
+
       if (currentFileNumber >= 0)
       {
         earlyHitCount.push_back(earlyHitCountFile);
@@ -806,6 +807,7 @@ void post(TString tag)
 
   for (int i = 0; i < earlyHitCount.size(); ++i)
   {
+    ntHitCount->Fill(i, earlyHitCount[i], lateHitCount[i]);
   }
 
   for (unsigned i = 0; i < earlyHitCount.size(); ++i)
