@@ -53,6 +53,7 @@ TFile *fout;
 bool isSimulation = false;
 bool isLedRun = false;
 double triggerSum;
+TString currentFileName = TString("");
 int currentFileNumber = -1;
 
 std::vector<double> scaleSum;
@@ -573,12 +574,14 @@ void loop()
     ++totalPass;
 
     RunTree->GetEntry(entry);
-    printf("Processing entry %lld in file %s\n", entry, RunTree->GetCurrentFile()->GetName());
+    TString theFileName = TString(RunTree->GetCurrentFile()->GetName());
 
-    if (RunTree->GetFileNumber() != currentFileNumber)
+    if (theFileName != currentFileName)
     {
       printf("Processing file %d previous early %.0f late %.0f \n", currentFileNumber, earlyHitCountFile, lateHitCountFile);
       fflush(stdout);
+      ++currentFileNumber;
+      currentFileName = theFileName;
 
       if (currentFileNumber >= 0)
       {
@@ -587,7 +590,6 @@ void loop()
       }
       earlyHitCountFile = 0;
       lateHitCountFile = 0;
-      currentFileNumber = RunTree->GetFileNumber();
     }
 
     // RunTree->GetListOfBranches()->ls();
