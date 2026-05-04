@@ -73,6 +73,7 @@ TNtuple *ntGamma;
 TNtuple *ntLateSum;
 TNtuple *ntPreSum;
 TNtuple *ntLateInt;
+TNtuple *ntHitCount;
 Long64_t maxEntry;
 Long64_t totalPass;
 std::vector<TString> fileListName;
@@ -573,6 +574,7 @@ void loop()
 
     RunTree->GetEntry(entry);
 
+    printf("Processing file %d previous early %.0f late %.0f \n", currentFileNumber, earlyHitCountFile, lateHitCountFile);
     if (RunTree->GetFileNumber() != currentFileNumber)
     {
       printf("Processing file %d previous early %.0f late %.0f \n", currentFileNumber, earlyHitCountFile, lateHitCountFile);
@@ -724,6 +726,8 @@ void post(TString tag)
   // trigger info ntuple
   // ntTrig->Fill( pmtLateSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
   ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
+  ntLateInt = new TNtuple("ntLateInt", "late integral", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
+  ntHitCount = new TNtuple("ntHitCount", "hit count", "file:early:late");
   ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:eventSum:sum");
 
   ntLateSum = new TNtuple("ntLateSum", "late sum info", "event:chan:geo:lateSum");
@@ -799,6 +803,10 @@ void post(TString tag)
 
   earlyHitCount.push_back(earlyHitCountFile);
   lateHitCount.push_back(lateHitCountFile);
+
+  for (int i = 0; i < earlyHitCount.size(); ++i)
+  {
+  }
 
   for (unsigned i = 0; i < earlyHitCount.size(); ++i)
   {
