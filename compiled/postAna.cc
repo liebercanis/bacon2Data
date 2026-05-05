@@ -62,10 +62,8 @@ std::vector<double> scalePeak;
 std::vector<double> scaleLateSum;
 std::vector<double> scalePreSum;
 
-std::vector<double> earlyHitCount;
-std::vector<double> lateHitCount;
-double earlyHitCountFile = 0;
-double lateHitCountFile = 0;
+std::vector<double> earlyHitCountFile;
+std::vector<double> lateHitCountFile;
 
 TString tag;
 Long64_t totalEntries;
@@ -578,18 +576,20 @@ void loop()
 
     if (theFileName != currentFileName)
     {
-      printf("Processing file %d previous early %.0f late %.0f \n", currentFileNumber, earlyHitCountFile, lateHitCountFile);
+      printf("Processing file %d  \n", currentFileNumber);
       fflush(stdout);
       ++currentFileNumber;
       currentFileName = theFileName;
 
-      if (currentFileNumber >= 0)
+      if (currentFileNumber > 0)
       {
-        earlyHitCount.push_back(earlyHitCountFile);
-        lateHitCount.push_back(lateHitCountFile);
+        for (int ichan = 0; ichan < earlyHitCountFile.size(); ++ichan)
+        {
+          ntHitCount->Fill(currentFileNumber, ichan, earlyHitCountFile[ichan], lateHitCountFile[ichan]);
+        }
       }
-      earlyHitCountFile = 0;
-      lateHitCountFile = 0;
+      earlyHitCountFile.resize(12);
+      lateHitCountFile.resize(12);
     }
 
     // RunTree->GetListOfBranches()->ls();
@@ -638,11 +638,12 @@ void loop()
         TDetHit thit = det->hits[ihit];
         // count early and late hits
         if (thit.firstBin < 600)
-          earlyHitCountFile++;
+          earlyHitCountFile[idet] = earlyHitCountFile[idet] + 1;
         if (thit.firstBin >= 7500 - 600)
-          lateHitCountFile++;
+          lateHitCountFile[idet] = lateHitCountFile[idet] + 1;
         // fill light curve
-        hLightCurve[idet]->SetBinContent(thit.firstBin + 1, hLightCurve[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak / readGains->sipmPeakGain[idet]);
+        hLightCurve[idet]
+            ->SetBinContent(thit.firstBin + 1, hLightCurve[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak / readGains->sipmPeakGain[idet]);
         /* fill gain histograms */
         photonSum[idet] += thit.qpeak / readGains->sipmPeakGain[idet];
         qsumSum[idet] += thit.qsum / readGains->sipmSumGain[idet];
@@ -731,7 +732,7 @@ void post(TString tag)
   // ntTrig->Fill( pmtLateSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
   ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
   ntLateInt = new TNtuple("ntLateInt", "late integral", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
-  ntHitCount = new TNtuple("ntHitCount", "hit count", "file:early:late");
+  ntHitCount = new TNtuple("ntHitCount", "hit count", "file:chan:early:late");
   ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:eventSum:sum");
 
   ntLateSum = new TNtuple("ntLateSum", "late sum info", "event:chan:geo:lateSum");
@@ -801,22 +802,35 @@ void post(TString tag)
   /*
    *  loop over events
    */
-  earlyHitCountFile = 0;
-  lateHitCountFile = 0;
+  earlyHitCountFile.resize(12);
+  lateHitCountFile.resize(12);
   loop();
 
-  earlyHitCount.push_back(earlyHitCountFile);
-  lateHitCount.push_back(lateHitCountFile);
-
-  for (int i = 0; i < earlyHitCount.size(); ++i)
+  // store from last file
+  for (int ichan = 0; ichan < earlyHitCountFile.size(); ++ichan)
   {
-    ntHitCount->Fill(i, earlyHitCount[i], lateHitCount[i]);
+    ntHitCount->Fill(++currentFileNumber, ichan, earlyHitCountFile[ichan], lateHitCountFile[ichan]);
   }
 
-  for (unsigned i = 0; i < earlyHitCount.size(); ++i)
+  // Print ntHitCount entries
+  printf("\n=== ntHitCount entries %lli ===\n", ntHitCount->GetEntries());
+  printf("File    Chan    Early   Late\n");
+  printf("----    ----    -----   ----\n");
+  float fnfile = 0;
+  float fchan = 0;
+  float fearly = 0;
+  float flate = 0;
+  ntHitCount->SetBranchAddress("file", &fnfile);
+  ntHitCount->SetBranchAddress("chan", &fchan);
+  ntHitCount->SetBranchAddress("early", &fearly);
+  ntHitCount->SetBranchAddress("late", &flate);
+  for (int i = 0; i < ntHitCount->GetEntries(); i++)
   {
-    printf("File %d: Early hits = %.0f, Late hits = %.0f\n", i, earlyHitCount[i], lateHitCount[i]);
+    ntHitCount->GetEntry(i);
+    printf("%.0f    %.0f    %.0f    %.0f\n", fnfile, fchan, fearly, flate);
   }
+
+  // ntHitCount->Scan("file:chan:early:late", "", "");
 
   printf("total %llu pass %llu \n", maxEntry, totalPass);
   // hEventPassNew->Print("all");
