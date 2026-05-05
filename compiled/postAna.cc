@@ -64,6 +64,7 @@ std::vector<double> scalePreSum;
 
 std::vector<double> earlyHitCountFile;
 std::vector<double> lateHitCountFile;
+int hitCountNev = 0;
 
 TString tag;
 Long64_t totalEntries;
@@ -553,11 +554,11 @@ void loop()
 {
   /* nominal gains have been applied in pulse finding step */
   totalPass = 0;
-
   printf(" start of entry loop maxEntry=%lld\n", maxEntry);
   // loop over entries
   for (Long64_t entry = 0; entry < maxEntry; ++entry)
   {
+    ++hitCountNev;
     if (entry / 10000 * 10000 == entry)
     {
       printf("line330 .....loop entry %lld \n", entry);
@@ -583,13 +584,15 @@ void loop()
 
       if (currentFileNumber > 0)
       {
+        printf("Filling file %d nev %i \n", currentFileNumber, hitCountNev);
         for (int ichan = 0; ichan < earlyHitCountFile.size(); ++ichan)
         {
-          ntHitCount->Fill(currentFileNumber, ichan, earlyHitCountFile[ichan], lateHitCountFile[ichan]);
+          ntHitCount->Fill(currentFileNumber, hitCountNev, ichan, earlyHitCountFile[ichan], lateHitCountFile[ichan]);
         }
+        earlyHitCountFile.resize(12);
+        lateHitCountFile.resize(12);
+        hitCountNev = 0;
       }
-      earlyHitCountFile.resize(12);
-      lateHitCountFile.resize(12);
     }
 
     // RunTree->GetListOfBranches()->ls();
@@ -732,7 +735,7 @@ void post(TString tag)
   // ntTrig->Fill( pmtLateSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
   ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
   ntLateInt = new TNtuple("ntLateInt", "late integral", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
-  ntHitCount = new TNtuple("ntHitCount", "hit count", "file:chan:early:late");
+  ntHitCount = new TNtuple("ntHitCount", "hit count", "file:nev:chan:early:late");
   ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:eventSum:sum");
 
   ntLateSum = new TNtuple("ntLateSum", "late sum info", "event:chan:geo:lateSum");
@@ -820,14 +823,16 @@ void post(TString tag)
   float fchan = 0;
   float fearly = 0;
   float flate = 0;
+  float fnev = 0;
   ntHitCount->SetBranchAddress("file", &fnfile);
+  ntHitCount->SetBranchAddress("nev", &fnev);
   ntHitCount->SetBranchAddress("chan", &fchan);
   ntHitCount->SetBranchAddress("early", &fearly);
   ntHitCount->SetBranchAddress("late", &flate);
   for (int i = 0; i < ntHitCount->GetEntries(); i++)
   {
     ntHitCount->GetEntry(i);
-    printf("%.0f    %.0f    %.0f    %.0f\n", fnfile, fchan, fearly, flate);
+    printf("file %.0f  events  %.0f chan   %.0f  early  %.0f  late  %.0f \n", fnfile, fnev, fchan, fearly, flate);
   }
 
   // ntHitCount->Scan("file:chan:early:late", "", "");
