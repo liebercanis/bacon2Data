@@ -734,9 +734,9 @@ void post(TString tag)
 
   // trigger info ntuple
   // ntTrig->Fill( pmtLateSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
+  ntHitCount = new TNtuple("ntHitCount", "hit count", "file:nev:chan:early:late");
   ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
   ntLateInt = new TNtuple("ntLateInt", "late integral", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
-  ntHitCount = new TNtuple("ntHitCount", "hit count", "file:nev:chan:early:late");
   ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:eventSum:sum");
 
   ntLateSum = new TNtuple("ntLateSum", "late sum info", "event:chan:geo:lateSum");
@@ -821,8 +821,8 @@ void post(TString tag)
   printf("\n=== ntHitCount entries %lli ===\n", ntHitCount->GetEntries());
   printf("File    Chan    Early   Late\n");
   printf("----    ----    -----   ----\n");
-  ntHitCount->Scan("file:chan:early:late", "", "");
-  /*
+  // ntHitCount->Scan("file:chan:early:late", "", "");
+
   float fnfile = 0;
   float fchan = 0;
   float fearly = 0;
@@ -838,7 +838,6 @@ void post(TString tag)
     ntHitCount->GetEntry(i);
     printf("file %.0f  events  %.0f chan   %.0f  early  %.0f  late  %.0f \n", fnfile, fnev, fchan, fearly, flate);
   }
-    */
 
   printf("total %llu pass %llu \n", maxEntry, totalPass);
   // hEventPassNew->Print("all");
