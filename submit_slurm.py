@@ -77,15 +77,62 @@ def submit_slurm_job(date_tag, num_files=None, parallel_jobs=8, time_limit="01:0
         return 1
 
 
+def submit_single_job(date_tag, postAna_path='./compiled/postAna', time_limit="01:00:00", job_name=None):
+    """Submit a single sbatch job that runs: srun -n 1 postAna <date_tag>"""
+    
+    if job_name is None:
+        job_name = f"postAna_{date_tag}"
+    
+    # Create logs directory
+    os.makedirs('logs', exist_ok=True)
+    
+    # Create temporary sbatch script
+    script_content = f"""#!/bin/bash
+#SBATCH --job-name={job_name}
+#SBATCH --time={time_limit}
+#SBATCH --output=logs/{job_name}_%j.out
+#SBATCH --error=logs/{job_name}_%j.err
+
+# Run postAna with single task
+srun -n 1 {postAna_path} {date_tag}
+"""
+    
+    script_path = '/tmp/postAna_sbatch.sh'
+    with open(script_path, 'w') as f:
+        f.write(script_content)
+    
+    os.chmod(script_path, 0o755)
+    
+    sbatch_cmd = ['sbatch', script_path]
+    
+    print(f"Submitting: srun -n 1 {postAna_path} {date_tag}")
+    print(f"Time limit: {time_limit}")
+    print(f"Job name: {job_name}")
+    
+    try:
+        result = subprocess.run(sbatch_cmd, check=True, capture_output=True, text=True)
+        print(result.stdout)
+        print(f"✓ Job submitted successfully")
+        return 0
+    except subprocess.CalledProcessError as e:
+        print(f"Error submitting job: {e.stderr}", file=sys.stderr)
+        return 1
+    finally:
+        # Clean up temporary script
+        if os.path.exists(script_path):
+            os.remove(script_path)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Submit analysis jobs to SLURM cluster',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python3 submit_slurm.py 09_10_2024
-  python3 submit_slurm.py 09_10_2024 10 --parallel=4
-  python3 submit_slurm.py 09_10_2024 --time=02:00:00
+  python3 submit_slurm.py 09_10_2024                    # Array job mode
+  python3 submit_slurm.py 09_10_2024 10 --parallel=4   # Array job with max 10 files
+  python3 submit_slurm.py 04_16_2026 --single           # Single job: srun -n 1 postAna 04_16_2026
+  python3 submit_slurm.py 04_16_2026 --single --time=02:00:00
         """
     )
     
@@ -94,25 +141,35 @@ Examples:
     parser.add_argument('--parallel', type=int, default=8, help='Number of parallel jobs (default: 8)')
     parser.add_argument('--time', dest='time_limit', default='01:00:00', 
                        help='Time limit in HH:MM:SS format (default: 01:00:00)')
+    parser.add_argument('--single', action='store_true', 
+                       help='Submit a single job (srun -n 1 postAna <date_tag>) instead of array job')
+    parser.add_argument('--postAna-path', default='./compiled/postAna',
+                       help='Path to postAna executable (default: ./compiled/postAna)')
+    parser.add_argument('--job-name', help='Custom SLURM job name')
     
     args = parser.parse_args()
     
-    files = get_matching_files(args.date_tag)
-    n = len(files)
-    ntot = n
+    if args.single:
+        # Single job mode: srun -n 1 postAna <date_tag>
+        return submit_single_job(args.date_tag, args.postAna_path, args.time_limit, args.job_name)
+    else:
+        # Array job mode (original behavior)
+        files = get_matching_files(args.date_tag)
+        n = len(files)
+        ntot = n
 
-     #print(" files %i ", len(p), " files %i ", len(files))
-    if (len(sys.argv) > 2):
-        n = int(args.max_files)
+         #print(" files %i ", len(p), " files %i ", len(files))
+        if (len(sys.argv) > 2):
+            n = int(args.max_files)
 
-    print(" number of files to run  %i of %i  " % (n, ntot))
-    
+        print(" number of files to run  %i of %i  " % (n, ntot))
+        
 
-    #for i in range(0, n):
-    #    print(" file ", i, " file ", files[i]) 
-    
-    
-    return submit_slurm_job(args.date_tag, args.max_files, args.parallel, args.time_limit)
+        #for i in range(0, n):
+        #    print(" file ", i, " file ", files[i]) 
+        
+        
+        return submit_slurm_job(args.date_tag, args.max_files, args.parallel, args.time_limit)
 
 
 if __name__ == '__main__':
