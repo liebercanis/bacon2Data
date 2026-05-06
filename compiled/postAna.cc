@@ -641,10 +641,13 @@ void loop()
       {
         TDetHit thit = det->hits[ihit];
         // count early and late hits
-        if (thit.firstBin < 600)
-          earlyHitCountFile[idet] = earlyHitCountFile[idet] + 1;
-        if (thit.firstBin >= 7500 - 600)
-          lateHitCountFile[idet] = lateHitCountFile[idet] + 1;
+        if (idet < 12)
+        {
+          if (thit.firstBin < 600)
+            earlyHitCountFile[idet] = earlyHitCountFile[idet] + 1;
+          if (thit.firstBin >= 7500 - 600)
+            lateHitCountFile[idet] = lateHitCountFile[idet] + 1;
+        }
         // fill light curve
         hLightCurve[idet]
             ->SetBinContent(thit.firstBin + 1, hLightCurve[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak / readGains->sipmPeakGain[idet]);
