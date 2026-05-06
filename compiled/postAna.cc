@@ -54,7 +54,7 @@ bool isSimulation = false;
 bool isLedRun = false;
 double triggerSum;
 TString currentFileName = TString("");
-int currentFileNumber = -1;
+int currentFileNumber = 0;
 
 std::vector<double> scaleSum;
 std::vector<double> scalePeak;
@@ -561,7 +561,7 @@ void loop()
     ++hitCountNev;
     if (entry / 10000 * 10000 == entry)
     {
-      printf("line330 .....loop entry %lld \n", entry);
+      printf("line330 .....loop entry %lld nev this file %i \n", entry, hitCountNev);
       // force printing to log file
       fflush(stdout);
     }
@@ -577,12 +577,12 @@ void loop()
 
     if (theFileName != currentFileName)
     {
-      printf("Processing file %d  \n", currentFileNumber);
-      fflush(stdout);
       ++currentFileNumber;
       currentFileName = theFileName;
+      printf("Processing file %s number %i  \n", currentFileName.Data(), currentFileNumber);
+      fflush(stdout);
 
-      if (currentFileNumber > 0)
+      if (currentFileNumber > 1)
       {
         printf("Filling file %d nev %i \n", currentFileNumber, hitCountNev);
         for (int ichan = 0; ichan < earlyHitCountFile.size(); ++ichan)
@@ -810,9 +810,10 @@ void post(TString tag)
   loop();
 
   // store from last file
+  printf("Filling file %s number %d nev %i \n", currentFileName.Data(), currentFileNumber, hitCountNev);
   for (int ichan = 0; ichan < earlyHitCountFile.size(); ++ichan)
   {
-    ntHitCount->Fill(++currentFileNumber, ichan, earlyHitCountFile[ichan], lateHitCountFile[ichan]);
+    ntHitCount->Fill(currentFileNumber, hitCountNev, ichan, earlyHitCountFile[ichan], lateHitCountFile[ichan]);
   }
 
   // Print ntHitCount entries
