@@ -106,6 +106,7 @@ def submit_single_job(date_tag, postAna_path='./compiled/postAna', time_limit="0
 #SBATCH --cpus-per-task={cpus_per_task}
 #SBATCH --mem={mem}
 #SBATCH --time={time_limit}
+#SBATCH -q shared
 #SBATCH -A m2676
 #SBATCH --output=logs/{job_name}_%j.out
 #SBATCH --error=logs/{job_name}_%j.err
