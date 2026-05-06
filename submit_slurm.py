@@ -131,6 +131,7 @@ srun -n 1 {postAna_path} {date_tag}
         f'--mem={mem}',
         '-A', account,
         '-q', queue,
+        '-C', 'cpu',
         script_path
     ]
     print(f"Submitting single job: {' '.join(sbatch_cmd)}")
