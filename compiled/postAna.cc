@@ -867,7 +867,6 @@ void post(TString tag)
   }
 
   // fout->ls();
-  fout->Write();
   // fout->ls();
 }
 
@@ -1020,5 +1019,6 @@ int main(int argc, char *argv[])
 
   post(tag);
   printf("end of job \n");
+  fout->Write();
   // fout->ls();
 }
