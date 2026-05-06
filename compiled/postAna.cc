@@ -585,6 +585,7 @@ void loop()
       if (currentFileNumber > 1)
       {
         printf("Filling file %d nev %i \n", currentFileNumber, hitCountNev);
+        fflush(stdout);
         for (int ichan = 0; ichan < earlyHitCountFile.size(); ++ichan)
         {
           ntHitCount->Fill(currentFileNumber, hitCountNev, ichan, earlyHitCountFile[ichan], lateHitCountFile[ichan]);
