@@ -149,9 +149,10 @@ srun -n 1 {postAna_path} {date_tag}
         print(f"Error submitting job: {e.stderr}", file=sys.stderr)
         return 1
     finally:
+        print(f"bash script: {script_path}")
         # Clean up temporary script
-        if os.path.exists(script_path):
-            os.remove(script_path)
+        #f os.path.exists(script_path):
+            #os.remove(script_path)
 
 
 def main():
