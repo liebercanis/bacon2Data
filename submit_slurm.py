@@ -25,7 +25,7 @@ def get_matching_files(date_tag, rootdata_dir='rootData'):
     return sorted(files)
 
 
-def submit_slurm_job(date_tag, num_files=None, parallel_jobs=8, time_limit="01:00:00"):
+def submit_slurm_job(date_tag, num_files=None, parallel_jobs=8, time_limit="01:00:00", account="m2676", queue="shared"):
     """Submit SLURM job array"""
    
     rootData = os.getenv("ROOTDATA")
@@ -59,6 +59,8 @@ def submit_slurm_job(date_tag, num_files=None, parallel_jobs=8, time_limit="01:0
         'sbatch',
         f'--array=0-{num_tasks-1}%{parallel_jobs}',
         f'--time={time_limit}',
+        f'-A {account}',
+        f'-q {queue}',
         script_path,
         date_tag
     ]
@@ -78,7 +80,7 @@ def submit_slurm_job(date_tag, num_files=None, parallel_jobs=8, time_limit="01:0
 
 
 def submit_single_job(date_tag, postAna_path='./compiled/postAna', time_limit="01:00:00", job_name=None,
-                      nodes=1, ntasks=1, cpus_per_task=4, mem='32G'):
+                      nodes=1, ntasks=1, cpus_per_task=4, mem='32G', account='m2676', queue='shared'):
     """Submit a single sbatch job that runs: srun -n 1 postAna <date_tag>
     
     Args:
@@ -106,8 +108,8 @@ def submit_single_job(date_tag, postAna_path='./compiled/postAna', time_limit="0
 #SBATCH --cpus-per-task={cpus_per_task}
 #SBATCH --mem={mem}
 #SBATCH --time={time_limit}
-#SBATCH -q shared
-#SBATCH -A m2676
+#SBATCH -q {queue}
+#SBATCH -A {account}
 #SBATCH --output=logs/{job_name}_%j.out
 #SBATCH --error=logs/{job_name}_%j.err
 
@@ -169,13 +171,15 @@ Examples:
     parser.add_argument('--ntasks', type=int, default=1, help='Number of tasks (default: 1)')
     parser.add_argument('--cpus-per-task', type=int, default=4, help='CPUs per task (default: 4)')
     parser.add_argument('--mem', default='8G', help='Memory allocation (default: 8G)')
+    parser.add_argument('-A', '--account', default='m2676', help='SLURM account (default: m2676)')
+    parser.add_argument('-q', '--queue', default='shared', help='SLURM queue (default: shared)')
     
     args = parser.parse_args()
     
     if args.single:
         # Single job mode: srun -n 1 postAna <date_tag>
         return submit_single_job(args.date_tag, args.postAna_path, args.time_limit, args.job_name,
-                                 args.nodes, args.ntasks, args.cpus_per_task, args.mem)
+                                 args.nodes, args.ntasks, args.cpus_per_task, args.mem, args.account, args.queue)
     else:
         # Array job mode (original behavior)
         files = get_matching_files(args.date_tag)
@@ -193,7 +197,7 @@ Examples:
         #    print(" file ", i, " file ", files[i]) 
         
         
-        return submit_slurm_job(args.date_tag, args.max_files, args.parallel, args.time_limit)
+        return submit_slurm_job(args.date_tag, args.max_files, args.parallel, args.time_limit, args.account, args.queue)
 
 
 if __name__ == '__main__':
