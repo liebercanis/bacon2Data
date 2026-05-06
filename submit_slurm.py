@@ -180,7 +180,7 @@ Examples:
     parser.add_argument('--nodes', type=int, default=1, help='Number of nodes (default: 1)')
     parser.add_argument('--ntasks', type=int, default=1, help='Number of tasks (default: 1)')
     parser.add_argument('--cpus-per-task', type=int, default=4, help='CPUs per task (default: 4)')
-    parser.add_argument('--mem', default='8G', help='Memory allocation (default: 8G)')
+    parser.add_argument('--mem', default='32G', help='Memory allocation (default: 32G)')
     parser.add_argument('-A', '--account', default='m2676', help='SLURM account (default: m2676)')
     parser.add_argument('-q', '--queue', default='shared', help='SLURM queue (default: shared)')
     
