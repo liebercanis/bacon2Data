@@ -1018,7 +1018,8 @@ int main(int argc, char *argv[])
   /* here we make the TCHain and them loop over it */
 
   post(tag);
-  printf("end of job \n");
+  printf("write file at end of job \n");
   fout->Write();
-  // fout->ls();
+  fout->Close();
+  printf("end of job \n");
 }
