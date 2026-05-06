@@ -91,7 +91,7 @@ def submit_single_job(date_tag, postAna_path='./compiled/postAna', time_limit="0
         nodes: Number of nodes (default: 1)
         ntasks: Number of tasks (default: 1)
         cpus_per_task: CPUs per task (default: 4)
-        mem: Memory allocation (default: 8G)
+        mem: Memory allocation (default: 32G)
     """
     
     if job_name is None:
@@ -123,7 +123,17 @@ srun -n 1 {postAna_path} {date_tag}
     
     os.chmod(script_path, 0o755)
     
-    sbatch_cmd = ['sbatch', script_path]
+    sbatch_cmd = [
+        'sbatch',
+        f'--nodes={nodes}',
+        f'--ntasks={ntasks}',
+        f'--cpus-per-task={cpus_per_task}',
+        f'--mem={mem}',
+        '-A', account,
+        '-q', queue,
+        script_path
+    ]
+    print(f"Submitting single job: {' '.join(sbatch_cmd)}")
     
     print(f"Submitting: srun -n 1 {postAna_path} {date_tag}")
     print(f"Resources: nodes={nodes}, ntasks={ntasks}, cpus-per-task={cpus_per_task}, mem={mem}")
