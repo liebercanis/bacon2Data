@@ -1021,5 +1021,6 @@ int main(int argc, char *argv[])
   printf("write file at end of job \n");
   fout->Write();
   fout->Close();
+  delete RunTree;
   printf("end of job \n");
 }
