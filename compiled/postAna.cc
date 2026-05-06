@@ -641,7 +641,7 @@ void loop()
       {
         TDetHit thit = det->hits[ihit];
         // count early and late hits
-        if (idet < 12)
+        if (idet < 13) // include PMT
         {
           if (thit.firstBin < 600)
             earlyHitCountFile[idet] = earlyHitCountFile[idet] + 1;
@@ -809,8 +809,8 @@ void post(TString tag)
   /*
    *  loop over events
    */
-  earlyHitCountFile.resize(12);
-  lateHitCountFile.resize(12);
+  earlyHitCountFile.resize(13);
+  lateHitCountFile.resize(13);
   loop();
 
   // store from last file
