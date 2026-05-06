@@ -821,6 +821,8 @@ void post(TString tag)
   printf("\n=== ntHitCount entries %lli ===\n", ntHitCount->GetEntries());
   printf("File    Chan    Early   Late\n");
   printf("----    ----    -----   ----\n");
+  ntHitCount->Scan("file:chan:early:late", "", "");
+  /*
   float fnfile = 0;
   float fchan = 0;
   float fearly = 0;
@@ -836,8 +838,7 @@ void post(TString tag)
     ntHitCount->GetEntry(i);
     printf("file %.0f  events  %.0f chan   %.0f  early  %.0f  late  %.0f \n", fnfile, fnev, fchan, fearly, flate);
   }
-
-  // ntHitCount->Scan("file:chan:early:late", "", "");
+    */
 
   printf("total %llu pass %llu \n", maxEntry, totalPass);
   // hEventPassNew->Print("all");
