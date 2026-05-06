@@ -77,8 +77,20 @@ def submit_slurm_job(date_tag, num_files=None, parallel_jobs=8, time_limit="01:0
         return 1
 
 
-def submit_single_job(date_tag, postAna_path='./compiled/postAna', time_limit="01:00:00", job_name=None):
-    """Submit a single sbatch job that runs: srun -n 1 postAna <date_tag>"""
+def submit_single_job(date_tag, postAna_path='./compiled/postAna', time_limit="01:00:00", job_name=None,
+                      nodes=1, ntasks=1, cpus_per_task=4, mem='32G'):
+    """Submit a single sbatch job that runs: srun -n 1 postAna <date_tag>
+    
+    Args:
+        date_tag: Date tag for postAna
+        postAna_path: Path to postAna executable
+        time_limit: Time limit in HH:MM:SS format
+        job_name: SLURM job name
+        nodes: Number of nodes (default: 1)
+        ntasks: Number of tasks (default: 1)
+        cpus_per_task: CPUs per task (default: 4)
+        mem: Memory allocation (default: 8G)
+    """
     
     if job_name is None:
         job_name = f"postAna_{date_tag}"
@@ -86,9 +98,13 @@ def submit_single_job(date_tag, postAna_path='./compiled/postAna', time_limit="0
     # Create logs directory
     os.makedirs('logs', exist_ok=True)
     
-    # Create temporary sbatch script
+    # Create temporary sbatch script with resource allocation
     script_content = f"""#!/bin/bash
 #SBATCH --job-name={job_name}
+#SBATCH --nodes={nodes}
+#SBATCH --ntasks={ntasks}
+#SBATCH --cpus-per-task={cpus_per_task}
+#SBATCH --mem={mem}
 #SBATCH --time={time_limit}
 #SBATCH --output=logs/{job_name}_%j.out
 #SBATCH --error=logs/{job_name}_%j.err
@@ -106,6 +122,7 @@ srun -n 1 {postAna_path} {date_tag}
     sbatch_cmd = ['sbatch', script_path]
     
     print(f"Submitting: srun -n 1 {postAna_path} {date_tag}")
+    print(f"Resources: nodes={nodes}, ntasks={ntasks}, cpus-per-task={cpus_per_task}, mem={mem}")
     print(f"Time limit: {time_limit}")
     print(f"Job name: {job_name}")
     
@@ -132,7 +149,7 @@ Examples:
   python3 submit_slurm.py 09_10_2024                    # Array job mode
   python3 submit_slurm.py 09_10_2024 10 --parallel=4   # Array job with max 10 files
   python3 submit_slurm.py 04_16_2026 --single           # Single job: srun -n 1 postAna 04_16_2026
-  python3 submit_slurm.py 04_16_2026 --single --time=02:00:00
+  python3 submit_slurm.py 04_16_2026 --single --time=02:00:00 --cpus-per-task=8 --mem=16G
         """
     )
     
@@ -146,12 +163,17 @@ Examples:
     parser.add_argument('--postAna-path', default='./compiled/postAna',
                        help='Path to postAna executable (default: ./compiled/postAna)')
     parser.add_argument('--job-name', help='Custom SLURM job name')
+    parser.add_argument('--nodes', type=int, default=1, help='Number of nodes (default: 1)')
+    parser.add_argument('--ntasks', type=int, default=1, help='Number of tasks (default: 1)')
+    parser.add_argument('--cpus-per-task', type=int, default=4, help='CPUs per task (default: 4)')
+    parser.add_argument('--mem', default='8G', help='Memory allocation (default: 8G)')
     
     args = parser.parse_args()
     
     if args.single:
         # Single job mode: srun -n 1 postAna <date_tag>
-        return submit_single_job(args.date_tag, args.postAna_path, args.time_limit, args.job_name)
+        return submit_single_job(args.date_tag, args.postAna_path, args.time_limit, args.job_name,
+                                 args.nodes, args.ntasks, args.cpus_per_task, args.mem)
     else:
         # Array job mode (original behavior)
         files = get_matching_files(args.date_tag)
