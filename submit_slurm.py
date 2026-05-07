@@ -80,7 +80,8 @@ def submit_slurm_job(date_tag, num_files=None, parallel_jobs=8, time_limit="01:0
 
 
 def submit_single_job(date_tag, postAna_path='./compiled/postAna', time_limit="01:00:00", job_name=None,
-                      nodes=1, ntasks=1, cpus_per_task=4, mem='32G', account='m2676', queue='shared'):
+                      nodes=1, ntasks=1, cpus_per_task=4, mem='32G', account='m2676', queue='shared',
+                      library_path=None, work_dir=None, output_file=None):
     """Submit a single sbatch job that runs: srun -n 1 postAna <date_tag>
     
     Args:
@@ -92,15 +93,32 @@ def submit_single_job(date_tag, postAna_path='./compiled/postAna', time_limit="0
         ntasks: Number of tasks (default: 1)
         cpus_per_task: CPUs per task (default: 4)
         mem: Memory allocation (default: 32G)
+        account: SLURM account (default: m2676)
+        queue: SLURM queue (default: shared)
+        library_path: Library path to set LD_LIBRARY_PATH
+        work_dir: Working directory for the job
+        output_file: Path to save the sbatch script (default: logs/postAna_<date_tag>.sh)
     """
     
     if job_name is None:
         job_name = f"postAna_{date_tag}"
     
+    if output_file is None:
+        output_file = f"logs/postAna_{date_tag}.sh"
+
+        work_dir = '/global/homes/m/mgold/mgold/bacon2Data'
+        os.environ['WORK_DIR'] = work_dir
+        print(f"work dir: {work_dir}")
+        os.chdir(work_dir)
+    
     # Create logs directory
     os.makedirs('logs', exist_ok=True)
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
     
     # Create temporary sbatch script with resource allocation
+    lib_path_line = f"export LD_LIBRARY_PATH={library_path}\n" if library_path else ""
+    work_dir_line = f"cd {work_dir}\n" if work_dir else ""
+    
     script_content = f"""#!/bin/bash
 #SBATCH --job-name={job_name}
 #SBATCH --nodes={nodes}
@@ -113,11 +131,11 @@ def submit_single_job(date_tag, postAna_path='./compiled/postAna', time_limit="0
 #SBATCH --output=logs/{job_name}_%j.out
 #SBATCH --error=logs/{job_name}_%j.err
 
-# Run postAna with single task
+{lib_path_line}{work_dir_line}# Run postAna with single task
 srun -n 1 {postAna_path} {date_tag}
 """
     
-    script_path = '/tmp/postAna_sbatch.sh'
+    script_path = output_file
     with open(script_path, 'w') as f:
         f.write(script_content)
     
@@ -184,14 +202,17 @@ Examples:
     parser.add_argument('--cpus-per-task', type=int, default=4, help='CPUs per task (default: 4)')
     parser.add_argument('--mem', default='32G', help='Memory allocation (default: 32G)')
     parser.add_argument('-A', '--account', default='m2676', help='SLURM account (default: m2676)')
-    parser.add_argument('-q', '--queue', default='shared', help='SLURM queue (default: shared)')
-    
+    parser.add_argument('-q', '--queue', default='shared', help='SLURM queue (default: shared)')  
+    parser.add_argument('--library-path', default='/global/homes/m/mgold/mgold/bacon2Data/:$LD_LIBRARY_PATH',help='Library path to set LD_LIBRARY_PATH')
+    parser.add_argument('--work-dir', default='/global/homes/m/mgold/mgold/bacon2Data', help='Working directory for the job')
+    parser.add_argument('--output-file', help='Path to save the sbatch script (default: logs/postAna_<date_tag>.sh)')
     args = parser.parse_args()
     
     if args.single:
         # Single job mode: srun -n 1 postAna <date_tag>
         return submit_single_job(args.date_tag, args.postAna_path, args.time_limit, args.job_name,
-                                 args.nodes, args.ntasks, args.cpus_per_task, args.mem, args.account, args.queue)
+                                 args.nodes, args.ntasks, args.cpus_per_task, args.mem, args.account, args.queue,
+                                 args.library_path, args.work_dir, args.output_file)
     else:
         # Array job mode (original behavior)
         files = get_matching_files(args.date_tag)
