@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=postAna_mgold
 #SBATCH -N 1
-#SBATCH -q=shared
-#SBATCH -C=cpu
+#SBATCH -q shared
+#SBATCH -C cpu
 #SBATCH --time=01:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
