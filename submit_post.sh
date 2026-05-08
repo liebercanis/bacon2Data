@@ -22,7 +22,7 @@ fi
 
 
 # Load necessary modules (e.g., GCC, OpenMPI)
-module load cpe/23.12
+# module load cpe/23.12
 # module load <other-needed-modules>
 module load PrgEnv-gnu
 
