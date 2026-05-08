@@ -7,6 +7,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
+#SBATCH -q=shared
+#SBATCH  -C=cpu
 #SBATCH --mem=32GB
 #SBATCH --output=logs/postAna_%j.log
 #SBATCH --error=logs/postAna_%j.err
