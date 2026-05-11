@@ -198,10 +198,11 @@ void normalize(int ichan)
     double ebin = sqrt(abs(hist->GetBinContent(ibin)));
     // divide by channel gain and totalPass
     {
-      hSave->SetBinContent(ibin, xbin / double(totalPass) / gain);
-      hSave->SetBinError(ibin, ebin / double(totalPass) / gain);
-      hSave2->SetBinContent(ibin, xbin / double(totalPass) / gain);
-      hSave2->SetBinError(ibin, ebin / double(totalPass) / gain);
+      // already normalized to gain line 653 , so just divide by total pass
+      hSave->SetBinContent(ibin, xbin / double(totalPass));
+      hSave->SetBinError(ibin, ebin / double(totalPass));
+      hSave2->SetBinContent(ibin, xbin / double(totalPass));
+      hSave2->SetBinError(ibin, ebin / double(totalPass));
     }
   }
 }
