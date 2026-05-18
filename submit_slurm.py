@@ -106,7 +106,8 @@ def submit_single_job(date_tag, postAna_path='./compiled/postAna', time_limit="0
     if output_file is None:
         output_file = f"logs/postAna_{date_tag}.sh"
 
-        work_dir = '/global/homes/m/mgold/mgold/bacon2Data'
+       # work_dir = '/global/homes/m/mgold/mgold/bacon2Data'
+        work_dir = '/Users/mgold/bacon2Data'
         os.environ['WORK_DIR'] = work_dir
         print(f"work dir: {work_dir}")
         os.chdir(work_dir)
