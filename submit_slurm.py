@@ -82,100 +82,6 @@ def submit_slurm_job(date_tag, num_files=None, mem="32G", parallel_jobs=8, time_
         return 1
 
 
-def submit_single_job(date_tag, postAna_path='./compiled/postAna', time_limit="01:00:00", job_name=None,
-                      nodes=1, ntasks=1, cpus_per_task=4, mem='32G', account='m2676', queue='shared',
-                      library_path=None, work_dir=None, output_file=None):
-    """Submit a single sbatch job that runs: srun -n 1 postAna <date_tag>
-    
-    Args:
-        date_tag: Date tag for postAna
-        postAna_path: Path to postAna executable
-        time_limit: Time limit in HH:MM:SS format
-        job_name: SLURM job name
-        nodes: Number of nodes (default: 1)
-        ntasks: Number of tasks (default: 1)
-        cpus_per_task: CPUs per task (default: 4)
-        mem: Memory allocation (default: 32G)
-        account: SLURM account (default: m2676)
-        queue: SLURM queue (default: shared)
-        library_path: Library path to set LD_LIBRARY_PATH
-        work_dir: Working directory for the job
-        output_file: Path to save the sbatch script (default: logs/postAna_<date_tag>.sh)
-    """
-    
-    if job_name is None:
-        job_name = f"postAna_{date_tag}"
-    
-    if output_file is None:
-        output_file = f"logs/postAna_{date_tag}.sh"
-
-       # work_dir = '/global/homes/m/mgold/mgold/bacon2Data'
-        work_dir = '/Users/mgold/bacon2Data'
-        os.environ['WORK_DIR'] = work_dir
-        print(f"work dir: {work_dir}")
-        os.chdir(work_dir)
-    
-    # Create logs directory
-    os.makedirs('logs', exist_ok=True)
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
-    
-    # Create temporary sbatch script with resource allocation
-    lib_path_line = f"export LD_LIBRARY_PATH={library_path}\n" if library_path else ""
-    work_dir_line = f"cd {work_dir}\n" if work_dir else ""
-    
-    script_content = f"""#!/bin/bash
-#SBATCH --job-name={job_name}
-#SBATCH --nodes={nodes}
-#SBATCH --ntasks={ntasks}
-#SBATCH --cpus-per-task={cpus_per_task}
-#SBATCH --mem={mem}
-#SBATCH --time={time_limit}
-#SBATCH -q {queue}
-#SBATCH -A {account}
-#SBATCH --output=logs/{job_name}_%j.out
-#SBATCH --error=logs/{job_name}_%j.err
-
-{lib_path_line}{work_dir_line}# Run postAna with single task
-srun -n 1 {postAna_path} {date_tag}
-"""
-    
-    script_path = output_file
-    with open(script_path, 'w') as f:
-        f.write(script_content)
-    
-    os.chmod(script_path, 0o755)
-    
-    sbatch_cmd = [
-        'sbatch',
-        f'--nodes={nodes}',
-        f'--ntasks={ntasks}',
-        f'--cpus-per-task={cpus_per_task}',
-        f'--mem={mem}',
-        '-A', account,
-        '-q', queue,
-        '-C', 'cpu',
-        script_path
-    ]
-    print(f"Submitting single job: {' '.join(sbatch_cmd)}")
-    
-    print(f"Submitting: srun -n 1 {postAna_path} {date_tag}")
-    print(f"Resources: nodes={nodes}, ntasks={ntasks}, cpus-per-task={cpus_per_task}, mem={mem}")
-    print(f"Time limit: {time_limit}")
-    print(f"Job name: {job_name}")
-    
-    try:
-        result = subprocess.run(sbatch_cmd, check=True, capture_output=True, text=True)
-        print(result.stdout)
-        print(f"✓ Job submitted successfully")
-        return 0
-    except subprocess.CalledProcessError as e:
-        print(f"Error submitting job: {e.stderr}", file=sys.stderr)
-        return 1
-    finally:
-        print(f"bash script: {script_path}")
-        # Clean up temporary script
-        #f os.path.exists(script_path):
-            #os.remove(script_path)
 
 
 def main():
@@ -212,20 +118,14 @@ Examples:
     parser.add_argument('--output-file', help='Path to save the sbatch script (default: logs/postAna_<date_tag>.sh)')
     args = parser.parse_args()
     
-    if args.single:
-        # Single job mode: srun -n 1 postAna <date_tag>
-        return submit_single_job(args.date_tag, args.postAna_path, args.time_limit, args.job_name,
-                                 args.nodes, args.ntasks, args.cpus_per_task, args.mem, args.account, args.queue,
-                                 args.library_path, args.work_dir, args.output_file)
-    else:
-        # Array job mode (original behavior)
-        files = get_matching_files(args.date_tag)
-        n = len(files)
-        ntot = n
+    # Array job mode (original behavior)
+    files = get_matching_files(args.date_tag)
+    n = len(files)
+    ntot = n
 
          #print(" files %i ", len(p), " files %i ", len(files))
-        if (len(sys.argv) > 2):
-            n = int(args.max_files)
+    if (len(sys.argv) > 2):
+        n = int(args.max_files)
 
         print(" number of files to run  %i of %i  " % (n, ntot))
         
