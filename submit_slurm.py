@@ -100,7 +100,7 @@ Examples:
     parser.add_argument('date_tag', help='Date tag to search for in filenames')
     parser.add_argument('max_files', nargs='?', type=int, help='Maximum number of files to process')
     parser.add_argument('--parallel', type=int, default=8, help='Number of parallel jobs (default: 8)')
-    parser.add_argument('--time', dest='time_limit', default='01:00:00', 
+    parser.add_argument('--time', dest='time_limit', default='03:00:00', 
                        help='Time limit in HH:MM:SS format (default: 03:00:00)')
     parser.add_argument('--single', action='store_true', 
                        help='Submit a single job (srun -n 1 postAna <date_tag>) instead of array job')
@@ -135,9 +135,8 @@ Examples:
         
         
     print(args)
-    return
 
-#    return submit_slurm_job(args.date_tag, args.max_files, args.mem, args.parallel, args.time_limit, args.account, args.queue)
+    return submit_slurm_job(args.date_tag, args.max_files, args.mem, args.parallel, args.time_limit, args.account, args.queue)
 
 
 if __name__ == '__main__':
