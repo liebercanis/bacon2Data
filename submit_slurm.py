@@ -25,7 +25,7 @@ def get_matching_files(date_tag, rootdata_dir='rootData'):
     return sorted(files)
 
 
-def submit_slurm_job(date_tag, num_files=None, parallel_jobs=8, time_limit="01:00:00", account="m2676", queue="shared"):
+def submit_slurm_job(date_tag, num_files=None, mem="32G", parallel_jobs=8, time_limit="01:00:00", account="m2676", queue="shared"):
     """Submit SLURM job array"""
    
     rootData = os.getenv("ROOTDATA")
