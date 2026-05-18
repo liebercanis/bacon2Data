@@ -124,8 +124,8 @@ Examples:
     ntot = n
 
     print(" number of files " + str(len(files)))
-    #if (len(sys.argv) > 2):
-    #    n = int(args.max_files)
+    if (len(sys.argv) > 2):
+        n = int(args.max_files)
 
     print(" number of files to run  %i of %i  " % (n, ntot))
         
@@ -135,7 +135,9 @@ Examples:
         
         
     print(args)
-    return submit_slurm_job(args.date_tag, args.max_files, args.mem, args.parallel, args.time_limit, args.account, args.queue)
+    return
+
+#    return submit_slurm_job(args.date_tag, args.max_files, args.mem, args.parallel, args.time_limit, args.account, args.queue)
 
 
 if __name__ == '__main__':
