@@ -61,11 +61,11 @@ def submit_slurm_job(args):
         f'--array=0-{num_tasks-1}%{args.parallel}',
         f'--mem={args.mem}',
         f'--time={args.time_limit}',
+        f'--date-tag={args.date_tag}',
         f'-A {args.account}',
         f'-q {args.queue}',
         f'-C', 'cpu',
         script_path,
-        date_tag
     ]
     
     print('sbatch_cmd = ',sbatch_cmd) 
