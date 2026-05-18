@@ -65,7 +65,7 @@ def submit_slurm_job(args):
         f'-A {args.account}',
         f'-q {args.queue}',
         f'-C', 'cpu',
-        script_path,
+        script_path
     ]
     
     print('sbatch_cmd = ',sbatch_cmd) 
