@@ -58,16 +58,13 @@ def submit_slurm_job(date_tag, num_files=None, parallel_jobs=8, time_limit="01:0
     sbatch_cmd = [
         'sbatch',
         f'--array=0-{num_tasks-1}%{parallel_jobs}',
-        f'--nodes={nodes}',
         f'--ntasks={ntasks}',
         f'--cpus-per-task={cpus_per_task}',
         f'--mem={mem}',
-        '-A', account,
-        '-q', queue,
-        '-C', 'cpu',
         f'--time={time_limit}',
         f'-A {account}',
         f'-q {queue}',
+        f'-C', 'cpu',
         script_path,
         date_tag
     ]
