@@ -61,7 +61,6 @@ def submit_slurm_job(date_tag, num_files=None, parallel_jobs=8, time_limit="01:0
         f'--array=0-{num_tasks-1}%{parallel_jobs}',
         f'--nodes=1',
         f'--ntasks=1',
-        f'--cpus-per-task=4',
         f'--mem={mem}',
         f'--time={time_limit}',
         f'-A {account}',
