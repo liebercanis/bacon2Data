@@ -31,7 +31,7 @@ def submit_slurm_job(args):
     rootData = os.getenv("ROOTDATA")
     files = get_matching_files(args.date_tag,rootData)
 
-    for(i, f) in enumerate(files):
+    for i, f in enumerate(files):
         print(f" file {i}  file {f} ")
     
     if not files:
@@ -61,11 +61,11 @@ def submit_slurm_job(args):
         f'--array=0-{num_tasks-1}%{args.parallel}',
         f'--mem={args.mem}',
         f'--time={args.time_limit}',
-        f'--date_tag={args.date_tag}',
-        f'-A {args.account}',
-        f'-q {args.queue}',
-        f'-C', 'cpu',
-        script_path
+        '-A', args.account,
+        '-q', args.queue,
+        '-C', 'cpu',
+        script_path,
+        args.date_tag
     ]
     
     print('sbatch_cmd = ',sbatch_cmd) 
@@ -88,12 +88,9 @@ def main():
     parser = argparse.ArgumentParser(
         description='Submit analysis jobs to SLURM cluster',
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
+        epilog="""Examples:
   python3 submit_slurm.py 09_10_2024                    # Array job mode
   python3 submit_slurm.py 09_10_2024 10 --parallel=4   # Array job with max 10 files
-  python3 submit_slurm.py 04_16_2026 --single           # Single job: srun -n 1 postAna 04_16_2026
-  python3 submit_slurm.py 04_16_2026 --single --time=02:00:00 --cpus-per-task=8 --mem=16G
         """
     )
     
@@ -102,8 +99,6 @@ Examples:
     parser.add_argument('--parallel', type=int, default=8, help='Number of parallel jobs (default: 8)')
     parser.add_argument('--time', dest='time_limit', default='03:00:00', 
                        help='Time limit in HH:MM:SS format (default: 03:00:00)')
-    parser.add_argument('--single', action='store_true', 
-                       help='Submit a single job (srun -n 1 postAna <date_tag>) instead of array job')
     parser.add_argument('--postAna-path', default='./compiled/postAna',
                        help='Path to postAna executable (default: ./compiled/postAna)')
     parser.add_argument('--job-name', help='Custom SLURM job name')
