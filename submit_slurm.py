@@ -29,22 +29,22 @@ def submit_slurm_job(args):
     """Submit SLURM job array"""
    
     rootData = os.getenv("ROOTDATA")
-    files = get_matching_files(date_tag,rootData)
+    files = get_matching_files(args.date_tag,rootData)
 
     for(i, f) in enumerate(files):
         print(f" file {i}  file {f} ")
     
     if not files:
-        print(f"Error: No files found matching tag '{date_tag}'", file=sys.stderr)
+        print(f"Error: No files found matching tag '{args.date_tag}'", file=sys.stderr)
         return 1
     
     # Limit number of files if specified
-    if num_files is not None:
-        files = files[:num_files]
+    if args.max_files is not None:
+        files = files[:args.max_files]
     
     num_tasks = len(files)
-    print(f"Found {num_tasks} files matching '{date_tag}'")
-    print(f"Submitting {num_tasks} tasks with max {parallel_jobs} parallel jobs")
+    print(f"Found {num_tasks} files matching '{args.date_tag}'")
+    print(f"Submitting {num_tasks} tasks with max {args.parallel_jobs} parallel jobs")
     
     # Create logs directory
     os.makedirs('logs', exist_ok=True)
@@ -57,12 +57,12 @@ def submit_slurm_job(args):
 
     sbatch_cmd = [
         'sbatch',
-        f'--job-name=postAna_{date_tag}',
-        f'--array=0-{num_tasks-1}%{parallel_jobs}',
-        f'--mem={mem}',
-        f'--time={time_limit}',
-        f'-A {account}',
-        f'-q {queue}',
+        f'--job-name=postAna_{args.date_tag}',
+        f'--array=0-{num_tasks-1}%{args.parallel_jobs}',
+        f'--mem={args.mem}',
+        f'--time={args.time_limit}',
+        f'-A {args.account}',
+        f'-q {args.queue}',
         f'-C', 'cpu',
         script_path,
         date_tag
