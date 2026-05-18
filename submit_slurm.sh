@@ -4,8 +4,6 @@
 #SBATCH -q shared
 #SBATCH -C cpu
 #SBATCH --time=03:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=32GB
 #SBATCH --output=logs/anaDir_%j.log
