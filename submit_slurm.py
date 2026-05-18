@@ -130,11 +130,11 @@ Examples:
     print(" number of files to run  %i of %i  " % (n, ntot))
         
 
-    for i in range(0, n):
-        print(" file ", i, " file ", files[i]) 
+    #for i in range(0, n):
+    #    print(" file ", i, " file ", files[i]) 
         
         
-    print(args)
+    print('args= ',args)
 
     return submit_slurm_job(args)
 
