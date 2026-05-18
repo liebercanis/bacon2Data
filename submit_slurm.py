@@ -44,7 +44,7 @@ def submit_slurm_job(args):
     
     num_tasks = len(files)
     print(f"Found {num_tasks} files matching '{args.date_tag}'")
-    print(f"Submitting {num_tasks} tasks with max {args.parallel_jobs} parallel jobs")
+    print(f"Submitting {num_tasks} tasks with max {args.parallel} parallel jobs")
     
     # Create logs directory
     os.makedirs('logs', exist_ok=True)
