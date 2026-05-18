@@ -58,7 +58,7 @@ def submit_slurm_job(args):
     sbatch_cmd = [
         'sbatch',
         f'--job-name=postAna_{args.date_tag}',
-        f'--array=0-{num_tasks-1}%{args.parallel_jobs}',
+        f'--array=0-{num_tasks-1}%{args.parallel}',
         f'--mem={args.mem}',
         f'--time={args.time_limit}',
         f'-A {args.account}',
