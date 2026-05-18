@@ -119,6 +119,7 @@ Examples:
     args = parser.parse_args()
     
     # Array job mode (original behavior)
+    print(args)
     files = get_matching_files(args.date_tag)
     n = len(files)
     ntot = n
@@ -130,8 +131,8 @@ Examples:
     print(" number of files to run  %i of %i  " % (n, ntot))
         
 
-        #for i in range(0, n):
-        #    print(" file ", i, " file ", files[i]) 
+    for i in range(0, n):
+        print(" file ", i, " file ", files[i]) 
         
         
     return submit_slurm_job(args.date_tag, args.max_files, args.mem, args.parallel, args.time_limit, args.account, args.queue)
