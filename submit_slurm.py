@@ -236,7 +236,7 @@ Examples:
         #    print(" file ", i, " file ", files[i]) 
         
         
-        return submit_slurm_job(args.date_tag, args.max_files, args.parallel, args.time_limit, args.account, args.queue)
+        return submit_slurm_job(args.date_tag, args.max_files, args.mem, args.parallel, args.time_limit, args.account, args.queue)
 
 
 if __name__ == '__main__':
