@@ -123,7 +123,7 @@ Examples:
     n = len(files)
     ntot = n
 
-    print(" files %i " files %i ", len(files))
+    print(" number of files " + str(len(files)))
     #if (len(sys.argv) > 2):
     #    n = int(args.max_files)
 
