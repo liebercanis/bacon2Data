@@ -59,8 +59,6 @@ def submit_slurm_job(date_tag, num_files=None, mem="32G", parallel_jobs=8, time_
         'sbatch',
         f'--job-name=postAna_{date_tag}',
         f'--array=0-{num_tasks-1}%{parallel_jobs}',
-        f'--nodes=1',
-        f'--ntasks=1',
         f'--mem={mem}',
         f'--time={time_limit}',
         f'-A {account}',
