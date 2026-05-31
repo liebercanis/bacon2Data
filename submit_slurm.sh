@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=postAna_mgold
+#SBATCH --job-name=anacg_mgold
 #SBATCH -N 1
 #SBATCH -q shared
 #SBATCH -C cpu
