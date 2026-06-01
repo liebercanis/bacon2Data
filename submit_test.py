@@ -1,4 +1,5 @@
-
+import os
+import sys
 
 
 def get_matching_files(date_tag, rootdata_dir='rootData'):
@@ -14,14 +15,37 @@ def get_matching_files(date_tag, rootdata_dir='rootData'):
     
     return sorted(files)
 
-def main():
-    parser = argparse.ArgumentParser(
-        description='Submit analysis jobs to SLURM cluster',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python3 submit_slurm.py 09_10_2024
-  python3 submit_slurm.py 09_10_2024 10 --parallel=4
-  python3 submit_slurm.py 09_10_2024 --time=02:00:00
-        """
-    )
+
+def main(args):
+
+    print(sys.argv)
+    if (len(sys.argv) < 2):
+        print("usage: anaDir <date tag> <optional number of files> ")
+        return;
+        
+    myEnv = os.environ.copy()
+    #print(myEnv)
+    tag =sys.argv[1] 
+     
+    theDir = 'rootData/'
+    print("dir =  ",theDir, " file date  ", tag)
+
+    files = get_matching_files(tag)
+    n = len(files)
+    ntot = n
+
+     #print(" files %i ", len(p), " files %i ", len(files))
+    if (len(sys.argv) > 2):
+        n = int(sys.argv[2])
+
+
+
+    print(" number of files to run  %i of %i  " % (n, ntot))
+    for i in range(0, n):
+        print(" file ", i, " file ", files[i]) 
+    
+
+    
+if __name__ == '__main__':
+    main(sys.argv[1:])
+
