@@ -828,6 +828,8 @@ void post(TString tag)
     hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 2000, 0, qsumLimit));
   }
 
+  printf("MESSAGE line 835 starting loop \n");
+  fout->ls();
   /*
    *  loop over events
    */
@@ -1040,7 +1042,10 @@ int main(int argc, char *argv[])
   }
 
   if (!fout)
+  {
     fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "update");
+    gainDir = fout->mkdir("gainDir");
+  }
 
   cout << "MESSAGE line 1030 starting summary for   " << fileListName.size() << " on " << sdate << " writing to file " << fout->GetName() << endl;
   /* here we make the TCHain and them loop over it */
