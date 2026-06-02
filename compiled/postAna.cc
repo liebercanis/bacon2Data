@@ -15,6 +15,7 @@
 #include <valarray>
 #include <numeric>
 #include <algorithm> // std::sort
+#include <ctime>     // for time() and ctime()
 // root/chan
 #include <TROOT.h>
 #include <TKey.h>
@@ -297,7 +298,6 @@ int passEventCuts(Long64_t entry)
   /* look at second peak triangle*/
   if (triggerSumUn > 50.)
     hTriangleSecondUn->Fill(xternQun, yternQun);
-
   if (triggerSum > 50.)
     hTriangleSecond->Fill(xternQ, yternQ);
 
@@ -887,8 +887,11 @@ int main(int argc, char *argv[])
 {
 
   fout = nullptr;
-  cout << "executing " << argv[0] << " post hit finding analysis  " << endl;
+  time_t now = time(0);
+  cout << "MESSAGE line 1070 executing " << argv[0] << " post hit finding analysis " << "Date and time: " << ctime(&now) << endl;
+
   printf(" usage:  start date string <stag> end date string <etag> max entries <default all> \n ");
+
   if (argc < 2)
   {
     printf("require file date start string <stag> args.\n  exit \n");
