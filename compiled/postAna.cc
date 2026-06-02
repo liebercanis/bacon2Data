@@ -472,7 +472,7 @@ unsigned long countFiles()
   totalEntries = 0;
   TString dirName = TString("caenData");
   TString dirNameSlash = TString("caenData/");
-  cout << " count files in dir " << dirName << endl;
+  cout << " MESSAGE line 475 count files in dir " << dirName << endl;
   TSystemDirectory dir(dirName, dirName); // TSystemDirectory
   TList *files = dir.GetListOfFiles();
   // print list
