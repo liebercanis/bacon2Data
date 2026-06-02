@@ -756,7 +756,7 @@ void post(TString tag)
       scaleSum[i] = readGains->getNominalSum(i) / readGains->sipmSumGain[i];
     }
   }
-
+  fout->cd();
   // trigger info ntuple
   // ntTrig->Fill( pmtLateSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
   ntHitCount = new TNtuple("ntHitCount", "hit count", "file:nev:chan:early:late");
