@@ -267,7 +267,7 @@ int passEventCuts(Long64_t entry)
     triggerSumUn += detList[i]->totSum;
   }
 
-  // printf("postAna .... %lld totSum %f\n,", entry, detList[9]->totSum);
+  // printf("postAna .... %lld totSum9 %f triggerSum %f\n,", entry, detList[9]->totSum, triggerSum);
 
   /* set trigfail if triggerSum>230 */
   if (triggerSum > 230)
@@ -399,7 +399,7 @@ bool getPointers(TFile *f)
   {
     totalEntries += RunTree->GetEntries();
     maxEntry = totalEntries;
-    printf("\t\t file %s has %lld RunTree entries total %lld \n", f->GetName(), RunTree->GetEntries(), totalEntries);
+    printf("\t\t MESSAGE file %s has %lld RunTree entries total %lld \n", f->GetName(), RunTree->GetEntries(), totalEntries);
   }
   // if (isGoodFile)
   //   printf("good 1 \n");
@@ -567,6 +567,8 @@ void loop()
       fflush(stdout);
     }
     int passBit = passEventCuts(entry);
+    // set to pass for debugging
+    passBit = 0;
     hEventPassNew->SetBinContent(passBit, hEventPassNew->GetBinContent(passBit) + 1);
     if (passBit != 0 && !isLedRun)
       continue;
@@ -672,9 +674,16 @@ void loop()
     } // branch
 
     hGammaPeakHit->Fill(eventTriggerHitQsum);
+    // triangle variables
+    double qFraction[3];
+    qFraction[0] = qsumSum[9];
+    qFraction[1] = qsumSum[10];
+    qFraction[2] = qsumSum[11];
+    double xternQ, yternQ;
+    makeTernary(qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
 
     // ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:peak");
-    ntGamma->Fill(double(entry), photonSum[9], qsumSum[9], photonSum[10], qsumSum[10], photonSum[11], qsumSum[11], eventTriggerHitQsum, triggerSum);
+    ntGamma->Fill(double(entry), photonSum[9], qsumSum[9], photonSum[10], qsumSum[10], photonSum[11], qsumSum[11], photonSum[12], qsumSum[12], eventTriggerHitQsum, triggerSum, xternQ, yternQ);
 
   } // entry
 }
@@ -698,10 +707,10 @@ void post(TString tag)
 
   if (!RunTree)
     return;
-  printf("files in chain:\n");
+  printf("MESSAGE line 710 files in chain:\n");
   RunTree->GetListOfFiles()->Print();
   Long64_t ntriggers = RunTree->GetEntries();
-  printf(" in post: tag %s total triggers in this chain %lld \n", tag.Data(), ntriggers);
+  printf("MESSAGE line 715  in post: tag %s total triggers in this chain %lld \n", tag.Data(), ntriggers);
   // RunTree->GetListOfBranches()->ls();
 
   // geometric eff
@@ -719,7 +728,7 @@ void post(TString tag)
     aveGain += readGains->sipmSumGain[i];
   }
   aveGain /= double(9);
-  printf("average gain %f \n", aveGain);
+  printf("MESSAGE line 745 average gain %f \n", aveGain);
 
   /* get scale factor */
   // scale factor to new gain
@@ -735,13 +744,13 @@ void post(TString tag)
       scaleSum[i] = readGains->getNominalSum(i) / readGains->sipmSumGain[i];
     }
   }
-  fout->cd();
+
   // trigger info ntuple
   // ntTrig->Fill( pmtLateSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
   ntHitCount = new TNtuple("ntHitCount", "hit count", "file:nev:chan:early:late");
   ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
   ntLateInt = new TNtuple("ntLateInt", "late integral", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
-  ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:eventSum:sum");
+  ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:ph12:qsum12:hitSum:ADCSum:xternQ:yternQ");
 
   ntLateSum = new TNtuple("ntLateSum", "late sum info", "event:chan:geo:lateSum");
   ntPreSum = new TNtuple("ntPreSum", "pre sum info", "event:chan:geo:preSum");
@@ -815,14 +824,14 @@ void post(TString tag)
   loop();
 
   // store from last file
-  printf("Filling file %s number %d nev %i \n", currentFileName.Data(), currentFileNumber, hitCountNev);
+  printf("MESSAGE line 870 Filling file %s number %d nev %i \n", currentFileName.Data(), currentFileNumber, hitCountNev);
   for (int ichan = 0; ichan < earlyHitCountFile.size(); ++ichan)
   {
     ntHitCount->Fill(currentFileNumber, hitCountNev, ichan, earlyHitCountFile[ichan], lateHitCountFile[ichan]);
   }
 
   // Print ntHitCount entries
-  printf("\n=== ntHitCount entries %lli ===\n", ntHitCount->GetEntries());
+  printf("\n MESSAGE line 885=== ntHitCount entries %lli ===\n", ntHitCount->GetEntries());
   printf("File    Chan    Early   Late\n");
   printf("----    ----    -----   ----\n");
   // ntHitCount->Scan("file:chan:early:late", "", "");
@@ -840,12 +849,12 @@ void post(TString tag)
   for (int i = 0; i < ntHitCount->GetEntries(); i++)
   {
     ntHitCount->GetEntry(i);
-    printf("file %.0f  events  %.0f chan   %.0f  early  %.0f  late  %.0f \n", fnfile, fnev, fchan, fearly, flate);
+    printf("MESSAGE line 905 file %.0f  events  %.0f chan   %.0f  early  %.0f  late  %.0f \n", fnfile, fnev, fchan, fearly, flate);
   }
 
-  printf("total %llu pass %llu \n", maxEntry, totalPass);
+  printf("MESSAGE line 920 total %llu pass %llu \n", maxEntry, totalPass);
   // hEventPassNew->Print("all");
-  printf("pass fractions total = %.0f  \n", hEventPassNew->GetEntries());
+  printf("MESSAGE line 925 pass fractions total = %.0f  \n", hEventPassNew->GetEntries());
   for (int ibin = 0; ibin < hEventPassNew->GetNbinsX(); ++ibin)
   { // inc/lude error on poisson probability
     double nbin = hEventPassNew->GetBinContent(ibin);
@@ -853,7 +862,7 @@ void post(TString tag)
     double prob = nbin / ntot;
     double perror = sqrt(prob * (1. - prob) / ntot);
     if (nbin > 0)
-      printf(" bin %i fail %.f frac %.3f +/- %.3f name %s \n", ibin, hEventPassNew->GetBinContent(ibin), prob, perror, codeNames[ibin].Data());
+      printf("MESSAGE line 935 bin %i fail %.f frac %.3f +/- %.3f name %s \n", ibin, hEventPassNew->GetBinContent(ibin), prob, perror, codeNames[ibin].Data());
   }
 
   // do not normilzed summed chan 13
@@ -862,7 +871,7 @@ void post(TString tag)
 
   hPassBitNew->Print("all");
   // loop over fail bits
-  printf("summary of bit failures %llu pass %llu \n", maxEntry, totalPass);
+  printf("MESSAGE line 950 summary of bit failures %llu pass %llu \n", maxEntry, totalPass);
   for (int ic = 0; ic < FAILBITS; ++ic)
   {
     double prob = hPassBitNew->GetBinContent(ic) / double(maxEntry);
@@ -919,7 +928,7 @@ int main(int argc, char *argv[])
     }
   }
 
-  printf("failure codes: \n");
+  printf("MESSAGE line 960 failure codes: \n");
   for (int icode = 0; icode < 8; ++icode)
     printf("bit %i hex value %i name %s \n", icode, failCode[icode], bitNames[icode].Data());
 
@@ -937,7 +946,7 @@ int main(int argc, char *argv[])
   printf("\n");
   if (isLedRun)
   {
-    printf("\n\n*************** THIS IS LED RUN ***************\n\n");
+    printf("\n\nMESSAGE line 975 *************** THIS IS LED RUN ***************\n\n");
   }
 
   theEndTag = TString(argv[1]);
@@ -953,13 +962,13 @@ int main(int argc, char *argv[])
 
   /* count files between dates */
   unsigned nfiles = countFiles();
-  printf("count files from %s to %s total files  %ld \n", theStartTag.Data(), theEndTag.Data(), fileListName.size());
+  printf("MESSAGE line 985 count files from %s to %s total files  %ld \n", theStartTag.Data(), theEndTag.Data(), fileListName.size());
   if (theStartTag.Contains("btbSim"))
     isSimulation = true;
   if (nfiles == 0)
   {
     printf(" >>>> datatype no files found <<<<\n");
-    exit(0);
+    exit(-1);
   }
   if (isSimulation)
     printf("****** this is simulation data **** \n");
@@ -980,7 +989,7 @@ int main(int argc, char *argv[])
     maxEntry = atoi(argv[3]);
   }
 
-  printf(" >>>>> analyze %u  files from %s to %s tag %s totalEntries %lld maxEntry %lld <<<<<\n", nfiles, theStartTag.Data(), theEndTag.Data(), tag.Data(), totalEntries, maxEntry);
+  printf("MESSAGE line 1000 >>>>>> analyze %u  files from %s to %s tag %s totalEntries %lld maxEntry %lld <<<<<\n", nfiles, theStartTag.Data(), theEndTag.Data(), tag.Data(), totalEntries, maxEntry);
 
   sdate = currentDate();
   tag = theStartTag + TString("-") + theEndTag;
@@ -1018,13 +1027,13 @@ int main(int argc, char *argv[])
   if (!fout)
     fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "update");
 
-  cout << " starting summary for   " << fileListName.size() << " on " << sdate << " writing to file " << fout->GetName() << endl;
+  cout << "MESSAGE line 1030 starting summary for   " << fileListName.size() << " on " << sdate << " writing to file " << fout->GetName() << endl;
   /* here we make the TCHain and them loop over it */
 
   post(tag);
-  printf("write file at end of job \n");
+  printf("MESSAGE line 1050 write file at end of job \n");
   fout->Write();
   fout->Close();
   delete RunTree;
-  printf("end of job \n");
+  printf("MESSAGE line 1060 end of job \n");
 }
