@@ -586,319 +586,321 @@ void loop()
       fflush(stdout);
 
       // Extract file number from filename string (e.g., "84" from "anaCRun-run-05_14_2026-file_84.root-0.root")
-      size_t pos = currentFileName.find("file_");
+      string stringFileName = string(currentFileName.Data());
+      size_t pos = stringFileName.find("file_");
+      int fileNum = -1; // Default value if file number is not found
       if (pos != string::npos)
       {
-        size_t endPos = currentFileName.find_first_not_of("0123456789", pos + 5);
-        string fileNumStr = currentFileName.substr(pos + 5, endPos - (pos + 5));
-        int fileNum = stoi(fileNumStr);
+        size_t endPos = stringFileName.find_first_not_of("0123456789", pos + 5);
+        string fileNumStr = stringFileName.substr(pos + 5, endPos - (pos + 5));
+        fileNum = stoi(fileNumStr);
         cout << "MESSAGE line 595: Extracted file number: " << fileNum << endl;
-
-        if (currentFileNumber > 1)
-        {
-          printf("Filling file %d nev %i \n", currentFileNumber, hitCountNev);
-          fflush(stdout);
-          for (int ichan = 0; ichan < earlyHitCountFile.size(); ++ichan)
-          {
-            ntHitCount->Fill(fileNum, hitCountNev, ichan, earlyHitCountFile[ichan], lateHitCountFile[ichan]);
-          }
-          earlyHitCountFile.resize(12);
-          lateHitCountFile.resize(12);
-          hitCountNev = 0;
-        }
       }
 
-      // RunTree->GetListOfBranches()->ls();
-      //   get branch pointers and save in detList
-      TIter next(RunTree->GetListOfBranches());
-      TBranchElement *aBranch = NULL;
-      // loop over branches
-
-      double eventTriggerHitQsum = 0;
-      double photonSum[CHANNELS];
-      double qsumSum[CHANNELS];
-      double qsumLate[CHANNELS];
-
-      for (int ich = 0; ich < CHANNELS; ++ich)
+      if (currentFileNumber > 1)
       {
-        photonSum[ich] = 0;
-        qsumSum[ich] = 0;
-        qsumLate[ich] = 0;
-      }
-      while ((aBranch = (TBranchElement *)next()))
-      {
-        // skip eventData branch
-        if (TString(aBranch->GetName()) == TString("eventData"))
-        { // skip this branch
-          continue;
-        }
-        int idet = TString(TString(aBranch->GetName())(4, 2)).Atoi();
-        bool trig = false; // define trigger sipms
-        if (idet == 9 || idet == 10 || idet == 11)
-          trig = true;
-
-        /* the branch is class TDet so cast it as such */
-        TDet *det = (TDet *)aBranch->GetObject();
-        // want to subtract off noise hits from preSum lateSum 3000-5500 ULong_t triggerStart = 730;
-        // double scale = readGains->nominalQsumGain / aveGain;
-        qsumLate[idet] = det->lateSum * scaleSum[idet]; // nominal gain applied in pulse finding step
-        // printf("det %i hits %lu \n", idet, det->hits.size());
-        //  check if passes eventCuts
-
-        hLateSumChan[idet]->Fill(det->lateSum * scaleSum[idet]);
-        ntPreSum->Fill(double(entry), double(idet), effGeoFunc(idet), det->preSum);
-        ntLateSum->Fill(double(entry), double(idet), effGeoFunc(idet), det->lateSum);
-        // loop over hits
-        for (unsigned ihit = 0; ihit < det->hits.size(); ++ihit)
+        printf("Filling file %d nev %i \n", currentFileNumber, hitCountNev);
+        fflush(stdout);
+        for (int ichan = 0; ichan < earlyHitCountFile.size(); ++ichan)
         {
-          TDetHit thit = det->hits[ihit];
-          // count early and late hits
-          if (idet < 13) // include PMT
-          {
-            if (thit.firstBin < 600)
-              earlyHitCountFile[idet] = earlyHitCountFile[idet] + 1;
-            if (thit.firstBin >= 7500 - 600)
-              lateHitCountFile[idet] = lateHitCountFile[idet] + 1;
-          }
-          // fill light curve
-          hLightCurve[idet]
-              ->SetBinContent(thit.firstBin + 1, hLightCurve[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak / readGains->sipmPeakGain[idet]);
-          /* fill gain histograms */
-          photonSum[idet] += thit.qpeak / readGains->sipmPeakGain[idet];
-          qsumSum[idet] += thit.qsum / readGains->sipmSumGain[idet];
-          if (trig)
-          {
-            eventTriggerHitQsum += thit.qsum / readGains->sipmSumGain[idet];
-          }
-          // for ledData only look after 6000
-          if (isLedRun && thit.firstBin < 6000)
-            continue;
-          hQPeak[idet]->Fill(thit.qpeak);
-          hQSum[idet]->Fill(thit.qsum);
-          // want to subtract off noise hits from preSum
-          // if (idet > 8 && idet < 12)
-          //  printf("... idet %i scale %f qsum %f eventTriggerHitQsum %f \n", idet, scale[idet], thit.qsum, eventTriggerHitQsum);
-        } // end branch loop
-        ntLateInt->Fill(double(entry), double(idet), qsumLate[0], qsumLate[1], qsumLate[2], qsumLate[3], qsumLate[4], qsumLate[5], qsumLate[6], qsumLate[7], qsumLate[8], qsumLate[9], qsumLate[10], qsumLate[11]);
-      } // branch
-
-      hGammaPeakHit->Fill(eventTriggerHitQsum);
-      // triangle variables
-      double qFraction[3];
-      qFraction[0] = qsumSum[9];
-      qFraction[1] = qsumSum[10];
-      qFraction[2] = qsumSum[11];
-      double xternQ, yternQ;
-      makeTernary(qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
-
-      // ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:peak");
-      ntGamma->Fill(double(entry), photonSum[9], qsumSum[9], photonSum[10], qsumSum[10], photonSum[11], qsumSum[11], photonSum[12], qsumSum[12], eventTriggerHitQsum, triggerSum, xternQ, yternQ);
-
-    } // entry
-  }
-
-  /* build the TChain and call loop */
-  void post(TString tag)
-  {
-    vecFail.resize(FAILBITS);
-    /*gains-2024-02-01-17-06.root*/
-
-    gStyle->SetOptStat(1001101);
-    /* get RunTree */
-    RunTree = new TChain("RunTree");
-    //** add files  */
-    for (unsigned ifile = 0; ifile < fileListName.size(); ++ifile)
-    {
-      TString fullName = TString("caenData/") + fileListName[ifile];
-      printf("RunTree add file %s \n", fullName.Data());
-      RunTree->Add(fullName);
+          ntHitCount->Fill(fileNum, hitCountNev, ichan, earlyHitCountFile[ichan], lateHitCountFile[ichan]);
+        }
+        earlyHitCountFile.resize(12);
+        lateHitCountFile.resize(12);
+        hitCountNev = 0;
+      }
     }
 
-    if (!RunTree)
-      return;
-    printf("MESSAGE line 710 files in chain:\n");
-    RunTree->GetListOfFiles()->Print();
-    Long64_t ntriggers = RunTree->GetEntries();
-    printf("MESSAGE line 715  in post: tag %s total triggers in this chain %lld \n", tag.Data(), ntriggers);
     // RunTree->GetListOfBranches()->ls();
+    //   get branch pointers and save in detList
+    TIter next(RunTree->GetListOfBranches());
+    TBranchElement *aBranch = NULL;
+    // loop over branches
 
-    // geometric eff
-    bool geoVersionOld = false;
-    setDistanceLevels(geoVersionOld);
-    for (unsigned i = 0; i < 12; ++i)
+    double eventTriggerHitQsum = 0;
+    double photonSum[CHANNELS];
+    double qsumSum[CHANNELS];
+    double qsumLate[CHANNELS];
+
+    for (int ich = 0; ich < CHANNELS; ++ich)
     {
-      printf("chan %i distance %f geo eff %.2E\n", i, distanceLevel[getLevel(i)], effGeoFunc(i));
+      photonSum[ich] = 0;
+      qsumSum[ich] = 0;
+      qsumLate[ich] = 0;
     }
-
-    aveGain = 0;
-    for (int i = 0; i < 9; ++i)
+    while ((aBranch = (TBranchElement *)next()))
     {
-      printf("chan %i gain %f \n", i, readGains->sipmSumGain[i]);
-      aveGain += readGains->sipmSumGain[i];
-    }
-    aveGain /= double(9);
-    printf("MESSAGE line 745 average gain %f \n", aveGain);
-
-    /* get scale factor */
-    // scale factor to new gain
-    scaleSum.resize(readGains->sipmSumGain.size());
-    scalePeak.resize(readGains->sipmSumGain.size());
-    for (unsigned i = 0; i < readGains->sipmSumGain.size(); ++i)
-    {
-      scalePeak[i] = 1.0;
-      scaleSum[i] = 1.0;
-      if (!isSimulation)
-      {
-        scalePeak[i] = readGains->getNominalPeak(i) / readGains->sipmPeakGain[i];
-        scaleSum[i] = readGains->getNominalSum(i) / readGains->sipmSumGain[i];
+      // skip eventData branch
+      if (TString(aBranch->GetName()) == TString("eventData"))
+      { // skip this branch
+        continue;
       }
-    }
+      int idet = TString(TString(aBranch->GetName())(4, 2)).Atoi();
+      bool trig = false; // define trigger sipms
+      if (idet == 9 || idet == 10 || idet == 11)
+        trig = true;
 
-    // trigger info ntuple
-    // ntTrig->Fill( pmtLateSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
-    ntHitCount = new TNtuple("ntHitCount", "hit count", "file:nev:chan:early:late");
-    ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
-    ntLateInt = new TNtuple("ntLateInt", "late integral", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
-    ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:ph12:qsum12:hitSum:ADCSum:xternQ:yternQ");
+      /* the branch is class TDet so cast it as such */
+      TDet *det = (TDet *)aBranch->GetObject();
+      // want to subtract off noise hits from preSum lateSum 3000-5500 ULong_t triggerStart = 730;
+      // double scale = readGains->nominalQsumGain / aveGain;
+      qsumLate[idet] = det->lateSum * scaleSum[idet]; // nominal gain applied in pulse finding step
+      // printf("det %i hits %lu \n", idet, det->hits.size());
+      //  check if passes eventCuts
 
-    ntLateSum = new TNtuple("ntLateSum", "late sum info", "event:chan:geo:lateSum");
-    ntPreSum = new TNtuple("ntPreSum", "pre sum info", "event:chan:geo:preSum");
-    ntLateInt = new TNtuple("ntLateInt", "late integral by channel", "event:chan:int0:int1:int2:int3:int4:int5:int6:int7:int8:int9:int10:int11");
-    // make histograms
-    hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
-    hEventPassNew = new TH1D("EventPassNew", " remade event failures", TOTALCODES, 0, TOTALCODES);
-    hGammaCut = new TH1D("GammaCut", "gamma pmt lateSum/nominal gain ", 4000, 0, 5. * gammaCut);
-    hCosmicCut = new TH1D("CosmicCut", " cosmic qsum13/nominal gain", 4000, 0, 5. * cosmicCut);
-    hTriangleUn = new TH2D("TriangleUn", "ytern vs xtern unscaled", 100, 0., 1., 100, 0., 1.);
-    hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
-    hTriangleSecondUn = new TH2D("TriangleSecondUn", "ytern vs xtern in second gamma peak", 100, 0., 1., 100, 0., 1.);
-    hTriangleSecond = new TH2D("TriangleSecond", "ytern vs xtern in second gamma peak gains", 100, 0., 1., 100, 0., 1.);
-    hTrianglePass = new TH2D("TrianglePass", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
-    hGammaPeak = new TH1D("GammaPeak", "gamma peak (photons)", 150, 0., 300.);
-    hGammaPeak->GetXaxis()->SetTitle("gamma peak (summed ADC)");
-    hGammaPeakPass = new TH1D("GammaPeakPass", "gamma peak  pass triangle (photons)", 150, 0., 300.);
-    hGammaPeakPass->GetXaxis()->SetTitle("gamma peak (summed ADC)");
-    hGammaPeakHit = new TH1D("GammaPeakHit", "gamma peak (photons)", 150, 0., 300.);
-    hGammaPeakHit->GetXaxis()->SetTitle("gamma peak (hit area qsum)");
-    hQsumChannel = new TH1D("QsumChannel", "qsum channel (photons)", 9, 0., 9.);
-    hQsumChannel->GetYaxis()->SetTitle("summed qsum [SPE]");
-    hQsumChannel->GetXaxis()->SetTitle("channel");
-    hQsumChannelEff = new TH1D("QsumChannelEff", "qsum channel (photons)", 9, 0., 9.);
-    hQsumChannelEff->GetYaxis()->SetTitle("summed qsum [geo scaled]");
-    hQsumChannelEff->GetXaxis()->SetTitle("channel");
+      hLateSumChan[idet]->Fill(det->lateSum * scaleSum[idet]);
+      ntPreSum->Fill(double(entry), double(idet), effGeoFunc(idet), det->preSum);
+      ntLateSum->Fill(double(entry), double(idet), effGeoFunc(idet), det->lateSum);
+      // loop over hits
+      for (unsigned ihit = 0; ihit < det->hits.size(); ++ihit)
+      {
+        TDetHit thit = det->hits[ihit];
+        // count early and late hits
+        if (idet < 13) // include PMT
+        {
+          if (thit.firstBin < 600)
+            earlyHitCountFile[idet] = earlyHitCountFile[idet] + 1;
+          if (thit.firstBin >= 7500 - 600)
+            lateHitCountFile[idet] = lateHitCountFile[idet] + 1;
+        }
+        // fill light curve
+        hLightCurve[idet]
+            ->SetBinContent(thit.firstBin + 1, hLightCurve[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak / readGains->sipmPeakGain[idet]);
+        /* fill gain histograms */
+        photonSum[idet] += thit.qpeak / readGains->sipmPeakGain[idet];
+        qsumSum[idet] += thit.qsum / readGains->sipmSumGain[idet];
+        if (trig)
+        {
+          eventTriggerHitQsum += thit.qsum / readGains->sipmSumGain[idet];
+        }
+        // for ledData only look after 6000
+        if (isLedRun && thit.firstBin < 6000)
+          continue;
+        hQPeak[idet]->Fill(thit.qpeak);
+        hQSum[idet]->Fill(thit.qsum);
+        // want to subtract off noise hits from preSum
+        // if (idet > 8 && idet < 12)
+        //  printf("... idet %i scale %f qsum %f eventTriggerHitQsum %f \n", idet, scale[idet], thit.qsum, eventTriggerHitQsum);
+      } // end branch loop
+      ntLateInt->Fill(double(entry), double(idet), qsumLate[0], qsumLate[1], qsumLate[2], qsumLate[3], qsumLate[4], qsumLate[5], qsumLate[6], qsumLate[7], qsumLate[8], qsumLate[9], qsumLate[10], qsumLate[11]);
+    } // branch
 
-    TDirectory *ledDir = fout->mkdir("ledDir");
-    ledDir->cd();
-    for (unsigned i = 0; i < CHANNELS; ++i)
-    {
-      hLateSumChan.push_back(new TH1D(Form("LateSumChan%i", i), Form("LateSumChan%i", i), 600, -10., 50.));
-      hLateSumChan[hLateSumChan.size() - 1]->GetXaxis()->SetTitle("summed late photons [SPE]");
-      hLateSumChan[hLateSumChan.size() - 1]->GetYaxis()->SetTitle("evemts");
-    }
+    hGammaPeakHit->Fill(eventTriggerHitQsum);
+    // triangle variables
+    double qFraction[3];
+    qFraction[0] = qsumSum[9];
+    qFraction[1] = qsumSum[10];
+    qFraction[2] = qsumSum[11];
+    double xternQ, yternQ;
+    makeTernary(qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
 
-    fout->cd();
+    // ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:peak");
+    ntGamma->Fill(double(entry), photonSum[9], qsumSum[9], photonSum[10], qsumSum[10], photonSum[11], qsumSum[11], photonSum[12], qsumSum[12], eventTriggerHitQsum, triggerSum, xternQ, yternQ);
 
-    for (unsigned i = 0; i < CHANNELS; ++i)
-    {
-      // normalized to SPE
-      hLightCurve.push_back(new TH1D(Form("LightCurveChan%i", i), Form("LightCurveChan%i", i), MAXSAMPLES, 0, 2 * MAXSAMPLES));
-      hLightCurve[hLightCurve.size() - 1]->GetXaxis()->SetTitle("time [ns]");
-      hLightCurve[hLightCurve.size() - 1]->GetYaxis()->SetTitle("number of photons/2ns");
+  } // entry
+}
 
-      hLightNorm.push_back(new TH1D(Form("LightNormChan%i", i), Form("LightNormChan%i", i), MAXSAMPLES, 0, 2 * MAXSAMPLES));
-      hLightNorm[hLightNorm.size() - 1]->GetXaxis()->SetTitle("time [ns]");
-      hLightNorm[hLightNorm.size() - 1]->GetYaxis()->SetTitle("normalized number of photons per event /2ns");
+/* build the TChain and call loop */
+void post(TString tag)
+{
+  vecFail.resize(FAILBITS);
+  /*gains-2024-02-01-17-06.root*/
 
-      hLightEff.push_back(new TH1D(Form("LightEffChan%i", i), Form("LightEffChan%i eff corrected ", i), MAXSAMPLES, 0, 2 * MAXSAMPLES));
-      hLightEff[hLightEff.size() - 1]->GetXaxis()->SetTitle("time [ns]");
-      hLightEff[hLightEff.size() - 1]->GetYaxis()->SetTitle("normalized number of photons per event /2ns");
-    }
-    /* make gain hisograms*/
-    fout->cd("gainDir");
-    double qpeakLimit;
-    double qsumLimit;
-    for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
-    {
-      qpeakLimit = 50. * (readGains->sipmPeakGain[ichan]);
-      qsumLimit = 50. * (readGains->sipmSumGain[ichan]);
-      hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 2000, 0, qpeakLimit));
-      hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 2000, 0, qsumLimit));
-    }
-
-    /*
-     *  loop over events
-     */
-    earlyHitCountFile.resize(13);
-    lateHitCountFile.resize(13);
-    loop();
-
-    // store from last file
-    printf("MESSAGE line 870 Filling file %s number %d nev %i \n", currentFileName.Data(), currentFileNumber, hitCountNev);
-    for (int ichan = 0; ichan < earlyHitCountFile.size(); ++ichan)
-    {
-      ntHitCount->Fill(currentFileNumber, hitCountNev, ichan, earlyHitCountFile[ichan], lateHitCountFile[ichan]);
-    }
-
-    // Print ntHitCount entries
-    printf("\n MESSAGE line 885=== ntHitCount entries %lli ===\n", ntHitCount->GetEntries());
-    printf("File    Chan    Early   Late\n");
-    printf("----    ----    -----   ----\n");
-    // ntHitCount->Scan("file:chan:early:late", "", "");
-
-    float fnfile = 0;
-    float fchan = 0;
-    float fearly = 0;
-    float flate = 0;
-    float fnev = 0;
-    ntHitCount->SetBranchAddress("file", &fnfile);
-    ntHitCount->SetBranchAddress("nev", &fnev);
-    ntHitCount->SetBranchAddress("chan", &fchan);
-    ntHitCount->SetBranchAddress("early", &fearly);
-    ntHitCount->SetBranchAddress("late", &flate);
-    for (int i = 0; i < ntHitCount->GetEntries(); i++)
-    {
-      ntHitCount->GetEntry(i);
-      printf("MESSAGE line 905 file %.0f  events  %.0f chan   %.0f  early  %.0f  late  %.0f \n", fnfile, fnev, fchan, fearly, flate);
-    }
-
-    printf("MESSAGE line 920 total %llu pass %llu \n", maxEntry, totalPass);
-    // hEventPassNew->Print("all");
-    printf("MESSAGE line 925 pass fractions total = %.0f  \n", hEventPassNew->GetEntries());
-    for (int ibin = 0; ibin < hEventPassNew->GetNbinsX(); ++ibin)
-    { // inc/lude error on poisson probability
-      double nbin = hEventPassNew->GetBinContent(ibin);
-      double ntot = hEventPassNew->GetEntries();
-      double prob = nbin / ntot;
-      double perror = sqrt(prob * (1. - prob) / ntot);
-      if (nbin > 0)
-        printf("MESSAGE line 935 bin %i fail %.f frac %.3f +/- %.3f name %s \n", ibin, hEventPassNew->GetBinContent(ibin), prob, perror, codeNames[ibin].Data());
-    }
-
-    // do not normilzed summed chan 13
-    for (int ich = 0; ich < hLightCurve.size() - 1; ++ich)
-      normalize(ich);
-
-    hPassBitNew->Print("all");
-    // loop over fail bits
-    printf("MESSAGE line 950 summary of bit failures %llu pass %llu \n", maxEntry, totalPass);
-    for (int ic = 0; ic < FAILBITS; ++ic)
-    {
-      double prob = hPassBitNew->GetBinContent(ic) / double(maxEntry);
-      double perror = sqrt(prob * (1. - prob)) / double(maxEntry);
-      printf("bit %i %s val %.0f frac %.3f +/- %.3f \n", ic, bitNames[ic].Data(), hPassBitNew->GetBinContent(ic), prob, perror);
-    }
-
-    // fout->ls();
-    // fout->ls();
-  }
-
-  int main(int argc, char *argv[])
+  gStyle->SetOptStat(1001101);
+  /* get RunTree */
+  RunTree = new TChain("RunTree");
+  //** add files  */
+  for (unsigned ifile = 0; ifile < fileListName.size(); ++ifile)
   {
-
-    fout = nullptr;
-    time_t now = time(0);
-    cout << "MESSAGE line 1070 executing " << argv[0] << " post hit finding analysis " << "Date and time: " << ctime(&now) << endl;
+    TString fullName = TString("caenData/") + fileListName[ifile];
+    printf("RunTree add file %s \n", fullName.Data());
+    RunTree->Add(fullName);
   }
+
+  if (!RunTree)
+    return;
+  printf("MESSAGE line 710 files in chain:\n");
+  RunTree->GetListOfFiles()->Print();
+  Long64_t ntriggers = RunTree->GetEntries();
+  printf("MESSAGE line 715  in post: tag %s total triggers in this chain %lld \n", tag.Data(), ntriggers);
+  // RunTree->GetListOfBranches()->ls();
+
+  // geometric eff
+  bool geoVersionOld = false;
+  setDistanceLevels(geoVersionOld);
+  for (unsigned i = 0; i < 12; ++i)
+  {
+    printf("chan %i distance %f geo eff %.2E\n", i, distanceLevel[getLevel(i)], effGeoFunc(i));
+  }
+
+  aveGain = 0;
+  for (int i = 0; i < 9; ++i)
+  {
+    printf("chan %i gain %f \n", i, readGains->sipmSumGain[i]);
+    aveGain += readGains->sipmSumGain[i];
+  }
+  aveGain /= double(9);
+  printf("MESSAGE line 745 average gain %f \n", aveGain);
+
+  /* get scale factor */
+  // scale factor to new gain
+  scaleSum.resize(readGains->sipmSumGain.size());
+  scalePeak.resize(readGains->sipmSumGain.size());
+  for (unsigned i = 0; i < readGains->sipmSumGain.size(); ++i)
+  {
+    scalePeak[i] = 1.0;
+    scaleSum[i] = 1.0;
+    if (!isSimulation)
+    {
+      scalePeak[i] = readGains->getNominalPeak(i) / readGains->sipmPeakGain[i];
+      scaleSum[i] = readGains->getNominalSum(i) / readGains->sipmSumGain[i];
+    }
+  }
+
+  // trigger info ntuple
+  // ntTrig->Fill( pmtLateSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
+  ntHitCount = new TNtuple("ntHitCount", "hit count", "file:nev:chan:early:late");
+  ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
+  ntLateInt = new TNtuple("ntLateInt", "late integral", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
+  ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:ph12:qsum12:hitSum:ADCSum:xternQ:yternQ");
+
+  ntLateSum = new TNtuple("ntLateSum", "late sum info", "event:chan:geo:lateSum");
+  ntPreSum = new TNtuple("ntPreSum", "pre sum info", "event:chan:geo:preSum");
+  ntLateInt = new TNtuple("ntLateInt", "late integral by channel", "event:chan:int0:int1:int2:int3:int4:int5:int6:int7:int8:int9:int10:int11");
+  // make histograms
+  hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
+  hEventPassNew = new TH1D("EventPassNew", " remade event failures", TOTALCODES, 0, TOTALCODES);
+  hGammaCut = new TH1D("GammaCut", "gamma pmt lateSum/nominal gain ", 4000, 0, 5. * gammaCut);
+  hCosmicCut = new TH1D("CosmicCut", " cosmic qsum13/nominal gain", 4000, 0, 5. * cosmicCut);
+  hTriangleUn = new TH2D("TriangleUn", "ytern vs xtern unscaled", 100, 0., 1., 100, 0., 1.);
+  hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
+  hTriangleSecondUn = new TH2D("TriangleSecondUn", "ytern vs xtern in second gamma peak", 100, 0., 1., 100, 0., 1.);
+  hTriangleSecond = new TH2D("TriangleSecond", "ytern vs xtern in second gamma peak gains", 100, 0., 1., 100, 0., 1.);
+  hTrianglePass = new TH2D("TrianglePass", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
+  hGammaPeak = new TH1D("GammaPeak", "gamma peak (photons)", 150, 0., 300.);
+  hGammaPeak->GetXaxis()->SetTitle("gamma peak (summed ADC)");
+  hGammaPeakPass = new TH1D("GammaPeakPass", "gamma peak  pass triangle (photons)", 150, 0., 300.);
+  hGammaPeakPass->GetXaxis()->SetTitle("gamma peak (summed ADC)");
+  hGammaPeakHit = new TH1D("GammaPeakHit", "gamma peak (photons)", 150, 0., 300.);
+  hGammaPeakHit->GetXaxis()->SetTitle("gamma peak (hit area qsum)");
+  hQsumChannel = new TH1D("QsumChannel", "qsum channel (photons)", 9, 0., 9.);
+  hQsumChannel->GetYaxis()->SetTitle("summed qsum [SPE]");
+  hQsumChannel->GetXaxis()->SetTitle("channel");
+  hQsumChannelEff = new TH1D("QsumChannelEff", "qsum channel (photons)", 9, 0., 9.);
+  hQsumChannelEff->GetYaxis()->SetTitle("summed qsum [geo scaled]");
+  hQsumChannelEff->GetXaxis()->SetTitle("channel");
+
+  TDirectory *ledDir = fout->mkdir("ledDir");
+  ledDir->cd();
+  for (unsigned i = 0; i < CHANNELS; ++i)
+  {
+    hLateSumChan.push_back(new TH1D(Form("LateSumChan%i", i), Form("LateSumChan%i", i), 600, -10., 50.));
+    hLateSumChan[hLateSumChan.size() - 1]->GetXaxis()->SetTitle("summed late photons [SPE]");
+    hLateSumChan[hLateSumChan.size() - 1]->GetYaxis()->SetTitle("evemts");
+  }
+
+  fout->cd();
+
+  for (unsigned i = 0; i < CHANNELS; ++i)
+  {
+    // normalized to SPE
+    hLightCurve.push_back(new TH1D(Form("LightCurveChan%i", i), Form("LightCurveChan%i", i), MAXSAMPLES, 0, 2 * MAXSAMPLES));
+    hLightCurve[hLightCurve.size() - 1]->GetXaxis()->SetTitle("time [ns]");
+    hLightCurve[hLightCurve.size() - 1]->GetYaxis()->SetTitle("number of photons/2ns");
+
+    hLightNorm.push_back(new TH1D(Form("LightNormChan%i", i), Form("LightNormChan%i", i), MAXSAMPLES, 0, 2 * MAXSAMPLES));
+    hLightNorm[hLightNorm.size() - 1]->GetXaxis()->SetTitle("time [ns]");
+    hLightNorm[hLightNorm.size() - 1]->GetYaxis()->SetTitle("normalized number of photons per event /2ns");
+
+    hLightEff.push_back(new TH1D(Form("LightEffChan%i", i), Form("LightEffChan%i eff corrected ", i), MAXSAMPLES, 0, 2 * MAXSAMPLES));
+    hLightEff[hLightEff.size() - 1]->GetXaxis()->SetTitle("time [ns]");
+    hLightEff[hLightEff.size() - 1]->GetYaxis()->SetTitle("normalized number of photons per event /2ns");
+  }
+  /* make gain hisograms*/
+  fout->cd("gainDir");
+  double qpeakLimit;
+  double qsumLimit;
+  for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
+  {
+    qpeakLimit = 50. * (readGains->sipmPeakGain[ichan]);
+    qsumLimit = 50. * (readGains->sipmSumGain[ichan]);
+    hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 2000, 0, qpeakLimit));
+    hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 2000, 0, qsumLimit));
+  }
+
+  /*
+   *  loop over events
+   */
+  earlyHitCountFile.resize(13);
+  lateHitCountFile.resize(13);
+  loop();
+
+  // store from last file
+  printf("MESSAGE line 870 Filling file %s number %d nev %i \n", currentFileName.Data(), currentFileNumber, hitCountNev);
+  for (int ichan = 0; ichan < earlyHitCountFile.size(); ++ichan)
+  {
+    ntHitCount->Fill(currentFileNumber, hitCountNev, ichan, earlyHitCountFile[ichan], lateHitCountFile[ichan]);
+  }
+
+  // Print ntHitCount entries
+  printf("\n MESSAGE line 885=== ntHitCount entries %lli ===\n", ntHitCount->GetEntries());
+  printf("File    Chan    Early   Late\n");
+  printf("----    ----    -----   ----\n");
+  // ntHitCount->Scan("file:chan:early:late", "", "");
+
+  float fnfile = 0;
+  float fchan = 0;
+  float fearly = 0;
+  float flate = 0;
+  float fnev = 0;
+  ntHitCount->SetBranchAddress("file", &fnfile);
+  ntHitCount->SetBranchAddress("nev", &fnev);
+  ntHitCount->SetBranchAddress("chan", &fchan);
+  ntHitCount->SetBranchAddress("early", &fearly);
+  ntHitCount->SetBranchAddress("late", &flate);
+  for (int i = 0; i < ntHitCount->GetEntries(); i++)
+  {
+    ntHitCount->GetEntry(i);
+    printf("MESSAGE line 905 file %.0f  events  %.0f chan   %.0f  early  %.0f  late  %.0f \n", fnfile, fnev, fchan, fearly, flate);
+  }
+
+  printf("MESSAGE line 920 total %llu pass %llu \n", maxEntry, totalPass);
+  // hEventPassNew->Print("all");
+  printf("MESSAGE line 925 pass fractions total = %.0f  \n", hEventPassNew->GetEntries());
+  for (int ibin = 0; ibin < hEventPassNew->GetNbinsX(); ++ibin)
+  { // inc/lude error on poisson probability
+    double nbin = hEventPassNew->GetBinContent(ibin);
+    double ntot = hEventPassNew->GetEntries();
+    double prob = nbin / ntot;
+    double perror = sqrt(prob * (1. - prob) / ntot);
+    if (nbin > 0)
+      printf("MESSAGE line 935 bin %i fail %.f frac %.3f +/- %.3f name %s \n", ibin, hEventPassNew->GetBinContent(ibin), prob, perror, codeNames[ibin].Data());
+  }
+
+  // do not normilzed summed chan 13
+  for (int ich = 0; ich < hLightCurve.size() - 1; ++ich)
+    normalize(ich);
+
+  hPassBitNew->Print("all");
+  // loop over fail bits
+  printf("MESSAGE line 950 summary of bit failures %llu pass %llu \n", maxEntry, totalPass);
+  for (int ic = 0; ic < FAILBITS; ++ic)
+  {
+    double prob = hPassBitNew->GetBinContent(ic) / double(maxEntry);
+    double perror = sqrt(prob * (1. - prob)) / double(maxEntry);
+    printf("bit %i %s val %.0f frac %.3f +/- %.3f \n", ic, bitNames[ic].Data(), hPassBitNew->GetBinContent(ic), prob, perror);
+  }
+
+  // fout->ls();
+  // fout->ls();
+}
+
+int main(int argc, char *argv[])
+{
+
+  fout = nullptr;
+  time_t now = time(0);
+  cout << "MESSAGE line 1070 executing " << argv[0] << " post hit finding analysis " << "Date and time: " << ctime(&now) << endl;
 
   printf(" usage:  start date string <stag> end date string <etag> max entries <default all> \n ");
 
