@@ -606,8 +606,11 @@ void loop()
           ntHitCount->Fill(fileNum, hitCountNev, ichan, earlyHitCountFile[ichan], lateHitCountFile[ichan]);
         }
         // reset hit counts for new file
-        earlyHitCountFile.resize(12);
-        lateHitCountFile.resize(12);
+        for (unsigned ichan = 0; ichan < earlyHitCountFile.size(); ++ichan)
+        {
+          earlyHitCountFile[ichan] = 0;
+          lateHitCountFile[ichan] = 0;
+        }
         hitCountNev = 0;
       }
     }
