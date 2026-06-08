@@ -599,12 +599,13 @@ void loop()
 
       if (currentFileNumber > 1)
       {
-        printf("Filling file %d nev %i \n", currentFileNumber, hitCountNev);
+        printf("Filling file %d nev %i chan7 noise %f \n", currentFileNumber, hitCountNev, earlyHitCountFile[7]);
         fflush(stdout);
         for (int ichan = 0; ichan < earlyHitCountFile.size(); ++ichan)
         {
           ntHitCount->Fill(fileNum, hitCountNev, ichan, earlyHitCountFile[ichan], lateHitCountFile[ichan]);
         }
+        // reset hit counts for new file
         earlyHitCountFile.resize(12);
         lateHitCountFile.resize(12);
         hitCountNev = 0;
@@ -833,8 +834,8 @@ void post(TString tag)
   /*
    *  loop over events
    */
-  earlyHitCountFile.resize(13);
-  lateHitCountFile.resize(13);
+  earlyHitCountFile.resize(12);
+  lateHitCountFile.resize(12);
   loop();
 
   // store from last file
