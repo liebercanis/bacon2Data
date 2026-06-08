@@ -606,11 +606,8 @@ void loop()
           ntHitCount->Fill(fileNum, hitCountNev, ichan, earlyHitCountFile[ichan], lateHitCountFile[ichan]);
         }
         // reset hit counts for new file
-        for (unsigned ichan = 0; ichan < earlyHitCountFile.size(); ++ichan)
-        {
-          earlyHitCountFile[ichan] = 0;
-          lateHitCountFile[ichan] = 0;
-        }
+        std::fill(earlyHitCountFile.begin(), earlyHitCountFile.end(), 0);
+        std::fill(lateHitCountFile.begin(), lateHitCountFile.end(), 0);
         hitCountNev = 0;
       }
     }
