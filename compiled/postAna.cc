@@ -814,7 +814,7 @@ void post(TString tag)
   // make histograms
   hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
   hEventPassNew = new TH1D("EventPassNew", " remade event failures", TOTALCODES, 0, TOTALCODES);
-  hCosmicCut = new TH1D("CosmicCut", "cosmic cut pmt totSum/nominal gain ", 1500., 0, 1500.);
+  hCosmicCut = new TH1D("CosmicCut", "cosmic cut pmtottSum/nominal gain ", 1500., 0, 1500.);
   hOverlapEvent = new TH1D("OverlapEvent", " overlap event qsum13/nominal gain", 15000, 0., 15000.);
   hTriangleUn = new TH2D("TriangleUn", "ytern vs xtern unscaled", 100, 0., 1., 100, 0., 1.);
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
@@ -943,7 +943,7 @@ void post(TString tag)
   {
     double prob = hPassBitNew->GetBinContent(ic) / double(maxEntry);
     double perror = sqrt(prob * (1. - prob)) / double(maxEntry);
-    printf("bit %i %s val %.0f frac %.3f +/- %.3f \n", ic, bitNames[ic].Data(), hPassBitNew->GetBinContent(ic), prob, perror);
+    printf("bit %i %s val %.0f frac %.5f +/- %.5f \n", ic, bitNames[ic].Data(), hPassBitNew->GetBinContent(ic), prob, perror);
   }
 
   // fout->ls();
