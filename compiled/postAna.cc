@@ -85,10 +85,13 @@ TDirectory *anaDir; //
 TDirectory *cutDir;
 // directory for gain plots
 TDirectory *gainDir;
+TDirectory *crossDir;
+
 // vectors for hist pointers
 std::vector<TH1D *> hQPeak;
 std::vector<TH1D *> hQSum;
 std::vector<TH1D *> hNextHitTime;
+std::vector<TH1D *> hNextHitTimeOther;
 
 TH1D *hEventPass;
 TH1D *eventCount;
@@ -630,6 +633,7 @@ void loop()
       qsumSum[ich] = 0;
       qsumLate[ich] = 0;
     }
+    std::vector<TDet *> detList;
     while ((aBranch = (TBranchElement *)next()))
     {
       // skip eventData branch
@@ -644,6 +648,7 @@ void loop()
 
       /* the branch is class TDet so cast it as such */
       TDet *det = (TDet *)aBranch->GetObject();
+      detList.push_back(det);
       // want to subtract off noise hits from preSum lateSum 3000-5500 ULong_t triggerStart = 730;
       // double scale = readGains->nominalQsumGain / aveGain;
       qsumLate[idet] = det->lateSum * scaleSum[idet]; // nominal gain applied in pulse finding step
@@ -710,9 +715,35 @@ void loop()
     // ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:peak");
     ntGamma->Fill(double(entry), photonSum[9], qsumSum[9], photonSum[10], qsumSum[10], photonSum[11], qsumSum[11], photonSum[12], qsumSum[12], eventTriggerHitQsum, triggerSum, xternQ, yternQ);
 
-  } // entry
-}
+    // cross talk loop over dets
+    for (unsigned idetNumber = 0; idetNumber < detList.size(); ++idetNumber)
+    {
+      // idetNumber hit loop
+      for (unsigned ihit = 0; ihit < detList[idetNumber]->hits.size(); ++ihit)
+      {
+        TDetHit iDetHit = detList[idetNumber]->hits[ihit];
 
+        // loop over all other detectors
+        for (unsigned jdetNumber = 0; jdetNumber < detList.size(); ++jdetNumber)
+        {
+          double nextHitStartTime = 7500;
+          if (jdetNumber == idetNumber)
+            continue;
+          // other det hits loop
+          for (unsigned jhit = 0; jhit < detList[jdetNumber]->hits.size(); ++jhit)
+          {
+            TDetHit jDetHit = detList[jdetNumber]->hits[jhit];
+            if (jDetHit.startTime <= iDetHit.startTime)
+              continue;
+            nextHitStartTime = jDetHit.startTime;
+            break; // only want the next hit after this one
+          } // other hit loop
+          hNextHitTimeOther[idetNumber]->Fill(nextHitStartTime);
+        } // other det loop
+      } // this det hit loop
+    } // this det loop
+  } // entry
+} // end of loop function
 /* build the TChain and call loop */
 void post(TString tag)
 {
@@ -776,11 +807,7 @@ void post(TString tag)
   ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
   ntLateInt = new TNtuple("ntLateInt", "late integral", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
   ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:ph12:qsum12:hitSum:ADCSum:xternQ:yternQ");
-  // cross talk plots
-  for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
-  {
-    hNextHitTime.push_back(new TH1D(Form("NextHitTimeChan%i", ichan), Form("NextHitTimeChan%i samples", ichan), 500, 0, 500));
-  }
+
   ntLateSum = new TNtuple("ntLateSum", "late sum info", "event:chan:geo:lateSum");
   ntPreSum = new TNtuple("ntPreSum", "pre sum info", "event:chan:geo:preSum");
   ntLateInt = new TNtuple("ntLateInt", "late integral by channel", "event:chan:int0:int1:int2:int3:int4:int5:int6:int7:int8:int9:int10:int11");
@@ -814,6 +841,15 @@ void post(TString tag)
     hLateSumChan.push_back(new TH1D(Form("LateSumChan%i", i), Form("LateSumChan%i", i), 600, -10., 50.));
     hLateSumChan[hLateSumChan.size() - 1]->GetXaxis()->SetTitle("summed late photons [SPE]");
     hLateSumChan[hLateSumChan.size() - 1]->GetYaxis()->SetTitle("evemts");
+  }
+
+  // cross talk plots
+  crossDir = fout->mkdir("crossDir");
+  crossDir->cd();
+  for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
+  {
+    hNextHitTime.push_back(new TH1D(Form("NextHitTimeChan%i", ichan), Form("NextHitTimeChan%i samples", ichan), 500, 0, 500));
+    hNextHitTimeOther.push_back(new TH1D(Form("NextHitTimeOtherChan%i", ichan), Form("NextHitOtherTimeChan%i samples", ichan), 500, 0, 500));
   }
 
   fout->cd();
