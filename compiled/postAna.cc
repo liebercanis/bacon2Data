@@ -119,8 +119,8 @@ std::vector<double> qsumGain; // read from class TReadGain
 double aveGain;
 
 // cut values based on 04_16_2026 revised June 9 2026
-double overlapEventCut = 70.; // was 100.;                    // value normlized to nominalPmtGain
-double cosmicEventCut = 3.;   // 10; // was 140.; // was 150 normalized to nominalGain; //
+double overlapEventCut = 70.; // was 100.;           //         // value normlized to nominalPmtGain
+double cosmicEventCut = 10.;  // 10; // was 140.; // was 150 normalized to nominalGain; //
 
 // pass bit failures hex
 // COSMIC AND GAMMA now refined as cosmicEvent and overlapEvent
@@ -320,14 +320,14 @@ int passEventCuts(Long64_t entry)
   if (!passTriangle)
     passBit |= TRIANGLE;
 
-  // cosmic cut on PMT late sum
-  double pmtLateSum = 0;
+  // cosmic cut on PMT late sum fixed to totSum jun 10 2026
+  double pmtTotSum = 0;
   if (!isSimulation)
-    pmtLateSum = detList[12]->lateSum * scaleSum[12];
+    pmtTotSum = detList[12]->totSum * scaleSum[12];
   else
-    pmtLateSum = detList[12]->lateSum;
-  hCosmicCut->Fill(pmtLateSum);
-  if (pmtLateSum > cosmicEventCut)
+    pmtTotSum = detList[12]->totSum;
+  hCosmicCut->Fill(pmtTotSum);
+  if (pmtTotSum > cosmicEventCut)
     passBit |= COSMIC;
 
   // det 13 is sum of alll SIPMS overlapEvent cut on this
@@ -349,7 +349,7 @@ int passEventCuts(Long64_t entry)
     }
   }
 
-  ntTrig->Fill(double(entry), pmtLateSum, totSum13, triggerSum, detList[9]->totSum, detList[10]->totSum, detList[11]->totSum,
+  ntTrig->Fill(double(entry), pmtTotSum, totSum13, triggerSum, detList[9]->totSum, detList[10]->totSum, detList[11]->totSum,
                detList[9]->totSum * scaleSum[9], detList[10]->totSum * scaleSum[10], detList[11]->totSum * scaleSum[11], xternQ, yternQun, double(passBit));
 
   // fill passing gamma peak
@@ -802,10 +802,10 @@ void post(TString tag)
   }
   fout->cd();
   // trigger info ntuple
-  // ntTrig->Fill( pmtLateSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
+  // ntTrig->Fill( pmtTotSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
   ntHitCount = new TNtuple("ntHitCount", "hit count", "file:nev:chan:early:late");
-  ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
-  ntLateInt = new TNtuple("ntLateInt", "late integral", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
+  ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtTotSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
+  // ntLateInt = new TNtuple("ntLateInt", "late integral", "event:lateTotSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
   ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:ph12:qsum12:hitSum:ADCSum:xternQ:yternQ");
 
   ntLateSum = new TNtuple("ntLateSum", "late sum info", "event:chan:geo:lateSum");
@@ -814,7 +814,7 @@ void post(TString tag)
   // make histograms
   hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
   hEventPassNew = new TH1D("EventPassNew", " remade event failures", TOTALCODES, 0, TOTALCODES);
-  hCosmicCut = new TH1D("CosmicCut", "cosmic cut pmt lateSum/nominal gain ", 1500., 0, 1500.);
+  hCosmicCut = new TH1D("CosmicCut", "cosmic cut pmt totSum/nominal gain ", 1500., 0, 1500.);
   hOverlapEvent = new TH1D("OverlapEvent", " overlap event qsum13/nominal gain", 15000, 0., 15000.);
   hTriangleUn = new TH2D("TriangleUn", "ytern vs xtern unscaled", 100, 0., 1., 100, 0., 1.);
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
