@@ -120,14 +120,15 @@ double overlapEventCut = 70.; // was 100.;                    // value normlized
 double cosmicEventCut = 3.;   // 10; // was 140.; // was 150 normalized to nominalGain; //
 
 // pass bit failures hex
+// COSMIC AND GAMMA now refined as cosmicEvent and overlapEvent
 enum FAILURECODES
 {
   PASS = 0,
   BASEFAIL = 0x1,
   EARLYCUT = 0x2,
   FIRSTTIME = 0x4,
-  COSMIC = 0x8,
-  GAMMA = 0x10,
+  COSMIC = 0x8, // cosmic event cut
+  GAMMA = 0x10, // overlap event cut
   TRIGFAIL = 0x20,
   TRIANGLE = 0x40, // 2^6
   TOTALCODES = 2 * TRIANGLE
@@ -324,7 +325,7 @@ int passEventCuts(Long64_t entry)
     pmtLateSum = detList[12]->lateSum;
   hCosmicCut->Fill(pmtLateSum);
   if (pmtLateSum > cosmicEventCut)
-    passBit |= GAMMA;
+    passBit |= COSMIC;
 
   // det 13 is sum of alll SIPMS overlapEvent cut on this
   double totSum13 = 0;
@@ -333,7 +334,7 @@ int passEventCuts(Long64_t entry)
 
   hOverlapEvent->Fill(totSum13);
   if (totSum13 > overlapEventCut)
-    passBit |= COSMIC;
+    passBit |= GAMMA;
 
   // loop over fail bits
   for (int ic = 0; ic < FAILBITS; ++ic)
