@@ -688,7 +688,7 @@ void loop()
         for (unsigned jhit = 0; jhit < det->hits.size(); ++jhit)
         {
           TDetHit nhit = det->hits[jhit];
-          if (nhit.startTime < thit.startTime)
+          if (nhit.startTime <= thit.startTime)
             continue;
           nextHitStartTime = nhit.startTime;
           break; // only want the next hit after this one
