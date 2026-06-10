@@ -788,7 +788,7 @@ void post(TString tag)
   hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
   hEventPassNew = new TH1D("EventPassNew", " remade event failures", TOTALCODES, 0, TOTALCODES);
   hCosmicCut = new TH1D("CosmicCut", "cosmic cut pmt lateSum/nominal gain ", 1500., 0, 1500.);
-  hOverlapEvent = new TH1D("OverlapEvent", " overlap event qsum13/nominal gain", 1500, 0., 15000.);
+  hOverlapEvent = new TH1D("OverlapEvent", " overlap event qsum13/nominal gain", 15000, 0., 15000.);
   hTriangleUn = new TH2D("TriangleUn", "ytern vs xtern unscaled", 100, 0., 1., 100, 0., 1.);
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hTriangleSecondUn = new TH2D("TriangleSecondUn", "ytern vs xtern in second gamma peak", 100, 0., 1., 100, 0., 1.);
