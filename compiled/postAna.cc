@@ -88,6 +88,7 @@ TDirectory *gainDir;
 // vectors for hist pointers
 std::vector<TH1D *> hQPeak;
 std::vector<TH1D *> hQSum;
+std::vector<TH1D *> hNextHitTime;
 
 TH1D *hEventPass;
 TH1D *eventCount;
@@ -101,7 +102,7 @@ TH2D *hTrianglePass;
 TH1D *hGammaPeak;
 TH1D *hGammaPeakHit;
 TH1D *hGammaPeakPass;
-TH1D *hGammaCut;
+TH1D *hOverlapEvent;
 TH1D *hCosmicCut;
 TH1D *hQsumChannel;
 TH1D *hQsumChannelEff;
@@ -114,9 +115,9 @@ std::vector<TH1D *> hLightEff;
 std::vector<double> qsumGain; // read from class TReadGain
 double aveGain;
 
-// cut values
-double cosmicCut = 100.; // value normlized to nominalPmtGain
-double gammaCut = 10;    // was 140.; // was 150 normalized to nominalGain; //
+// cut values based on 04_16_2026 revised June 9 2026
+double overlapEventCut = 70.; // was 100.;                    // value normlized to nominalPmtGain
+double cosmicEventCut = 3.;   // 10; // was 140.; // was 150 normalized to nominalGain; //
 
 // pass bit failures hex
 enum FAILURECODES
@@ -315,24 +316,23 @@ int passEventCuts(Long64_t entry)
   if (!passTriangle)
     passBit |= TRIANGLE;
 
-  // gamma cut
+  // cosmic cut on PMT late sum
   double pmtLateSum = 0;
   if (!isSimulation)
     pmtLateSum = detList[12]->lateSum * scaleSum[12];
   else
     pmtLateSum = detList[12]->lateSum;
-  hGammaCut->Fill(pmtLateSum);
-  if (pmtLateSum > gammaCut)
+  hCosmicCut->Fill(pmtLateSum);
+  if (pmtLateSum > cosmicEventCut)
     passBit |= GAMMA;
 
-  // cosmic cut on summed SIPM
-  // det 13 is sum of alll SIPMS
+  // det 13 is sum of alll SIPMS overlapEvent cut on this
   double totSum13 = 0;
   for (int i = 0; i < 12; ++i)
     totSum13 += detList[i]->totSum * scaleSum[i];
 
-  hCosmicCut->Fill(totSum13);
-  if (totSum13 > cosmicCut)
+  hOverlapEvent->Fill(totSum13);
+  if (totSum13 > overlapEventCut)
     passBit |= COSMIC;
 
   // loop over fail bits
@@ -682,6 +682,17 @@ void loop()
         // want to subtract off noise hits from preSum
         // if (idet > 8 && idet < 12)
         //  printf("... idet %i scale %f qsum %f eventTriggerHitQsum %f \n", idet, scale[idet], thit.qsum, eventTriggerHitQsum);
+        // get the next hit
+        double nextHitStartTime = 7500; // default to end of window startTime is a double
+        for (unsigned jhit = 0; jhit < det->hits.size(); ++jhit)
+        {
+          TDetHit nhit = det->hits[jhit];
+          if (nhit.startTime < thit.startTime)
+            continue;
+          nextHitStartTime = nhit.startTime;
+          break; // only want the next hit after this one
+        }
+        hNextHitTime[idet]->Fill(nextHitStartTime);
       } // end branch loop
       ntLateInt->Fill(double(entry), double(idet), qsumLate[0], qsumLate[1], qsumLate[2], qsumLate[3], qsumLate[4], qsumLate[5], qsumLate[6], qsumLate[7], qsumLate[8], qsumLate[9], qsumLate[10], qsumLate[11]);
     } // branch
@@ -764,15 +775,19 @@ void post(TString tag)
   ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
   ntLateInt = new TNtuple("ntLateInt", "late integral", "event:pmtLateSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
   ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:ph12:qsum12:hitSum:ADCSum:xternQ:yternQ");
-
+  // cross talk plots
+  for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
+  {
+    hNextHitTime.push_back(new TH1D(Form("NextHitTimeChan%i", ichan), Form("NextHitTimeChan%i samples", ichan), 500, 0, 500));
+  }
   ntLateSum = new TNtuple("ntLateSum", "late sum info", "event:chan:geo:lateSum");
   ntPreSum = new TNtuple("ntPreSum", "pre sum info", "event:chan:geo:preSum");
   ntLateInt = new TNtuple("ntLateInt", "late integral by channel", "event:chan:int0:int1:int2:int3:int4:int5:int6:int7:int8:int9:int10:int11");
   // make histograms
   hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
   hEventPassNew = new TH1D("EventPassNew", " remade event failures", TOTALCODES, 0, TOTALCODES);
-  hGammaCut = new TH1D("GammaCut", "gamma pmt lateSum/nominal gain ", 4000, 0, 5. * gammaCut);
-  hCosmicCut = new TH1D("CosmicCut", " cosmic qsum13/nominal gain", 4000, 0, 5. * cosmicCut);
+  hCosmicCut = new TH1D("CosmicCut", "cosmic cut pmt lateSum/nominal gain ", 1500., 0, 1500.);
+  hOverlapEvent = new TH1D("OverlapEvent", " overlap event qsum13/nominal gain", 1500, 0., 15000.);
   hTriangleUn = new TH2D("TriangleUn", "ytern vs xtern unscaled", 100, 0., 1., 100, 0., 1.);
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hTriangleSecondUn = new TH2D("TriangleSecondUn", "ytern vs xtern in second gamma peak", 100, 0., 1., 100, 0., 1.);
