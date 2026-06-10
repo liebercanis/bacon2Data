@@ -690,14 +690,8 @@ void loop()
         //  printf("... idet %i scale %f qsum %f eventTriggerHitQsum %f \n", idet, scale[idet], thit.qsum, eventTriggerHitQsum);
         // get the next hit
         double nextHitStartTime = 7500; // default to end of window startTime is a double
-        for (unsigned jhit = 0; jhit < det->hits.size(); ++jhit)
-        {
-          TDetHit nhit = det->hits[jhit];
-          if (nhit.startTime <= thit.startTime)
-            continue;
-          nextHitStartTime = nhit.startTime;
-          break; // only want the next hit after this one
-        }
+        if (ihit < det->hits.size() - 1)
+          nextHitStartTime = det->hits[ihit + 1].startTime;
         hNextHitTime[idet]->Fill(nextHitStartTime);
       } // end branch loop
       ntLateInt->Fill(double(entry), double(idet), qsumLate[0], qsumLate[1], qsumLate[2], qsumLate[3], qsumLate[4], qsumLate[5], qsumLate[6], qsumLate[7], qsumLate[8], qsumLate[9], qsumLate[10], qsumLate[11]);
