@@ -342,15 +342,18 @@ int passEventCuts(Long64_t entry)
   // loop over fail bits
   for (int ic = 0; ic < FAILBITS; ++ic)
   {
-    if (passBit & failCode[ic])
+    if (passBit == 0 && ic == 0)
     {
-      // printf("event %lld det %i bin %s pass %i \n", entry, idet, bitNames[ic].Data(), passBit);
-      hPassBitNew->SetBinContent(ic, hPassBitNew->GetBinContent(ic) + 1);
+      hPassBitNew->SetBinContent(ic + 1, hPassBitNew->GetBinContent(ic + 1) + 1);
+      // printf("event %lld bin %s passbit %i fail code %i pass  %f \n", entry, bitNames[ic].Data(), passBit, failCode[ic], hPassBitNew->GetBinContent(ic + 1));
+    }
+    else if (passBit & failCode[ic])
+    {
+      hPassBitNew->SetBinContent(ic + 1, hPassBitNew->GetBinContent(ic + 1) + 1);
     }
   }
 
-  ntTrig->Fill(double(entry), pmtTotSum, totSum13, triggerSum, detList[9]->totSum, detList[10]->totSum, detList[11]->totSum,
-               detList[9]->totSum * scaleSum[9], detList[10]->totSum * scaleSum[10], detList[11]->totSum * scaleSum[11], xternQ, yternQun, double(passBit));
+  ntTrig->Fill(double(entry), pmtTotSum, totSum13, triggerSum, detList[9]->totSum, detList[10]->totSum, detList[11]->totSum, xternQ, yternQun, double(passBit));
 
   // fill passing gamma peak
   if (passBit == 0)
@@ -572,7 +575,7 @@ void loop()
     }
     int passBit = passEventCuts(entry);
     // set to pass for debugging
-    passBit = 0;
+    // cut on passBit passBit = 0;
     hEventPassNew->SetBinContent(passBit, hEventPassNew->GetBinContent(passBit) + 1);
     if (passBit != 0 && !isLedRun)
       continue;
@@ -806,6 +809,7 @@ void post(TString tag)
   ntPreSum = new TNtuple("ntPreSum", "pre sum info", "event:chan:geo:preSum");
   ntLateInt = new TNtuple("ntLateInt", "late integral by channel", "event:chan:int0:int1:int2:int3:int4:int5:int6:int7:int8:int9:int10:int11");
   // make histograms
+  // upper edge of last bin = 8
   hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
   hEventPassNew = new TH1D("EventPassNew", " remade event failures", TOTALCODES, 0, TOTALCODES);
   hCosmicCut = new TH1D("CosmicCut", "cosmic cut pmtottSum/nominal gain ", 1500., 0, 1500.);
@@ -923,7 +927,7 @@ void post(TString tag)
     double prob = nbin / ntot;
     double perror = sqrt(prob * (1. - prob) / ntot);
     if (nbin > 0)
-      printf("MESSAGE line 935 bin %i fail %.f frac %.3f +/- %.3f name %s \n", ibin, hEventPassNew->GetBinContent(ibin), prob, perror, codeNames[ibin].Data());
+      printf("MESSAGE line 926 bin %i fail %.f frac %.3f +/- %.3f name %s \n", ibin, hEventPassNew->GetBinContent(ibin), prob, perror, codeNames[ibin].Data());
   }
 
   // do not normilzed summed chan 13
@@ -932,12 +936,12 @@ void post(TString tag)
 
   hPassBitNew->Print("all");
   // loop over fail bits
-  printf("MESSAGE line 950 summary of bit failures %llu pass %llu \n", maxEntry, totalPass);
-  for (int ic = 0; ic < FAILBITS; ++ic)
+  printf("MESSAGE line 935 summary of bit failures %llu pass %llu \n", maxEntry, totalPass);
+  for (int ic = 0; ic < hPassBitNew->GetNbinsX(); ++ic)
   {
-    double prob = hPassBitNew->GetBinContent(ic) / double(maxEntry);
+    double prob = hPassBitNew->GetBinContent(ic + 1) / double(maxEntry);
     double perror = sqrt(prob * (1. - prob)) / double(maxEntry);
-    printf("bit %i %s val %.0f frac %.5f +/- %.5f \n", ic, bitNames[ic].Data(), hPassBitNew->GetBinContent(ic), prob, perror);
+    printf("bit %i %s number %.0f frac %.5f +/- %.5f \n", ic, bitNames[ic].Data(), hPassBitNew->GetBinContent(ic + 1), prob, perror);
   }
 
   // fout->ls();
