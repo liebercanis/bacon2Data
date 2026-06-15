@@ -139,7 +139,7 @@ enum FAILURECODES
 
 enum
 {
-  FAILBITS = 8
+  FAILBITS = 9
 };
 
 std::vector<TString> bitNames;
@@ -266,6 +266,10 @@ int passEventCuts(Long64_t entry)
 
   triggerSum = 0;
   double triggerSumUn = 0;
+
+  // total events in undeflow
+  hPassBitNew->SetBinContent(0, hPassBitNew->GetBinContent(0) + 1);
+
   for (int i = 9; i < 12; ++i)
   {
     // triggerSum += detList[9 + i]->totSum * scale[i];
@@ -810,9 +814,9 @@ void post(TString tag)
   ntLateInt = new TNtuple("ntLateInt", "late integral by channel", "event:chan:int0:int1:int2:int3:int4:int5:int6:int7:int8:int9:int10:int11");
   // make histograms
   // upper edge of last bin = 8
-  hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS, 0, FAILBITS);
+  hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS - 1, 0, FAILBITS - 1);
   hEventPassNew = new TH1D("EventPassNew", " remade event failures", TOTALCODES, 0, TOTALCODES);
-  hCosmicCut = new TH1D("CosmicCut", "cosmic cut pmtottSum/nominal gain ", 1500., 0, 1500.);
+  hCosmicCut = new TH1D("CosmicCut", "cosmic cut pmtot totSum/nominal gain ", 1500., 0, 1500.);
   hOverlapEvent = new TH1D("OverlapEvent", " overlap event qsum13/nominal gain", 15000, 0., 15000.);
   hTriangleUn = new TH2D("TriangleUn", "ytern vs xtern unscaled", 100, 0., 1., 100, 0., 1.);
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
@@ -936,12 +940,12 @@ void post(TString tag)
 
   hPassBitNew->Print("all");
   // loop over fail bits
-  printf("MESSAGE line 935 summary of bit failures %llu pass %llu \n", maxEntry, totalPass);
+  printf("MESSAGE line 939 summary of bit failures %llu pass %llu all %0.f\n", maxEntry, totalPass, hPassBitNew->GetBinContent(0));
   for (int ic = 0; ic < hPassBitNew->GetNbinsX(); ++ic)
   {
     double prob = hPassBitNew->GetBinContent(ic + 1) / double(maxEntry);
     double perror = sqrt(prob * (1. - prob)) / double(maxEntry);
-    printf("bit %i %s number %.0f frac %.5f +/- %.5f \n", ic, bitNames[ic].Data(), hPassBitNew->GetBinContent(ic + 1), prob, perror);
+    printf("bit %i %s number %.0f frac %.5f +/- %.5f \n", ic, bitNames[ic + 1].Data(), hPassBitNew->GetBinContent(ic + 1), prob, perror);
   }
 
   // fout->ls();
@@ -976,14 +980,15 @@ int main(int argc, char *argv[])
 
   vecFail.resize(FAILBITS);
   bitNames.resize(FAILBITS);
-  bitNames[0] = TString("Pass");
-  bitNames[1] = TString("Baseline");
-  bitNames[2] = TString("Earlycut");
-  bitNames[3] = TString("Firsttime");
-  bitNames[4] = TString("Cosmic");
-  bitNames[5] = TString("Gamma");
-  bitNames[6] = TString("Trigger");
-  bitNames[7] = TString("Triangle");
+  bitNames[0] = TString("All");
+  bitNames[1] = TString("Pass");
+  bitNames[2] = TString("Baseline");
+  bitNames[3] = TString("Earlycut");
+  bitNames[4] = TString("Firsttime");
+  bitNames[5] = TString("Cosmic");
+  bitNames[6] = TString("Gamma");
+  bitNames[7] = TString("Trigger");
+  bitNames[8] = TString("Triangle");
 
   codeNames.resize(TOTALCODES);
   // build trigger bit pattern names
