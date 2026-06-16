@@ -135,12 +135,13 @@ enum FAILURECODES
   GAMMA = 0x10, // overlap event cut
   TRIGFAIL = 0x20,
   TRIANGLE = 0x40, // 2^6
-  TOTALCODES = 2 * TRIANGLE
+  MULTI = 0x80,
+  TOTALCODES = 2 * MULTI
 };
 
 enum
 {
-  FAILBITS = 9
+  FAILBITS = 10
 };
 
 std::vector<TString> bitNames;
@@ -344,20 +345,6 @@ int passEventCuts(Long64_t entry)
   if (totSum13 > overlapEventCut)
     passBit |= GAMMA;
 
-  // loop over fail bits
-  for (int ic = 0; ic < FAILBITS; ++ic)
-  {
-    if (passBit == 0 && ic == 0)
-    {
-      hPassBitNew->SetBinContent(ic + 1, hPassBitNew->GetBinContent(ic + 1) + 1);
-      // printf("event %lld bin %s passbit %i fail code %i pass  %f \n", entry, bitNames[ic].Data(), passBit, failCode[ic], hPassBitNew->GetBinContent(ic + 1));
-    }
-    else if (passBit & failCode[ic])
-    {
-      hPassBitNew->SetBinContent(ic + 1, hPassBitNew->GetBinContent(ic + 1) + 1);
-    }
-  }
-
   ntTrig->Fill(double(entry), pmtTotSum, totSum13, triggerSum, detList[9]->totSum, detList[10]->totSum, detList[11]->totSum, xternQ, yternQun, double(passBit));
 
   // fill passing gamma peak
@@ -368,6 +355,42 @@ int passEventCuts(Long64_t entry)
   {
     hQsumChannel->Fill(i + 1, detList[i]->totSum);
     hQsumChannelEff->Fill(i + 1, detList[i]->totSum * scaleSum[i] / effGeoFunc(i));
+  }
+
+  bool multCut = false;
+  // finally a SPE mult cut on not trigger SIPM
+  for (unsigned idet = 0; idet < CHANNELS; ++idet)
+  {
+    // hit loop
+    for (unsigned ihit = 0; ihit < detList[idet]->hits.size(); ++ihit)
+    {
+      TDetHit thit = detList[idet]->hits[ihit];
+      hMulti[idet]->Fill(thit.qpeak / readGains->sipmPeakGain[idet]);
+      // cut on 1.5 SPE for filling light curve should I remove entire event?
+      if (idet < 9 && thit.qpeak / readGains->sipmPeakGain[idet] > 1.5)
+        multCut = true;
+    }
+  }
+
+  if (multCut)
+  {
+    passBit |= MULTI;
+    // printf("MESSAGE event %lld fails multi pass = %i %i \n", entry, passBit, passBit & MULTI);
+  }
+
+  // loop over fail bits
+  for (int ic = 0; ic < FAILBITS; ++ic)
+  {
+    if (passBit == 0 && ic == 0)
+    {
+      hPassBitNew->SetBinContent(ic + 1, hPassBitNew->GetBinContent(ic + 1) + 1);
+      // printf("event %lld bin %s passbit %i fail code %i pass  %f \n", entry, bitNames[ic].Data(), passBit, failCode[ic], hPassBitNew->GetBinContent(ic + 1));
+    }
+    else if (passBit & failCode[ic])
+    {
+      // printf("MESSAGE line 359 event %lld fails pass = %i name %s \n", entry, passBit, bitNames[ic].Data());
+      hPassBitNew->SetBinContent(ic + 1, hPassBitNew->GetBinContent(ic + 1) + 1);
+    }
   }
 
   return passBit;
@@ -581,6 +604,7 @@ void loop()
     int passBit = passEventCuts(entry);
     // set to pass for debugging
     // cut on passBit passBit = 0;
+
     hEventPassNew->SetBinContent(passBit, hEventPassNew->GetBinContent(passBit) + 1);
     if (passBit != 0 && !isLedRun)
       continue;
@@ -678,10 +702,7 @@ void loop()
           if (thit.firstBin >= 7500 - 600)
             lateHitCountFile[idet] = lateHitCountFile[idet] + 1;
         }
-        hMulti[idet]->Fill(thit.qpeak / readGains->sipmPeakGain[idet]);
-        // cut on 1.5 SPE for filling light curve
-        if (idet < 9 && thit.qpeak / readGains->sipmPeakGain[idet] > 1.5)
-          continue;
+
         // fill light curve
         hLightCurve[idet]
             ->SetBinContent(thit.firstBin + 1, hLightCurve[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak / readGains->sipmPeakGain[idet]);
@@ -930,8 +951,8 @@ void post(TString tag)
   }
 
   printf("MESSAGE line 920 total %llu pass %llu \n", maxEntry, totalPass);
-  // hEventPassNew->Print("all");
-  printf("MESSAGE line 925 pass fractions total = %.0f  \n", hEventPassNew->GetEntries());
+  hPassBitNew->Print("all");
+  printf("MESSAGE line 925 pass fractions total = %.0f \n", hEventPassNew->GetEntries());
   for (int ibin = 0; ibin < hEventPassNew->GetNbinsX(); ++ibin)
   { // inc/lude error on poisson probability
     double nbin = hEventPassNew->GetBinContent(ibin);
@@ -985,9 +1006,12 @@ int main(int argc, char *argv[])
   failCode[5] = GAMMA;
   failCode[6] = TRIGFAIL;
   failCode[7] = TRIANGLE;
+  failCode[8] = MULTI;
+  failCode[9] = TOTALCODES;
 
   vecFail.resize(FAILBITS);
   bitNames.resize(FAILBITS);
+  // offset by one to include ALL
   bitNames[0] = TString("All");
   bitNames[1] = TString("Pass");
   bitNames[2] = TString("Baseline");
@@ -997,6 +1021,7 @@ int main(int argc, char *argv[])
   bitNames[6] = TString("Gamma");
   bitNames[7] = TString("Trigger");
   bitNames[8] = TString("Triangle");
+  bitNames[9] = TString("Mult");
 
   codeNames.resize(TOTALCODES);
   // build trigger bit pattern names
