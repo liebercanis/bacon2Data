@@ -110,6 +110,7 @@ TH1D *hCosmicCut;
 TH1D *hQsumChannel;
 TH1D *hQsumChannelEff;
 
+std::vector<TH1D *> hMulti;
 std::vector<TH1D *> hLateSumChan;
 std::vector<TH1D *> hLightCurve;
 std::vector<TH1D *> hLightNorm;
@@ -677,6 +678,10 @@ void loop()
           if (thit.firstBin >= 7500 - 600)
             lateHitCountFile[idet] = lateHitCountFile[idet] + 1;
         }
+        hMulti[idet]->Fill(thit.qpeak / readGains->sipmPeakGain[idet]);
+        // cut on 1.5 SPE for filling light curve
+        if (idet < 9 && thit.qpeak / readGains->sipmPeakGain[idet] > 1.5)
+          continue;
         // fill light curve
         hLightCurve[idet]
             ->SetBinContent(thit.firstBin + 1, hLightCurve[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak / readGains->sipmPeakGain[idet]);
@@ -852,6 +857,9 @@ void post(TString tag)
   {
     hNextHitTime.push_back(new TH1D(Form("NextHitTimeChan%i", ichan), Form("NextHitTimeChan%i samples", ichan), 500, 0, 500));
     hNextHitTimeOther.push_back(new TH1D(Form("NextHitTimeOtherChan%i", ichan), Form("NextHitOtherTimeChan%i samples", ichan), 500, 0, 500));
+    hMulti.push_back(new TH1D(Form("MultiChan%i", ichan), Form("MultiChan%i samples", ichan), 100, 0., 10.));
+    hMulti.back()->GetXaxis()->SetTitle("number of SPE");
+    hMulti.back()->GetYaxis()->SetTitle("number of hits");
   }
 
   fout->cd();
