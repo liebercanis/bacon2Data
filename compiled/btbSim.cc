@@ -652,7 +652,7 @@ void btb(int ngen = 10000000)
   if (geoVersionOld)
     fullname = (Form("btbSimOLD-%s-%i.root", tdateTag.Data(), ngen));
   else
-    fullname = (Form("btbSimNEW-%s-%i.root", tdateTag.Data(), ngen));
+    fullname = (Form("btbSimNEW-run-%s-%i.root", tdateTag.Data(), ngen));
   fout = new TFile(fullname, "recreate"); // DEF made to update rather than recreate so that it doesn't write over a file already made.
   printf("opened output file %s date %s \n", fout->GetName(), tdateTag.Data());
   cout << tdateTag << endl;
