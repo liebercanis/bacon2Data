@@ -647,7 +647,7 @@ void btb(int ngen = 10000000)
   // strftime(output, 30, "%Y-%m-%d-%H-%M", timeinfo);
   // TString tdateTag = TString(output);
   TString tdateTag;
-  tdateTag.Form("%i_%i_%i", month, day, year);
+  tdateTag.Form("%02i_%02i_%i", month, day, year);
   TString fullname;
   if (geoVersionOld)
     fullname = (Form("btbSimOLD-%s-%i.root", tdateTag.Data(), ngen));
