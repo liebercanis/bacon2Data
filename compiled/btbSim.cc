@@ -130,6 +130,8 @@ TH2D *hTriangleCut;
 TH2D *hTriangleMean;
 // uint16_t maxAdc = pow(2, 14);
 double sigmaNoise;
+// Peak of the normalized Landau used as the SPE amplitude scale in convolve().
+// The locally computed version in btb() is for reporting only; convolve() always uses this global.
 double landauMax = 0.018063;
 double nominalGeo;
 // 2*14         // ns
@@ -149,6 +151,7 @@ double thePPM = 0.0;
 double meanFreePath = 1.53; // from table in cm3frmom rtabtable in cm3frmom rtabtable in cm
 double totalEventEffiency;
 double triggerTimes[3];
+// Minimum cosθ to avoid shadowing by the source holder: z=0.851 cm (SiPM plane), r=0.4 cm (holder radius).
 double cosMin = 0.851 / sqrt(pow(0.4, 2) + pow(0.851, 2));
 double maxTriggerTimeDifference = 24.0; // Aug 9
 unsigned timeOffset = 13;               // changed from 17 may 13, 2024
@@ -544,7 +547,7 @@ void btb(int ngen = 10000000)
   // zerp trig coount
   trigCount9 = 0;
 
-  // trigger time shifts
+  // trigger time shifts — only the last assignment (+5 ns) takes effect; earlier lines are dead
   trigTimeShift[0] = 0.;
   trigTimeShift[0] = -5.;
   trigTimeShift[0] = +5.;
@@ -1034,6 +1037,7 @@ void btb(int ngen = 10000000)
     double effGeoSim9 = effGeoSim(9);
     double effGeoSim10 = effGeoSim(10);
     double effGeoSim11 = effGeoSim(11);
+    // Z > 0 means the interaction point is on the detector side of the source (array at +Z)
     isFid = false;
     if (eventOrigin.Z() > 0.0 && effGeoSim9 > 0 && effGeoSim10 > 0 && effGeoSim11 > 0)
       isFid = true;
@@ -1073,7 +1077,7 @@ void btb(int ngen = 10000000)
       }
       //
       sigmaNoise = gainFunc(ich) * noiseToSignal;
-      bool invert = ich > 8;
+      bool invert = ich > 8; // trigger SiPMs (9-11) have inverted ADC polarity: stored as 2^14 - signal
 
       if (rawRun)
       {
