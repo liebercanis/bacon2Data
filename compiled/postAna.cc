@@ -538,22 +538,20 @@ unsigned long countFiles()
     int month = TString(tname(tname.Last('n') + 2, 2)).Atoi();
     int day = TString(tname(tname.Last('n') + 5, 2)).Atoi();
     int year = TString(tname(tname.Last('n') + 8, 4)).Atoi();
-    tmStruct.tm_year = year;
-    tmStruct.tm_mon = month;
+    tmStruct.tm_year = year - 1900; // struct tm counts from 1900
+    tmStruct.tm_mon = month - 1;    // struct tm is 0-based
     tmStruct.tm_mday = day;
     time_t fileTime = mktime(&tmStruct);
     const auto diff0 = std::difftime(fileTime, time0);
     const auto diff1 = std::difftime(fileTime, time1);
     bool timetest = diff0 >= 0 && diff1 <= 0;
-    /*
+    printf("fileTime: %s  month=%i day=%i year=%i  diff0=%.0f diff1=%.0f pass=%i  file=%s\n",
+           asctime(localtime(&fileTime)), month, day, year, diff0, diff1, int(timetest), tname.Data());
     if (!timetest)
     {
-      printf("line914 info : file %s time %s", tname.Data(), asctime(gmtime(&fileTime)));
-      cout << " \t ..... " << diff0 << " " << diff1 << endl;
-      cout << "line1148 skip out of time file " << name << endl;
+      cout << "   skip out of time file " << name << endl;
       continue;
     }
-      */
     TString fullName = dirNameSlash + TString(name.c_str());
     printf("MESSAGE: openFile name %s \n", fullName.Data());
     TFile *f = new TFile(fullName, "READONLY");
@@ -591,16 +589,16 @@ void setTime(TString startTag, TString endTag)
   // printf(" start %i %i %i ene %i %i %i  \n",month0,day0,year0,month1,day1,year1);
 
   /* fill in values for 2019-08-22 23:22:26 */
-  tmStruct.tm_year = year0;
-  tmStruct.tm_mon = month0;
+  tmStruct.tm_year = year0 - 1900; // struct tm counts from 1900
+  tmStruct.tm_mon = month0 - 1;    // struct tm is 0-based
   tmStruct.tm_mday = day0;
   time0 = mktime(&tmStruct);
-  printf("set start %s\n", asctime(gmtime(&time0)));
-  tmStruct.tm_year = year1;
-  tmStruct.tm_mon = month1;
+  printf("set start %s\n", asctime(localtime(&time0)));
+  tmStruct.tm_year = year1 - 1900;
+  tmStruct.tm_mon = month1 - 1;
   tmStruct.tm_mday = day1;
   time1 = mktime(&tmStruct);
-  printf("set end %s\n", asctime(gmtime(&time1)));
+  printf("set end %s\n", asctime(localtime(&time1)));
 }
 
 void loop()
