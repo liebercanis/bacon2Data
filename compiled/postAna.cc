@@ -176,6 +176,19 @@ double npass;
 vector<int> filePass;
 vector<int> fileTotal;
 
+bool fileExists(TString theFile)
+{
+  bool exists = false;
+  FILE *aFile;
+  aFile = fopen(theFile.Data(), "r");
+  if (aFile)
+  {
+    fclose(aFile);
+    exists = true;
+  }
+  return exists;
+}
+
 double gainFunc(int ich)
 {
   double gain = readGains->sipmPeakGain[ich];
@@ -510,6 +523,7 @@ unsigned long countFiles()
   cout << " MESSAGE line 475 count files in dir " << dirName << endl;
   TSystemDirectory dir(dirName, dirName); // TSystemDirectory
   TList *files = dir.GetListOfFiles();
+  files->ls();
   // print list
   TIter next(files); // Create an iterator for the TList
   TSystemFile *file;
