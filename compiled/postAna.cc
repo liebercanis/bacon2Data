@@ -545,6 +545,7 @@ unsigned long countFiles()
     const auto diff0 = std::difftime(fileTime, time0);
     const auto diff1 = std::difftime(fileTime, time1);
     bool timetest = diff0 >= 0 && diff1 <= 0;
+    /*
     if (!timetest)
     {
       printf("line914 info : file %s time %s", tname.Data(), asctime(gmtime(&fileTime)));
@@ -552,6 +553,7 @@ unsigned long countFiles()
       cout << "line1148 skip out of time file " << name << endl;
       continue;
     }
+      */
     TString fullName = dirNameSlash + TString(name.c_str());
     printf("MESSAGE: openFile name %s \n", fullName.Data());
     TFile *f = new TFile(fullName, "READONLY");
