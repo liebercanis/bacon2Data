@@ -638,9 +638,16 @@ void btb(int ngen = 10000000)
   struct tm *timeinfo;
   time(&rawtime);
   timeinfo = localtime(&rawtime);
-  char output[30];
-  strftime(output, 30, "%Y-%m-%d-%H-%M", timeinfo);
-  TString tdateTag = TString(output);
+
+  int day = timeinfo->tm_mday;         // 1-31, as-is
+  int month = timeinfo->tm_mon + 1;    // tm_mon is 0-11, so add 1
+  int year = timeinfo->tm_year + 1900; // tm_year is years since 1900
+  // correct format is month day year
+  // char output[30];
+  // strftime(output, 30, "%Y-%m-%d-%H-%M", timeinfo);
+  // TString tdateTag = TString(output);
+  TString tdateTag;
+  tdateTag.Form("%i_%i_%i", month, day, year);
   TString fullname;
   if (geoVersionOld)
     fullname = (Form("btbSimOLD-%s-%i.root", tdateTag.Data(), ngen));
