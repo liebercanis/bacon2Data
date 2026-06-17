@@ -544,11 +544,11 @@ unsigned long countFiles()
     time_t fileTime = mktime(&tmStruct);
     const auto diff0 = std::difftime(fileTime, time0);
     const auto diff1 = std::difftime(fileTime, time1);
-    // printf("line914 info : file %s time %s", tname.Data(), asctime(gmtime(&fileTime)));
-    // cout << " \t ..... " << diff0 << " " << diff1 << endl;
     bool timetest = diff0 >= 0 && diff1 <= 0;
     if (!timetest)
     {
+      printf("line914 info : file %s time %s", tname.Data(), asctime(gmtime(&fileTime)));
+      cout << " \t ..... " << diff0 << " " << diff1 << endl;
       cout << "line1148 skip out of time file " << name << endl;
       continue;
     }
