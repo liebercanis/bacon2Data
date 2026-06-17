@@ -545,8 +545,8 @@ unsigned long countFiles()
     const auto diff0 = std::difftime(fileTime, time0);
     const auto diff1 = std::difftime(fileTime, time1);
     bool timetest = diff0 >= 0 && diff1 <= 0;
-    printf("fileTime: %s  month=%i day=%i year=%i  diff0=%.0f diff1=%.0f pass=%i  file=%s\n",
-           asctime(localtime(&fileTime)), month, day, year, diff0, diff1, int(timetest), tname.Data());
+    // printf("fileTime: %s  month=%i day=%i year=%i  diff0=%.0f diff1=%.0f pass=%i  file=%s\n",
+    //        asctime(localtime(&fileTime)), month, day, year, diff0, diff1, int(timetest), tname.Data());
     if (!timetest)
     {
       cout << "   skip out of time file " << name << endl;
