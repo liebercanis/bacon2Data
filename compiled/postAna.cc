@@ -549,7 +549,7 @@ unsigned long countFiles()
     bool timetest = diff0 >= 0 && diff1 <= 0;
     if (!timetest)
     {
-      // cout << "line1148 skip out of time file " << name << endl;
+      cout << "line1148 skip out of time file " << name << endl;
       continue;
     }
     TString fullName = dirNameSlash + TString(name.c_str());
