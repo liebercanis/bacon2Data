@@ -523,8 +523,8 @@ unsigned long countFiles()
   cout << " MESSAGE line 475 count files in dir " << dirName << endl;
   TSystemDirectory dir(dirName, dirName); // TSystemDirectory
   TList *files = dir.GetListOfFiles();
-  files->ls();
-  // print list
+  // files->ls();
+  //  print list
   TIter next(files); // Create an iterator for the TList
   TSystemFile *file;
   while ((file = (TSystemFile *)next()))
@@ -553,6 +553,7 @@ unsigned long countFiles()
       continue;
     }
     TString fullName = dirNameSlash + TString(name.c_str());
+    printf("MESSAGE: openFile name %s \n", fullName.Data());
     TFile *f = new TFile(fullName, "READONLY");
     /* not really needed but checks for file contents */
     if (getPointers(f))
