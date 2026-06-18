@@ -3,6 +3,7 @@
 // time is in nanoseconds
 #include "TString.h"
 #include "TF1.h"
+#include "TH1.h"
 #include <TNtuple.h>
 #include <distanceLevels.hh>
 
@@ -143,9 +144,9 @@ static void setupModelAllFit()
 
   /* set bad channels used in fit modelAllFit.hh */
   std::vector<unsigned> badList;
-  badList.push_back(0);
-  badList.push_back(1);
-  badList.push_back(8);
+  // badList.push_back(0);
+  // badList.push_back(1);
+  // badList.push_back(8);
   setBadChannels(badList);
 
   // covered channels

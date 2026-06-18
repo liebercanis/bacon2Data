@@ -2,6 +2,9 @@
 root macro to fit data with model
 using modelAllFit.hh
 Nov 13 2025
+******* deprecated as of Feb 2026
+use tvbFit.cc instead
+***********
 */
 #include <iostream>
 #include <string>

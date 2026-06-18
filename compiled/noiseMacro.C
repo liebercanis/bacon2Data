@@ -215,8 +215,8 @@ void noiseMacro(TString fileName = "")
         double mean = hNoiseEarly[ichan]->GetMean();
         double rms = hNoiseEarly[ichan]->GetRMS();
         printf("chan %i mean early rate %.2E rms %.2E \n", ichan, mean, rms);
-        vmean.push_back(mean);
-        vrms.push_back(rms);
+        vmean.push_back(mean * 75000); // convert to rate per 75k events
+        vrms.push_back(rms * 75000);   // convert to rate per 75k events
         vchan.push_back(ichan);
         vchanError.push_back(0);
     }
@@ -228,8 +228,8 @@ void noiseMacro(TString fileName = "")
     gMean->SetMarkerColor(kRed);
     gMean->SetLineColor(kRed);
     gMean->GetXaxis()->SetTitle("channel number");
-    gMean->GetYaxis()->SetTitle("mean noise rate per event ");
-    TCanvas *canMeanRMS = new TCanvas(Form("canNoiseMeanRMS-%s", tag.Data()), Form("Noise Mean vs RMS - %s", tag.Data()));
+    gMean->GetYaxis()->SetTitle("mean noise per event ");
+    TCanvas *canMeanRMS = new TCanvas(Form("canNoisePerEvent-%s", tag.Data()), Form("Noise Mean vs RMS - %s", tag.Data()));
     gMean->Draw("AP");
     gPad->SetGrid();
     gPad->SetLogy();

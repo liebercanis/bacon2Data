@@ -621,7 +621,7 @@ void loop()
     // cut on passBit passBit = 0;
 
     hEventPassNew->SetBinContent(passBit, hEventPassNew->GetBinContent(passBit) + 1);
-    if (passBit != 0 && !isLedRun)
+    if (passBit != 0 && !isLedRun && !isSimulation)
       continue;
 
     ++totalPass;
@@ -1084,13 +1084,16 @@ int main(int argc, char *argv[])
   /* count files between dates */
   unsigned nfiles = countFiles();
   printf("MESSAGE line 985 count files from %s to %s total files  %ld \n", theStartTag.Data(), theEndTag.Data(), fileListName.size());
-  if (theStartTag.Contains("btbSim"))
-    isSimulation = true;
+
   if (nfiles == 0)
   {
     printf(" >>>> datatype no files found <<<<\n");
     exit(-1);
   }
+
+  if (fileListName[0].Contains("btbSim"))
+    isSimulation = true;
+
   if (isSimulation)
     printf("****** this is simulation data **** \n");
 
@@ -1117,13 +1120,18 @@ int main(int argc, char *argv[])
   TString sentries;
   sentries.Form("-%llu", maxEntry);
 
-  fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "recreate");
+  TString outFileName;
+  outFileName = TString("post-") + tag + sentries + TString(".root");
+  if (isSimulation)
+    outFileName = TString("post-btbSim-") + tag + sentries + TString(".root");
+
+  fout = new TFile(outFileName, "recreate");
   gainDir = fout->mkdir("gainDir");
   // pick up first pass hEventCount now that fout is open
   for (int i = 0; i < fileListName.size(); ++i)
   {
     if (!fout)
-      fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "update");
+      fout = new TFile(outFileName, "update");
     cout << i << "  " << fileListName[i] << endl;
     TString dirNameSlash = TString("caenData/");
     TString fullName = dirNameSlash + fileListName[i];
@@ -1147,7 +1155,7 @@ int main(int argc, char *argv[])
 
   if (!fout)
   {
-    fout = new TFile(TString("post-") + tag + sentries + TString(".root"), "update");
+    fout = new TFile(outFileName, "update");
     gainDir = fout->mkdir("gainDir");
   }
 

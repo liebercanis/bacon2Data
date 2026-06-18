@@ -10,6 +10,7 @@ enum
 std::string sdate;
 TFile *fin;
 TFile *fout;
+TReadGains *readGains;
 std::vector<TH1D *> hLateSumChan;
 
 string currentDate()
@@ -49,8 +50,14 @@ void getCurves()
 void postMacroLed()
 {
 
+    readGains = new TReadGains();
+
+    // store qsumGain[ib];
+    for (unsigned ch = 0; ch < readGains->sipmSumGain.size(); ++ch)
+        printf("sipmSumGain[%i] = %f\n", ch, readGains->sipmSumGain[ch]);
+
     // set file name and tag
-    TString fileName = TString("post-02_26_2026-02_26_2026-265584.root");
+    TString fileName = TString("post-02_26_2026-02_26_2026-236255.root");
     TString tag = TString(fileName(fileName.First("-") + 1, 21));
     cout << " led data file " << fileName << " with date tag " << tag << endl;
 
@@ -74,10 +81,17 @@ void postMacroLed()
     printf("Number of late sum channels: %lu\n", hLateSumChan.size());
     TH1D *hIntChannel = new TH1D("hIntChannnel", "int by channel", 9, 0, 9);
     TH1D *hGeoIntChannel = new TH1D("hGeoIntChannnel", "int by channel geo normalized", 9, 0, 9);
+    TH1D *hAveChannel = new TH1D("hAveChannel", "int by channel geo normalized", 9, 0, 9);
     hIntChannel->GetXaxis()->SetTitle("channel");
     hIntChannel->GetYaxis()->SetTitle("late sum average [SPE]");
     hGeoIntChannel->GetXaxis()->SetTitle("channel");
     hGeoIntChannel->GetYaxis()->SetTitle("late sum average [SPE] / geometric efficiency");
+    hAveChannel->GetXaxis()->SetTitle("ave channel");
+    hAveChannel->GetYaxis()->SetTitle("late sum average [SPE] / geometric efficiency");
+
+    TH1D *hPreChannel = new TH1D("hPreChannel", "pre sum by channel", 9, 0, 9);
+    hPreChannel->GetXaxis()->SetTitle("channel");
+    hPreChannel->GetYaxis()->SetTitle("pre sum average [SPE]");
 
     int color[12] = {1, 2, 3, 4, 5, 6, 7, 8, 9, kTeal, kOrange, kAzure};
     for (unsigned i = 0; i < 9; ++i)
@@ -131,6 +145,11 @@ void postMacroLed()
     printf("Tree name: %s\n", ntuple->GetName());
     ntuple->Print();
 
+    TTree *ntpre = (TTree *)fin->Get("ntPreSum");
+    Long64_t nentries2 = ntpre->GetEntries();
+    printf("Tree name: %s entries %lld \n ", ntpre->GetName(), nentries2);
+    // ntuple->Print();
+
     // Create variables to hold data
     float event;
     ntuple->SetBranchAddress("event", &event);
@@ -141,32 +160,106 @@ void postMacroLed()
     float lateSum;
     ntuple->SetBranchAddress("lateSum", &lateSum);
 
+    // Create variables to hold data
+    float event2;
+    ntpre->SetBranchAddress("event", &event2);
+    float chan2;
+    ntpre->SetBranchAddress("chan", &chan2);
+    float geo2;
+    ntpre->SetBranchAddress("geo", &geo2);
+    float preSum;
+    ntpre->SetBranchAddress("preSum", &preSum);
+
     // Loop
     double lateSumAve[NONSUMCHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+    double lateSumError[NONSUMCHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+    double preSumAve[NONSUMCHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+    double geoEff[NONSUMCHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+    // relative efficiency
+    double eff8 = effGeoFunc(8);
+    for (int i = 0; i < NONSUMCHANNELS; i++)
+    {
+        geoEff[i] = effGeoFunc(i) / eff8;
+    }
+
+    for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
+    {
+        lateSumAve[ichan] = hLateSumChan[ichan]->GetMean();
+        lateSumError[ichan] = hLateSumChan[ichan]->GetMeanError();
+        printf("%s chan %i late sum average %f error %f \n", hLateSumChan[ichan]->GetName(), ichan, lateSumAve[ichan], lateSumError[ichan]);
+        hIntChannel->SetBinContent(ichan + 1, lateSumAve[ichan]);
+        hIntChannel->SetBinError(ichan + 1, lateSumError[ichan]);
+    }
+
+    double lateSumMean = 0;
+    for (int i = 0; i < NONSUMCHANNELS; i++)
+    {
+        lateSumMean += lateSumAve[i] / geoEff[i];
+    }
+    lateSumMean /= double(NONSUMCHANNELS);
+    printf("late sum mean %f \n", lateSumMean);
+
+    for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
+    {
+        hGeoIntChannel->SetBinContent(ichan + 1, lateSumAve[ichan] / geoEff[ichan]);
+        hGeoIntChannel->SetBinError(ichan + 1, lateSumError[ichan] / geoEff[ichan]);
+    }
+
+    for (int ichan = 0; ichan < NONSUMCHANNELS; ++ichan)
+    {
+        hAveChannel->SetBinContent(ichan + 1, (lateSumAve[ichan] / geoEff[ichan] - lateSumMean) / lateSumMean);
+        hAveChannel->SetBinError(ichan + 1, lateSumError[ichan] / geoEff[ichan] / lateSumMean);
+    }
+
+    printf("write file \n");
+    fout->ls();
+    fout->Write();
+    hGeoIntChannel->Print("all");
+    hAveChannel->Print("all");
+    printf("postMacroLed completed \n");
+
+    /*double lateSumAve[NONSUMCHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+    double lateSumError[NONSUMCHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+    double preSumAve[NONSUMCHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 
     printf("number of entries in ntLateSum %lld \n", nentries);
 
     for (Long64_t i = 0; i < nentries; i++)
     {
         ntuple->GetEntry(i);
-        if (i / 10000 * 10000 == i)
-            std::cout << "entry " << i << " event " << event << " chan " << chan << " geo " << geo << "  " << lateSum << std::endl;
-
+        ntpre->GetEntry(i);
+        if (i / 100000 * 100000 == i)
+            std::cout << "entry " << i << " event " << event << " chan " << chan << " geo " << geo << "  " << lateSum << " preSum " << preSum << std::endl;
         if (chan < 9)
             lateSumAve[int(chan)] += lateSum;
     }
 
+    // normalize to number of entries
+    for (int i = 0; i < NONSUMCHANNELS; i++)
+        lateSumAve[i] /= double(nentries);
+
+    for (Long64_t i = 0; i < nentries; i++)
+    {
+        ntuple->GetEntry(i);
+        if (i / 100000 * 100000 == i)
+            std::cout << "2nd loop entry " << i << " event " << event << " chan " << chan << " geo " << geo << "  " << lateSum << " ave " << lateSumAve[int(chan)] << std::endl;
+        if (chan < 9)
+            lateSumError[int(chan)] += pow(lateSum - lateSumAve[int(chan)], 2);
+    }
+
+    for (int i = 0; i < NONSUMCHANNELS; i++)
+    {
+        lateSumError[i] /= double(nentries);
+        lateSumError[i] = sqrt(lateSumError[i]);
+    }
+
+    double lateSumMean = 0;
     for (int i = 0; i < NONSUMCHANNELS; i++)
     {
         double eff = effGeoFunc(i);
-        printf("chan %i late sum average %f eff %f \n", i, lateSumAve[i], eff);
-        hIntChannel->SetBinContent(i + 1, lateSumAve[i]);
-        hIntChannel->SetBinError(i + 1, sqrt(lateSumAve[i]));
-        hGeoIntChannel->SetBinContent(i + 1, lateSumAve[i] / eff);
-        hGeoIntChannel->SetBinError(i + 1, sqrt(lateSumAve[i]) / eff);
+        lateSumMean += lateSumAve[i] / eff;
     }
-    printf("write file \n");
-    fout->ls();
-    fout->Write();
-    printf("postMacroLed completed \n");
+    lateSumMean /= double(NONSUMCHANNELS);
+    printf("late sum mean %f \n", lateSumMean);*/
 }
