@@ -9,8 +9,8 @@ ClassImp(TReadGains)
     nominalTrigGain = 735.688747; //
     nominalQsumGain = 4940.503519;
     nominalQsumTrigGain = 32056.789775;
-    nominalPmtGain = 165.;      // changed for run 5 was 502.;
-    nominalQsumPmtGain = 1900.; // changed for run 5 was 1713;
+    nominalPmtGain = 165.;       // changed for run 5 was 502.;
+    nominalQsumPmtGain = 760.00; // changed for 04_16_2026 changed for run 5 was 1713;
     clear();
     gPeakGraph = NULL;
     gSumGraph = NULL;
@@ -27,6 +27,23 @@ ClassImp(TReadGains)
 
     readPeakGains();
     readSumGains();
+    relativeEff.resize(NUMCHANNELS);
+    // from LED run as eff_i - mean
+    // devide to correct
+    relativeEff[0] = 1. + 0.245877;
+    relativeEff[1] = 1. + 0.0567434;
+    relativeEff[2] = 1. + 0.21173;
+    relativeEff[3] = 1. - 0.217802;
+    relativeEff[4] = 1. + 0.274232;
+    relativeEff[5] = 1. + 0.00278381;
+    relativeEff[6] = 1. - 0.359765;
+    relativeEff[7] = 1. - 0.184547;
+    relativeEff[8] = 1. - 0.0292534;
+    relativeEff[9] = 1.0;
+    relativeEff[10] = 1.0;
+    relativeEff[11] = 1.0;
+    relativeEff[12] = 1.0;
+
     printGains();
 }
 
@@ -151,7 +168,7 @@ bool TReadGains::readSumGains()
                 sipmSumGainError[index] = gGain->GetErrorY(i);
             }
             else
-                printf("TReadGain WARNING gain val %f too small compared to %f\n", val, nominalQsumGain);
+                printf("TReadGain WARNING gain channel %i val %f too small compared to %f\n", i, val, nominalQsumGain);
         }
         else if (i > 8 && i < 12)
         {
@@ -161,7 +178,7 @@ bool TReadGains::readSumGains()
                 sipmSumGainError[index] = gGain->GetErrorY(i);
             }
             else
-                printf("TReadGain WARNING gain val %f too small compared to %f\n", val, nominalQsumTrigGain);
+                printf("TReadGain WARNING gain channel %i val %f too small compared to %f\n", i, val, nominalQsumTrigGain);
         }
         else if (i == 12)
         {
@@ -171,7 +188,7 @@ bool TReadGains::readSumGains()
                 sipmSumGainError[index] = gGain->GetErrorY(i);
             }
             else
-                printf("TReadGain WARNING gain val %f too small compared to %f\n", val, sipmSumGain[index]);
+                printf("TReadGain WARNING gain channel %i val %f too small compared to %f\n", i, val, sipmSumGain[index]);
         }
     }
 
@@ -240,7 +257,7 @@ void TReadGains::printGains()
             sumToNominal = sipmSumGain[j] / nominalQsumPmtGain;
         }
 
-        printf(" chan %lu  peak gain %.4f error %.4f  sum gain %.4f error %.4f peak to nominal %.4f sum to nominal %.4f  \n", j, sipmPeakGain[j], sipmPeakGainError[j],
-               sipmSumGain[j], sipmSumGainError[j], peakToNominal, sumToNominal);
+        printf(" chan %lu  peak gain %.4f error %.4f  sum gain %.4f error %.4f peak to nominal %.4f sum to nominal %.4f  relative %.4f  \n", j, sipmPeakGain[j], sipmPeakGainError[j],
+               sipmSumGain[j], sipmSumGainError[j], peakToNominal, sumToNominal, relativeEff[j]);
     }
 }
