@@ -45,7 +45,7 @@ enum
 static double buff[NCHAN][MAXSAMPLE]; // buffer to store light curve data
 static double fitWave[NCHAN][MAXSAMPLE];
 static double fitComp[NCHAN][NUMCOMP][MAXSAMPLE];
-static double lateBkg[NCHAN];
+static double lateBkg[NCHAN]; // no longer used
 
 /***** units are nanoseconds ****/
 static double shift = 12.;
@@ -212,6 +212,7 @@ static double Absorbtion(double ppm, double dist)
   return 1. - Tr128;
 }
 
+/** exponential convolution with  gaussian time resolution ***/
 static double expGaus(double x, double tau)
 {
   x -= shift; // compensate for shift in mean due to smearing of 10 percent
@@ -350,7 +351,11 @@ static void printModel(int ibin, Double_t *par)
 
   printf("DENOMINATORS lx - kxPrime %E lx - l1 %E lx - l3 %E\n", lX - kxPrime, lX - l1, lX - l3);
 }
-/* function fit by minuit*/
+/*
+ **********************   function fit by minuit **************************
+ **********************    Minuit specifies function arguments
+ **********************    returned f is NLL value
+ */
 void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
 {
   // pack parameters into static array onto lightModel
@@ -366,12 +371,15 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
   double tMix = par[TAUM];
   // double bkg = par[BKGCONST];
 
-  // loop over channels
+  /****************
+   **************** loop over channels *************
+   * **************/
   // double chanList[3] = {8, 5, 0};
   for (int ic = 0; ic < NCHAN; ++ic)
   {
     /* for fitting single channel
-    par[THECHANNEL] =-1 for all */
+     ************  par[THECHANNEL] =-1 for all
+     */
     if (par[THECHANNEL] > 0 && ic != par[THECHANNEL])
       continue;
 
@@ -417,7 +425,9 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     double aPmt = TMath::Pi() / 4.0 * pow(6.40, 2); // R11410-20  Effective area : 64 mm dia units here are cm
     if (ic == 12)
       effGeo = aPmt / fourPi / pow(dist, 2.);
-    // set to 1 using geo normalized data
+    /*
+        set to 1 using geo normalized data
+    */
     effGeo = 1.;
 
     // values in samples
@@ -425,10 +435,12 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     int ihigh = MAXSAMPLE; // singlet MAXSAMPLE;
     // singlet region
     // ihigh = 1500;
-    // loop over bins to fit
+    /****
+     ****   loop over bins to fit
+     */
     for (int j = ilow; j < ihigh; ++j) // 7500 is total samples
     {
-      /* skip dip region */
+      /* skip dip region for trigger sipms */
       bool dip = j > 1400 / 2 && j < 1700 / 2;
       if (dip && ilevel == 0) //
         continue;
@@ -440,8 +452,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       double tkxPrime = 1. / kxPrime;                    // corresponding time
 
       // convenient rates lambda in paper
-      double l1 = 1. / tSinglet0 + kqZero + kx;
-      double l3 = 1. / tTriplet + kqZero + kx;
+      double l1 = 1. / tSinglet0 + kqZero + kx; // lamda 1 in paper
+      double l3 = 1. / tTriplet + kqZero + kx;  // lamda 3 in paper
       double lX = 1. / tXe0;
 
       // corresponding times
@@ -492,7 +504,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
         fx = fx * SiPMQE175;
       }
 
-      // total light for channel
+      // total light for channel and bin ic
       // double mval = fs + ft + fx + fm + lateBkg[ic];
       double mval = fs + ft + fx + fm;
       // mval = fs + ft;
@@ -532,7 +544,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
         printf("line255  ibin YTERM is NAN chan %i sample  %i f=%E  y = %E fs %E ft %E fx %E fm %E bkg %E \n", ic, j, f, y, fs, ft, fx, fm, lateBkg[j]);
       }
       else
-      {
+      { // sum up NLL as defined ROOT documentation
         f += mval - y * log(mval) - yterm;
         // printf("line524 modelFitAll chan %i nLL = %E\n", ic, f);
       }
