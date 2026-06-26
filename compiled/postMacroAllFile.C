@@ -48,6 +48,10 @@ unsigned ifile;
 std::string sdate;
 TFile *fin;
 TFile *fout;
+TGraph *gSingletIntegrals;
+TGraph *gLateIntegrals;
+double singletIntegral[NCHAN];
+double lateIntegral[NCHAN];
 std::vector<TString> codeNames;
 std::vector<int> failCodes;
 std::vector<TString> bitNames;
@@ -497,6 +501,44 @@ void postMacroAllFile(unsigned theFile = 0)
         relativeValue[i] = (peakValueCorr[i] - peakAve) / peakAve;
         printf("RELATIVEVALUES chan %i peak %.3E relative %E (%.3E) distance %.3f rayleigh %.3f  peak %.3E corr %.3E; \n", i, peakValue[i], relativeValue[i], readGains->relativeEff[i] - 1., distanceLevel[getLevel(i)], rayleighAtten[i], peakValue[i], peakValueCorr[i]);
     }
+    // fill integral arrays
+    for (int i = 0; i < NCHAN; ++i)
+    {
+        singletIntegral[i] = 0;
+        lateIntegral[i] = 0;
+        for (int j = 0; j < hEffNorm[i]->GetNbinsX(); ++j)
+        {
+            double val = hEffNorm[i]->GetBinContent(j);
+            if (j < 1420 / 2)
+                singletIntegral[i] += val;
+            else
+                lateIntegral[i] += val;
+        }
+    }
+
+    gSingletIntegrals = new TGraph(NCHAN, &xchan[0], &singletIntegral[0]);
+    gLateIntegrals = new TGraph(NCHAN, &xchan[0], &lateIntegral[0]);
+
+    gSingletIntegrals->SetName(Form("gSingletIntegralsFile%i", theFile));
+    gSingletIntegrals->SetTitle(Form("gSingletIntegralsFile%i", theFile));
+    fout->Append(gSingletIntegrals);
+
+    gLateIntegrals->SetName(Form("gLateIntegralsFile%i", theFile));
+    gLateIntegrals->SetTitle(Form("gLateIntegralsFile%i", theFile));
+    fout->Append(gLateIntegrals);
+
+    // to fix the scale for the double Draw, use TMultiGraph
+
+    TCanvas *cintegral = new TCanvas(Form("integrals%s", tag.Data()), Form("integral%s", tag.Data()));
+    gSingletIntegrals->GetHistogram()->GetXaxis()->SetTitle("channel");
+    gSingletIntegrals->GetHistogram()->GetYaxis()->SetTitle("integral value");
+    gLateIntegrals->GetHistogram()->GetXaxis()->SetTitle("channel");
+    gLateIntegrals->GetHistogram()->GetYaxis()->SetTitle("integral value");
+    gSingletIntegrals->SetMarkerStyle(21);
+    gLateIntegrals->SetMarkerStyle(22);
+    gLateIntegrals->Draw("ap");
+    gSingletIntegrals->Draw("psame");
+    cintegral->BuildLegend();
 
     TGraph *gPeak = new TGraph(12, &xchan[0], &peakValue[0]);
     gPeak->SetName("gPeak");
