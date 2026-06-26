@@ -57,6 +57,7 @@ TNtuple *ntMean;
 TNtuple *ntFit;
 TNtuple *ntGammaPeak;
 TNtuple *ntNorm;
+TNtuple *ntScan;
 /* geant maps */
 TH3D *originPDF;     // pdf of event origins
 TH3D *fluxMapChan9;  // geo efficiency values
