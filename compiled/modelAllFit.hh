@@ -1,5 +1,7 @@
+// file with fit fcn
 // new version Sept 10 2025
-// arXiv:2009.10755v4 [physics.ins-det] 18 Jul 2022
+// the model:
+//    arXiv:2009.10755v4 [physics.ins-det] 18 Jul 2022
 // time is in nanoseconds
 #include "TString.h"
 #include "TF1.h"
@@ -45,16 +47,18 @@ static double fitWave[NCHAN][MAXSAMPLE];
 static double fitComp[NCHAN][NUMCOMP][MAXSAMPLE];
 static double lateBkg[NCHAN];
 
-TNtuple *ntScan = new TNtuple("ntScan", "ntScan", "ppm:fx:f");
 /***** units are nanoseconds ****/
 static double shift = 12.;
 static double tResolution = 7.0;
-static double tTriplet0 = 1600.0; // 2100.0;
+static double tTriplet0 = 944.0; // from fit in range document in fitting 1600.0; // 2100.0;
+// static double tTriplet0 = 811.0;
+//  static double tTriplet0 = 1600.0; // 2100.0;
 static double tSinglet0 = 7.0;
 static double tMix0 = 4700.;
 static double tXe0 = 20.0;
 // from paper
-static double kUnit0 = 1.0E-4;       // unit to convert to inverse nanoseconds
+static double kUnit0 = 1.0E-4; // unit to convert to inverse nanoseconds
+// static double kqZero = 1.3 * kUnit0; // kq in the paper collisiona de-excitation quenching rate
 static double kqZero = 1.3 * kUnit0; // kq in the paper collisiona de-excitation quenching rate
 static double kxZero = 2.9 * kUnit0; // kx in the paper diffusion limited reaction rate /[PPM]
 //
@@ -136,6 +140,8 @@ static void setCompNames() // tousif
 static void setupModelAllFit()
 {
   /* set geomegtry version for modelAllFit,hh */
+  // ntScan = new TNtuple("ntScan", "ntScan", "ppm:x:f");
+
   geoVersionOld = false;
   setDistanceLevels(geoVersionOld);
   printf("setParNames and setCompNames\n");
@@ -154,7 +160,8 @@ static void setupModelAllFit()
     isCovered[ic] = false;
 
   // covered set to true
-  isCovered[1] = true;
+  isCovered[0] = true;
+  isCovered[8] = true;
   // isCovered[3] = true;
 }
 
@@ -175,14 +182,14 @@ static int getLevel(int ichan)
 
 static double effGeoFunc(int ichan)
 {
-  int ilevel = getLevel(ichan);
   /*
   Area of SiPMs is 6.0mm x 6.0mm
 
       Channels 6, 7, and 8 are at 11.6 cm
       from the source Channels 3, 4, and 5 are at 23.2 cm
       from the source Channels 0, 1, and 2 are at 34.8 cm from the source Channel 12 is at 36 cm from the source.
-      */
+  */
+  int ilevel = getLevel(ichan);
   double aPmt = TMath::Pi() / 4.0 * pow(6.4, 2); // R11410-20  Effective area : 64 mm dia
   double a = pow(0.6, 2.);
   if (ichan == 12)
@@ -197,8 +204,6 @@ static double Absorbtion(double ppm, double dist)
 {
   // Calculate absorption as a function of distance and xenon concentration.%
   // Taken from fits to Neumeier data at 0.1 PPM and scaled;
-  if (ppm == 0)
-    return 1.;
   double A = 0.615;
   ppm = max(1.0E-9, ppm);
   double lambda1 = 12.7 * 0.1 / ppm;
@@ -370,6 +375,12 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     if (par[THECHANNEL] > 0 && ic != par[THECHANNEL])
       continue;
 
+    if (par[THECHANNEL] == -2)
+    { // dont use trigger sipms
+      if (ic > 8)
+        continue;
+    }
+
     /* skip bad channels */
     if (isBadChannel(ic))
       continue;
@@ -391,8 +402,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     double SiPMQ128 = SiPMQE128Ham;
 
     // absorption
-    double ab = 1.0;
-    if (ppm > 1.0E-3)
+    double ab = 0.0;
+    if (ppm > 1.0E-9)
     {
       double lambda1 = 12.7 * 0.1 / ppm;
       double lambda2 = 740 * 0.1 / ppm;
@@ -406,6 +417,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     double aPmt = TMath::Pi() / 4.0 * pow(6.40, 2); // R11410-20  Effective area : 64 mm dia units here are cm
     if (ic == 12)
       effGeo = aPmt / fourPi / pow(dist, 2.);
+    // set to 1 using geo normalized data
+    effGeo = 1.;
 
     // values in samples
     int ilow = 650;        //
@@ -480,7 +493,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       }
 
       // total light for channel
-      double mval = fs + ft + fx + fm + lateBkg[ic];
+      // double mval = fs + ft + fx + fm + lateBkg[ic];
+      double mval = fs + ft + fx + fm;
       // mval = fs + ft;
       //  for plottting components
       fitComp[ic][SINGLETCOMP][j] = fs;
@@ -495,7 +509,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       if (ic == -1 && j == iTrigger)
       {
         printf("fcnxxx chan %i j %i time %f eff %.2E alpha1 %.2E alpha3 %.2E c1 %.2E c3 %.2E t1 %.2E fs%.2E ft %.2E ft.2E fx %.2E fm %.2E mval%.2E \n", ic, j, x, effGeo, alpha1, alpha3, c1, c3, t1, fs, ft, fx, fm, mval);
-        printf("fcnxxxx alpha1 %.2E sfrac %.2E bw %.2E norm %.2E eff %.2E \n", alpha1, sfrac, bw, norm, effGeo);
+        printf("fcnxxxx ab %f alpha1 %.2E sfrac %.2E bw %.2E norm %.2E eff %.2E y %.2E expt1 %.3E expt3 %.3E\n", ab, alpha1, sfrac, bw, norm, effGeo, buff[ic][j], expGaus(x, t1), expGaus(x, t3));
       }
 
       /*******/
@@ -520,14 +534,18 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       else
       {
         f += mval - y * log(mval) - yterm;
+        // printf("line524 modelFitAll chan %i nLL = %E\n", ic, f);
       }
 
       // ntScan->Fill(par[PPM], fx, f);
-      //  leave warnning printout
+      //   leave warnning printout
       if (isnan(f))
       {
         printf("line265  ibin F is NAN chan %i sample %i f=%E mval = %E x = %E y = %E yterm %E effGeo  %E t1 %E t3 %E fs %E ft %E fx %E fm %E bkg %E \n", ic, j, f, mval, x, y, yterm, effGeo, t1, t3, fs, ft, fx, fm, lateBkg[j]);
       }
     }
+
+    // printf("channel modelFitAll channelic, ic %i nLL = %E\n", ic, f);
   } // loop over channels
+  // printf("return modelFitAll nLL = %E\n", f);
 }
