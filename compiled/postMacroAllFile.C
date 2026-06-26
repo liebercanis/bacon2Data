@@ -1,8 +1,26 @@
+
 /*
 look at  postAna root file
 */
-#include "TReadGains.hxx"
-#include "distanceLevels.hh"
+
+// C++ standard library includes
+#include <iostream>
+#include <string>
+#include <vector>
+#include <ctime>
+#include <numeric>
+#include <algorithm>
+
+// ROOT includes
+#include <TROOT.h>
+#include <TFile.h>
+#include <TH1D.h>
+#include <TKey.h>
+#include <TClass.h>
+#include <TCanvas.h>
+#include <TString.h>
+#include <TObject.h>
+
 // pass bit failures hex
 #include "modelAllFit.hh"
 enum FAILURECODES
@@ -15,20 +33,21 @@ enum FAILURECODES
     GAMMA = 0x10,
     TRIGFAIL = 0x20,
     TRIANGLE = 0x40, // 2^6
-    MULTI = 0x80,
-    TOTALCODES = 2 * MULTI // must match postAna.cc
+    TOTALCODES = 2 * TRIANGLE
 };
 
 enum
 {
-    FAILBITS = 9
+    FAILBITS = 8
 };
+
+vector<double> ppmFile;
+
+unsigned ifile;
 
 std::string sdate;
 TFile *fin;
 TFile *fout;
-bool isSimulation;
-
 std::vector<TString> codeNames;
 std::vector<int> failCodes;
 std::vector<TString> bitNames;
@@ -36,17 +55,17 @@ std::vector<std::vector<double>> bitCount; // [bit][file]
 std::vector<double> bitFile;               // file number
 std::vector<TH1D *> hnorm;
 std::vector<TH1D *> hcurve;
-std::vector<TH1D *> hGeoNorm;
-std::vector<TH1D *> hEffNorm;
-std::vector<TH1D *> hRayleighNorm;
-TH1D *hPeak;
-TReadGains *readGains;
 double rayleighLength = 99.;
 double ppm = 0.15;
 
+TReadGains *readGains;
 std::vector<double> absorptionFactor;
 std::vector<double> rayleighAtten;
 std::vector<double> relativeEff;
+std::vector<TH1D *> hGeoNorm;
+std::vector<TH1D *> hEffNorm;
+std::vector<TH1D *> hRayleighNorm;
+std::vector<TString> fileList;
 
 void getOtherEffCorrections(bool isSimulation = false)
 {
@@ -104,6 +123,29 @@ void makeEffNorm(int i)
     }
 }
 
+// Color palette with 12 distinct colors for plotting
+int colorPalette[13] = {
+    kBlack,      // 0 - black
+    kRed - 2,    // 1 - red
+    kBlue,       // 2 - blue
+    kGreen,      // 3 - green
+    kMagenta,    // 4 - magenta
+    kCyan,       // 5 - cyan
+    kYellow,     // 6 - yellow
+    kOrange,     // 7 - orange
+    kViolet,     // 8 - violet
+    kSpring,     // 9 - spring (green-cyan)
+    kRed + 2,    // 10 - teal (blue-green)
+    kTeal,       // 11 - azure (light blue)
+    kMagenta + 3 // 11 - azure (light blue)
+};
+
+// Helper function to get color from palette (wraps around if index >= 12)
+int getColor(int index)
+{
+    return colorPalette[index % 12];
+}
+
 string currentDate()
 {
     time_t rawtime;
@@ -115,87 +157,95 @@ string currentDate()
     return string(output);
 }
 
-TCanvas *makeCanCutNorm(int i1, int i2, TString canName)
+TCanvas *canEffNormFile()
 {
-    printf(" makeCanCutfNorm %s from %i to %i size %lu \n", canName.Data(), i1, 12, hnorm.size());
+    printf(" makeCanEffNorm file %u \n", ifile);
     bool firstPlot = true;
-    TCanvas *can = new TCanvas(canName, canName);
-    for (int i = i1; i >= i2; --i)
-    {
-        // printf("%i %s \n", i, hnorm[i]->GetName());
-        //  hnorm[i]->GetYaxis()->SetRangeUser(tiny, ymax);
-        // hnorm[i]->GetYaxis()->SetRangeUser(0.1, 30);
-        // hnorm[i]->GetXaxis()->SetRangeUser(1000, 4000);
-        // printf("eff draw %i \n", i);
-        if (firstPlot)
-        {
-            printf("%i %s \n", i, hnorm[i]->GetName());
-            hnorm[i]->Draw("HISTLINE ");
-            firstPlot = false;
-        }
-        else if (!isBadChannel(i))
-            hnorm[i]->Draw("HISTLINESAME");
-        else
-            printf("skip bad channel %i %s \n", i, hnorm[i]->GetName());
-    }
-    can->BuildLegend();
-    can->SetLogy();
-    return can;
-}
-
-TCanvas *makeCanEffNorm(int i1, int i2, TString canName)
-{
-    printf(" makeCanEffNorm %s from %i to %i size %lu \n", canName.Data(), i1, 12, hEffNorm.size());
-    bool firstPlot = true;
-    TCanvas *can = new TCanvas(canName, canName);
+    TString canName(Form("canEffNormAllFile%u", ifile));
+    TString canTitle(Form("canEffNormAllFile%u", ifile));
+    TCanvas *can = new TCanvas(canName, canTitle);
     double tiny = 1.E-4;
-    double ymax = .1;
-    for (int i = i1; i >= i2; --i)
+    double ymin = 1.E5;
+    double ymax = 1.E-4;
+    for (int i = hEffNorm.size() - 1; i >= 0; --i)
     {
+        // be careful here!
         // hEffNorm[i]->Rebin(50);
+        int maxBin = hEffNorm[i]->GetMaximumBin();
+        double maxValue = hEffNorm[i]->GetBinContent(maxBin);
+        if (maxValue > ymax)
+            ymax = maxValue;
+        int minBin = hEffNorm[i]->GetMaximumBin();
+        double minValue = hEffNorm[i]->GetBinContent(minBin);
+        if (minValue < ymin)
+            ymin = minValue;
+    }
+    ymin *= 0.1;
+    ymax *= 1.2;
+    printf("ymin %f ymax %f \n", ymin, ymax);
+    for (int i = hEffNorm.size() - 1; i >= 0; --i)
+    {
+        int icolor = colorPalette[i];
+        hEffNorm[i]->SetLineColor(icolor);
+        hEffNorm[i]->SetMarkerColor(icolor);
+        hEffNorm[i]->SetLineWidth(1);
+        hEffNorm[i]->SetName(Form("effNormChan%iPPM%.3fFile%i", i, ppmFile[ifile], ifile));
+        hEffNorm[i]->SetTitle(Form("effNormChan%iPPM%.3fFile%i", i, ppmFile[ifile], ifile));
+        // hEffNorm[i]->GetXaxis()->SetRangeUser(1000, 75000); // ramge im bins
+        hEffNorm[i]->GetYaxis()->SetRangeUser(ymin, ymax);
         printf("%i %s %f \n", i, hEffNorm[i]->GetName(), hEffNorm[i]->Integral());
-        //  hEffNorm[i]->GetYaxis()->SetRangeUser(tiny, ymax);
-        // hEffNorm[i]->GetYaxis()->SetRangeUser(tiny, ymax);
-        // hEffNorm[i]->GetXaxis()->SetRangeUser(1300, 1450);
-        // printf("eff draw %i \n", i);
         if (firstPlot)
         {
             printf("%i %s \n", i, hEffNorm[i]->GetName());
-            hEffNorm[i]->Draw("HISTLINE");
+            hEffNorm[i]->Draw("HISTILINE");
             firstPlot = false;
         }
         else if (!isBadChannel(i))
             hEffNorm[i]->Draw("HISTLINESAME");
     }
-    can->BuildLegend();
+
+    // Create legend in upper right corner
+    TLegend *leg = new TLegend(0.6, 0.7, .99, .99);
+    leg->SetBorderSize(1);
+    leg->SetFillColor(kWhite);
+    for (unsigned i = 0; i < hEffNorm.size(); ++i)
+    {
+        leg->AddEntry(hEffNorm[i], Form("chan %u", i), "l");
+    }
+    leg->Draw();
+
     can->SetLogy();
+    can->SetGrid();
+    can->Print(".pdf");
     return can;
 }
 
-void getCurves()
+// Get histogram by name from input file
+TH1D *getHistFromFile(TString histName)
 {
-    TIter next(fin->GetListOfKeys());
-    while (TKey *key = (TKey *)next())
+    if (!fin || fin->IsZombie())
     {
-        // skip earlier cycles — GetKey returns the highest-cycle key for this name
-        if (fin->GetKey(key->GetName()) != key)
-            continue;
-
-        TClass *cl = gROOT->GetClass(key->GetClassName());
-        if (!cl->InheritsFrom("TH1D"))
-            continue;
-
-        TH1D *h = (TH1D *)key->ReadObj();
-        if (!h)
-            continue;
-
-        TString name(h->GetName());
-        if (name.Contains("LightCurve"))
-            hcurve.push_back(h);
-        if (name.Contains("LightNorm"))
-            hnorm.push_back(h);
+        printf("ERROR: fin is not open or is zombie\n");
+        return 0;
     }
-    printf("getCurves: %lu LightCurve  %lu LightNorm histograms\n", hcurve.size(), hnorm.size());
+
+    TObject *obj = fin->Get(histName);
+    if (!obj)
+    {
+        printf("ERROR: Histogram '%s' not found in file\n", histName.Data());
+        return 0;
+    }
+
+    TH1D *hist = (TH1D *)obj;
+    if (!hist)
+    {
+        printf("ERROR: Object '%s' is not a TH1D\n", histName.Data());
+        return 0;
+    }
+
+    printf("Retrieved histogram '%s' from file %s\n", histName.Data(), fin->GetName());
+    fout->Append(hist);
+    return hist;
 }
 
 // collect trigger bits by file
@@ -204,42 +254,38 @@ void getTriggerBits()
     bitFile.clear();
     bitCount.resize(TOTALCODES / 2);
 
-    std::set<TString> seen;
     TIter next(fin->GetListOfKeys());
+    TKey *key;
     int ifile = 0;
     while (TKey *key = (TKey *)next())
     {
-        TString name(key->GetName());
-        if (seen.count(name))
-            continue;
-        seen.insert(name);
-
         TClass *cl = gROOT->GetClass(key->GetClassName());
+
         if (!cl->InheritsFrom("TH1D"))
             continue;
 
-        if (!name.Contains("EventPassFile"))
+        TH1D *h = (TH1D *)key->ReadObj();
+
+        if (!TString(h->GetName()).Contains("EventPassFile"))
             continue;
 
-        TH1D *h = (TH1D *)fin->Get(name);
-        if (!h)
-            continue;
+        cout << ifile << " name " << h->GetName() << endl;
 
-        printf("getTriggerBits: %s  nbins=%i\n", name.Data(), h->GetNbinsX());
-        for (int ibin = 0; ibin < h->GetNbinsX() && ibin < (int)bitCount.size(); ++ibin)
+        for (int ibin = 0; ibin < h->GetNbinsX(); ++ibin)
             bitCount[ibin].push_back(h->GetBinContent(ibin + 1));
 
         bitFile.push_back(++ifile);
+        printf("files %lu bits %lu  %lu  %lu \n", bitCount[0].size(), bitCount.size(), bitCount[bitCount.size() - 1].size(), bitFile.size());
     }
 
     // cout << " #bits   " << bitCount.size() << "  # files " << bitCount[0].size() << " " << bitFile.size() << endl;
-    // or (unsigned ibit = 0; ibit < bitCount.size(); ++ibit)
-    //   printf("\t bit %u files %lu \n", ibit, bitCount[ibit].size());
+    for (unsigned ibit = 0; ibit < bitCount.size(); ++ibit)
+        printf("\t bit %u files %lu \n", ibit, bitCount[ibit].size());
 
     // normalize to number of files
     for (unsigned ibit = 0; ibit < bitCount.size(); ++ibit)
     {
-        // printf("bit %i files %lu \n", ibit, bitCount[ibit].size());
+        printf("bit %i files %lu \n", ibit, bitCount[ibit].size());
         for (unsigned ifile = 0; ifile < bitCount[ibit].size(); ++ifile)
             bitCount[ibit][ifile] = bitCount[ibit][ifile] / double(bitFile.size());
     }
@@ -265,23 +311,74 @@ void getTriggerBits()
     }
 }
 
-void postMacro(TString fileName = "post-04_16_2026-04_16_2026-10281297.root")
+// read all post files and make summary plots
+void postMacroAllFile(unsigned theFile = 0)
 {
-    isSimulation = false;
-    if (fileName.Contains("btb"))
-        isSimulation = true;
+    readGains = new TReadGains();
+    ifile = theFile;
+    fout = new TFile(Form("postMacroAllFile%i.root", ifile), "recreate");
 
-    /* set bad channels */
-    if (fileName.Sizeof() == 0)
+    fileList.push_back("post-04_16_2026-04_16_2026-10281297.root");
+    fileList.push_back("post-04_24_2026-04_24_2026-10341507.root");
+    fileList.push_back("post-04_28_2026-04_28_2026-11344902.root");
+    fileList.push_back("post-04_30_2026-04_30_2026-6910781.root");
+    fileList.push_back("post-05_01_2026-05_01_2026-10587911.root");
+    fileList.push_back("post-05_03_2026-05_03_2026-10135057.root");
+    fileList.push_back("post-05_05_2026-05_05_2026-12500971.root");
+    fileList.push_back("post-05_07_2026-05_07_2026-10063119.root");
+    fileList.push_back("post-05_09_2026-05_09_2026-11006186.root");
+    fileList.push_back("post-05_11_2026-05_11_2026-12249461.root");
+    fileList.push_back("post-05_14_2026-05_14_2026-10233851.root");
+
+    ppmFile.push_back(0);
+    ppmFile.push_back(0.01);
+    ppmFile.push_back(0.03);
+    ppmFile.push_back(0.05);
+    ppmFile.push_back(0.1);
+    ppmFile.push_back(0.3);
+    ppmFile.push_back(0.5);
+    ppmFile.push_back(1.);
+    ppmFile.push_back(2.);
+    ppmFile.push_back(5.);
+    ppmFile.push_back(10.);
+
+    printf("postMacroAll read %lu files \n", fileList.size());
+    if (ifile > fileList.size() - 1)
     {
-        printf("ERROR: fileName argument is empty. Usage: postMacro(\"post-XX_XX_XXXX-XX_XX_XXXX-XXXXXXX.root\")\n");
-        return;
+        printf("no such file %u \n", ifile);
     }
 
-    readGains = new TReadGains();
+    for (unsigned i = 0; i < fileList.size(); ++i)
+        printf("file %u %s PPM %f \n", i, fileList[i].Data(), ppmFile[i]);
 
-    // get absorption
-    setupModelAllFit();
+    // open file
+    printf("read file %u %s \n", ifile, fileList[ifile].Data());
+    fin = new TFile(fileList[ifile], "readonly");
+    if (fin->IsZombie())
+    {
+        printf("no file %s \n", fileList[ifile].Data());
+        return;
+    }
+    // collect histograms from this file
+    for (unsigned ichan = 0; ichan < 13; ++ichan)
+    {
+        TString histName = Form("LightNormChan%i", ichan);
+        hnorm.push_back(getHistFromFile(histName));
+        // fin->Close();
+    }
+    TString tag = TString(fileList[ifile](fileList[ifile].First("-") + 1, 21));
+
+    printf("read %lu histograms \n", hnorm.size());
+    for (unsigned ichan = 0; ichan < hnorm.size(); ++ichan)
+        printf("hist %s \n", hnorm[ichan]->GetName());
+
+    // geometric eff
+    bool geoVersionOld = false;
+    setDistanceLevels(geoVersionOld);
+    for (unsigned i = 0; i < 12; ++i)
+    {
+        printf("chan %i distance %f geo eff %.2E\n", i, distanceLevel[getLevel(i)], effGeoFunc(i));
+    }
 
     /* set bad channels */
     std::vector<unsigned> badList;
@@ -302,7 +399,6 @@ void postMacro(TString fileName = "post-04_16_2026-04_16_2026-10281297.root")
     failCodes[5] = GAMMA;
     failCodes[6] = TRIGFAIL;
     failCodes[7] = TRIANGLE;
-    failCodes[8] = MULTI;
 
     bitNames.resize(FAILBITS);
     bitNames[0] = TString("Pass");
@@ -311,9 +407,8 @@ void postMacro(TString fileName = "post-04_16_2026-04_16_2026-10281297.root")
     bitNames[3] = TString("Firsttime");
     bitNames[4] = TString("Cosmic");
     bitNames[5] = TString("Gamma");
-    bitNames[6] = TString("Trigfail");
+    bitNames[6] = TString("Trigger");
     bitNames[7] = TString("Triangle");
-    bitNames[8] = TString("Multi");
 
     codeNames.resize(TOTALCODES);
 
@@ -325,68 +420,12 @@ void postMacro(TString fileName = "post-04_16_2026-04_16_2026-10281297.root")
                 codeNames[ic] += bitNames[ibit];
     }
     // for (unsigned ic = 0; ic < TOTALCODES; ++ic)
-    //     printf("code %i %x name %s \n", ic, ic, codeNames[ic].Data());
+    //    printf("code %i %x name %s \n", ic, ic, codeNames[ic].Data());
 
-    // fileName is passed as macro argument
-    // Example filenames:
-    // "post-10_06_2025-10_06_2025-2392606.root"
-    // "post-04_24_2026-04_24_2026-2815814.root"
-    if (fileName.Length() == 0)
-    {
-        printf("ERROR: fileName argument is empty. Usage: postMacro(\"post-XX_XX_XXXX-XX_XX_XXXX-XXXXXXX.root\")\n");
-        return;
-    }
-    TString tag = TString(fileName(fileName.First("-") + 1, 21));
-    cout << " gains from file " << fileName << " with date tag " << tag << endl;
-
-    // open file
-    fin = new TFile(fileName, "readonly");
-    if (fin->IsZombie())
-    {
-        printf("no file %s \n", fileName.Data());
-        return;
-    }
-    fout = new TFile(Form("postMacro-%s.root", tag.Data()), "recreate");
-
-    printf("open file %s date %s \n", fileName.Data(), sdate.c_str());
-    getTriggerBits();
-
-    // geometric eff
-    bool geoVersionOld = false;
-    setDistanceLevels(geoVersionOld);
-
-    // geometric eff
-
-    // light curves
-    printf("call getCurves\n");
-    getCurves();
-    for (unsigned ic = 0; ic < hnorm.size(); ++ic)
-        printf("chan%i %s int %.3E \n", ic, hnorm[ic]->GetName(), hnorm[ic]->Integral());
-
-    int color[13] = {1, 2, 3, 4, 5, 6, 7, 8, 9, kTeal, kOrange, kAzure, kBlack};
-
-    /*
-    double ymax = 0;
-    double ymin = 1.E9;
-    double tiny = 1.E-5;
-    for (unsigned i = 0; i < 9; ++i)
-    {
-        printf("hist %i ymax %f \n", i, hnorm[i]->GetBinContent(hnorm[i]->GetMaximumBin()));
-        if (hnorm[i]->GetBinContent(hnorm[i]->GetMaximumBin()) > ymax)
-            ymax = hnorm[i]->GetBinContent(hnorm[i]->GetMaximumBin());
-        if (hnorm[i]->GetBinContent(hnorm[i]->GetMinimumBin()) < ymin && hnorm[i]->GetBinContent(hnorm[i]->GetMinimumBin()) > tiny)
-            ymin = hnorm[i]->GetBinContent(hnorm[i]->GetMinimumBin());
-    }
-    printf("ymin %f ymax = %f \n ", ymin, ymax);
-    */
-    getOtherEffCorrections(isSimulation);
+    getOtherEffCorrections();
     for (unsigned i = 0; i < 13; ++i)
-        printf("chan %u Rayleigh %.3E relative eff %.3E  \n", i, rayleighAtten[i], relativeEff[i]);
-
-    gStyle->SetOptTitle(0);
-    gStyle->SetOptStat(0);
-    for (int i = 0; i < hnorm.size(); ++i)
-        fout->Add(hnorm[i]);
+        printf("chan %u Rayleigh %.3E relative eff %.3E   \n", i, rayleighAtten[i], relativeEff[i]);
+    printf("file %u makeEffHistos \n", ifile);
 
     // clone and normalize to geometric efficiency
     hGeoNorm.resize(13);
@@ -399,36 +438,34 @@ void postMacro(TString fileName = "post-04_16_2026-04_16_2026-10281297.root")
         fout->Append(hRayleighNorm[i]);
         fout->Append(hEffNorm[i]);
     }
+    gStyle->SetOptTitle(0);
+    gStyle->SetOptStat(0);
 
-    for (unsigned i = 0; i < hEffNorm.size(); ++i)
-    {
-        hEffNorm[i]->SetLineColor(color[i]);
-        hEffNorm[i]->SetLineWidth(1);
-        hnorm[i]->SetLineColor(color[i]);
-        hnorm[i]->SetLineWidth(1);
-        // hnorm[i]->Rebin(75 * 2);
-    }
-
+    printf("file %i make canvas \n", ifile);
     /* make canvases */
-    // TCanvas *canCutNormLevelAll = makeCanCutNorm(11, 0, TString("CutNormedLevelAll"));
-    // TCanvas *canEffNormLevelTrig = makeCanEffNorm(11, 9, TString("EffNormedLevelTrig"));
-    TCanvas *canEffNormLevel0 = makeCanEffNorm(2, 0, TString("EffNormedLevel0"));
-    TCanvas *canEffNormLevel1 = makeCanEffNorm(5, 3, TString("EffNormedLevel1"));
-    TCanvas *canEffNormLevel2 = makeCanEffNorm(8, 6, TString("EffNormedLevel2"));
-    TCanvas *canEffNormLevelAll = makeCanEffNorm(11, 0, TString("EffNormedAll"));
-
+    TCanvas *canEffNormCanvas = canEffNormFile();
+    // peak plot
     // graph of relative peaks
-    TH1D *hPeak = new TH1D("Peak", "Geometric normalized Peak values", 13, 0, 13);
+    TH1D *hPeak = new TH1D(Form("PeakFile%i", ifile), Form("Geometric normalized Peak values by channel file %i", ifile), 13, 0, 13);
+    hPeak->GetYaxis()->SetTitle("geometric corrected singlet peak value (SPE) ");
     hPeak->GetXaxis()->SetTitle("channel number (+1) ");
-    hPeak->GetYaxis()->SetTitle("geometric normalized singlet peak value (SPE) ");
+    TH1D *hPeakEff = new TH1D(Form("PeakFileEff%i", ifile), Form("Corrected Peak values by channel file %i", ifile), 13, 0, 13);
+    hPeak->GetYaxis()->SetTitle("corrected singlet peak value (SPE) ");
     hPeak->GetXaxis()->SetTitle("channel number (+1) ");
-
-    TH1D *hPeakEff = new TH1D("PeakFileEff", " correctd Peak values ", 13, 0, 13);
-    hPeakEff->GetYaxis()->SetTitle("correctd singlet peak value (SPE) ");
+    hPeakEff->GetYaxis()->SetTitle("singlet peak value (SPE) ");
     hPeakEff->GetXaxis()->SetTitle("channel number (+1) ");
-
     fout->Append(hPeak);
     fout->Append(hPeakEff);
+
+    TCanvas *canPeak = new TCanvas(Form("SingletPeakFile%i", ifile), Form("SintletPeakFile%i", ifile));
+    hPeak->Draw();
+    // canPeak->SetLogy();
+    canPeak->Print(".pdf");
+
+    TCanvas *canPeakEff = new TCanvas(Form("SingletEffPeakFile%i", ifile), Form("SintletEffPeakFile%i", ifile));
+    hPeakEff->Draw();
+    canPeakEff->Print(".pdf");
+
     double peakValue[13];
     double peakRayleighCorr[13];
     double peakValueCorr[13];
@@ -461,44 +498,25 @@ void postMacro(TString fileName = "post-04_16_2026-04_16_2026-10281297.root")
         printf("RELATIVEVALUES chan %i peak %.3E relative %E (%.3E) distance %.3f rayleigh %.3f  peak %.3E corr %.3E; \n", i, peakValue[i], relativeValue[i], readGains->relativeEff[i] - 1., distanceLevel[getLevel(i)], rayleighAtten[i], peakValue[i], peakValueCorr[i]);
     }
 
-    TGraph *gRay = new TGraph(12, &xchan[0], &rayleighAtten[0]);
-    TCanvas *cray = new TCanvas(Form("rayleigh%s", tag.Data()), Form("rayleigh%s ", tag.Data()));
-    gRay->SetName("gRay");
-    gRay->SetMarkerStyle(21);
-    gRay->SetMarkerSize(1.);
-    cray->SetGrid();
-    gRay->SetTitle(Form("absorption  ppm %.4f", ppm));
-    gRay->GetHistogram()->GetXaxis()->SetTitle("channel");
-    gRay->GetHistogram()->GetYaxis()->SetTitle("absorption factor");
-    gRay->Draw("ap");
-    // cray->Print(".pdf");
-    fout->Append(gRay);
-    gRay->Print("all");
-    // gPeakRayleigh->Print("all");
-
-    // peaks
     TGraph *gPeak = new TGraph(12, &xchan[0], &peakValue[0]);
     gPeak->SetName("gPeak");
+    TGraph *gRelative = new TGraph(12, &xchan[0], &relativeValue[0]);
+    gRelative->SetName("gRelative");
     gPeak->SetMarkerStyle(21);
-    gPeak->SetMarkerColor(kBlue);
+    gRelative->SetMarkerStyle(21);
+
     TCanvas *cpeak = new TCanvas(Form("peak%s", tag.Data()), Form("peak%s", tag.Data()));
     gPeak->GetHistogram()->GetXaxis()->SetTitle("channel");
     gPeak->GetHistogram()->GetYaxis()->SetTitle("peak value");
-    cpeak->SetGrid();
     gPeak->Draw("ap");
+    fout->Append(gPeak);
 
-    // rayleigh corrected peaks
-    TGraph *gPeakRayleigh = new TGraph(12, &xchan[0], &peakRayleighCorr[0]);
-    gPeakRayleigh->SetName("gRayleighPeak");
-    gPeakRayleigh->SetMarkerStyle(21);
-    gPeakRayleigh->SetMarkerColor(kRed);
-    TCanvas *cpeakRayleigh = new TCanvas(Form("peakRayleigh%s", tag.Data()), Form("Rayleigh corrected peak%s", tag.Data()));
-    cpeakRayleigh->SetGrid();
-    gPeakRayleigh->GetHistogram()->GetXaxis()->SetTitle("channel");
-    gPeakRayleigh->GetHistogram()->GetYaxis()->SetTitle("Rayleigh corrected peak value");
-    gPeakRayleigh->Draw("ap");
-    gPeak->Draw("psame");
-    fout->Append(gPeakRayleigh);
+    TCanvas *crelative = new TCanvas(Form("relative%s", tag.Data()), Form("relative%s", tag.Data()));
+    gRelative->GetHistogram()->GetXaxis()->SetTitle("channel");
+    gRelative->GetHistogram()->GetYaxis()->SetTitle("relative efficiency");
+    gRelative->Draw("ap");
+    gRelative->Print("all");
+    fout->Append(gRelative);
 
     // corrected peaks
     TGraph *gPeakCorr = new TGraph(12, &xchan[0], &peakValueCorr[0]);
@@ -510,38 +528,12 @@ void postMacro(TString fileName = "post-04_16_2026-04_16_2026-10281297.root")
     gPeakCorr->GetHistogram()->GetYaxis()->SetTitle("corrected peak value");
     gPeakCorr->Draw("ap");
     gPeakCorr->Print("all");
+    fout->Append(gPeakCorr);
 
-    TGraph *gRelativeEff = new TGraph(12, &xchan[0], &relativeEff[0]);
-    gRelativeEff->SetName("relativeEff");
-    gRelativeEff->SetMarkerStyle(21);
-
-    TCanvas *crelativeEff = new TCanvas(Form("relativeEff%s-%.3f", tag.Data(), ppm), Form("relativeEff%s %.3f", tag.Data(), ppm));
-    gRelativeEff->GetHistogram()->GetXaxis()->SetTitle("channel");
-    gRelativeEff->GetHistogram()->GetYaxis()->SetTitle("relative efficiency");
-    crelativeEff->SetGrid();
-    gRelativeEff->Draw("ap");
-    fout->Append(gRelativeEff);
     // gRelativeEff->Print("all");
     for (unsigned ichan = 0; ichan < 13; ++ichan)
-        printf("relativeEff[%u]=1.0+%f;\n", ichan, relativeValue[ichan]);
+        printf("relativeEff[%u]=1.+%f;\n", ichan, relativeValue[ichan]);
 
-    /*
-    TGraph *gAbs = new TGraph(12, &xchan[0], &absorptionFactor[0]);
-    TCanvas *cabsorb = new TCanvas(Form("absorption%s-%.4f", tag.Data(), ppm), Form("absorption%s ppm %.4f", tag.Data(), ppm));
-    gAbs->SetName("gAbs");
-    gAbs->SetMarkerStyle(21);
-    gAbs->SetMarkerSize(1.);
-    gAbs->SetTitle(Form("absorption  ppm %.4f", ppm));
-    gAbs->GetHistogram()->GetXaxis()->SetTitle("channel");
-    gAbs->GetHistogram()->GetYaxis()->SetTitle("absorption factor");
-    gAbs->Draw("ap");
-    cabsorb->Print(".pdf");
-    fout->Append(gAbs);
-    */
-
-    // fout->ls();:w
-
+    // fout->ls();
     fout->Write();
-
-    //
 }
