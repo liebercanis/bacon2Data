@@ -115,6 +115,26 @@ TCanvas *makeCanFit(int i1, int i2, TString canName)
   return can;
 }
 
+TCanvas *makeCanFitOne(int i)
+{
+  TString canName;
+  canName.Form("corLightCan%i", i);
+  printf(" makeCanFitOne chan %i %s \n", i, canName.Data());
+  TCanvas *can = new TCanvas(canName, canName);
+  hnorm[i]->GetXaxis()->SetRangeUser(1200, 3000);
+  hfitModel[i]->GetXaxis()->SetRangeUser(1200, 3000);
+  hnorm[i]->GetYaxis()->SetRangeUser(.1, 20.);
+  hfitModel[i]->GetYaxis()->SetRangeUser(.1, 20.);
+  hfitModel[i]->SetLineWidth(2);
+  gPad->SetLogy();
+  hnorm[i]->Draw("HIST");
+  hfitModel[i]->Draw("HISTSAME");
+  // can->BuildLegend();
+  can->SetLogy();
+  can->Print(".pdf");
+  return can;
+}
+
 /**
  * @brief Extract and store late-time background levels for each detector channel
  * @details Uses two methods: (1) integral method over 6000-7500 ns range, and
@@ -201,7 +221,8 @@ TGraph *myScan(int thePar, double xlow, double xhigh)
  */
 TGraph *parameterScan(int thePar)
 {
-  TGraph *graph = myScan(thePar, 0.001 * lpar[thePar], 1000. * lpar[thePar]);
+  printf("parameterScan of %s min %f \n", lparNames[thePar].Data(), lpar[thePar]);
+  TGraph *graph = myScan(thePar, 0.01 * lpar[thePar], 10. * lpar[thePar]);
   graph->SetName(Form("ScanPar%i", thePar));
   graph->SetTitle(Form("ScanPar%i %s", thePar, lparNames[thePar].Data()));
   graph->GetYaxis()->SetTitle("FCN likelihood value");
@@ -382,20 +403,35 @@ bool openFile(TString fileName)
  * @param theFitChannel Channel index to fit. Use -1 to simultaneously fit all 12 PMT channels.
  *                     This enables global optimization of parameters shared across detectors.
  */
-void tbFit(int theFitChannel = -2)
+void tbFit(int theFitChannel = -2, int theFileNumber = 0)
 {
 
   // Initialize histogram vectors for all channels
   hffit.resize(NCHAN);
   hmodel.resize(NCHAN);
 
+  // ppm of file
+  std::vector<double> ppmFile;
+  ppmFile.push_back(0);
+  ppmFile.push_back(0.01);
+  ppmFile.push_back(0.03);
+  ppmFile.push_back(0.05);
+  ppmFile.push_back(0.1);
+  ppmFile.push_back(0.3);
+  ppmFile.push_back(0.5);
+  ppmFile.push_back(1.);
+  ppmFile.push_back(2.);
+  ppmFile.push_back(5.);
+  ppmFile.push_back(10.);
+
   // ============================================================================
   //  INPUT FILE SELECTION AND VALIDATION
   // ============================================================================
   TString inputFile = TString("post-anaCRun-btbSimNEW-2026-02-13-100000-7857.root");
   inputFile = TString("postMacro-04_16_2026-04_16_2026.root");
-  inputFile = TString("postMacroAllFile10.root");
+  inputFile = TString(Form("postMacroAllFile%i.root", theFileNumber));
   // inputFile = TString("anaCRun-btbSimNEW-2026-02-23-10-18-100000-0.root");
+  printf(" fit theFitChannel %i the file %s PPM %.3f\n", theFitChannel, inputFile.Data(), ppmFile[theFileNumber]);
 
   if (!openFile(inputFile))
     return;
@@ -558,8 +594,8 @@ void tbFit(int theFitChannel = -2)
   arglist[0] = PPM + 1; // par
   arglist[1] = 0.0;     // low
   arglist[2] = 100.;    // high
-  // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
-  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
   arglist[0] = TAUM + 1;     // par tau mixed
   arglist[1] = 0.01 * tMix0; // low
@@ -627,9 +663,16 @@ void tbFit(int theFitChannel = -2)
   // Allocate histograms for fitted waveforms across all PMT channels
   hfitModel.resize(NCHANPMT);
 
+  /** get minized parameters */
+  for (int i = 0; i < NPARS; ++i)
+  {
+    double value, error;
+    gMinuit->GetParameter(i, value, error);
+    lpar[i] = value;
+  }
+
   if (theFitChannel < 0)
   {
-
     for (unsigned ic = 0; ic < NCHANPMT; ++ic)
     {
       TH1D *hFit = (TH1D *)hnorm[ic]->Clone(Form("fitWaveFitChan%i", ic));
@@ -710,6 +753,8 @@ void tbFit(int theFitChannel = -2)
     if (theFitChannel == -1)
       makeCanFit(9, 11, TString("canFitTrig"));
   }
+  else
+    makeCanFitOne(theFitChannel);
 
   // ============================================================================
   //  GOODNESS-OF-FIT EVALUATION
