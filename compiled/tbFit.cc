@@ -10,6 +10,8 @@
  */
 #include <iostream>
 #include <fstream>
+#include "TFile.h"
+#include "TKey.h"
 #include "TGraph.h"
 #include "TMinuit.h"
 #include "modelAllFit.hh"
@@ -66,7 +68,7 @@ double doChsiq(int ic)
   for (int ibin = 0; ibin < nbins; ++ibin)
   {
     xval = hdata->GetBinContent(ibin);
-    mean = hmodel->GetBinContent(ibin);
+    hmodel->GetBinContent(ibin);
     if (mean > 0)
       chisq += pow((xval - mean), 2) / mean; // assuming error is sqrt(mean)
     // printf("ic %i bin %i x %f mean %f chsq %f\n", ic, ibin, xval, mean, chisq);
@@ -94,12 +96,17 @@ TCanvas *makeCanFit(int i1, int i2, TString canName)
     ++ipanel;
     if (isBadChannel(i))
       continue;
-    hnorm[i]->GetXaxis()->SetRangeUser(1000, 15000);
-    hfitModel[i]->GetXaxis()->SetRangeUser(1000, 15000);
+    /****  rebin for drawing *****/
+    // hnorm[i]->Rebin(50);
+    // hfitModel[i]->Rebin(50);
+    hnorm[i]->GetXaxis()->SetRangeUser(1200, 3000);
+    hfitModel[i]->GetXaxis()->SetRangeUser(1200, 3000);
+    hnorm[i]->GetYaxis()->SetRangeUser(.1, 20.);
+    hfitModel[i]->GetYaxis()->SetRangeUser(.1, 20.);
     hfitModel[i]->SetLineWidth(2);
     can->cd(ipanel);
     gPad->SetLogy();
-    hnorm[i]->Draw("");
+    hnorm[i]->Draw("HIST");
     hfitModel[i]->Draw("HISTSAME");
   }
   // can->BuildLegend();
@@ -155,7 +162,8 @@ void fillLateBkg()
  */
 TGraph *myScan(int thePar, double xlow, double xhigh)
 {
-  int maxPoints = 100;
+  printf("myScan par %i from %E to %E \n", thePar, xlow, xhigh);
+  int maxPoints = 2200;
   std::vector<double> xval;
   std::vector<double> yval;
 
@@ -165,7 +173,7 @@ TGraph *myScan(int thePar, double xlow, double xhigh)
   for (int ipar = 0; ipar < NPARS; ++ipar)
   {
     gMinuit->GetParameter(ipar, fitVal[ipar], fitErr[ipar]);
-    // printf("line141 ipar %i par %f err %f \n", ipar, fitVal[ipar], fitErr[ipar]);
+    // printf("line168 ipar %i %s par %f err %f \n", ipar, lparNames[thePar].Data(), fitVal[ipar], fitErr[ipar]);
   }
 
   double *fGin;
@@ -178,8 +186,9 @@ TGraph *myScan(int thePar, double xlow, double xhigh)
     xval.push_back(x);
     yval.push_back(nLL);
     // printf("line53 i %i par nph %f r %f theta %f  phi %f \n", i, fitVal[0], fitVal[1], fitVal[2], fitVal[3]);
-    ntScan->Fill(nLL, fitVal[1], fitVal[2], fitVal[3]);
-    // printf("mySCAN par %i x= %f nLL %E \n", i, x, nLL);
+    ntParScan->Fill(thePar, x, nLL);
+    // printf("mySCAN ipar %i %s x= %f par %f err %f nLL %E\n", thePar, lparNames[thePar].Data(), x, fitVal[thePar], fitErr[thePar], nLL);
+    //  printf("mySCAN par %i x= %f nLL %E \n", i, x, nLL);
   }
   // make and return graph
   return new TGraph(maxPoints, &xval[0], &yval[0]);
@@ -192,9 +201,9 @@ TGraph *myScan(int thePar, double xlow, double xhigh)
  */
 TGraph *parameterScan(int thePar)
 {
-  TGraph *graph = myScan(thePar, 0.001 * lpar[thePar], 2. * lpar[thePar]);
+  TGraph *graph = myScan(thePar, 0.001 * lpar[thePar], 1000. * lpar[thePar]);
   graph->SetName(Form("ScanPar%i", thePar));
-  graph->SetTitle(Form("ScanPar%i", thePar));
+  graph->SetTitle(Form("ScanPar%i %s", thePar, lparNames[thePar].Data()));
   graph->GetYaxis()->SetTitle("FCN likelihood value");
   graph->GetXaxis()->SetTitle(Form("parameter %s", lparNames[thePar].Data()));
   fout->Add(graph);
@@ -233,7 +242,7 @@ void fillFitWave(int ichan, TH1D *hist)
  */
 void fillCompWave(int ichan, int icomp, TH1D *hist)
 {
-  // std::cout << " fillFitWave " << ichan << "  " << hist->GetName() << std::endl;
+  // std::cout << " fillCompWave " << ichan << " comp  " << icomp << " " << hist->GetName() << std::endl;
   hist->Reset("ICES");
   for (int ib = 1; ib < hist->GetNbinsX(); ++ib)
   {
@@ -255,27 +264,49 @@ void fillCompWave(int ichan, int icomp, TH1D *hist)
  */
 void getCurves()
 {
+  /*
+  for (unsigned i = 0; i < 13; ++i)
+  {
+    TH1D *h;
+    TString geoName;
+    geoName.Form("GeoNormChan%i", i);
+    fin->GetObject(geoName, h);
+    hcurve.push_back(h);
+    fout->Append(h);
+    TString effName;
+    effName.Form("effNormChan%i", i);
+    fin->GetObject(effName, h);
+    hnorm.push_back(h);
+    fout->Append(h);
+  }
+  return;
+  */
 
   TIter next(fin->GetListOfKeys());
-  TKey *key;
-  int ifile = 0;
   while (TKey *key = (TKey *)next())
   {
-    TClass *cl = gROOT->GetClass(key->GetClassName());
+    // skip earlier cycles — GetKey returns the highest-cycle key for this name
+    if (fin->GetKey(key->GetName()) != key)
+      continue;
 
+    TClass *cl = gROOT->GetClass(key->GetClassName());
     if (!cl->InheritsFrom("TH1D"))
       continue;
+
     TH1D *h = (TH1D *)key->ReadObj();
+    if (!h)
+      continue;
 
-    if (TString(h->GetName()).Contains("CurveChan"))
+    TString name(h->GetName());
+    if (name.Contains("GeoNorm"))
       hcurve.push_back(h);
-
-    if (TString(h->GetName()).Contains("NormChan"))
+    if (name.Contains("effNorm"))
     {
       hnorm.push_back(h);
       fout->Append(h);
     }
   }
+  printf("getCurves: %lu GeoNorm  %lu effNorm histograms\n", hcurve.size(), hnorm.size());
 }
 
 /**
@@ -351,7 +382,7 @@ bool openFile(TString fileName)
  * @param theFitChannel Channel index to fit. Use -1 to simultaneously fit all 12 PMT channels.
  *                     This enables global optimization of parameters shared across detectors.
  */
-void tbFit(int theFitChannel = -1)
+void tbFit(int theFitChannel = -2)
 {
 
   // Initialize histogram vectors for all channels
@@ -362,7 +393,8 @@ void tbFit(int theFitChannel = -1)
   //  INPUT FILE SELECTION AND VALIDATION
   // ============================================================================
   TString inputFile = TString("post-anaCRun-btbSimNEW-2026-02-13-100000-7857.root");
-  inputFile = TString("post-11_19_2025-11_19_2025-1371746.root"); // Override with data file
+  inputFile = TString("postMacro-04_16_2026-04_16_2026.root");
+  inputFile = TString("postMacroAllFile10.root");
   // inputFile = TString("anaCRun-btbSimNEW-2026-02-23-10-18-100000-0.root");
 
   if (!openFile(inputFile))
@@ -371,10 +403,8 @@ void tbFit(int theFitChannel = -1)
   // ============================================================================
   //  ANALYSIS CONFIGURATION
   // ============================================================================
-  double dopant = 1.E-2; ///< Dopant concentration [PPM] for simulations
-
-  // Initialize model parameters and optical properties from modelAllFit.hh
-  setupModelAllFit();
+  double dopant = 0.05; ///< Dopant concentration [PPM]
+  dopant = 10.;
 
   // Determine whether input is simulation or experimental data
   bool isSim = false;
@@ -394,20 +424,39 @@ void tbFit(int theFitChannel = -1)
   else
     printf("NEW level distances 0 = %.3f 1= %.3f 2= %.3f 3 %.3f 4 %.3f \n", distanceLevel[0], distanceLevel[1], distanceLevel[2], distanceLevel[3], distanceLevel[4]);
 
+  // Initialize model parameters and optical properties from modelAllFit.hh
+  setupModelAllFit();
+
   // ============================================================================
   //  DATA LOADING AND PREPROCESSING
   // ============================================================================
   // Load all detector waveforms from input file hcurve and hnorm === hcurve is used for fit
   getCurves();
+  printf("got curves %lu \n", hnorm.size());
+  for (unsigned i = 0; i < hnorm.size(); ++i)
+    printf("%i hist %s\n", i, hnorm[i]->GetName());
 
   // Extract and characterize late-time background for each channel
   // either from average or from fit to poly1
-  fillLateBkg();
+  // fillLateBkg();
 
   // Transfer histogram data to buffer arrays for fitting algorithm
   printf("fill buff \n");
-  for (unsigned ichan = 0; ichan < NCHANPMT; ++ichan)
+  if (theFitChannel < 0)
   {
+    for (unsigned ichan = 0; ichan < NCHANPMT; ++ichan)
+    {
+      printf(".... fill buffer for channel %i  hist %s maximum bin %i \n", ichan, hnorm[ichan]->GetName(), hnorm[ichan]->GetMaximumBin());
+      // fill data buffer
+      for (int isample = 1; isample < MAXSAMPLE; ++isample)
+      {
+        buff[ichan][isample - 1] = hnorm[ichan]->GetBinContent(isample); // C starts array from zero
+      }
+    }
+  }
+  else
+  {
+    unsigned ichan = theFitChannel;
     printf(".... fill buffer for channel %i  hist %s maximum bin %i \n", ichan, hnorm[ichan]->GetName(), hnorm[ichan]->GetMaximumBin());
     // fill data buffer
     for (int isample = 1; isample < MAXSAMPLE; ++isample)
@@ -436,21 +485,21 @@ void tbFit(int theFitChannel = -1)
   // ============================================================================
   //  FIT PARAMETER INITIALIZATION
   // ============================================================================
+  printf("using max bin chan 9 for trigstart %f\n", 2. * hnorm[9]->GetMaximumBin());
   // Set initial guesses for all fit parameters
   vstart[NORM] = startNorm;                                              ///< Photon yield per event
   vstart[TRIGSTART] = 2. * hnorm[9]->GetMaximumBin() - 10 * tResolution; ///< Trigger timing offset
-  vstart[SFRAC] = 0.14;                                                  ///< Singlet fraction (ref: Segretto 2021)
-  vstart[PPM] = dopant;                                                  ///< Dopant concentration
-  vstart[TAU3] = tTriplet0;                                              ///< Triplet decay time
-  vstart[TAUM] = 4700.0;                                                 ///< Mixed component decay time
-  vstart[BKGCONST] = 4.0E-6;                                             ///< Constant background rate
-  vstart[BKGTAU] = 5000.;                                                ///< Background decay timescale
-  vstart[THECHANNEL] = theFitChannel;                                    ///< Channel selection flag
-  /*
+  // for Gamma I_s/I_t=0.3
+  vstart[SFRAC] = 0.23;               ///< Singlet fraction (ref: Segretto 2021)
+  vstart[PPM] = dopant;               ///< Dopant concentration
+  vstart[TAU3] = tTriplet0;           ///< Triplet decay time
+  vstart[TAUM] = 4700.0;              ///< Mixed component decay time
+  vstart[BKGCONST] = 0.0;             ///< Constant background rate
+  vstart[BKGTAU] = 5000.;             ///< Background decay timescale
+  vstart[THECHANNEL] = theFitChannel; ///< Channel selection flag
   printf("starting parameter values \n");
   for (int ip = 0; ip < NPARS; ++ip)
     printf(" par %i %s start val %.3f \n", ip, lparNames[ip].Data(), vstart[ip]);
-    */
 
   // copy into Minuit
   /* have to put some errors here otherwise it will be constant*/
@@ -466,6 +515,12 @@ void tbFit(int theFitChannel = -1)
   // ============================================================================
   // Fix parameters that are held constant during minimization
   // Note: Minuit uses 1-based indexing for parameters (adds 1 to C++ indices)
+
+  // fix channel
+  arglist[0] = THECHANNEL + 1; // channel
+  arglist[1] = THECHANNEL;     // low
+  arglist[2] = THECHANNEL;     // high
+  gMinuit->mnexcm("FIX", arglist, 3, ierflg);
 
   arglist[0] = TRIGSTART + 1; // trigger
   gMinuit->mnexcm("FIX", arglist, 1, ierflg);
@@ -486,17 +541,18 @@ void tbFit(int theFitChannel = -1)
   gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
   // gMinuit->mnexcm("FIX", arglist, 3, ierflg);
 
-  arglist[0] = SFRAC + 1; // par
-  arglist[1] = 0.01;      // low
-  arglist[2] = 1.0;
-  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
-  // gMinuit->mnexcm("FIX", arglist, 3, ierflg);
+  arglist[0] = SFRAC + 1;     // par
+  arglist[1] = vstart[SFRAC]; // low
+  arglist[2] = vstart[SFRAC];
+  // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  gMinuit->mnexcm("FIX", arglist, 3, ierflg);
 
   // set limits ... here par starts with 1 so add 1
   arglist[0] = TAU3 + 1;         // par
   arglist[1] = 0.01 * tTriplet0; // low
   arglist[2] = 2.0 * tTriplet0;  // high
-  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
   // set limits ... here par starts with 1 so add 1
   arglist[0] = PPM + 1; // par
@@ -571,14 +627,30 @@ void tbFit(int theFitChannel = -1)
   // Allocate histograms for fitted waveforms across all PMT channels
   hfitModel.resize(NCHANPMT);
 
-  for (unsigned ic = 0; ic < NCHANPMT; ++ic)
+  if (theFitChannel < 0)
   {
-    TH1D *hFit = (TH1D *)hnorm[ic]->Clone(Form("fitWaveFitChan%i", ic));
+
+    for (unsigned ic = 0; ic < NCHANPMT; ++ic)
+    {
+      TH1D *hFit = (TH1D *)hnorm[ic]->Clone(Form("fitWaveFitChan%i", ic));
+      hFit->Reset("ICES");
+      hFit->SetTitle((Form("fitWaveFitChan%i %.3fPPM", ic, dopant)));
+      hFit->SetMarkerColor(colors[ic]);
+      hFit->SetLineColor(colors[ic]);
+      hfitModel[ic] = hFit;
+      fillFitWave(ic, hFit);
+    }
+  }
+  else // only 1 channel
+  {
+    TH1D *hFit = (TH1D *)hnorm[theFitChannel]->Clone(Form("fitWaveFitChan%i", theFitChannel));
     hFit->Reset("ICES");
-    hFit->SetTitle((Form("fitWaveFitChan%i", ic)));
-    hFit->SetLineColor(colors[ic]);
-    hfitModel[ic] = hFit;
-    fillFitWave(ic, hFit);
+    hFit->SetTitle((Form("fitWaveFitChan%i %.3fPPM", theFitChannel, dopant)));
+
+    hFit->SetMarkerColor(colors[theFitChannel]);
+    hFit->SetLineColor(colors[theFitChannel]);
+    hfitModel[theFitChannel] = hFit;
+    fillFitWave(theFitChannel, hFit);
   }
 
   // Create subdirectory in output file for component decomposition histograms
@@ -586,7 +658,7 @@ void tbFit(int theFitChannel = -1)
   compDir->cd();
 
   // Store individual component contributions (singlet, triplet, mixed) for each channel
-  if (theFitChannel == -1)
+  if (theFitChannel < 0)
   {
     for (unsigned ic = 0; ic < NCHANPMT; ++ic)
     {
@@ -594,7 +666,7 @@ void tbFit(int theFitChannel = -1)
       {
         TH1D *hFit = (TH1D *)hnorm[ic]->Clone(Form("fit%sChan%i", compNames[icomp].Data(), ic));
         hFit->Reset("ICES");
-        hFit->SetTitle((Form("fit%sChan%i", compNames[icomp].Data(), ic)));
+        hFit->SetTitle((Form("fit%sChan%i %.3fPPM", compNames[icomp].Data(), ic, dopant)));
         hFit->SetLineColor(colors[ic]);
         fillCompWave(ic, icomp, hFit); // only need one of these
       }
@@ -606,7 +678,7 @@ void tbFit(int theFitChannel = -1)
     {
       TH1D *hFit = (TH1D *)hnorm[theFitChannel]->Clone(Form("fit%sChan%i", compNames[icomp].Data(), theFitChannel));
       hFit->Reset("ICES");
-      hFit->SetTitle((Form("fit%sChan%i", compNames[icomp].Data(), theFitChannel)));
+      hFit->SetTitle((Form("fit%sChan%i %.3fPPM", compNames[icomp].Data(), theFitChannel, dopant)));
       hFit->SetLineColor(colors[theFitChannel]);
       fillCompWave(theFitChannel, icomp, hFit);
     }
@@ -616,36 +688,47 @@ void tbFit(int theFitChannel = -1)
   //  PARAMETER SCAN AND VISUALIZATION
   // ============================================================================
   // Create n-tuple to store parameter scan results
-  ntParScan = new TNtuple("ntParScan", "parameter scan", "nll:fitVal1:fitVal2:fitVal3");
+  ntParScan = new TNtuple("ntParScan", "parameter scan", "par:x:nll");
 
   // Scan TAU3 (triplet decay time) parameter across physically motivated range
+  /*
   int thePar = TAU3;
   printf("scan parameter %i %s from %f to %f \n", thePar, lparNames[thePar].Data(), 0.001 * lpar[thePar], 2. * lpar[thePar]);
   parameterScan(thePar);
+  */
+  int thePar;
 
-  thePar = NORM;
-  printf("scan parameter %i %s from %f to %f \n", thePar, lparNames[thePar].Data(), 0.001 * lpar[thePar], 2. * lpar[thePar]);
+  thePar = PPM;
+  printf("scan parameter %i %s from %f to %f \n", thePar, lparNames[thePar].Data(), 0.001 * lpar[thePar], 100. * lpar[thePar]);
   parameterScan(thePar);
 
-  if (theFitChannel == -1)
+  if (theFitChannel < 0)
   {
     makeCanFit(0, 2, TString("canFitLevel0"));
     makeCanFit(3, 5, TString("canFitLevel1"));
     makeCanFit(6, 8, TString("canFitLevel2"));
-    makeCanFit(9, 11, TString("canFitTrig"));
+    if (theFitChannel == -1)
+      makeCanFit(9, 11, TString("canFitTrig"));
   }
 
   // ============================================================================
   //  GOODNESS-OF-FIT EVALUATION
   // ============================================================================
   // Compute and report reduced chi-squared for each non-flagged channel
-  for (unsigned ic = 0; ic < NCHANPMT; ++ic)
+  if (theFitChannel < 0)
   {
-    if (!isBadChannel(ic))
-      printf("channel %i chisq/dof %.3E \n", ic, doChsiq(ic));
+    for (unsigned ic = 0; ic < NCHANPMT; ++ic)
+    {
+      if (!isBadChannel(ic))
+        printf("channel %i chisq/dof %.3E \n", ic, doChsiq(ic));
+    }
+  }
+  else
+  {
+    printf("channel %i chisq/dof %.3E \n", theFitChannel, doChsiq(theFitChannel));
   }
 
-  printf(" shift %.2f peak curve chan 9 %d peak fit %d ns \n", shift, 2 * hcurve[9]->GetMaximumBin(), 2 * hffit[9]->GetMaximumBin());
+  // printf(" shift %.2f peak curve chan 9 %d peak fit %d ns \n", shift, 2 * hcurve[9]->GetMaximumBin(), 2 * hffit[9]->GetMaximumBin());
 
   printf("\n...  finished tbFit \n");
 }
