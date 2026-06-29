@@ -216,6 +216,7 @@ void postMacroLed()
     fout->ls();
     fout->Write();
     hGeoIntChannel->Print("all");
+    printf("lateSumMean %f\n", lateSumMean);
     hAveChannel->Print("all");
     printf("postMacroLed completed \n");
 

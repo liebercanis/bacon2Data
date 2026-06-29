@@ -50,8 +50,8 @@ TFile *fin;
 TFile *fout;
 TGraph *gSingletIntegrals;
 TGraph *gLateIntegrals;
-double singletIntegral[NCHAN];
-double lateIntegral[NCHAN];
+std::vector<double> singletIntegral;
+std::vector<double> lateIntegral;
 std::vector<TString> codeNames;
 std::vector<int> failCodes;
 std::vector<TString> bitNames;
@@ -376,7 +376,11 @@ void postMacroAllFile(unsigned theFile = 0)
     printf("read %lu histograms \n", hnorm.size());
     for (unsigned ichan = 0; ichan < hnorm.size(); ++ichan)
     {
-        if (!hnorm[ichan]) { printf("WARNING: hnorm[%u] is null\n", ichan); continue; }
+        if (!hnorm[ichan])
+        {
+            printf("WARNING: hnorm[%u] is null\n", ichan);
+            continue;
+        }
         printf("hist %s \n", hnorm[ichan]->GetName());
     }
 
@@ -443,7 +447,11 @@ void postMacroAllFile(unsigned theFile = 0)
     hEffNorm.resize(13);
     for (unsigned i = 0; i < hEffNorm.size(); ++i)
     {
-        if (!hnorm[i]) { printf("WARNING: hnorm[%u] null, skipping makeEffNorm\n", i); continue; }
+        if (!hnorm[i])
+        {
+            printf("WARNING: hnorm[%u] null, skipping makeEffNorm\n", i);
+            continue;
+        }
         makeEffNorm(i);
         fout->Append(hGeoNorm[i]);
         fout->Append(hRayleighNorm[i]);
@@ -509,18 +517,26 @@ void postMacroAllFile(unsigned theFile = 0)
         printf("RELATIVEVALUES chan %i peak %.3E relative %E (%.3E) distance %.3f rayleigh %.3f  peak %.3E corr %.3E; \n", i, peakValue[i], relativeValue[i], readGains->relativeEff[i] - 1., distanceLevel[getLevel(i)], rayleighAtten[i], peakValue[i], peakValueCorr[i]);
     }
     // fill integral arrays
+    singletIntegral.resize(NCHAN);
+    lateIntegral.resize(NCHAN);
     for (int i = 0; i < NCHAN; ++i)
     {
-        singletIntegral[i] = 0;
-        lateIntegral[i] = 0;
+        // integral is over bins
+        singletIntegral[i] = hEffNorm[i]->Integral(1350 / 2, 1400 / 2);
+        lateIntegral[i] = hEffNorm[i]->Integral(1400 / 2, 3000 / 2);
+        //  singletIntegral[i] = hGeoNorm[i]->Integral(0., 1400.);
+        //  lateIntegral[i] = hGeoNorm[i]->Integral(1400., 3500.);
+
+        /*
         for (int j = 0; j < hEffNorm[i]->GetNbinsX(); ++j)
         {
             double val = hEffNorm[i]->GetBinContent(j);
-            if (j < 1420 / 2)
+            if (j < 1400 / 2)
                 singletIntegral[i] += val;
-            else
+            else if (j > 1400 / 2 && j < 3000 / 2)
                 lateIntegral[i] += val;
         }
+        */
     }
 
     gSingletIntegrals = new TGraph(NCHAN, &xchan[0], &singletIntegral[0]);
@@ -582,6 +598,9 @@ void postMacroAllFile(unsigned theFile = 0)
     // gRelativeEff->Print("all");
     for (unsigned ichan = 0; ichan < 13; ++ichan)
         printf("relativeEff[%u]=1.+%f;\n", ichan, relativeValue[ichan]);
+
+    for (unsigned ichan = 0; ichan < 13; ++ichan)
+        printf("chan %i singlet %f late %f \n", ichan, singletIntegral[ichan], lateIntegral[ichan]);
 
     fout->Write();
     // Disown all objects from fout before Close().  fout->Write() has already
