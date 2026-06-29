@@ -258,28 +258,29 @@ void getTriggerBits()
     bitFile.clear();
     bitCount.resize(TOTALCODES / 2);
 
+    std::set<TString> seen;
     TIter next(fin->GetListOfKeys());
-    TKey *key;
     int ifile = 0;
     while (TKey *key = (TKey *)next())
     {
-        TClass *cl = gROOT->GetClass(key->GetClassName());
+        // last key only — skip earlier cycles
+        if (fin->GetKey(key->GetName()) != key)
+            continue;
 
+        TClass *cl = gROOT->GetClass(key->GetClassName());
         if (!cl->InheritsFrom("TH1D"))
             continue;
 
-        TH1D *h = (TH1D *)key->ReadObj();
-
-        if (!TString(h->GetName()).Contains("EventPassFile"))
+        TH1D *h = (TH1D *)fin->Get(key->GetName());
+        if (!h || !TString(h->GetName()).Contains("EventPassFile"))
             continue;
 
-        cout << ifile << " name " << h->GetName() << endl;
+        cout << ifile << " name " << h->GetName() << " nbins " << h->GetNbinsX() << endl;
 
-        for (int ibin = 0; ibin < h->GetNbinsX(); ++ibin)
+        for (int ibin = 0; ibin < h->GetNbinsX() && ibin < (int)bitCount.size(); ++ibin)
             bitCount[ibin].push_back(h->GetBinContent(ibin + 1));
 
         bitFile.push_back(++ifile);
-        printf("files %lu bits %lu  %lu  %lu \n", bitCount[0].size(), bitCount.size(), bitCount[bitCount.size() - 1].size(), bitFile.size());
     }
 
     // cout << " #bits   " << bitCount.size() << "  # files " << bitCount[0].size() << " " << bitFile.size() << endl;
@@ -374,7 +375,10 @@ void postMacroAllFile(unsigned theFile = 0)
 
     printf("read %lu histograms \n", hnorm.size());
     for (unsigned ichan = 0; ichan < hnorm.size(); ++ichan)
+    {
+        if (!hnorm[ichan]) { printf("WARNING: hnorm[%u] is null\n", ichan); continue; }
         printf("hist %s \n", hnorm[ichan]->GetName());
+    }
 
     // geometric eff
     bool geoVersionOld = false;
@@ -432,11 +436,14 @@ void postMacroAllFile(unsigned theFile = 0)
     printf("file %u makeEffHistos \n", ifile);
 
     // clone and normalize to geometric efficiency
+    // cd into fout so Clone() places new histograms in fout, not fin
+    fout->cd();
     hGeoNorm.resize(13);
     hRayleighNorm.resize(13);
     hEffNorm.resize(13);
     for (unsigned i = 0; i < hEffNorm.size(); ++i)
     {
+        if (!hnorm[i]) { printf("WARNING: hnorm[%u] null, skipping makeEffNorm\n", i); continue; }
         makeEffNorm(i);
         fout->Append(hGeoNorm[i]);
         fout->Append(hRayleighNorm[i]);
@@ -576,6 +583,13 @@ void postMacroAllFile(unsigned theFile = 0)
     for (unsigned ichan = 0; ichan < 13; ++ichan)
         printf("relativeEff[%u]=1.+%f;\n", ichan, relativeValue[ichan]);
 
-    // fout->ls();
     fout->Write();
+    // Disown all objects from fout before Close().  fout->Write() has already
+    // persisted everything; if we leave objects in fout's list, Close() will
+    // delete them a second time after ROOT's canvas cleanup already did so
+    // at macro exit, producing the segfault.  Clear() removes list entries
+    // without deleting the objects; the canvases become the sole owners.
+    fout->GetList()->Clear();
+    fin->Close();
+    fout->Close();
 }
