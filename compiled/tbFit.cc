@@ -1,4 +1,5 @@
-/**
+/*
+
  * @file tbFit.cc
  * @brief Time-based waveform fitting using Minuit optimizer for BACoN detector analysis
  * @details Performs chi-squared minimization fitting to detector curves using the ROOT Minuit library.
@@ -68,10 +69,11 @@ double doChsiq(int ic)
   for (int ibin = 0; ibin < nbins; ++ibin)
   {
     xval = hdata->GetBinContent(ibin);
-    hmodel->GetBinContent(ibin);
+    mean = hmodel->GetBinContent(ibin);
     if (mean > 0)
       chisq += pow((xval - mean), 2) / mean; // assuming error is sqrt(mean)
-    // printf("ic %i bin %i x %f mean %f chsq %f\n", ic, ibin, xval, mean, chisq);
+    // if (ibin < 3000)
+    // printf("ic %i bin %i x %E mean %E chsq %E\n", ic, ibin, xval, mean, chisq);
   }
 
   return chisq / double(nbins); /// per degree of freedom
@@ -101,9 +103,10 @@ TCanvas *makeCanFit(int i1, int i2, TString canName)
     // hfitModel[i]->Rebin(50);
     hnorm[i]->GetXaxis()->SetRangeUser(1200, 3000);
     hfitModel[i]->GetXaxis()->SetRangeUser(1200, 3000);
-    hnorm[i]->GetYaxis()->SetRangeUser(.1, 20.);
-    hfitModel[i]->GetYaxis()->SetRangeUser(.1, 20.);
+    hnorm[i]->GetYaxis()->SetRangeUser(.01, 5.);
+    hfitModel[i]->GetYaxis()->SetRangeUser(.01, 5.);
     hfitModel[i]->SetLineWidth(2);
+    hfitModel[i]->SetLineColor(kBlack);
     can->cd(ipanel);
     gPad->SetLogy();
     hnorm[i]->Draw("HIST");
@@ -115,21 +118,23 @@ TCanvas *makeCanFit(int i1, int i2, TString canName)
   return can;
 }
 
-TCanvas *makeCanFitOne(int i)
+TCanvas *makeCanFitOne(int i, int theFileNumber)
 {
   TString canName;
-  canName.Form("corLightCan%i", i);
+  canName.Form("corLightCan%iFile%i", i, theFileNumber);
   printf(" makeCanFitOne chan %i %s \n", i, canName.Data());
   TCanvas *can = new TCanvas(canName, canName);
   hnorm[i]->GetXaxis()->SetRangeUser(1200, 3000);
   hfitModel[i]->GetXaxis()->SetRangeUser(1200, 3000);
-  hnorm[i]->GetYaxis()->SetRangeUser(.1, 20.);
-  hfitModel[i]->GetYaxis()->SetRangeUser(.1, 20.);
+  // hnorm[i]->GetYaxis()->SetRangeUser(.1, 5.);
+  // hfitModel[i]->GetYaxis()->SetRangeUser(.1, 5.);
   hfitModel[i]->SetLineWidth(2);
+  hfitModel[i]->SetLineColor(kBlack);
   gPad->SetLogy();
   hnorm[i]->Draw("HIST");
   hfitModel[i]->Draw("HISTSAME");
   // can->BuildLegend();
+  gStyle->SetOptStat(0);
   can->SetLogy();
   can->Print(".pdf");
   return can;
@@ -183,7 +188,7 @@ void fillLateBkg()
 TGraph *myScan(int thePar, double xlow, double xhigh)
 {
   printf("myScan par %i from %E to %E \n", thePar, xlow, xhigh);
-  int maxPoints = 2200;
+  int maxPoints = 1000;
   std::vector<double> xval;
   std::vector<double> yval;
 
@@ -208,7 +213,7 @@ TGraph *myScan(int thePar, double xlow, double xhigh)
     // printf("line53 i %i par nph %f r %f theta %f  phi %f \n", i, fitVal[0], fitVal[1], fitVal[2], fitVal[3]);
     ntParScan->Fill(thePar, x, nLL);
     // printf("mySCAN ipar %i %s x= %f par %f err %f nLL %E\n", thePar, lparNames[thePar].Data(), x, fitVal[thePar], fitErr[thePar], nLL);
-    //  printf("mySCAN par %i x= %f nLL %E \n", i, x, nLL);
+    // printf("mySCAN par %i x= %f nLL %E \n", i, x, nLL);
   }
   // make and return graph
   return new TGraph(maxPoints, &xval[0], &yval[0]);
@@ -222,7 +227,7 @@ TGraph *myScan(int thePar, double xlow, double xhigh)
 TGraph *parameterScan(int thePar)
 {
   printf("parameterScan of %s min %f \n", lparNames[thePar].Data(), lpar[thePar]);
-  TGraph *graph = myScan(thePar, 0.01 * lpar[thePar], 10. * lpar[thePar]);
+  TGraph *graph = myScan(thePar, 0., 10.);
   graph->SetName(Form("ScanPar%i", thePar));
   graph->SetTitle(Form("ScanPar%i %s", thePar, lparNames[thePar].Data()));
   graph->GetYaxis()->SetTitle("FCN likelihood value");
@@ -246,7 +251,7 @@ void fillFitWave(int ichan, TH1D *hist)
   {
     double val = max(fitWave[ichan][ib], 1.E-9);
     hist->SetBinContent(ib, val);
-    hist->SetBinError(ib, sqrt(val) / 10.);
+    hist->SetBinError(ib, 0.);
     hist->GetYaxis()->SetTitle("yield");
     hist->GetXaxis()->SetTitle("time [ns]");
     hffit[ichan] = hist;
@@ -268,9 +273,9 @@ void fillCompWave(int ichan, int icomp, TH1D *hist)
   for (int ib = 1; ib < hist->GetNbinsX(); ++ib)
   {
     double val = max(fitComp[ichan][icomp][ib], 1.E-9);
-    // if (ichan == 8 && ib == 1500)
-    //   printf("!!!! chan %i sample %i val %E \n", ichan, ib, val);
     hist->SetBinContent(ib, val);
+    // if (icomp == XENONCOMP && ib > 600 && ib < 1000)
+    //   printf("!!!! icomp %i chan %i sample %i val %E hist %E \n", icomp, ichan, ib, val, hist->GetBinContent(ib));
     hist->SetBinError(ib, 0);
     hist->GetYaxis()->SetTitle("yield");
     hist->GetXaxis()->SetTitle("time [ns]");
@@ -412,7 +417,7 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
 
   // ppm of file
   std::vector<double> ppmFile;
-  ppmFile.push_back(0);
+  ppmFile.push_back(1.E-2);
   ppmFile.push_back(0.01);
   ppmFile.push_back(0.03);
   ppmFile.push_back(0.05);
@@ -423,6 +428,10 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   ppmFile.push_back(2.);
   ppmFile.push_back(5.);
   ppmFile.push_back(10.);
+  ppmFile.push_back(30.);
+  printf("tbFit: ppmFile size %lu \n", ppmFile.size());
+  for (unsigned i = 0; i < ppmFile.size(); ++i)
+    printf("tbFit: ppmFile %u %.3f \n", i, ppmFile[i]);
 
   // ============================================================================
   //  INPUT FILE SELECTION AND VALIDATION
@@ -439,8 +448,8 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   // ============================================================================
   //  ANALYSIS CONFIGURATION
   // ============================================================================
-  double dopant = 0.05; ///< Dopant concentration [PPM]
-  dopant = 10.;
+  double dopant = ppmFile[theFileNumber]; ///< Dopant concentration [PPM]
+  printf("tbFit: analyzing file %s with dopant %.3f PPM\n", inputFile.Data(), dopant);
 
   // Determine whether input is simulation or experimental data
   bool isSim = false;
@@ -451,9 +460,9 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
 
   // Create output file with naming convention reflecting data type and dopant level
   if (isSim)
-    fout = new TFile(Form("tbFitSimPPM%.2f.root", dopant), "recreate");
+    fout = new TFile(Form("tbFitSimFile%i.root", theFileNumber), "recreate");
   else
-    fout = new TFile(Form("tbFitPPM%.2f.root", dopant), "recreate");
+    fout = new TFile(Form("tbFitFile%i.root", theFileNumber), "recreate");
 
   if (geoVersionOld)
     printf("OLD level distances 0 = %.3f 1= %.3f 2= %.3f 3 %.3f 4 %.3f \n", distanceLevel[0], distanceLevel[1], distanceLevel[2], distanceLevel[3], distanceLevel[4]);
@@ -571,9 +580,9 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
   // Set bounds for variable parameters to restrict optimization domain
-  arglist[0] = NORM + 1;         // par
-  arglist[1] = 0.01 * startNorm; // low
-  arglist[2] = 10. * startNorm;  // high
+  arglist[0] = NORM + 1;            // par
+  arglist[1] = 0.01 * vstart[NORM]; // low
+  arglist[2] = 10. * vstart[NORM];  // high
   gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
   // gMinuit->mnexcm("FIX", arglist, 3, ierflg);
 
@@ -593,8 +602,8 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   // set limits ... here par starts with 1 so add 1
   arglist[0] = PPM + 1; // par
   arglist[1] = 0.0;     // low
-  arglist[2] = 100.;    // high
-  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  arglist[2] = 50.0;    // high
+  // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
   // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
   arglist[0] = TAUM + 1;     // par tau mixed
@@ -629,7 +638,7 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   // ============================================================================
   // Configure MIGRAD minimizer parameters
   arglist[0] = 1000000; ///< Maximum function calls permitted
-  arglist[1] = 1.E-5;   ///< Convergence tolerance on FCN value
+  arglist[1] = 1.E-7;   ///< Convergence tolerance on FCN value
 
   // Execute MIGRAD minimization
   gMinuit->mnexcm("MIGRAD", arglist, 2, ierflg);
@@ -747,14 +756,15 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
 
   if (theFitChannel < 0)
   {
-    makeCanFit(0, 2, TString("canFitLevel0"));
-    makeCanFit(3, 5, TString("canFitLevel1"));
-    makeCanFit(6, 8, TString("canFitLevel2"));
+    makeCanFit(0, 2, TString(Form("canFitLevel0File%i", theFileNumber)));
+    makeCanFit(3, 5, TString(Form("canFitLevel1File%i", theFileNumber)));
+    makeCanFit(6, 8, TString(Form("canFitLevel2File%i", theFileNumber)));
+
     if (theFitChannel == -1)
-      makeCanFit(9, 11, TString("canFitTrig"));
+      makeCanFit(9, 11, TString(Form("canFitTrigFile%i", theFileNumber)));
   }
   else
-    makeCanFitOne(theFitChannel);
+    makeCanFitOne(theFitChannel, theFileNumber);
 
   // ============================================================================
   //  GOODNESS-OF-FIT EVALUATION
@@ -775,5 +785,6 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
 
   // printf(" shift %.2f peak curve chan 9 %d peak fit %d ns \n", shift, 2 * hcurve[9]->GetMaximumBin(), 2 * hffit[9]->GetMaximumBin());
 
+  fout->Write();
   printf("\n...  finished tbFit \n");
 }
