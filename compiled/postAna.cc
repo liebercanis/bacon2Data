@@ -56,6 +56,7 @@ bool isLedRun = false;
 double triggerSum;
 TString currentFileName = TString("");
 int currentFileNumber = 0;
+int nominalTrigger = 729;
 
 std::vector<double> scaleSum;
 std::vector<double> scalePeak;
@@ -88,6 +89,7 @@ TDirectory *gainDir;
 TDirectory *crossDir;
 
 // vectors for hist pointers
+std::vector<TH1D *> hTrigTime;
 std::vector<TH1D *> hQPeak;
 std::vector<TH1D *> hQSum;
 std::vector<TH1D *> hNextHitTime;
@@ -142,6 +144,11 @@ enum FAILURECODES
 enum
 {
   FAILBITS = 10
+};
+
+enum
+{
+  TRIGGERSAMPLE = 695
 };
 
 std::vector<TString> bitNames;
@@ -609,7 +616,13 @@ void loop()
   // loop over entries
   for (Long64_t entry = 0; entry < maxEntry; ++entry)
   {
+    // reset trig time histos
+    for (unsigned idet = 0; idet < hTrigTime.size(); ++idet)
+    {
+      hTrigTime[idet]->Reset("ICESM");
+    }
     ++hitCountNev;
+
     if (entry / 10000 * 10000 == entry)
     {
       printf("line330 .....loop entry %lld nev this file %i \n", entry, hitCountNev);
@@ -680,6 +693,8 @@ void loop()
       qsumSum[ich] = 0;
       qsumLate[ich] = 0;
     }
+
+    // get list of branches and save in detList
     std::vector<TDet *> detList;
     while ((aBranch = (TBranchElement *)next()))
     {
@@ -688,14 +703,38 @@ void loop()
       { // skip this branch
         continue;
       }
-      int idet = TString(TString(aBranch->GetName())(4, 2)).Atoi();
-      bool trig = false; // define trigger sipms
-      if (idet == 9 || idet == 10 || idet == 11)
-        trig = true;
+      // int idet = TString(TString(aBranch->GetName())(4, 2)).Atoi();
 
       /* the branch is class TDet so cast it as such */
       TDet *det = (TDet *)aBranch->GetObject();
       detList.push_back(det);
+    }
+
+    // loop over trigger dets to get start time
+    for (unsigned idetNumber = 9; idetNumber < 12; ++idetNumber)
+    {
+      // idetNumber hit loop
+      for (unsigned ihit = 0; ihit < detList[idetNumber]->hits.size(); ++ihit)
+      {
+        TDetHit iDetHit = detList[idetNumber]->hits[ihit];
+        hTrigTime[idetNumber]->Fill(iDetHit.firstBin);
+      }
+    }
+
+    std::vector<int> vtrigTime;
+    for (unsigned idetNumber = 9; idetNumber < 12; ++idetNumber)
+      vtrigTime.push_back(hTrigTime[idetNumber]->GetMaximumBin());
+
+    std::sort(vtrigTime.begin(), vtrigTime.end());
+    // printf("line 725 9 max bin: %i 10 max bin: %i 11 max bin: %i\n", vtrigTime[0], vtrigTime[1], vtrigTime[2]);
+
+    for (unsigned idet = 0; idet < detList.size(); ++idet)
+    {
+      TDet *det = detList[idet];
+      bool trig = false; // define trigger sipms
+      if (idet == 9 || idet == 10 || idet == 11)
+        trig = true;
+
       // want to subtract off noise hits from preSum lateSum 3000-5500 ULong_t triggerStart = 730;
       // double scale = readGains->nominalQsumGain / aveGain;
       qsumLate[idet] = det->lateSum * scaleSum[idet]; // nominal gain applied in pulse finding step
@@ -718,9 +757,13 @@ void loop()
             lateHitCountFile[idet] = lateHitCountFile[idet] + 1;
         }
 
+        // trigger time shift to time of first trigger SIPM
+        int theHitTime = thit.firstBin + nominalTrigger - vtrigTime[0];
+
         // fill light curve
+        // printf("line 729 det %i max bin: %i\n", idet, hTrigTime[idet]->GetMaximumBin());
         hLightCurve[idet]
-            ->SetBinContent(thit.firstBin + 1, hLightCurve[idet]->GetBinContent(thit.firstBin + 1) + thit.qpeak / readGains->sipmPeakGain[idet]);
+            ->SetBinContent(theHitTime + 1, hLightCurve[idet]->GetBinContent(theHitTime + 1) + thit.qpeak / readGains->sipmPeakGain[idet]);
         /* fill gain histograms */
         photonSum[idet] += thit.qpeak / readGains->sipmPeakGain[idet];
         qsumSum[idet] += thit.qsum / readGains->sipmSumGain[idet];
@@ -925,6 +968,10 @@ void post(TString tag)
     qsumLimit = 50. * (readGains->sipmSumGain[ichan]);
     hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 2000, 0, qpeakLimit));
     hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 2000, 0, qsumLimit));
+
+    hTrigTime.push_back(new TH1D(Form("TrigTimeChan%i", ichan), Form("TrigTimeChan%i samples", ichan), 1000, 0, 1000));
+    hTrigTime.back()->GetXaxis()->SetTitle("time [samples]");
+    hTrigTime.back()->GetYaxis()->SetTitle("number of hits");
   }
 
   printf("MESSAGE line 835 starting loop \n");
