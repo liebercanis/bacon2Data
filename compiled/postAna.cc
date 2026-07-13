@@ -71,6 +71,7 @@ int hitCountNev = 0;
 TString tag;
 Long64_t totalEntries;
 TNtuple *ntTrig;
+TNtuple *ntTrigChan;
 TNtuple *ntGamma;
 TNtuple *ntLateSum;
 TNtuple *ntPreSum;
@@ -89,6 +90,8 @@ TDirectory *gainDir;
 TDirectory *crossDir;
 
 // vectors for hist pointers
+TH1D *hTrigTimeEvent;
+std::vector<int> vTrigTime;
 std::vector<TH1D *> hTrigTime;
 std::vector<TH1D *> hQPeak;
 std::vector<TH1D *> hQSum;
@@ -130,20 +133,21 @@ double cosmicEventCut = 10.;  // 10; // was 140.; // was 150 normalized to nomin
 enum FAILURECODES
 {
   PASS = 0,
-  BASEFAIL = 0x1,
-  EARLYCUT = 0x2,
-  FIRSTTIME = 0x4,
-  COSMIC = 0x8, // cosmic event cut
-  GAMMA = 0x10, // overlap event cut
-  TRIGFAIL = 0x20,
-  TRIANGLE = 0x40, // 2^6
-  MULTI = 0x80,
+  BASEFAIL = 0x1,  // 2^0
+  EARLYCUT = 0x2,  // 2^1
+  FIRSTTIME = 0x4, // 2^2
+  COSMIC = 0x8,    //// 2^3 cosmic event cut
+  GAMMA = 0x10,    // // 2^4 overlap event cut
+  TRIGFAIL = 0x20, // 2^5
+  TRIGTIME = 0x40, // 2^6
+  TRIANGLE = 0x80, // 2^7
+  MULTI = 0x100,   // 2^8
   TOTALCODES = 2 * MULTI
 };
 
 enum
 {
-  FAILBITS = 10
+  FAILBITS = 11
 };
 
 enum
@@ -398,6 +402,38 @@ int passEventCuts(Long64_t entry)
     // printf("MESSAGE event %lld fails multi pass = %i %i \n", entry, passBit, passBit & MULTI);
   }
 
+  // trig time cut
+  // reset trig time histos
+  for (unsigned idet = 0; idet < hTrigTime.size(); ++idet)
+  {
+    hTrigTime[idet]->Reset("ICESM");
+  }
+
+  // for each event loop over trigger dets to get start time
+  for (unsigned idetNumber = 0; idetNumber < 12; ++idetNumber)
+  {
+    // idetNumber hit loop
+    for (unsigned ihit = 0; ihit < detList[idetNumber]->hits.size(); ++ihit)
+    {
+      TDetHit iDetHit = detList[idetNumber]->hits[ihit];
+      hTrigTime[idetNumber]->Fill(iDetHit.firstBin);
+    }
+  }
+
+  // start time is earliest trigger time of the 3 trigger SIPMS
+  vTrigTime.clear();
+  for (unsigned idetNumber = 9; idetNumber < 12; ++idetNumber)
+    vTrigTime.push_back(hTrigTime[idetNumber]->GetMaximumBin());
+
+  std::sort(vTrigTime.begin(), vTrigTime.end());
+  // printf("line 725 9 max bin: %i 10 max bin: %i 11 max bin: %i\n", vTrigTime[0], vTrigTime[1], vTrigTime[2]);
+  hTrigTimeEvent->Fill(vTrigTime[0]);
+  if (vTrigTime[0] < 660 || vTrigTime[0] > 740)
+  {
+    passBit |= TRIGTIME;
+    // printf("MESSAGEline 434 event %lld fails trigtime %i pass = %i %i \n", entry, vTrigTime[0], passBit, passBit & TRIGTIME);
+  }
+
   // loop over fail bits
   for (int ic = 0; ic < FAILBITS; ++ic)
   {
@@ -408,7 +444,7 @@ int passEventCuts(Long64_t entry)
     }
     else if (passBit & failCode[ic])
     {
-      // printf("MESSAGE line 359 event %lld fails pass = %i name %s \n", entry, passBit, bitNames[ic].Data());
+      // printf("MESSAGE line 415 event %lld fails pass = %i bit %i name %s \n", entry, passBit, ic, bitNames[ic + 1].Data());
       hPassBitNew->SetBinContent(ic + 1, hPassBitNew->GetBinContent(ic + 1) + 1);
     }
   }
@@ -610,17 +646,14 @@ void setTime(TString startTag, TString endTag)
 
 void loop()
 {
+  std::vector<int> vtrigTime;
   /* nominal gains have been applied in pulse finding step */
   totalPass = 0;
   printf(" start of entry loop maxEntry=%lld\n", maxEntry);
   // loop over entries
   for (Long64_t entry = 0; entry < maxEntry; ++entry)
   {
-    // reset trig time histos
-    for (unsigned idet = 0; idet < hTrigTime.size(); ++idet)
-    {
-      hTrigTime[idet]->Reset("ICESM");
-    }
+
     ++hitCountNev;
 
     if (entry / 10000 * 10000 == entry)
@@ -633,6 +666,12 @@ void loop()
     // set to pass for debugging
     // cut on passBit passBit = 0;
 
+    /*
+    if (TRIGTIME & passBit)
+    {
+      printf("MESSAGE line 340 event %lld fails trigtime %i pass = %i %i \n", entry, vTrigTime[0], passBit, passBit & TRIGTIME);
+    }
+      */
     hEventPassNew->SetBinContent(passBit, hEventPassNew->GetBinContent(passBit) + 1);
     if (passBit != 0 && !isLedRun && !isSimulation)
       continue;
@@ -694,7 +733,7 @@ void loop()
       qsumLate[ich] = 0;
     }
 
-    // get list of branches and save in detList
+    // get list of branches and save in detList/
     std::vector<TDet *> detList;
     while ((aBranch = (TBranchElement *)next()))
     {
@@ -709,25 +748,6 @@ void loop()
       TDet *det = (TDet *)aBranch->GetObject();
       detList.push_back(det);
     }
-
-    // loop over trigger dets to get start time
-    for (unsigned idetNumber = 9; idetNumber < 12; ++idetNumber)
-    {
-      // idetNumber hit loop
-      for (unsigned ihit = 0; ihit < detList[idetNumber]->hits.size(); ++ihit)
-      {
-        TDetHit iDetHit = detList[idetNumber]->hits[ihit];
-        hTrigTime[idetNumber]->Fill(iDetHit.firstBin);
-      }
-    }
-
-    std::vector<int> vtrigTime;
-    for (unsigned idetNumber = 9; idetNumber < 12; ++idetNumber)
-      vtrigTime.push_back(hTrigTime[idetNumber]->GetMaximumBin());
-
-    std::sort(vtrigTime.begin(), vtrigTime.end());
-    // printf("line 725 9 max bin: %i 10 max bin: %i 11 max bin: %i\n", vtrigTime[0], vtrigTime[1], vtrigTime[2]);
-
     for (unsigned idet = 0; idet < detList.size(); ++idet)
     {
       TDet *det = detList[idet];
@@ -758,7 +778,8 @@ void loop()
         }
 
         // trigger time shift to time of first trigger SIPM
-        int theHitTime = thit.firstBin + nominalTrigger - vtrigTime[0];
+        int theHitTime = thit.firstBin + nominalTrigger - vTrigTime[0];
+        ntTrigChan->Fill(double(entry), vTrigTime[0], idet, theHitTime, double(passBit));
 
         // fill light curve
         // printf("line 729 det %i max bin: %i\n", idet, hTrigTime[idet]->GetMaximumBin());
@@ -887,9 +908,9 @@ void post(TString tag)
   }
   fout->cd();
   // trigger info ntuple
-  // ntTrig->Fill( pmtTotSum , totSum13 , triggerSum ,qFraction[0] ,  qFraction[1] , qFraction[2] , double(passBit) );
   ntHitCount = new TNtuple("ntHitCount", "hit count", "file:nev:chan:early:late");
   ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtTotSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
+  ntTrigChan = new TNtuple("ntTrigChan", "trigger info by channel", "event:trigTime:chan:hitTime:passBit");
   // ntLateInt = new TNtuple("ntLateInt", "late integral", "event:lateTotSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
   ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:ph12:qsum12:hitSum:ADCSum:xternQ:yternQ");
 
@@ -962,6 +983,7 @@ void post(TString tag)
   fout->cd("gainDir");
   double qpeakLimit;
   double qsumLimit;
+  hTrigTimeEvent = new TH1D(Form("TrigTimeEvent"), Form("TrigTimeEvent samples"), 1000, 0, 1000);
   for (unsigned ichan = 0; ichan < CHANNELS; ++ichan)
   {
     qpeakLimit = 50. * (readGains->sipmPeakGain[ichan]);
@@ -1021,8 +1043,11 @@ void post(TString tag)
     double ntot = hEventPassNew->GetEntries();
     double prob = nbin / ntot;
     double perror = sqrt(prob * (1. - prob) / ntot);
+
+    /*
     if (nbin > 0)
       printf("MESSAGE line 926 bin %i fail %.f frac %.3f +/- %.3f name %s \n", ibin, hEventPassNew->GetBinContent(ibin), prob, perror, codeNames[ibin].Data());
+      */
   }
 
   // do not normilzed summed chan 13
@@ -1031,7 +1056,7 @@ void post(TString tag)
 
   hPassBitNew->Print("all");
   // loop over fail bits
-  printf("MESSAGE line 939 summary of bit failures %llu pass %llu all %0.f\n", maxEntry, totalPass, hPassBitNew->GetBinContent(0));
+  printf("MESSAGE line 1050 summary of bit failures %llu pass %llu all %0.f\n", maxEntry, totalPass, hPassBitNew->GetBinContent(0));
   for (int ic = 0; ic < hPassBitNew->GetNbinsX(); ++ic)
   {
     double prob = hPassBitNew->GetBinContent(ic + 1) / double(maxEntry);
@@ -1067,9 +1092,10 @@ int main(int argc, char *argv[])
   failCode[4] = COSMIC;
   failCode[5] = GAMMA;
   failCode[6] = TRIGFAIL;
-  failCode[7] = TRIANGLE;
-  failCode[8] = MULTI;
-  failCode[9] = TOTALCODES;
+  failCode[7] = TRIGTIME;
+  failCode[8] = TRIANGLE;
+  failCode[9] = MULTI;
+  failCode[10] = TOTALCODES;
 
   vecFail.resize(FAILBITS);
   bitNames.resize(FAILBITS);
@@ -1082,8 +1108,9 @@ int main(int argc, char *argv[])
   bitNames[5] = TString("Cosmic");
   bitNames[6] = TString("Gamma");
   bitNames[7] = TString("Trigger");
-  bitNames[8] = TString("Triangle");
-  bitNames[9] = TString("Mult");
+  bitNames[8] = TString("TriggerTime");
+  bitNames[9] = TString("Triangle");
+  bitNames[10] = TString("Mult");
 
   codeNames.resize(TOTALCODES);
   // build trigger bit pattern names
