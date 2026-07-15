@@ -44,6 +44,7 @@
 #include "TBFile.hxx"
 #include "TReadGains.hxx"
 #include "modelAllFit.hh" // for geo ff function and distance levels
+#include "failCodes.hh"   // for fail bit names and codes
 
 using namespace TMath;
 
@@ -57,6 +58,7 @@ double triggerSum;
 TString currentFileName = TString("");
 int currentFileNumber = 0;
 int nominalTrigger = 729;
+int theMaximumBin = 0;
 
 std::vector<double> scaleSum;
 std::vector<double> scalePeak;
@@ -130,25 +132,6 @@ double cosmicEventCut = 10.;  // 10; // was 140.; // was 150 normalized to nomin
 
 // pass bit failures hex
 // COSMIC AND GAMMA now refined as cosmicEvent and overlapEvent
-enum FAILURECODES
-{
-  PASS = 0,
-  BASEFAIL = 0x1,  // 2^0
-  EARLYCUT = 0x2,  // 2^1
-  FIRSTTIME = 0x4, // 2^2
-  COSMIC = 0x8,    //// 2^3 cosmic event cut
-  GAMMA = 0x10,    // // 2^4 overlap event cut
-  TRIGFAIL = 0x20, // 2^5
-  TRIGTIME = 0x40, // 2^6
-  TRIANGLE = 0x80, // 2^7
-  MULTI = 0x100,   // 2^8
-  TOTALCODES = 2 * MULTI
-};
-
-enum
-{
-  FAILBITS = 11
-};
 
 enum
 {
@@ -423,16 +406,24 @@ int passEventCuts(Long64_t entry)
   // start time is earliest trigger time of the 3 trigger SIPMS
   vTrigTime.clear();
   for (unsigned idetNumber = 9; idetNumber < 12; ++idetNumber)
-    vTrigTime.push_back(hTrigTime[idetNumber]->GetMaximumBin());
+    vTrigTime.push_back(hTrigTime[idetNumber]->GetXaxis()->GetBinCenter(hTrigTime[idetNumber]->GetMaximumBin()));
 
+  // printf("line 411 event %lld  9 max bin: %i 10 max bin: %i 11 max bin: %i\n", entry, vTrigTime[0], vTrigTime[1], vTrigTime[2]);
   std::sort(vTrigTime.begin(), vTrigTime.end());
-  // printf("line 725 9 max bin: %i 10 max bin: %i 11 max bin: %i\n", vTrigTime[0], vTrigTime[1], vTrigTime[2]);
+  theMaximumBin = vTrigTime[0];
+  if (theMaximumBin < 700)
+    theMaximumBin = nominalTrigger;
   hTrigTimeEvent->Fill(vTrigTime[0]);
   if (vTrigTime[0] < 660 || vTrigTime[0] > 740)
   {
     passBit |= TRIGTIME;
     // printf("MESSAGEline 434 event %lld fails trigtime %i pass = %i %i \n", entry, vTrigTime[0], passBit, passBit & TRIGTIME);
   }
+
+  // gainDir->cd();
+  if (entry < 100)
+    for (unsigned idetNumber = 9; idetNumber < 12; ++idetNumber)
+      hTrigTime[idetNumber]->Clone(TString::Format("hTrigTimeDet%i_event%lld", idetNumber, entry));
 
   // loop over fail bits
   for (int ic = 0; ic < FAILBITS; ++ic)
@@ -646,7 +637,6 @@ void setTime(TString startTag, TString endTag)
 
 void loop()
 {
-  std::vector<int> vtrigTime;
   /* nominal gains have been applied in pulse finding step */
   totalPass = 0;
   printf(" start of entry loop maxEntry=%lld\n", maxEntry);
@@ -778,8 +768,11 @@ void loop()
         }
 
         // trigger time shift to time of first trigger SIPM
-        int theHitTime = thit.firstBin + nominalTrigger - vTrigTime[0];
-        ntTrigChan->Fill(double(entry), vTrigTime[0], idet, theHitTime, double(passBit));
+        int theHitTime = thit.firstBin + nominalTrigger - theMaximumBin;
+        // int theHitTime = thit.firstBin;
+        // if (thit.firstBin < nominalTrigger && idet == 9)
+        //  printf("line 729 event %lld det %i hit %i firstBin %i theMaximumBin %i theHitTime %i\n", entry, idet, ihit, thit.firstBin, theMaximumBin, theHitTime);
+        ntTrigChan->Fill(double(entry), vTrigTime[0], idet, theHitTime, vTrigTime[0], double(passBit));
 
         // fill light curve
         // printf("line 729 det %i max bin: %i\n", idet, hTrigTime[idet]->GetMaximumBin());
@@ -910,7 +903,7 @@ void post(TString tag)
   // trigger info ntuple
   ntHitCount = new TNtuple("ntHitCount", "hit count", "file:nev:chan:early:late");
   ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtTotSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
-  ntTrigChan = new TNtuple("ntTrigChan", "trigger info by channel", "event:trigTime:chan:hitTime:passBit");
+  ntTrigChan = new TNtuple("ntTrigChan", "trigger info by channel", "event:trigTime:chan:hitTime:maxBin:passBit");
   // ntLateInt = new TNtuple("ntLateInt", "late integral", "event:lateTotSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
   ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:ph12:qsum12:hitSum:ADCSum:xternQ:yternQ");
 
@@ -991,7 +984,7 @@ void post(TString tag)
     hQPeak.push_back(new TH1D(Form("QPeakChan%i", ichan), Form("QPeakChan%i", ichan), 2000, 0, qpeakLimit));
     hQSum.push_back(new TH1D(Form("QSumChan%i", ichan), Form("QSumChan%i", ichan), 2000, 0, qsumLimit));
 
-    hTrigTime.push_back(new TH1D(Form("TrigTimeChan%i", ichan), Form("TrigTimeChan%i samples", ichan), 1000, 0, 1000));
+    hTrigTime.push_back(new TH1D(Form("TrigTimeChan%i", ichan), Form("TrigTimeChan%i samples", ichan), 50, 700, 750));
     hTrigTime.back()->GetXaxis()->SetTitle("time [samples]");
     hTrigTime.back()->GetYaxis()->SetTitle("number of hits");
   }
