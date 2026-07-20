@@ -537,8 +537,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       // if (ic == 8 && j == 1500)
       //   printf("....line418 sample %i fx %E \n", j, fx);
       fitComp[ic][MIXEDCOMP][j] = fm;
-      fitComp[ic][BKGCOMP][j] = lateBkg[j];
-      // output fitted function
+      // fitComp[ic][BKGCOMP][j] = lateBkg[j];
+      //  output fitted function
       fitWave[ic][j] = mval;
       if (ic == -1 && j == iTrigger)
       {
