@@ -221,9 +221,9 @@ int colors[NCHAN] = {kRed, kGreen, kBlue, kYellow, kMagenta, kCyan, kOrange, kSp
 
 void setupMinuit()
 {
-  for (int ich = 0; ich < NCHAN; ++ichan)
+  for (int ich = 0; ich < NCHAN; ++ich)
     for (int isamp = 0; isamp < NCHAN; ++isamp)
-      buff[ic][isamp] = 0;
+      buff[ich][isamp] = 0;
   printf("setupMinuit with theDopant %.3f NPARS %i\n", theDopant, NPARS);
   setParNames();
   setCompNames();
