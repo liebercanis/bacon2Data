@@ -62,9 +62,9 @@ std::vector<std::vector<double>> compIntegral;
 std::vector<double> compIntegralSum;
 std::vector<int> numCompPhotons;
 
-static Double_t vstart[NPARS]; ///< Starting parameter values for Minuit minimization
-static Double_t step[NPARS];   ///< Step sizes for Minuit parameter exploration
-int theFitChannel = -1;        ///< Channel index to fit. Use -1 to simultaneously fit all 12 PMT channels.
+Double_t vstart[NPARS];      ///< Starting parameter values for Minuit minimization
+static Double_t step[NPARS]; ///< Step sizes for Minuit parameter exploration
+int theFitChannel = -1;      ///< Channel index to fit. Use -1 to simultaneously fit all 12 PMT channels.
 
 double qsumNominalFromBtb = 3.11E4;
 
@@ -340,7 +340,7 @@ void setupMinuit()
   double gin[NPARS];
   int npar = NPARS;
   int llist = NPARS; ///< Number of parameters
-  fcn(llist, gin, fval, &vstart[0], ierflg);
+  fcn(llist, gin, fval, vstart, ierflg);
   printf(" starting value >>>>   fval %E \n", fval);
   double fvalStart = fval;
   if (isnan(fval))
