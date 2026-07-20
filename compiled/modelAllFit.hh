@@ -29,7 +29,7 @@ enum
   TAU3,
   TAUM,
   BKGCONST,
-  BKGTAU,
+  KXCONST,
   THECHANNEL,
   NPARS
 };
@@ -48,8 +48,9 @@ static double fitComp[NCHAN][NUMCOMP][MAXSAMPLE];
 static double lateBkg[NCHAN]; // no longer used
 
 /***** units are nanoseconds ****/
-static double shift = 12.;
-static double tResolution = 7.0;
+static double shift = 9.;
+static double tResolution = 3.7 / 2.0; // 6.0;
+// static double tResolution = 20.0;
 static double tTriplet0 = 944.0; // from fit in range document in fitting 1600.0; // 2100.0;
 // static double tTriplet0 = 811.0;
 //  static double tTriplet0 = 1600.0; // 2100.0;
@@ -66,7 +67,7 @@ static double LY = 41.; // Doke, April 2009 https://arxiv.org/abs/0910.4956v1
 // LEGEND value 25.6;                              //  photons/kev LEGEND number , ref see Doke
 static double nPhotons = 60. * LY; // 60 keV gamma
 //
-static int iTrigger = 686;
+static int iTrigger = 729;
 
 // NOT USING THIS
 /* Ion-beam excitation of liquid argon M. Hofmann et al.  Eur. Phys. J. C (2013) 73:2618 */
@@ -124,7 +125,7 @@ static void setParNames() // tousif
   lparNames[TAU3] = TString("tau3");
   lparNames[TAUM] = TString("taumix");
   lparNames[BKGCONST] = TString("bkgconst");
-  lparNames[BKGTAU] = TString("bkgtau");
+  lparNames[KXCONST] = TString("kxconst");
   lparNames[THECHANNEL] = TString("theChannel");
 }
 
@@ -150,9 +151,14 @@ static void setupModelAllFit()
 
   /* set bad channels used in fit modelAllFit.hh */
   std::vector<unsigned> badList;
-  // badList.push_back(0);
-  // badList.push_back(1);
-  // badList.push_back(8);
+  /*
+  badList.push_back(1);
+  badList.push_back(2);
+  badList.push_back(3);
+  badList.push_back(4);
+  badList.push_back(0);
+  badList.push_back(8);
+  */
   setBadChannels(badList);
 
   // covered channels
@@ -251,7 +257,7 @@ static void printModel(int ibin, Double_t *par)
   double tMix = par[TAUM];
   // double bkg = par[BKGCONST];
 
-  double kx = kxZero * ppm;                 // rate of tansfer to mixed state
+  double kx = par[KXCONST] * kxZero * ppm;  // rate of tansfer to mixed state
   double kxPrime = kqZero + kx + 1. / tMix; // k_x^\prime in paper
   double tkxPrime = 1. / kxPrime;           // corresponding time
 
@@ -352,9 +358,11 @@ static void printModel(int ibin, Double_t *par)
   printf("DENOMINATORS lx - kxPrime %E lx - l1 %E lx - l3 %E\n", lX - kxPrime, lX - l1, lX - l3);
 }
 /*
- **********************   function fit by minuit **************************
- **********************    Minuit specifies function arguments
- **********************    returned f is NLL value
+ **************************************************************************
+ **********************   fcn function fit by minuit **************************
+ **********************   Minuit specifies function arguments
+ **********************   returned f is NLL value ************************
+ **************************************************************************
  */
 void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
 {
@@ -369,6 +377,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
   double tTriplet = par[TAU3];
   double sfrac = par[SFRAC];
   double tMix = par[TAUM];
+
   // double bkg = par[BKGCONST];
 
   /****************
@@ -409,7 +418,9 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     // SiPMQ128
     double SiPMQ128 = SiPMQE128Ham;
 
-    // absorption
+    /****
+     * absorption as a function of distance and xenon concentration.%
+     ****/
     double ab = 0.0;
     if (ppm > 1.0E-9)
     {
@@ -431,10 +442,11 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     effGeo = 1.;
 
     // values in samples
-    int ilow = 650;        //
-    int ihigh = MAXSAMPLE; // singlet MAXSAMPLE;
-    // singlet region
-    // ihigh = 1500;
+    int ilow = 650; //
+    int ihigh = 8000 / 2;
+    // MAXSAMPLE; // singlet MAXSAMPLE;
+    //  singlet region
+    //  ihigh = 1500;
     /****
      ****   loop over bins to fit
      */
@@ -444,12 +456,14 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       bool dip = j > 1400 / 2 && j < 1700 / 2;
       if (dip && ilevel == 0) //
         continue;
-      double x = bw * (double(j - iTrigger) + 0.5);      // bin center convert to ns mutiplying by bin width
-      double alpha1 = sfrac * bw * norm * effGeo;        // singlet norm N1 in paper
-      double alpha3 = (1. - sfrac) * bw * norm * effGeo; // triplet norm N3 in paper
-      double kx = kxZero * ppm;                          // rate of tansfer to mixed state
-      double kxPrime = kqZero + kx + 1. / tMix;          // k_x^\prime in paper
-      double tkxPrime = 1. / kxPrime;                    // corresponding time
+      /* set sample starting based on TRIGSTART*/
+      double xTrigger = par[TRIGSTART];
+      double x = (double(j - int(xTrigger / 2.0)) + 0.5); // bin center convert to ns mutiplying by bin width
+      double alpha1 = sfrac * bw * norm * effGeo;         // singlet norm N1 in paper
+      double alpha3 = (1. - sfrac) * bw * norm * effGeo;  // triplet norm N3 in paper
+      double kx = par[KXCONST] * kxZero * ppm;            // rate of tansfer to mixed state
+      double kxPrime = kqZero + kx + 1. / tMix;           // k_x^\prime in paper
+      double tkxPrime = 1. / kxPrime;                     // corresponding time
 
       // convenient rates lambda in paper
       double l1 = 1. / tSinglet0 + kqZero + kx; // lamda 1 in paper
@@ -480,27 +494,34 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       double mterm3 = alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
       double fm = (mterm1 + mterm3) / tMix; // mixed
 
-      // multiply by efficiencies
-      fs = fs * SiPMQE128Ham;
-      ft = ft * SiPMQE128Ham;
-      fm = fm * SiPMQE150;
-
       // additional factors depend on SIPM channel
-      if (isCovered[ic]) // glass covered sees only  175
+      if (ic == 0) // poly carbon covered sees only above 4000 nm
       {
         fs = 0;
         ft = 0;
         fm = 0;
+        fx = 0;
+      }
+      else if (ic == 8) // glass covered sees only  175
+      {
+        fs = 0;
+        ft = 0;
+        fm = fm * SiPMQE150;
+        fx = fx * SiPMQE175;
       }
       else if (ic == 12) // PMT
       {
-        fx = fx * PMTQE175;
-        fm = fm * PMTQE150;
         fs = 0;
         ft = 0;
+        fm = fm * PMTQE150;
+        fx = fx * PMTQE175;
       }
       else
       { // all other sipms
+        // multiply by efficiencies
+        fs = fs * SiPMQE128Ham;
+        ft = ft * SiPMQE128Ham;
+        fm = fm * SiPMQE150;
         fx = fx * SiPMQE175;
       }
 
@@ -546,7 +567,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       else
       { // sum up NLL as defined ROOT documentation
         f += mval - y * log(mval) - yterm;
-        // printf("line524 modelFitAll chan %i nLL = %E\n", ic, f);
+        // printf("line555 modelFitAll chan %i j %i y %E fx %E fm %E mval %E nLL = %E\n", ic, j, y, fx, fm, mval, f);
       }
 
       // ntScan->Fill(par[PPM], fx, f);
