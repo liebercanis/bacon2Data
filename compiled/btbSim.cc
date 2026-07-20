@@ -338,6 +338,7 @@ void setupMinuit()
   double gin[NPARS];
   int npar = NPARS;
   int llist = NPARS; ///< Number of parameters
+  printModel(700, vstart);
   fcn(llist, gin, fval, vstart, ierflg);
   printf(" starting value >>>>   fval %E \n", fval);
   double fvalStart = fval;
