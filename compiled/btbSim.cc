@@ -271,15 +271,6 @@ void setupMinuit()
   for (int ip = 0; ip < NPARS; ++ip)
     printf(" par %i %s start val %.3f \n", ip, lparNames[ip].Data(), vstart[ip]);
 
-  // copy into Minuit
-  /* have to put some errors here otherwise it will be constant*/
-  for (unsigned j = 0; j < NPARS; ++j)
-  {
-    step[j] = 1.E-6 * vstart[j];
-    gMinuit->mnparm(j, lparNames[j].Data(), vstart[j], step[j], 0.1 * vstart[j], 10. * vstart[j], ierflg);
-    lpar[j] = vstart[j];
-  }
-
   // == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == ==
   //  PARAMETER CONSTRAINTS AND BOUNDARIES
   // ============================================================================
@@ -349,7 +340,7 @@ void setupMinuit()
   double gin[NPARS];
   int npar = NPARS;
   int llist = NPARS; ///< Number of parameters
-  fcn(llist, gin, fval, lpar, ierflg);
+  fcn(llist, gin, fval, vstart, ierflg);
   printf(" starting value >>>>   fval %E \n", fval);
   double fvalStart = fval;
   if (isnan(fval))
