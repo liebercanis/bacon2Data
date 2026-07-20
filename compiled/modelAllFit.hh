@@ -355,6 +355,7 @@ static void printModel(int ibin, Double_t *par)
 
   printf("time %i = %.3f  siPMQE128Ham %.3f tSinglet0 %E kx %E kxPrime %E l1 %E l3 %E lX %E \n", ibin, x, SiPMQE128Ham, tSinglet0, kx, kxPrime, l1, l3, lX);
 
+  printf("DENOMINATORS kxPrime %E lx %E l1  %E  l3  %E\\n", kxPrime, lX, l1, l3);
   printf("DENOMINATORS lx - kxPrime %E lx - l1 %E lx - l3 %E\n", lX - kxPrime, lX - l1, lX - l3);
 }
 /*
