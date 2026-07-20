@@ -545,6 +545,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
         printf("fcnxxx chan %i j %i time %f eff %.2E alpha1 %.2E alpha3 %.2E c1 %.2E c3 %.2E t1 %.2E fs%.2E ft %.2E ft.2E fx %.2E fm %.2E mval%.2E \n", ic, j, x, effGeo, alpha1, alpha3, c1, c3, t1, fs, ft, fx, fm, mval);
         printf("fcnxxxx ab %f alpha1 %.2E sfrac %.2E bw %.2E norm %.2E eff %.2E y %.2E expt1 %.3E expt3 %.3E\n", ab, alpha1, sfrac, bw, norm, effGeo, buff[ic][j], expGaus(x, t1), expGaus(x, t3));
       }
+      printf("fcnxxx chan %i j %i time %f eff %.2E alpha1 %.2E alpha3 %.2E c1 %.2E c3 %.2E t1 %.2E fs%.2E ft %.2E ft.2E fx %.2E fm %.2E mval%.2E \n", ic, j, x, effGeo, alpha1, alpha3, c1, c3, t1, fs, ft, fx, fm, mval);
+      printf("fcnxxxx ab %f alpha1 %.2E sfrac %.2E bw %.2E norm %.2E eff %.2E y %.2E expt1 %.3E expt3 %.3E\n", ab, alpha1, sfrac, bw, norm, effGeo, buff[ic][j], expGaus(x, t1), expGaus(x, t3));
 
       /*******/
       if (mval <= 0)
