@@ -203,11 +203,6 @@ bool doMinuit = false;
 
 enum
 {
-  NPAR = 4 // interaction point + total photons
-};
-
-enum
-{
   MAXSCANPLOTS = 10 // interaction point + total photons
 };
 /*
@@ -229,7 +224,7 @@ void setupMinuit()
   printf("setupMinuit with theDopant %.3f\n", theDopant);
   setParNames();
   setCompNames();
-  gMinuit = new TMinuit(NPAR);
+  gMinuit = new TMinuit(NPARS);
   gMinuit->SetFCN(fcn); // Set likelihood function pointer
   arglist[0] = 0.5;     // for likelihood up from minimum for 1 sigma errors
   gMinuit->mnexcm("SET ERR", arglist, 1, ierflg);
@@ -633,9 +628,9 @@ TGraph *myScan(int thePar, double xlow, double xhigh)
   std::vector<double> yval;
 
   // get min parameters
-  double fitVal[NPAR];
-  double fitErr[NPAR];
-  for (int ipar = 0; ipar < NPAR; ++ipar)
+  double fitVal[NPARS];
+  double fitErr[NPARS];
+  for (int ipar = 0; ipar < NPARS; ++ipar)
   {
     gMinuit->GetParameter(ipar, fitVal[ipar], fitErr[ipar]);
     // printf("line141 ipar %i par %f err %f \n", ipar, fitVal[ipar], fitErr[ipar]);
@@ -1691,8 +1686,8 @@ void btb(int ngen = 10000000, double thePPM = 30.)
 
     // Now ready for minimization step with MIGRAD
     // set starting param values
-    double fitVal[NPAR];
-    double fitErr[NPAR];
+    double fitVal[NPARS];
+    double fitErr[NPARS];
 
     for (unsigned i = 0; i < 3; ++i)
     {
