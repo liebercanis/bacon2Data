@@ -1,4 +1,5 @@
 // April 28 2025
+// distance levels for 13 channels July 16 2026
 #include <iostream>
 #include <fstream>
 #include <numeric>
@@ -17,10 +18,11 @@
 #include "Math/Vector3D.h"
 #include "TBRawRun.hxx"
 #include "TBSimRun.hxx"
-#include "modelAllFit.hh"
 #include "triggerPeakFit.hh"
 #include "TReadGains.hxx"
 #include "TMinuit.h"
+#include "modelAllFit.hh"
+#include "failCodes.hh"
 
 std::string sdate;
 // time is in microseconds
@@ -29,6 +31,12 @@ TFile *fout;
 TRandom3 *ran;
 TString geoName;
 bool isFid;
+double theDopant;
+
+enum
+{
+  NPOINTS = 1000
+};
 
 TReadGains *readGains;
 
@@ -38,6 +46,7 @@ TBRawRun *rawRun;
 TBSimRun *simRun;
 std::vector<uint16_t> wave;
 TDirectory *scanDir;
+TDirectory *modelDir;
 
 bool writeRawData = true;
 bool useMap = false;
@@ -45,6 +54,17 @@ int reportInterval = 1000;
 double zZero = 0.3; // source position
 TDirectory *eventDir;
 TDirectory *histDir;
+std::vector<TH1D *> hffit;            ///< Model histograms per channel (reserved for future use)
+std::vector<TH1D *> hfitModel;        ///< Final fitted model histograms per channel
+std::vector<vector<TH1D *>> hfitComp; ///< Final fitted model histograms per channel
+std::vector<double> timeComp;
+std::vector<std::vector<double>> compIntegral;
+std::vector<double> compIntegralSum;
+std::vector<int> numCompPhotons;
+
+static Double_t vstart[NPARS]; ///< Starting parameter values for Minuit minimization
+static Double_t step[NPARS];   ///< Step sizes for Minuit parameter exploration
+int theFitChannel = -1;        ///< Channel index to fit. Use -1 to simultaneously fit all 12 PMT channels.
 
 double qsumNominalFromBtb = 3.11E4;
 
@@ -94,6 +114,7 @@ TH1D *hNumberSPE[3];
 TH1D *hSignalPhotonsEvent[3];
 TH1D *hGeoEff[NCHAN];
 TH1D *hPhoton[NCHAN];
+TH1D *hPhotonTime[NCHAN];
 TH1D *hPhotonSum[NCHAN];
 TH1D *hSinglet[NCHAN];
 TH1D *hConvolve[NCHAN];
@@ -147,8 +168,7 @@ double fillFactor = 1.0;
 double reflection = 1.; //.8; // guess.. angular dependance?
 int binWidth = 2;
 double noiseToSignal = 0.04;
-double baseline = 1100.; // 1100; // ADC
-double thePPM = 0.0;
+double baseline = 1100.;    // 1100; // ADC
 double meanFreePath = 1.53; // from table in cm3frmom rtabtable in cm3frmom rtabtable in cm
 double totalEventEffiency;
 double triggerTimes[3];
@@ -200,6 +220,268 @@ int triggerStart = binWidth * 730; // 730; sipm rise time convert to ns
 double speMPV = double(triggerStart);
 double speSigma = 20.; // ns from single PI data fit
 TF1 *speLandau;
+
+/// Plotting colors for each detector channel visualization
+int colors[NCHAN] = {kRed, kGreen, kBlue, kYellow, kMagenta, kCyan, kOrange, kSpring, kTeal, kAzure, kViolet, kPink, kGray};
+
+void setupMinuit()
+{
+  printf("setupMinuit with theDopant %.3f\n", theDopant);
+  setParNames();
+  setCompNames();
+  gMinuit = new TMinuit(NPAR);
+  gMinuit->SetFCN(fcn); // Set likelihood function pointer
+  arglist[0] = 0.5;     // for likelihood up from minimum for 1 sigma errors
+  gMinuit->mnexcm("SET ERR", arglist, 1, ierflg);
+
+  /* total photons per event LY defined in modelAllFit.hh */
+  double startNorm = 60. * LY;
+  Double_t arglist[10];
+  int ierflg = 0;
+  arglist[0] = 0.5; // for likelihood up from minimum for 1 sigma errors
+  gMinuit->mnexcm("SET ERR", arglist, 1, ierflg);
+
+  // ============================================================================
+  //  FIT PARAMETER INITIALIZATION
+  // ============================================================================
+  // Set initial guesses for all fit parameters
+  vstart[NORM] = startNorm;     ///< Photon yield per event
+  vstart[TRIGSTART] = 2. * 700; ///< Trigger timing offset
+  vstart[SFRAC] = 0.14;         ///< Singlet fraction (ref: Segretto 2021)
+  vstart[PPM] = theDopant;      ///< Dopant concentration
+  vstart[TAU3] = tTriplet0;     ///< Triplet decay time
+  vstart[TAUM] = 4700.0;        ///< Mixed component decay time
+  vstart[BKGCONST] = 4.0E-6;    ///< Constant background rate
+  vstart[KXCONST] = 1.0;
+  vstart[THECHANNEL] = theFitChannel; ///< Channel selection flag
+  /*
+  printf("starting parameter values \n");
+  for (int ip = 0; ip < NPARS; ++ip)
+    printf(" par %i %s start val %.3f \n", ip, lparNames[ip].Data(), vstart[ip]);
+    */
+
+  // copy into Minuit
+  /* have to put some errors here otherwise it will be constant*/
+  for (unsigned j = 0; j < NPARS; ++j)
+  {
+    step[j] = 1.E-6 * vstart[j];
+    gMinuit->mnparm(j, lparNames[j].Data(), vstart[j], step[j], 0.1 * vstart[j], 10. * vstart[j], ierflg);
+    lpar[j] = vstart[j];
+  }
+  for (int ip = 0; ip < NPARS; ++ip)
+    printf(" par %i %s start val %.3f \n", ip, lparNames[ip].Data(), vstart[ip]);
+
+  // copy into Minuit
+  /* have to put some errors here otherwise it will be constant*/
+  for (unsigned j = 0; j < NPARS; ++j)
+  {
+    step[j] = 1.E-6 * vstart[j];
+    gMinuit->mnparm(j, lparNames[j].Data(), vstart[j], step[j], 0.1 * vstart[j], 10. * vstart[j], ierflg);
+    lpar[j] = vstart[j];
+  }
+
+  // == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == ==
+  //  PARAMETER CONSTRAINTS AND BOUNDARIES
+  // ============================================================================
+  // Fix parameters that are held constant during minimization
+  // Note: Minuit uses 1-based indexing for parameters (adds 1 to C++ indices)
+
+  // fix channel
+  arglist[0] = THECHANNEL + 1; // channel
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+
+  arglist[0] = TRIGSTART + 1; // trigger
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+  // arglist[1] = 0.01 * vstart[TRIGSTART]; // low
+  // arglist[2] = 10. * vstart[TRIGSTART];  // high
+  // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+
+  arglist[0] = BKGCONST + 1; // par
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+
+  arglist[0] = KXCONST + 1; // par
+  // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+  arglist[1] = 0.1 * vstart[KXCONST]; // low
+  arglist[2] = 10. * vstart[KXCONST]; // high
+  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+
+  // arglist[0] = SFRAC + 1; // kp
+  // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+
+  // Set bounds for variable parameters to restrict optimization domain
+  arglist[0] = NORM + 1;            // par
+  arglist[1] = 0.01 * vstart[NORM]; // low
+  arglist[2] = 10. * vstart[NORM];  // high
+  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  // gMinuit->mnexcm("FIX", arglist, 3, ierflg);
+
+  arglist[0] = SFRAC + 1;     // par
+  arglist[1] = vstart[SFRAC]; // low
+  arglist[2] = vstart[SFRAC];
+  // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  gMinuit->mnexcm("FIX", arglist, 3, ierflg);
+
+  // set limits ... here par starts with 1 so add 1
+  arglist[0] = TAU3 + 1;         // par
+  arglist[1] = 0.01 * tTriplet0; // low
+  arglist[2] = 2.0 * tTriplet0;  // high
+  // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+
+  // set limits ... here par starts with 1 so add 1
+  arglist[0] = PPM + 1; // par
+  arglist[1] = 0.0;     // low
+  arglist[2] = 50.0;    // high
+  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+
+  arglist[0] = TAUM + 1;     // par tau mixed
+  arglist[1] = 0.01 * tMix0; // low
+  arglist[2] = 10. * tMix0;  // high
+  // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  gMinuit->mnexcm("FIX", arglist, 3, ierflg);
+
+  printf("\n...  call mnprin \n");
+  double amin;
+  gMinuit->mnprin(1, amin);
+  // Evaluate likelihood at starting point to verify initialization
+  double fval = 0;
+  double gin[NPARS];
+  int npar = NPARS;
+  int llist = NPARS; ///< Number of parameters
+  fcn(llist, gin, fval, lpar, ierflg);
+  printf(" starting value >>>>   fval %E \n", fval);
+  double fvalStart = fval;
+  if (isnan(fval))
+  {
+    printf("gMinuit returns NAN\n");
+    return;
+  }
+}
+/**
+ * @brief Populate histogram with fitted waveform samples from optimization result
+ * @details Transfers fitWave array (computed by fcn() during minimization) into a TH1D
+ *          histogram. Data is stored in modelAllFit.hh as fitWave[NCHAN][MAXSAMPLE]
+ * @param ichan Channel index
+ * @param hist Pointer to histogram to fill with fitted values
+ */
+void fillFitWave(int ichan, TH1D *hist)
+{
+  // std::cout << " fillFitWave " << ichan << "  " << hist->GetName() << std::endl;
+  hist->Reset("ICES");
+  for (int ib = 1; ib < hist->GetNbinsX(); ++ib)
+  {
+    double val = max(fitWave[ichan][ib], 1.E-9);
+    hist->SetBinContent(ib, val);
+    hist->SetBinError(ib, sqrt(val) / 10.);
+    hist->GetYaxis()->SetTitle("yield");
+    hist->GetXaxis()->SetTitle("time [ns]");
+    hffit[ichan] = hist;
+  }
+}
+
+/**
+ * @brief Populate histogram with fitted component waveform for given channel and component type
+ * @details Extracts fitted component contributes (singlet, triplet, mixed) stored in
+ *          fitComp[NCHAN][NUMCOMP][MAXSAMPLE] and fills histogram
+ * @param ichan Channel index
+ * @param icomp Component index (e.g., singlet=0, triplet=1, mixed=2)
+ * @param hist Pointer to histogram to fill
+ */
+void fillCompWave(int ichan, int icomp, TH1D *hist)
+{
+  // std::cout << " fillCompWave " << ichan << " comp  " << icomp << " " << hist->GetName() << std::endl;
+  hist->Reset("ICES");
+  for (int ib = 1; ib < hist->GetNbinsX(); ++ib)
+  {
+    double val = max(fitComp[ichan][icomp][ib], 1.E-9);
+    hist->SetBinContent(ib, val);
+    // if (icomp == XENONCOMP && ib > 600 && ib < 1000)
+    //   printf("!!!! icomp %i chan %i sample %i val %E hist %E \n", icomp, ichan, ib, val, hist->GetBinContent(ib));
+    hist->SetBinError(ib, 0);
+    hist->GetYaxis()->SetTitle("yield");
+    hist->GetXaxis()->SetTitle("time [ns]");
+  }
+  std::cout << std::endl;
+}
+void fillModel()
+{
+  modelDir->cd();
+  // Initialize histogram vectors for all channels
+  hffit.resize(NCHAN);
+  hfitModel.resize(NCHAN);
+  hfitComp.resize(NCHAN);
+  for (unsigned ic = 0; ic < NCHANPMT; ++ic)
+  {
+    // printf("fill fitWaveFitChan%i", ic);
+    TH1D *hFit = new TH1D(Form("fitWaveFitChan%i", ic), Form("fitWaveFitChan%i", ic), MAXSAMPLE, 0, 2 * MAXSAMPLE);
+    hFit->Reset("ICES");
+    hFit->SetTitle((Form("fitWaveFitChan%i %.3fPPM", ic, theDopant)));
+    hFit->SetMarkerColor(colors[ic]);
+    hFit->SetLineColor(colors[ic]);
+    hfitModel[ic] = hFit;
+    fillFitWave(ic, hFit);
+  }
+
+  // drawing
+  // Store individual component contributions (singlet, triplet, mixed) for each channel
+  for (unsigned ic = 0; ic < NCHAN; ++ic)
+  {
+    for (int icomp = 0; icomp < NUMCOMP; ++icomp)
+    {
+      /*
+       TString tprint;
+      tprint.Form("fillCompWaveFitChan%iComp%i name %s", ic, icomp, compNames[icomp].Data());
+      cout << tprint << endl;
+      */
+      TH1D *hFit = new TH1D(Form("fitComp%sChan%i", compNames[icomp].Data(), ic), Form("fit%sChan%i", compNames[icomp].Data(), ic), MAXSAMPLE, 0, 2 * MAXSAMPLE);
+      hFit->Reset("ICES");
+      hFit->SetTitle((Form("fit%sChan%i %.3fPPM", compNames[icomp].Data(), ic, theDopant)));
+      hFit->SetLineColor(colors[ic]);
+      fillCompWave(ic, icomp, hFit); // only need one of these
+      hfitComp[ic].push_back(hFit);
+    }
+  }
+
+  compIntegral.resize(NCHAN);
+  compIntegralSum.clear();
+  compIntegralSum.resize(NCHAN);
+  // calculate comp sizes
+  for (unsigned ic = 0; ic < NCHAN; ++ic)
+  {
+    for (int icomp = 0; icomp < hfitComp[ic].size(); ++icomp)
+    {
+      compIntegral[ic].push_back(hfitComp[ic][icomp]->Integral());
+      compIntegralSum[ic] += compIntegral[ic].back();
+    }
+  }
+
+  if (show)
+  {
+    printf("MESSAGE ******** compIntegrals ******* \n");
+    for (unsigned ic = 0; ic < NCHAN; ++ic)
+    {
+      for (int icomp = 0; icomp < hfitComp[ic].size(); ++icomp)
+      {
+        printf("chan %i comp %i compIntegral %.3E\n", ic, icomp, compIntegral[ic][icomp]);
+      }
+      printf("chan %i compIntegralSum %.3E\n\n", ic, compIntegralSum[ic]);
+    }
+  }
+  // end of function
+  fout->cd();
+}
+
+/* get times for sipm channel */
+void getTime(int ic, int icomp, int nPhotons)
+{
+  timeComp.clear();
+  for (int i = 0; i < nPhotons; ++i)
+  {
+    timeComp.push_back(hfitComp[ic][icomp]->GetRandom());
+  }
+  return;
+}
 
 double gainFunc(int ich)
 {
@@ -539,7 +821,7 @@ double effGeoSim(int ichan) // uses PositionVector3D eventOrigin;
   return e;
 }
 
-void btb(int ngen = 10000000)
+void btb(int ngen = 10000000, double thePPM = 30.)
 {
   /** use nominal gains  **/
   readGains = new TReadGains(false);
@@ -653,10 +935,49 @@ void btb(int ngen = 10000000)
   if (geoVersionOld)
     fullname = (Form("btbSimOLD-%s-%i.root", tdateTag.Data(), ngen));
   else
-    fullname = (Form("btbSimNEW-run-%s-%i.root", tdateTag.Data(), ngen));
+    fullname = (Form("btbSimNEW-run-%s-%i-PPM-%05i.root", tdateTag.Data(), ngen, int(thePPM * 1000.)));
   fout = new TFile(fullname, "recreate"); // DEF made to update rather than recreate so that it doesn't write over a file already made.
-  printf("opened output file %s date %s \n", fout->GetName(), tdateTag.Data());
-  cout << tdateTag << endl;
+  modelDir = fout->mkdir("modelDir");
+  fout->cd();
+  theDopant = thePPM;
+  printf("opened output file %s date %s dopant %.3f\n", fout->GetName(), tdateTag.Data(), theDopant);
+  printf("absorbtion factor %.3f PPM \n", theDopant);
+
+  setupMinuit();
+  fillModel();
+
+  /*
+  for (unsigned ic = 0; ic < NCHANPMT; ++ic)
+    for (unsigned icomp = 0; icomp < hfitComp[ic].size(); ++icomp)
+      printf("ic %i icomp %i %s \n", ic, icomp, hfitComp[ic][icomp]->GetName());
+      */
+
+  cout << "tdateTag = " << tdateTag << endl;
+
+  std::vector<double> distance;
+  std::vector<double> abdist;
+  distance.resize(NPOINTS);
+  abdist.resize(NPOINTS);
+  for (int i = 0; i < NPOINTS; ++i)
+  {
+    distance[i] = double(i) * 0.05;
+    abdist[i] = Absorbtion(theDopant, distance[i]);
+    // printf("%i ppm %f dist %f A %.3E\n", i, theDopant, distance[i], abdist[i]);
+  }
+
+  TGraph *gAbDist = new TGraph(NPOINTS, &distance[0], &abdist[0]);
+  gAbDist->SetMarkerStyle(21);
+  gAbDist->SetMarkerSize(.7);
+  gAbDist->SetName("absorbtion-distance");
+  gAbDist->SetTitle(Form("absorbtion factor at %.3f PPM", theDopant));
+  gAbDist->GetXaxis()->SetTitle("distance [cm]");
+  gAbDist->GetYaxis()->SetTitle("absorbtion factor");
+  TCanvas *cabDist = new TCanvas("absorbtionDist", "absorbtionDist");
+  cabDist->SetGrid();
+  cabDist->SetLogx();
+  gAbDist->Draw("ap");
+  fout->Append(gAbDist);
+
   scanDir = fout->mkdir("scanDir");
 
   // make output tree
@@ -829,7 +1150,19 @@ void btb(int ngen = 10000000)
   eventDir = fout->mkdir("eventDir");
   histDir = fout->mkdir("histDir");
   histDir->cd();
+
   TH1D *hNoise = new TH1D("Noise", "Noise", 200, -10 * sigmaNoise, 10 * sigmaNoise);
+  histDir->cd();
+
+  for (int ih = 0; ih < NCHAN; ++ih)
+  {
+    int ilevel = getLevel(ih);
+    hPhotonTime[ih] = new TH1D(Form("PhotonTime%i", ih), Form("PhotonTime%i-level%i", ih, ilevel), MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+    hPhotonTime[ih]->GetXaxis()->SetTitle("time [ns]");
+    hPhotonTime[ih]->GetYaxis()->SetTitle("photons/2ns");
+    // hPhotonTime[ih]->SetDirectory(nullptr);
+  }
+
   for (int ih = 0; ih < NCHAN; ++ih)
   {
     // modelFit::modelFit(int theFit, int ichan, double ppm)
@@ -896,11 +1229,11 @@ void btb(int ngen = 10000000)
   testDir->cd();
   ntConvolve = new TNtuple("ntConvolve", "ntConvolve", "time:nph:qconv:qsum");
 
-  hPhotonTest9 = new TH1D("ConvolveTest9", "ConvolveTest9", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+  hPhotonTest9 = new TH1D("PhotonTest9", "ConvolveTest9", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
   hPhotonTest9->GetXaxis()->SetTitle("time [ns]");
   hPhotonTest9->GetYaxis()->SetTitle("photons/2ns");
 
-  hPhotonSumTest9 = new TH1D("ConvolveTest9", "ConvolveTest9", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+  hPhotonSumTest9 = new TH1D("PhotonSumTest9", "ConvolveTest9", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
   hPhotonSumTest9->GetXaxis()->SetTitle("time [ns]");
   hPhotonSumTest9->GetYaxis()->SetTitle("photons/2ns");
 
@@ -1118,7 +1451,27 @@ void btb(int ngen = 10000000)
       if (ich == 11)
         hEffGeo11->Fill(effGeoSimi / nominalGeo);
 
-      double eff = effGeoSimi * SiPMQE128Ham * fillFactor * reflection;
+      // compInt includes QE
+      double eff = effGeoSimi * fillFactor * reflection;
+      if (show)
+      {
+        printf("MESSAGE ******** compIntegrals ******* \n");
+        for (int icomp = 0; icomp < NUMCOMP; ++icomp)
+        {
+          printf("chan %i comp %i compIntegral %.3E\n", ich, icomp, compIntegral[ich][icomp]);
+        }
+        printf("chan %i compIntegralSum %.3E\n\n", ich, compIntegralSum[ich]);
+      }
+
+      // get commponent photons
+      numCompPhotons.clear();
+      numCompPhotons.resize(NUMCOMP);
+      for (int icomp = 0; icomp < NUMCOMP; ++icomp)
+      {
+        numCompPhotons[icomp] = int(nPhotonsEvent * eff * compIntegral[ich][icomp] / compIntegralSum[ich]);
+        // printf("line 1457 iev %i ich %i icomp %i nphotons %i comp fraction %E nphotons %i\n", iev, ich, icomp, nPhotonsEvent, eff * compIntegral[ich][icomp] / compIntegralSum[ich], numCompPhotons[icomp]);
+      }
+
       double nsmean = double(nPhotonsEvent) * eff * singletFrac;
       double ntmean = double(nPhotonsEvent) * eff - nsmean;
       nsinglet = ran->Poisson(nsmean);
@@ -1129,59 +1482,47 @@ void btb(int ngen = 10000000)
       ncountSinglet[ich] += nsinglet;
       totalPhotons += nsinglet + ntriplet;
 
-      // singlet times
-      for (int it = 0; it < nsinglet; ++it)
+      /*
+          big loop over time components
+      */
+      for (int icomp = 0; icomp < NUMCOMP; ++icomp)
       {
-        double time = timeShift + triggerStart + ran->Exp(tSinglet0);
-        double gain = gainFunc(ich);
-        hPhoton[ich]->Fill(time, gain);
-        hSinglet[ich]->Fill(time, gain);
-        // hPhotonSum[ich]->Fill(time, gain);
-        hPhotonSum[ich]->Fill(time);
-        nChannel[ich] = nChannel[ich] + 1;
-        convolve(hConvolve[ich], time, gainFunc(ich));
-        TH1D *hist = hConvolve[ich];
+        // printf("call getTime ev %d chan %i \n", iev, ich);
+        getTime(ich, icomp, numCompPhotons[icomp]);
 
-        if (ich == 9)
-          hPhotonTrig[0]->Fill(time);
-        if (ich == 10)
-          hPhotonTrig[1]->Fill(time);
-        if (ich == 11)
-          hPhotonTrig[2]->Fill(time);
+        // printf("line 1492 iev %i ich %i icomp %i nphotons %i size %lu \n", iev, ich, icomp, numCompPhotons[icomp], timeComp.size());
 
-        // printf("event %i chan %i  max value %E\n", iev, ich, hist->GetBinContent(hist->GetMaximumBin()));
-        hTime->Fill(time);
-        // make a TDetHit for photon
-        TDetHit hit;
-        hit.startTime = double(hTime->FindBin(time)); // convert to samples
-        // printf("line579 time %f %f bin %i  \n", time, hit.startTime, hPhoton[ich]->FindBin(time));
-        hit.qpeak = gainFunc(ich);
-        det->hits.push_back(hit);
-      }
-      // triplet times
-      for (int it = 0; it < ntriplet; ++it)
-      {
-        double time = timeShift + triggerStart + ran->Exp(tTriplet0);
-        double gain = gainFunc(ich);
-        hPhoton[ich]->Fill(time, gain);
-        // hPhotonSum[ich]->Fill(time, gain);
-        hPhotonSum[ich]->Fill(time, gain);
-        nChannel[ich] = nChannel[ich] + 1;
-        convolve(hConvolve[ich], time, gain);
-        hTime->Fill(time);
-        // save trigger
-        if (ich == 9)
-          hPhotonTrig[0]->Fill(time);
-        if (ich == 10)
-          hPhotonTrig[1]->Fill(time);
-        if (ich == 11)
-          hPhotonTrig[2]->Fill(time);
+        // fill timeComp photons
+        for (unsigned iphoton = 0; iphoton < timeComp.size(); ++iphoton)
+        {
+          hPhotonTime[ich]->Fill(timeComp[iphoton]);
 
-        TDetHit hit;
-        hit.startTime = double(hTime->FindBin(time)); // convert to samples
-        hit.qpeak = gainFunc(ich);
-        det->hits.push_back(hit);
-        // printf(" \t\t after triplets %iev %ch %lu \n", iev, ich, det->hits.size());
+          double time = timeShift + triggerStart + timeComp[iphoton];
+          double gain = gainFunc(ich);
+          hPhoton[ich]->Fill(time, gain);
+          hSinglet[ich]->Fill(time, gain);
+          // hPhotonSum[ich]->Fill(time, gain);
+          hPhotonSum[ich]->Fill(time);
+          nChannel[ich] = nChannel[ich] + 1;
+          convolve(hConvolve[ich], time, gainFunc(ich));
+          TH1D *hist = hConvolve[ich];
+
+          if (ich == 9)
+            hPhotonTrig[0]->Fill(time);
+          if (ich == 10)
+            hPhotonTrig[1]->Fill(time);
+          if (ich == 11)
+            hPhotonTrig[2]->Fill(time);
+
+          // printf("event %i chan %i  max value %E\n", iev, ich, hist->GetBinContent(hist->GetMaximumBin()));
+          hTime->Fill(time);
+          // make a TDetHit for photon
+          TDetHit hit;
+          hit.startTime = double(hTime->FindBin(time)); // convert to samples
+          // printf("line579 time %f %f bin %i  \n", time, hit.startTime, hPhoton[ich]->FindBin(time));
+          hit.qpeak = gainFunc(ich);
+          det->hits.push_back(hit);
+        }
       }
 
       // if (ich == 9)
@@ -1370,77 +1711,12 @@ void btb(int ngen = 10000000)
     double amin = 0;
 
     double step = 0.0001;
-    if (doMinuit)
-    {
-      // Set starting values and step sizes for parameters
-      gMinuit->mnparm(0, "yield", numPhotons, step, 0., 10. * numPhotons, ierflg);
-      gMinuit->mnparm(1, "fitR", 0.1, step, 0., 2., ierflg);
-      gMinuit->mnparm(2, "fitTheta", 0, step, 0., TMath::Pi(), ierflg);
-      gMinuit->mnparm(3, "fitPhi", 0, step, -TMath::Pi(), TMath::Pi(), ierflg);
-      // gMinuit->FixParameter(0);
-      // minimize
-      gMinuit->mnexcm("MIGRAD", arglist, 0, ierflg);
-      if (ierflg != 0)
-        printf("\t\t ***** MIGRAD event %i error code %i ******\n", iev, ierflg);
-
-      /* get results */
-      double edm, errdef;
-      int nvpar, nparx, icstat;
-      gMinuit->mnstat(amin, edm, errdef, nvpar, nparx, icstat);
-
-      for (int ipar = 0; ipar < NPAR; ++ipar)
-      {
-        gMinuit->GetParameter(ipar, fitVal[ipar], fitErr[ipar]);
-        if (show)
-          printf("\t\t       event %i par %i fit %E err %E \n", iev, ipar, fitVal[ipar], fitErr[ipar]);
-      }
-
-      if (scanDir->GetList()->GetEntries() < MAXSCANPLOTS && ierflg == 0)
-      {
-        printf("scan perameter event %i\n", iev);
-        gMinuit->SetGraphicsMode(kTRUE);
-        gplot1 = myScan(1, 0, 2.);
-        // gMinuit->mncomd("scan 1", ierflg);
-        // gplot1 = (TGraph *)gMinuit->GetPlot();
-        TGraph *gsave = (TGraph *)gplot1->Clone(Form("scan1Ev%i", iev));
-        // gplot1->SetPoint(0, gplot1->GetPointX(0), gplot1->GetPointY(1)); // first point is NAN
-        gsave->SetTitle(Form("scan of parameter 1 ev %i min nLL %.3E rmin = %.3f", iev, amin, fitVal[1]));
-        // gplot1->Draw("al");
-        scanDir->Add(gsave);
-      }
-    }
-    else // calculate peakMeanQsum for this eventaOrigin
-    {
-      // set paramters
-      gMinuit->mnparm(0, "yield", numPhotons, step, 0., 10. * numPhotons, ierflg);
-      // eventOrigin
-      gMinuit->mnparm(1, "fitR", eventOrigin.R(), step, 0., 2., ierflg);
-      gMinuit->mnparm(2, "fitTheta", eventOrigin.Theta(), step, 0., TMath::Pi(), ierflg);
-      gMinuit->mnparm(3, "fitPhi", eventOrigin.Phi(), step, -TMath::Pi(), TMath::Pi(), ierflg);
-      // fill parameter array
-      for (int ipar = 0; ipar < NPAR; ++ipar)
-        gMinuit->GetParameter(ipar, fitVal[ipar], fitErr[ipar]);
-
-      // calculate peakMeanQsum
-      peakFit(fitVal);
-
-      if (show)
-      {
-        printf("peakFit paramters: ");
-        for (int ipar = 0; ipar < NPAR; ++ipar)
-          printf("\t\t       event %i par %i fit %E err %E \n", iev, ipar, fitVal[ipar], fitErr[ipar]);
-        printf(" peakFitQsum %f %f %f \n", peakFitQsum[0], peakFitQsum[1], peakFitQsum[2]);
-      }
-    }
 
     // printf("event %i fill fit ntuple\n", iev);
     //  fill fit ntuple
     if (nTrigger / reportInterval * reportInterval == nTrigger)
     {
-      if (doMinuit)
-        printf(".x.x.x report event %i nLL %f nphotons %i  singlet %i triplet %i tot  %i qsum(%f,%f,%f) mean(%f,%f,%f) fit(%f,%f,%f)\n", iev, amin, nPhotonsEvent, nsinglet, ntriplet, nsinglet + ntriplet, peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2], fitVal[0], fitVal[1], fitVal[2]);
-      else
-        printf(".x.x.x report event %i nLL %f nphotons %i  singlet %i triplet %i tot  %i  photons (%.0f, %.0f, %.0f sum %.0f )  qsum(%f,%f,%f) mean(%f,%f,%f) \n", iev, amin, nPhotonsEvent, nsinglet, ntriplet, nsinglet + ntriplet, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries(), photonSum, peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2]);
+      printf(".x.x.x report event %i nLL %f nphotons %i  singlet %i triplet %i tot  %i  photons (%.0f, %.0f, %.0f sum %.0f )  qsum(%f,%f,%f) mean(%f,%f,%f) \n", iev, amin, nPhotonsEvent, nsinglet, ntriplet, nsinglet + ntriplet, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries(), photonSum, peakFitQsum[0], peakFitQsum[1], peakFitQsum[2], peakMeanQsum[0], peakMeanQsum[1], peakMeanQsum[2]);
     }
 
     double xternMean, yternMean;
@@ -1485,9 +1761,11 @@ void btb(int ngen = 10000000)
 
     if (rawRun)
     {
+      printf("fill rawRun %i\n", iev);
       rawRun->fill();
     }
 
+    printf("fill simRun %i\n", iev);
     simRun->fill();
     hPhotonSum9->Fill(hPhoton[9]->GetEntries());
     hSingletSum9->Fill(hSinglet[9]->GetEntries());
@@ -1533,7 +1811,8 @@ void btb(int ngen = 10000000)
   for (int ich = 0; ich < NCHAN; ++ich)
   {
     double eff = effGeoFunc(ich) * SiPMQE128Ham;
-    printf("channel %i nphotons %i nphotons/total %.2E eff %.2E photon sum %.2E no baseline Sum %.2E  norm %.2f eff %.2F \n", ich, nChannel[ich], chanEff[ich], eff, hPhotonSum[ich]->Integral(), hSignalSumNoBaseline[ich]->Integral(), hSignalNorm[ich]->Integral(), hSignalEff[ich]->Integral());
+    printf("channel %i nphotons %i nphotons/total %.2E eff %.2E photon sum %.2E no baseline Sum %.2E  norm %.2f signalEff %.2F \n", ich, nChannel[ich], chanEff[ich], eff, hPhotonSum[ich]->Integral(), hSignalSumNoBaseline[ich]->Integral(), hSignalNorm[ich]->Integral(), hSignalEff[ich]->Integral());
+
     ntNorm->Fill(ich, eff, hPhotonSum[ich]->Integral(), hSignalSumNoBaseline[ich]->Integral(), hSignalEff[ich]->Integral(), hSignalNorm[ich]->Integral());
   }
   // fout->ls();
@@ -1590,15 +1869,6 @@ int main(int argc, char *argv[])
 {
   /** geoVersion  **/
   geoVersionOld = true;
-  /* setup minuit fit*/
-  gMinuit = new TMinuit(NPAR); // initialize TMinuit nphotons + event position vector
-  gMinuit->SetFCN(fcn);
-  gMinuit->SetPrintLevel(-1);
-
-  /* define fit error */
-  Int_t ierflg = 0;
-  arglist[0] = 0.5; // UP for likelihood
-  gMinuit->mnexcm("SET ERR", arglist, 1, ierflg);
 
   int ngen = 100000;
 
@@ -1607,6 +1877,11 @@ int main(int argc, char *argv[])
   if (argc > 1)
   {
     ngen = atoi(argv[1]);
+  }
+  double thePPM = 30;
+  if (argc > 2)
+  {
+    thePPM = atof(argv[2]);
   }
   /* dont need this prints all the time
   double par[NPAR] = {numPhotons, 0, 0, 0};
@@ -1619,11 +1894,12 @@ int main(int argc, char *argv[])
   triggerPeakFitShow = false;
   */
 
-  printf("***** START of btb geometry ngen = %.0E *****\n", double(ngen));
-  btb(ngen);
+  printf("***** START of btb geometry ngen = %.0E PPM %.03f *****\n", double(ngen), thePPM);
+  btb(ngen, thePPM);
   printf("... end %s version %s ngen %i passed %lld total efficiency %.3f  file %s exit\n", argv[0], geoName.Data(), ngen, ntFit->GetEntries(), totalEventEffiency, fout->GetName());
-  // eventDir->ls();
-  printf("hGammaPeak entries %f \n", hGammaPeak->GetEntries());
+  //  eventDir->ls();
+  // printf("hGammaPeak entries %f \n", hGammaPeak->GetEntries());
+  histDir->ls();
   fout->Write();
   fout->Close();
   exit(0);
