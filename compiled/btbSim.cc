@@ -340,7 +340,7 @@ void setupMinuit()
   double gin[NPARS];
   int npar = NPARS;
   int llist = NPARS; ///< Number of parameters
-  fcn(llist, gin, fval, vstart, ierflg);
+  fcn(llist, gin, fval, &vstart[0], ierflg);
   printf(" starting value >>>>   fval %E \n", fval);
   double fvalStart = fval;
   if (isnan(fval))
