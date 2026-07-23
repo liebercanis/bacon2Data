@@ -52,6 +52,7 @@ bool writeRawData = true;
 bool useMap = false;
 int reportInterval = 1000;
 double zZero = 0.3; // source position
+double eventTriggerTime;
 TDirectory *eventDir;
 TDirectory *histDir;
 std::vector<TH1D *> hffit;            ///< Model histograms per channel (reserved for future use)
@@ -115,6 +116,7 @@ TH1D *hSignalPhotonsEvent[3];
 TH1D *hGeoEff[NCHAN];
 TH1D *hPhoton[NCHAN];
 TH1D *hPhotonTime[NCHAN];
+TH1D *hPhotonTimeShift[NCHAN];
 TH1D *hPhotonSum[NCHAN];
 TH1D *hSinglet[NCHAN];
 TH1D *hConvolve[NCHAN];
@@ -142,6 +144,8 @@ TH1D *hEventPass;
 TH1D *hCount;
 TH1D *hCountSinglet;
 TH1D *hResponse;
+TH1D *hEventTriggerTime;
+TH1D *hFirstPhotonTime;
 TH1D *hTime;
 TH1D *hTrigDiffTime;
 TH1D *hTrigDiffTime30;
@@ -338,7 +342,7 @@ void setupMinuit()
   double gin[NPARS];
   int npar = NPARS;
   int llist = NPARS; ///< Number of parameters
-  printModel(700, vstart);
+  // printModel(700, vstart);
   fcn(llist, gin, fval, vstart, ierflg);
   printf(" starting value >>>>   fval %E \n", fval);
   double fvalStart = fval;
@@ -508,112 +512,70 @@ double eventTrigger(int iev)
   // printf("line104 %0.f %0.f %0.f \n", hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries());
   // number of samples is 7500 each bin is 2 ns
   // hPhoton x-axis is in ns
-
+  eventTriggerTime = double(2 * MAXSAMPLE);
   double tdiff = double(2 * MAXSAMPLE); // better to put in overflow
-  // printf("line204 eventTrigger photon integrals 9) %.3f %.3f 10) %.3f %.3f 11) %.3f  %.3f\n", hPhoton[9]->GetEntries(), hSignalPhotonsEvent[0]->Integral(),
-  //        hPhoton[10]->GetEntries(), hSignalPhotonsEvent[1]->Integral(), hPhoton[11]->GetEntries(), hSignalPhotonsEvent[2]->Integral());
-  //  all must have at least 1 photon
-  /*
-  if (hSignalPhotonsEvent[0]->GetEntries() < 1)
-    return tdiff;
-  if (hSignalPhotonsEvent[1]->GetEntries() < 1)
-    return tdiff;
-  if (hSignalPhotonsEvent[2]->GetEntries() < 1)
-    return tdiff;
-  */
 
-  // TH1D *hclone9 = (TH1D *)hSignalPhotonsEvent[0]->Clone();
-
-  // all must have at least 1 photon
-  double prompt9 = hPhoton[9]->Integral(730, 745) / gainFunc(9);
-  double prompt10 = hPhoton[10]->Integral(730, 745) / gainFunc(10);
-  double prompt11 = hPhoton[11]->Integral(730, 745) / gainFunc(11);
-
-  hNumberSPE[0]->Fill(hPhoton[9]->GetEntries());
-  hNumberSPE[1]->Fill(hPhoton[10]->GetEntries());
-  hNumberSPE[2]->Fill(hPhoton[11]->GetEntries());
-
-  bool canTrig = true;
-  if (prompt9 < 1)
-    canTrig = false;
-  if (prompt10 < 1)
-    canTrig = false;
-  if (prompt11 < 1)
-    canTrig = false;
-
-  // if (!canTrig)
-  // printf("line236 event %i %.0f %.0f %.0f\n", iev, hPhoton[9]->GetEntries(), hPhoton[10]->GetEntries(), hPhoton[11]->GetEntries());
-
-  if (!canTrig)
-  {
-    if (show)
-      printf("eventTrigger fails event %i %f %f %f \n", iev, prompt9, prompt10, prompt11);
-    // printf("event %i cannot trig \n", iev);
-    return tdiff;
-  }
-
-  /*
-  if (hPhoton[9]->GetEntries() < 1)
-    return tdiff;
-  if (hPhoton[10]->GetEntries() < 1)
-    return tdiff;
-  if (hPhoton[11]->GetEntries() < 1)
-    return tdiff;
-    */
-
-  ++trigCount9;
-
-  // collect first times hPhoton x-axis each bin is 2ns
+  // new algorithm search for 2 photons with max time difference < maxTriggerTimeDifference
+  // loop over sipm 9 photons
+  /* based on photon arrival */
   std::vector<double> ftimes;
-
-  for (int isipm = 9; isipm < 12; ++isipm)
+  ftimes.clear();
+  // containers to hold the times for clarity of match search
+  std::vector<double> times9;
+  std::vector<double> times10;
+  std::vector<double> times11;
+  for (int ibin = 1; ibin < MAXSAMPLE; ++ibin)
   {
-    /* using convolution waveform
-    for (int ibin = 1; ibin < hSignalPhotonsEvent[isipm]->GetNbinsX(); ++ibin)
-    {
-      if (hSignalPhotonsEvent[isipm]->GetBinContent(ibin) > 1)
-        printf("chan %i bin %i val %f \n", isipm, ibin, hSignalPhotonsEvent[isipm]->GetBinContent(ibin));
-    }
-       */
+    if (hPhoton[9]->GetBinContent(ibin) > 0)
+      times9.push_back(hPhoton[9]->GetBinCenter(ibin));
+    if (hPhoton[10]->GetBinContent(ibin) > 0)
+      times10.push_back(hPhoton[10]->GetBinCenter(ibin));
+    if (hPhoton[11]->GetBinContent(ibin) > 0)
+      times11.push_back(hPhoton[11]->GetBinCenter(ibin));
+  }
 
-    /* based on photon arrival */
-    for (int ibin = 730; ibin < 746; ++ibin)
+  // look for matching times
+  for (unsigned i = 0; i < times9.size(); ++i)
+  {
+    ftimes.clear();
+    ftimes.push_back(times9[i]);
+
+    for (unsigned j = 0; j < times10.size(); ++j)
     {
-      if (hPhoton[isipm]->GetBinContent(ibin) > 0)
+      // if matching time in sipm 10
+      if (abs(times10[j] - times9[i]) < maxTriggerTimeDifference)
       {
-        // ftimes.push_back(hPhoton[isipm]->GetBinLowEdge(ibin));
-        ftimes.push_back(hPhoton[isipm]->GetBinCenter(ibin));
+        ftimes.push_back(times10[j]);
         break;
       }
     }
-    /* alternative logic
-    int nph = 0;
-    for (int ibin = 1; ibin < hPhoton[isipm]->GetNbinsX(); ++ibin)
+
+    for (unsigned k = 0; k < times11.size(); ++k)
     {
-      if (hPhoton[isipm]->GetBinContent(ibin) > 0)
-        ++nph;
-      if (nph > 0) // number of photons to trigger
+      // if matching time in sipm 11
+      if (abs(times11[k] - times9[i]) < maxTriggerTimeDifference)
       {
-        ftimes.push_back(hPhoton[isipm]->GetBinCenter(ibin)); // the time this photon is detected
+        ftimes.push_back(times11[k]);
         break;
       }
     }
-    */
-  }
-  if (ftimes.size() < 3)
-  {
-    printf("event %i ftimes %ld  trig \n", iev, ftimes.size());
-    return tdiff;
-  }
-  // this event can trigger
-  hEventPass->SetBinContent(3, hEventPass->GetBinContent(3) + 1);
+    // must have 3
+    // Sort in ascending order(default)
+    if (ftimes.size() < 3)
+    {
+      printf("ftimes<3\n");
+      continue;
+    }
+    std::sort(ftimes.begin(), ftimes.end());
+    tdiff = ftimes[2] - ftimes[0];
+    eventTriggerTime = ftimes[0]; // first trigger time
+    printf("line546 event %i times (%.0f %.0f %.0f)  tdiff %.0f trig time %.0f \n", iev, ftimes[0], ftimes[1], ftimes[2], tdiff, eventTriggerTime);
+    // we have a trigger
+    if (tdiff < maxTriggerTimeDifference)
+      break;
+  } // end of times9 loop
 
-  // Sort in ascending order (default)
-  std::sort(ftimes.begin(), ftimes.end());
-  tdiff = ftimes[2] - ftimes[0];
-
-  // printf("line189 %i (%.0f %.0f %.0f)  tdiff %.0f \n", iev, ftimes[0], ftimes[1], ftimes[2], tdiff);
-  //   convert to ns
+  printf("line555 event %i times (%.0f %.0f %.0f)  tdiff %.0f trig time %.0f \n", iev, ftimes[0], ftimes[1], ftimes[2], tdiff, eventTriggerTime);
   return tdiff;
 }
 
@@ -1088,6 +1050,11 @@ void btb(int ngen = 10000000, double thePPM = 30.)
   hCount = new TH1D("Count", "hit count", 13, 0, 13);
   hCountSinglet = new TH1D("CountSinglet", "hit count singlet", 13, 0, 13);
   hTime = new TH1D("Time", "photon time ", 7500, 0, 2 * 7500);
+  hEventTriggerTime = new TH1D("EventTriggerTime", " trigger Time ", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+  hEventTriggerTime->GetXaxis()->SetTitle("max time diff [ns]");
+
+  hFirstPhotonTime = new TH1D("FirstPhotonTime", " trigger Time ", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+  hFirstPhotonTime->GetXaxis()->SetTitle("max time diff [ns]");
   hTrigDiffTime = new TH1D("TrigDiffTime", " time difference ", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
   hTrigDiffTime->GetXaxis()->SetTitle("max time diff [ns]");
   hTrigDiffTime30 = new TH1D("TrigDiffTime30", " time difference <30 ns", MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
@@ -1151,6 +1118,15 @@ void btb(int ngen = 10000000, double thePPM = 30.)
     hPhotonTime[ih]->GetXaxis()->SetTitle("time [ns]");
     hPhotonTime[ih]->GetYaxis()->SetTitle("photons/2ns");
     // hPhotonTime[ih]->SetDirectory(nullptr);
+  }
+
+  for (int ih = 0; ih < NCHAN; ++ih)
+  {
+    int ilevel = getLevel(ih);
+    hPhotonTimeShift[ih] = new TH1D(Form("PhotonTimeShift%i", ih), Form("PhotonTime%i-level%i", ih, ilevel), MAXSAMPLE, 0, MAXSAMPLE * (binWidth));
+    hPhotonTimeShift[ih]->GetXaxis()->SetTitle("shifted time [ns]");
+    hPhotonTimeShift[ih]->GetYaxis()->SetTitle("photons/2ns");
+    // hPhotonTimeShift [ih]->SetDirectory(nullptr);
   }
 
   for (int ih = 0; ih < NCHAN; ++ih)
@@ -1442,13 +1418,16 @@ void btb(int ngen = 10000000, double thePPM = 30.)
         hEffGeo11->Fill(effGeoSimi / nominalGeo);
 
       // compInt includes QE
-      double eff = effGeoSimi * fillFactor * reflection;
+      double eff = 1.0;
+      if (isTrig)
+        eff = effGeoSimi * fillFactor * reflection;
       if (show)
       {
         printf("MESSAGE ******** compIntegrals ******* \n");
         for (int icomp = 0; icomp < NUMCOMP; ++icomp)
         {
-          printf("chan %i comp %i compIntegral %.3E\n", ich, icomp, compIntegral[ich][icomp]);
+          if (icomp)
+            printf("chan %i comp %i compIntegral %.3E\n", ich, icomp, compIntegral[ich][icomp]);
         }
         printf("chan %i compIntegralSum %.3E\n\n", ich, compIntegralSum[ich]);
       }
@@ -1459,7 +1438,8 @@ void btb(int ngen = 10000000, double thePPM = 30.)
       for (int icomp = 0; icomp < NUMCOMP; ++icomp)
       {
         numCompPhotons[icomp] = int(nPhotonsEvent * eff * compIntegral[ich][icomp] / compIntegralSum[ich]);
-        // printf("line 1457 iev %i ich %i icomp %i nphotons %i comp fraction %E nphotons %i\n", iev, ich, icomp, nPhotonsEvent, eff * compIntegral[ich][icomp] / compIntegralSum[ich], numCompPhotons[icomp]);
+        // if (ich == 9 || ich == 10 || ich == 11)
+        //   printf("line 1457 iev %i ich %i icomp %i nphotons %i eff %E comp fraction %E nphotons %i\n", iev, ich, icomp, nPhotonsEvent, eff, compIntegral[ich][icomp] / compIntegralSum[ich], numCompPhotons[icomp]);
       }
 
       double nsmean = double(nPhotonsEvent) * eff * singletFrac;
@@ -1479,15 +1459,25 @@ void btb(int ngen = 10000000, double thePPM = 30.)
       {
         // printf("call getTime ev %d chan %i \n", iev, ich);
         getTime(ich, icomp, numCompPhotons[icomp]);
+        hEventTriggerTime->Fill(eventTriggerTime);
+        /*
+        if (ich == 9 || ich == 10 || ich == 11)
+          printf("line 1457 iev %i ich %i icomp %i nphotons %i eff %E comp fraction %E nphotons %lu\n", iev, ich, icomp, nPhotonsEvent, eff, compIntegral[ich][icomp] / compIntegralSum[ich], timeComp.size());
+          */
 
-        // printf("line 1492 iev %i ich %i icomp %i nphotons %i size %lu \n", iev, ich, icomp, numCompPhotons[icomp], timeComp.size());
+        // printf("line 1492 iev %i ich %i icomp %i nphotons %i first photon %f \n", iev, ich, icomp, numCompPhotons[icomp], timeComp[0]);
+        if (isTrig)
+          hFirstPhotonTime->Fill(timeComp[icomp]);
 
         // fill timeComp photons
         for (unsigned iphoton = 0; iphoton < timeComp.size(); ++iphoton)
         {
-          hPhotonTime[ich]->Fill(timeComp[iphoton]);
 
-          double time = timeShift + triggerStart + timeComp[iphoton];
+          // double time = timeShift + triggerStart + timeComp[iphoton];
+          double time = timeShift + timeComp[iphoton];
+          double shiftTime = time - eventTriggerTime + 2. * double(iTrigger);
+          hPhotonTime[ich]->Fill(time);
+          hPhotonTimeShift[ich]->Fill(shiftTime);
           double gain = gainFunc(ich);
           hPhoton[ich]->Fill(time, gain);
           hSinglet[ich]->Fill(time, gain);
@@ -1618,9 +1608,9 @@ void btb(int ngen = 10000000, double thePPM = 30.)
     // ensure the event triggers
     double maxTriggerDiff = eventTrigger(iev);
     hTrigDiffTime->Fill(maxTriggerDiff);
-    // printf("line1276....%i %i %f \n", iev, isFid, maxTriggerDiff);
-    //  if (maxTriggerDiff < maxTriggerTimeDifference)
-    //  hTrigDiffTime10->Fill(maxTriggerDiff);
+    // printf("line1276.... event %i isFit %i maxTriggerDiff %f \n", iev, isFid, maxTriggerDiff);
+    //   if (maxTriggerDiff < maxTriggerTimeDifference)
+    //   hTrigDiffTime10->Fill(maxTriggerDiff);
     if (maxTriggerDiff < 30)
       hTrigDiffTime30->Fill(maxTriggerDiff);
 
@@ -1631,8 +1621,11 @@ void btb(int ngen = 10000000, double thePPM = 30.)
       hEventPass->SetBinContent(4, hEventPass->GetBinContent(4) + 1);
       trigPass = true;
     }
-    else if (maxTriggerDiff < double(2 * MAXSAMPLE))
-      printf("fails trigger time cut event %i tdiff %f \n", iev, maxTriggerDiff);
+    else
+    {
+      printf("line1636 fails trigger time cut event %i tdiff %f \n", iev, maxTriggerDiff);
+      trigPass = false;
+    }
 
     // as in real data qsum
     peakQsum[0] = hSignalNb[9]->Integral() / qsumNominalFromBtb;
@@ -1659,7 +1652,7 @@ void btb(int ngen = 10000000, double thePPM = 30.)
     if (!trigPass)
     {
       if (show)
-        printf(" event %i does not trigger %f \n", iev, maxTriggerDiff);
+        printf("line1683  event %i does not trigger %f \n", iev, maxTriggerDiff);
       continue;
     }
     ++nTrigger;
@@ -1751,11 +1744,11 @@ void btb(int ngen = 10000000, double thePPM = 30.)
 
     if (rawRun)
     {
-      printf("fill rawRun %i\n", iev);
+      // printf("fill rawRun %i\n", iev);
       rawRun->fill();
     }
 
-    printf("fill simRun %i\n", iev);
+    // printf("fill simRun %i\n", iev);
     simRun->fill();
     hPhotonSum9->Fill(hPhoton[9]->GetEntries());
     hSingletSum9->Fill(hSinglet[9]->GetEntries());
