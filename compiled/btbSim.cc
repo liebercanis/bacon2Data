@@ -570,8 +570,8 @@ double eventTrigger(int iev)
     std::sort(ftimes.begin(), ftimes.end());
     tdiff = ftimes[2] - ftimes[0];
     eventTriggerTime = ftimes[0]; // first trigger time
-    printf("line546 event %i times (%.0f %.0f %.0f)  tdiff %.0f trig time %.0f \n", iev, ftimes[0], ftimes[1], ftimes[2], tdiff, eventTriggerTime);
-    // we have a trigger
+    // printf("line546 event %i times (%.0f %.0f %.0f)  tdiff %.0f trig time %.0f \n", iev, ftimes[0], ftimes[1], ftimes[2], tdiff, eventTriggerTime);
+    //  we have a trigger
     if (tdiff < maxTriggerTimeDifference)
       break;
   } // end of times9 loop
