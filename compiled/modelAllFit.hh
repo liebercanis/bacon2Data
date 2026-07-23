@@ -455,8 +455,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     {
       /* skip dip region for trigger sipms */
       bool dip = j > 1400 / 2 && j < 1700 / 2;
-      if (dip && ilevel == 0) //
-        continue;
+      // if (dip && ilevel == 0) //
+      //   continue;
       /* set sample starting based on TRIGSTART*/
       double xTrigger = par[TRIGSTART];
       double x = (double(j - int(xTrigger / 2.0)) + 0.5); // bin center convert to ns mutiplying by bin width
