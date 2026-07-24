@@ -470,8 +470,8 @@ void fillModel()
 /* get times for sipm channel */
 void getTime(int ic, int icomp, int nPhotons)
 {
+  timeComp.clear();
   for (int i = 0; i < nPhotons; ++i)
-    timeComp.clear();
   {
     timeComp.push_back(hfitComp[ic][icomp]->GetRandom());
   }
@@ -564,7 +564,7 @@ double eventTrigger(int iev)
     // Sort in ascending order(default)
     if (ftimes.size() < 3)
     {
-      printf("ftimes<3\n");
+      // printf("ftimes<3\n");
       continue;
     }
     std::sort(ftimes.begin(), ftimes.end());
@@ -576,7 +576,7 @@ double eventTrigger(int iev)
       break;
   } // end of times9 loop
 
-  printf("line555 event %i times (%.0f %.0f %.0f)  tdiff %.0f trig time %.0f \n", iev, ftimes[0], ftimes[1], ftimes[2], tdiff, eventTriggerTime);
+  // printf("line555 event %i times (%.0f %.0f %.0f)  tdiff %.0f trig time %.0f \n", iev, ftimes[0], ftimes[1], ftimes[2], tdiff, eventTriggerTime);
   return tdiff;
 }
 
@@ -894,7 +894,8 @@ void btb(int ngen = 10000000, double thePPM = 30.)
   fout->cd();
   theDopant = thePPM;
   printf("opened output file %s date %s dopant %.3f\n", fout->GetName(), tdateTag.Data(), theDopant);
-  printf("absorbtion factor %.3f PPM \n", theDopant);
+  // printf("absorbtion factor %.3f PPM \n", theDopant);
+  cout << "tdateTag = " << tdateTag << " dopant " << theDopant << " PPM" << endl;
 
   setupMinuit();
   fillModel();
@@ -904,8 +905,6 @@ void btb(int ngen = 10000000, double thePPM = 30.)
     for (unsigned icomp = 0; icomp < hfitComp[ic].size(); ++icomp)
       printf("ic %i icomp %i %s \n", ic, icomp, hfitComp[ic][icomp]->GetName());
       */
-
-  cout << "tdateTag = " << tdateTag << endl;
 
   std::vector<double> distance;
   std::vector<double> abdist;
@@ -1252,7 +1251,7 @@ void btb(int ngen = 10000000, double thePPM = 30.)
   int nTrigger = 0;
   for (int iev = 0; iev < ngen; ++iev) // start of event loop
   {
-    if (iev / 1000 * 1000 == iev)
+    if (iev / 10 * 10 == iev)
     {
       printf("...btbSim event %i passed %lld \n", iev, ntFit->GetEntries());
       fflush(stdout);
@@ -1374,7 +1373,9 @@ void btb(int ngen = 10000000, double thePPM = 30.)
     if (iev / reportInterval * reportInterval == iev)
       printf("... event %i total photon %0.f (rho,z,phi) = (%f, %f, %f) (r,theta,Phi) = (%f , %f ,%f ) \n", iev, double(totalPhotons), eventOrigin.Rho(), eventOrigin.Z(), eventOrigin.Phi() * 360. / TMath::TwoPi(), eventOrigin.R(), eventOrigin.Theta() * 360. / TMath::TwoPi(), eventOrigin.Phi() * 360. / TMath::TwoPi());
 
-    // loop over channels
+    /*
+      first loop over channels before trigger
+    */
     compAll.clear(); // holder for post trigger analysis
     compAll.resize(NCHAN);
     for (int ich = 0; ich < NCHAN; ++ich)
@@ -1462,14 +1463,15 @@ void btb(int ngen = 10000000, double thePPM = 30.)
       for (int icomp = 0; icomp < NUMCOMP; ++icomp)
       {
         // printf("call getTime ev %d chan %i \n", iev, ich);
+        // call getTime and fill timeComp for this sipm function clears timeComp array
         getTime(ich, icomp, numCompPhotons[icomp]);
-        hEventTriggerTime->Fill(eventTriggerTime);
         /*
         if (ich == 9 || ich == 10 || ich == 11)
           printf("line 1457 iev %i ich %i icomp %i nphotons %i eff %E comp fraction %E nphotons %lu\n", iev, ich, icomp, nPhotonsEvent, eff, compIntegral[ich][icomp] / compIntegralSum[ich], timeComp.size());
           */
 
-        // printf("line 1492 iev %i ich %i icomp %i nphotons %i first photon %f \n", iev, ich, icomp, numCompPhotons[icomp], timeComp[0]);
+        // if (ich == 9 || ich == 10 || ich == 11)
+        // printf("line 1473 iev %i ich %i icomp %i nphotons %i timeComp %lu compAll %lu\n", iev, ich, icomp, numCompPhotons[icomp], timeComp.size(), compAll[ich].size());
         if (isTrig)
           hFirstPhotonTime->Fill(timeComp[icomp]);
 
@@ -1487,9 +1489,11 @@ void btb(int ngen = 10000000, double thePPM = 30.)
           ` hPhotonTimeShift[ich]->Fill(shiftTime);
           */
           double gain = gainFunc(ich);
+          // this historam used in eventTrigger
           hPhoton[ich]->Fill(time, gain);
           hSinglet[ich]->Fill(time, gain);
-          // hPhotonSum[ich]->Fill(time, gain);
+          // hPhotonTime[ich]->Fill(time);
+          hPhotonSum[ich]->Fill(time, gain);
           // since hPhoton cleared after every event
           hPhotonSum[ich]->Fill(time);
 
@@ -1500,8 +1504,9 @@ void btb(int ngen = 10000000, double thePPM = 30.)
           if (ich == 11)
             hPhotonTrig[2]->Fill(time);
         }
-      }
-
+      } // end of component loop
+      // if (ich == 9 || ich == 10 || ich == 11)
+      // printf("line 1509 iev %i ich %i nphotons compAll %lu hPhoton entries %.0f \n", iev, ich, compAll[ich].size(), hPhoton[ich]->GetEntries());
       // if (ich == 9)
       //   printf("line960 event %i photons 9 entries %f photon trig0 %f \n", iev, hPhoton[9]->GetEntries(), hPhotonTrig[0]->GetEntries());
 
@@ -1575,8 +1580,9 @@ void btb(int ngen = 10000000, double thePPM = 30.)
 
     // ensure the event triggers
     double maxTriggerDiff = eventTrigger(iev);
+    hEventTriggerTime->Fill(eventTriggerTime);
     hTrigDiffTime->Fill(maxTriggerDiff);
-    // printf("line1276.... event %i isFit %i maxTriggerDiff %f \n", iev, isFid, maxTriggerDiff);
+    //  printf("line1581 .... event %i isFit %i maxTriggerDiff %f \n", iev, isFid, maxTriggerDiff);
     //   if (maxTriggerDiff < maxTriggerTimeDifference)
     //   hTrigDiffTime10->Fill(maxTriggerDiff);
     if (maxTriggerDiff < 30)
@@ -1625,7 +1631,9 @@ void btb(int ngen = 10000000, double thePPM = 30.)
     }
     ++nTrigger;
 
-    // fill passing trigger photon histos loop over channels
+    /*
+      fill passing trigger photon histos loop over channels
+    */
     for (int ich = 0; ich < NCHAN; ++ich)
     {
       TDet *det = simRun->getDet(ich); // If channel branch doesn't exist getDet calls addDet
@@ -1639,7 +1647,8 @@ void btb(int ngen = 10000000, double thePPM = 30.)
       /*
           after trigger loop over photons
       */
-      // printf("line1640 after trigger ev %i ch %i nphotons %lu \n", iev, ich, compAll[ich].size());
+      // if (ich == 9 || ich == 10 || ich == 11)
+      // printf("line1640 after trigger ev %i ch %i nphotons %lu hist %0.f\n", iev, ich, compAll[ich].size(), hPhoton[ich]->GetEntries());
       for (unsigned iphoton = 0; iphoton < compAll[ich].size(); ++iphoton)
       {
 
