@@ -179,7 +179,7 @@ double totalEventEffiency;
 double triggerTimes[3];
 // Minimum cosθ to avoid shadowing by the source holder: z=0.851 cm (SiPM plane), r=0.4 cm (holder radius).
 double cosMin = 0.851 / sqrt(pow(0.4, 2) + pow(0.851, 2));
-double maxTriggerTimeDifference = 24.0; // Aug 9
+double maxTriggerTimeDifference = 20.0; // July 27 2026
 unsigned timeOffset = 13;               // changed from 17 may 13, 2024
 double trigTimeShift[3];
 
@@ -216,7 +216,7 @@ static double QEff128(double ppm, double dist)
 */
 int nChannel[NCHAN];
 double eff[NCHAN];
-int triggerStart = binWidth * 730; // 730; sipm rise time convert to ns
+int triggerStart = binWidth * iTrigger; // 730; sipm rise time convert to ns
 double speMPV = double(triggerStart);
 double speSigma = 20.; // ns from single PI data fit
 TF1 *speLandau;
