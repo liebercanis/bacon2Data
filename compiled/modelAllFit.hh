@@ -49,7 +49,7 @@ static double lateBkg[NCHAN]; // no longer used
 
 /***** units are nanoseconds ****/
 static double shift = 9.;
-static double tResolution = 3.7 / 2.0; // 6.0;
+double tResolution = 3.7 / 2.0; // 6.0;
 // static double tResolution = 20.0;
 static double tTriplet0 = 944.0; // from fit in range document in fitting 1600.0; // 2100.0;
 // static double tTriplet0 = 811.0;
@@ -374,6 +374,11 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
   f = 0;          // return value
   double bw = 2.; // ns
   double ppm = max(1.0E-9, par[PPM]);
+  if (ppm > 25.0)
+  {
+    tResolution = 34.4;
+    // printf(" ppm %f tResolution %f ....", par[PPM], tResolution);
+  }
   double norm = par[NORM];
   double tTriplet = par[TAU3];
   double sfrac = par[SFRAC];

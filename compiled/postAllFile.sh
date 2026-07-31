@@ -12,4 +12,5 @@ root -b -q "postMacroAllFile.C(8)"
 root -b -q "postMacroAllFile.C(9)"
 root -b -q "postMacroAllFile.C(10)"
 root -b -q "postMacroAllFile.C(11)"
+root -b -q "postMacroAllFile.C(12)"
 

@@ -101,8 +101,8 @@ TCanvas *makeCanFit(int i1, int i2, TString canName)
     /****  rebin for drawing *****/
     // hnorm[i]->Rebin(50);
     // hfitModel[i]->Rebin(50);
-    hnorm[i]->GetXaxis()->SetRangeUser(1200, 3000);
-    hfitModel[i]->GetXaxis()->SetRangeUser(1200, 3000);
+    hnorm[i]->GetXaxis()->SetRangeUser(1000, 500);
+    hfitModel[i]->GetXaxis()->SetRangeUser(1000, 5000);
     hnorm[i]->GetYaxis()->SetRangeUser(.01, 5.);
     hfitModel[i]->GetYaxis()->SetRangeUser(.01, 5.);
     hfitModel[i]->SetLineWidth(2);
@@ -124,10 +124,10 @@ TCanvas *makeCanFitOne(int i, int theFileNumber)
   canName.Form("corLightCan%iFile%i", i, theFileNumber);
   printf(" makeCanFitOne chan %i %s \n", i, canName.Data());
   TCanvas *can = new TCanvas(canName, canName);
-  hnorm[i]->GetXaxis()->SetRangeUser(1200, 3000);
-  hfitModel[i]->GetXaxis()->SetRangeUser(1200, 3000);
+  hnorm[i]->GetXaxis()->SetRangeUser(1000, 5000);
+  hfitModel[i]->GetXaxis()->SetRangeUser(1000, 5000);
   // hnorm[i]->GetYaxis()->SetRangeUser(.1, 5.);
-  // hfitModel[i]->GetYaxis()->SetRangeUser(.1, 5.);
+  //   hfitModel[i]->GetYaxis()->SetRangeUser(.1, 5.);
   hfitModel[i]->SetLineWidth(2);
   hfitModel[i]->SetLineColor(kBlack);
   gPad->SetLogy();
@@ -227,7 +227,7 @@ TGraph *myScan(int thePar, double xlow, double xhigh)
 TGraph *parameterScan(int thePar)
 {
   printf("parameterScan of %s min %f \n", lparNames[thePar].Data(), lpar[thePar]);
-  TGraph *graph = myScan(thePar, 0., 10.);
+  TGraph *graph = myScan(thePar, 0.1 * vstart[thePar], 30. * vstart[thePar]);
   graph->SetName(Form("ScanPar%i", thePar));
   graph->SetTitle(Form("ScanPar%i %s", thePar, lparNames[thePar].Data()));
   graph->GetYaxis()->SetTitle("FCN likelihood value");
@@ -417,6 +417,7 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
 
   // ppm of file
   std::vector<double> ppmFile;
+
   ppmFile.push_back(1.E-2);
   ppmFile.push_back(0.01);
   ppmFile.push_back(0.03);
@@ -428,7 +429,9 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   ppmFile.push_back(2.);
   ppmFile.push_back(5.);
   ppmFile.push_back(10.);
+  ppmFile.push_back(15.);
   ppmFile.push_back(30.);
+
   printf("tbFit: ppmFile size %lu \n", ppmFile.size());
   for (unsigned i = 0; i < ppmFile.size(); ++i)
     printf("tbFit: ppmFile %u %.3f \n", i, ppmFile[i]);
@@ -440,7 +443,7 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   inputFile = TString("postMacro-04_16_2026-04_16_2026.root");
   inputFile = TString(Form("postMacroAllFile%i.root", theFileNumber));
   // inputFile = TString("anaCRun-btbSimNEW-2026-02-23-10-18-100000-0.root");
-  printf(" fit theFitChannel %i the file %s PPM %.3f\n", theFitChannel, inputFile.Data(), ppmFile[theFileNumber]);
+  printf("MESSAGE: fit theFitChannel %i the file %s PPM %.3f\n", theFitChannel, inputFile.Data(), ppmFile[theFileNumber]);
 
   if (!openFile(inputFile))
     return;
@@ -531,16 +534,19 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   //  FIT PARAMETER INITIALIZATION
   // ============================================================================
   printf("using max bin chan 9 for trigstart %f\n", 2. * hnorm[9]->GetMaximumBin());
+  double theTrigStart = 1200; // 2. * hnorm[9]->GetMaximumBin() - 10. * tResolution; ///< Trigger timing offse
+
+  printf("trigstart %f\n", theTrigStart);
   // Set initial guesses for all fit parameters
-  vstart[NORM] = startNorm;                                              ///< Photon yield per event
-  vstart[TRIGSTART] = 2. * hnorm[9]->GetMaximumBin() - 10 * tResolution; ///< Trigger timing offset
+  vstart[NORM] = startNorm;         ///< Photon yield per event
+  vstart[TRIGSTART] = theTrigStart; ///< Trigger timing offset
   // for Gamma I_s/I_t=0.3
   vstart[SFRAC] = 0.23;               ///< Singlet fraction (ref: Segretto 2021)
   vstart[PPM] = dopant;               ///< Dopant concentration
   vstart[TAU3] = tTriplet0;           ///< Triplet decay time
   vstart[TAUM] = 4700.0;              ///< Mixed component decay time
   vstart[BKGCONST] = 0.0;             ///< Constant background rate
-  vstart[BKGTAU] = 5000.;             ///< Background decay timescale
+  vstart[KXCONST] = 1.0;              ///< Rate of transfer to mixed state
   vstart[THECHANNEL] = theFitChannel; ///< Channel selection flag
   printf("starting parameter values \n");
   for (int ip = 0; ip < NPARS; ++ip)
@@ -555,6 +561,13 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
     lpar[j] = vstart[j];
   }
 
+  // set resolution
+  if (vstart[PPM] > 25.0)
+  {
+    tResolution = 34.4;
+    printf(" ppm %f tResolution %f .... \n", vstart[PPM], tResolution);
+  }
+
   // ============================================================================
   //  PARAMETER CONSTRAINTS AND BOUNDARIES
   // ============================================================================
@@ -563,19 +576,23 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
 
   // fix channel
   arglist[0] = THECHANNEL + 1; // channel
-  arglist[1] = THECHANNEL;     // low
-  arglist[2] = THECHANNEL;     // high
-  gMinuit->mnexcm("FIX", arglist, 3, ierflg);
-
-  arglist[0] = TRIGSTART + 1; // trigger
   gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+
+  arglist[0] = TRIGSTART + 1;           // trigger
+                                        // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+  arglist[1] = 1.0 * vstart[TRIGSTART]; // low
+  arglist[2] = 10. * vstart[TRIGSTART]; // high
+  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
   arglist[0] = BKGCONST + 1; // par
   gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
-  arglist[0] = BKGTAU + 1; // par
-  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
-
+  arglist[0] = KXCONST + 1; // par
+  // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+  arglist[1] = -1.0 * vstart[KXCONST];  // low
+  arglist[2] = 1000. * vstart[KXCONST]; // high
+  // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  gMinuit->mnexcm("FIX", arglist, 3, ierflg);
   // arglist[0] = SFRAC + 1; // kp
   // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
@@ -603,7 +620,7 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   arglist[0] = PPM + 1; // par
   arglist[1] = 0.0;     // low
   arglist[2] = 50.0;    // high
-  // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
   // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
   arglist[0] = TAUM + 1;     // par tau mixed
@@ -753,6 +770,10 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   thePar = PPM;
   printf("scan parameter %i %s from %f to %f \n", thePar, lparNames[thePar].Data(), 0.001 * lpar[thePar], 100. * lpar[thePar]);
   parameterScan(thePar);
+
+  thePar = KXCONST;
+  // printf("scan parameter %i %s from %f to %f \n", thePar, lparNames[thePar].Data(), 0.001 * lpar[thePar], 100. * lpar[thePar]);
+  // parameterScan(thePar);
 
   if (theFitChannel < 0)
   {

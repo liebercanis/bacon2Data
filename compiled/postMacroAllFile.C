@@ -1,4 +1,3 @@
-
 /*
 look at  postAna root file
 */
@@ -77,41 +76,52 @@ void getOtherEffCorrections(bool isSimulation = false)
     rayleighAtten.resize(13);
     for (unsigned i = 0; i < 13; ++i)
         rayleighAtten[i] = 1.;
-    if (!isSimulation)
+    /*
+if (!isSimulation)
+{
+    for (unsigned i = 0; i < 13; ++i)
     {
-        for (unsigned i = 0; i < 13; ++i)
-        {
-            if (i == 9 || i == 10 || i == 11) // no correction for trigger
-                continue;
-            // half backward scattered 1+cos^2
-            rayleighAtten[i] = 1. - (1. - TMath::Exp(-distanceLevel[getLevel(i)] / rayleighLength)) / 2.;
-            printf("chan %i distance %f geo eff %.2E rayleigh %.2E\n", i, distanceLevel[getLevel(i)], effGeoFunc(i), rayleighAtten[i]);
-        }
+        if (i == 9 || i == 10 || i == 11) // no correction for trigger
+            continue;
+        // half backward scattered 1+cos^2
+        rayleighAtten[i] = 1. - (1. - TMath::Exp(-distanceLevel[getLevel(i)] / rayleighLength)) / 2.;
+        printf("chan %i distance %f geo eff %.2E rayleigh %.2E\n", i, distanceLevel[getLevel(i)], effGeoFunc(i), rayleighAtten[i]);
     }
+}
+    */
 
     relativeEff.resize(13);
     for (int ichan = 0; ichan < relativeEff.size(); ++ichan)
         relativeEff[ichan] = 1.;
     // set relative efficiencies
+    /*
     if (!isSimulation && doCorrections)
     {
         for (int ichan = 0; ichan < relativeEff.size(); ++ichan)
             relativeEff[ichan] = readGains->relativeEff[ichan];
     }
+            */
 
+    absorptionFactor.resize(13);
+    for (int ichan = 0; ichan < absorptionFactor.size(); ++ichan)
+        absorptionFactor[ichan] = 1.;
+
+    /*
     printf("absorption at %.3f\n", ppm);
     for (int i = 0; i < 13; ++i)
     {
         double dist = distanceLevel[getLevel(i)];
         double abs = Absorbtion(ppm, dist);
-        absorptionFactor.push_back(1 - abs);
+        absorptionFactor[i] = 1 - abs;
     }
+        */
 }
 
 void makeEffNorm(int i)
 {
     double baseline = hnorm[i]->Integral(0, 600) / 600.; // sum bin range
-    double corr = 1. / relativeEff[i] / effGeoFunc(i) / rayleighAtten[i] / absorptionFactor[i];
+    // double corr = 1. / relativeEff[i] / effGeoFunc(i) / rayleighAtten[i] / absorptionFactor[i];
+    double corr = 1. / effGeoFunc(i) / readGains->relativeNorm[i];
     printf("chan%i  integral %.3E base %.3E geo %.3E abs %.3E corr %.3E \n", i, hnorm[i]->Integral(), baseline, effGeoFunc(i), absorptionFactor[i], corr);
     hGeoNorm[i] = (TH1D *)hnorm[i]->Clone(Form("GeoNormChan%i", i));
     hRayleighNorm[i] = (TH1D *)hnorm[i]->Clone(Form("RayleighNormChan%i", i));
@@ -119,10 +129,12 @@ void makeEffNorm(int i)
     for (int ibin = 0; ibin < hnorm[i]->GetNbinsX(); ++ibin)
     // correct for geometric efficiency and rayleigh
     {
+        double val = hnorm[i]->GetBinContent(ibin) - baseline;
+        val = max(val, 0.); // avoid negative values
         //      *absorptionFactor[i];
-        hGeoNorm[i]->SetBinContent(ibin, (hnorm[i]->GetBinContent(ibin) - baseline) / effGeoFunc(i));
-        hRayleighNorm[i]->SetBinContent(ibin, (hnorm[i]->GetBinContent(ibin) - baseline) / effGeoFunc(i) / rayleighAtten[i]);
-        hEffNorm[i]->SetBinContent(ibin, (hnorm[i]->GetBinContent(ibin) - baseline) * corr);
+        hGeoNorm[i]->SetBinContent(ibin, val / effGeoFunc(i));
+        hRayleighNorm[i]->SetBinContent(ibin, val / effGeoFunc(i) / rayleighAtten[i]);
+        hEffNorm[i]->SetBinContent(ibin, val * corr);
         hEffNorm[i]->SetBinError(ibin, hnorm[i]->GetBinError(ibin) * corr);
     }
 }
@@ -193,7 +205,7 @@ TCanvas *canEffNormFile()
         hEffNorm[i]->SetLineColor(icolor);
         hEffNorm[i]->SetMarkerColor(icolor);
         hEffNorm[i]->SetLineWidth(1);
-        hEffNorm[i]->SetName(Form("effNormChan%iPPM%.3fFile%i", i, ppmFile[ifile], ifile));
+        hEffNorm[i]->SetName(Form("effNormChan%iFile%i", i, ifile));
         hEffNorm[i]->SetTitle(Form("effNormChan%iPPM%.3fFile%i", i, ppmFile[ifile], ifile));
         // hEffNorm[i]->GetXaxis()->SetRangeUser(1000, 75000); // ramge im bins
         hEffNorm[i]->GetYaxis()->SetRangeUser(ymin, ymax);
@@ -247,7 +259,7 @@ TH1D *getHistFromFile(TString histName)
         return 0;
     }
 
-    printf("Retrieved histogram '%s' from file %s\n", histName.Data(), fin->GetName());
+    printf("Retrieved histogram '%s' peak bin %i from file %s\n", histName.Data(), hist->GetMaximumBin(), fin->GetName());
     fout->Append(hist);
     return hist;
 }
@@ -334,6 +346,9 @@ void postMacroAllFile(unsigned theFile = 0)
     fileList.push_back("post-05_09_2026-05_09_2026-11006186.root");
     fileList.push_back("post-05_11_2026-05_11_2026-12249461.root");
     fileList.push_back("post-05_14_2026-05_14_2026-10233851.root");
+    // fileList.push_back("post-05_18_2026-05_18_2026-7107472.root"); 10 random trigger
+    fileList.push_back("post-05_26_2026-05_26_2026-8083870.root");
+    fileList.push_back("post-06-09-2026-06-09-2026-9598597.root");
 
     ppmFile.push_back(0);
     ppmFile.push_back(0.01);
@@ -346,6 +361,8 @@ void postMacroAllFile(unsigned theFile = 0)
     ppmFile.push_back(2.);
     ppmFile.push_back(5.);
     ppmFile.push_back(10.);
+    ppmFile.push_back(1.);
+    ppmFile.push_back(30.);
 
     printf("postMacroAll read %lu files \n", fileList.size());
     if (ifile > fileList.size() - 1)
@@ -522,8 +539,12 @@ void postMacroAllFile(unsigned theFile = 0)
     for (int i = 0; i < NCHAN; ++i)
     {
         // integral is over bins
-        singletIntegral[i] = hEffNorm[i]->Integral(1350 / 2, 1400 / 2);
-        lateIntegral[i] = hEffNorm[i]->Integral(1400 / 2, 3000 / 2);
+        int earlyBin = 1400 / 2;
+        int lateBin = 1460 / 2;
+        // Integral(Int_t binx1, Int_t binx2, Option_t *option="") const
+        singletIntegral[i] = hEffNorm[i]->Integral(earlyBin, lateBin);
+        lateIntegral[i] = hEffNorm[i]->Integral(lateBin, 3000 / 2);
+        printf("line546 chan %i singlet %E \n", i, singletIntegral[i]);
         //  singletIntegral[i] = hGeoNorm[i]->Integral(0., 1400.);
         //  lateIntegral[i] = hGeoNorm[i]->Integral(1400., 3500.);
 
@@ -561,6 +582,7 @@ void postMacroAllFile(unsigned theFile = 0)
     gLateIntegrals->SetMarkerStyle(22);
     gLateIntegrals->Draw("ap");
     gSingletIntegrals->Draw("psame");
+    cintegral->SetLogx();
     cintegral->BuildLegend();
 
     TGraph *gPeak = new TGraph(12, &xchan[0], &peakValue[0]);
@@ -601,7 +623,9 @@ void postMacroAllFile(unsigned theFile = 0)
 
     for (unsigned ichan = 0; ichan < 13; ++ichan)
         printf("chan %i singlet %f late %f \n", ichan, singletIntegral[ichan], lateIntegral[ichan]);
+    printf("MESSAGE end of file %s \n", fout->GetName());
 
+    // fout->ls();
     fout->Write();
     // Disown all objects from fout before Close().  fout->Write() has already
     // persisted everything; if we leave objects in fout's list, Close() will

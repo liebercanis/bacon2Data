@@ -82,6 +82,8 @@ void plotModel(TString fileName)
     printf(" %i data %s fit %s \n", ichan, hwave0[ichan]->GetName(), hfit0[ichan]->GetName());
   }
 
+  return;
+
   TString canName;
   canName.Form("model-%s", fileName.Data());
   gStyle->SetOptStat(0);

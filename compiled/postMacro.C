@@ -540,8 +540,53 @@ void postMacro(TString fileName = "post-04_16_2026-04_16_2026-10281297.root")
     */
 
     // fout->ls();:w
+    vector<double> normFactor;
+    normFactor.resize(13);
+    for (unsigned i = 0; i < 13; ++i)
+        normFactor[i] = 2.46000e+03; // default normalization factor
+    /* with large bad fit region!
+normFactor[1] = 1.58E3;
+normFactor[2] = 1.378E3;
+normFactor[3] = 9.1665E2;
+normFactor[4] = 1.0E3;
+normFactor[5] = 8.3176E2;
+normFactor[6] = 9.531E2;
+normFactor[7] = 9.96E2;
+*/
+    normFactor[1] = 9.15E2;
+    normFactor[2] = 7.33E2;
+    normFactor[3] = 6.86E2;
+    normFactor[4] = 6.62E2;
+    normFactor[5] = 6.11E2;
+    normFactor[6] = 8.84E2;
+    normFactor[7] = 8.848E2;
+
+    double aveNormFactor = 0;
+    for (unsigned i = 1; i < 8; ++i)
+        aveNormFactor += normFactor[i];
+    aveNormFactor /= double(7);
+
+    printf("average normalization factor %.3E \n", aveNormFactor);
+
+    vector<double> relativeNorm;
+    relativeNorm.resize(13);
+    for (unsigned ichan = 0; ichan < 13; ++ichan)
+        relativeNorm[ichan] = 1.0 + (normFactor[ichan] - aveNormFactor) / aveNormFactor;
+
+    TGraph *gNormFactor = new TGraph(12, &xchan[0], &relativeNorm[0]);
+    gNormFactor->SetName("normFactor");
+    gNormFactor->SetMarkerStyle(21);
+
+    TCanvas *cnormFactor = new TCanvas(Form("relativeNormFactor%s-%.3f", tag.Data(), ppm), Form("relateiveNormFactor%s %.3f", tag.Data(), ppm));
+    gNormFactor->GetHistogram()->GetXaxis()->SetTitle("channel");
+    gNormFactor->GetHistogram()->GetYaxis()->SetTitle("fit normalization factor");
+    cnormFactor->SetGrid();
+    gNormFactor->Draw("ap");
+    fout->Append(gNormFactor);
+
+    for (unsigned ichan = 0; ichan < 13; ++ichan)
+        printf("relativeNorm[%u]=1.0+%f;\n", ichan, relativeNorm[ichan]);
 
     fout->Write();
-
     //
 }

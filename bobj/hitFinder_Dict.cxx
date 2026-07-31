@@ -10,7 +10,7 @@
 #include <string.h>
 #include <assert.h>
 #define G__DICTIONARY
-#include "RConfig.h"
+#include "ROOT/RConfig.hxx"
 #include "TClass.h"
 #include "TDictAttributeMap.h"
 #include "TInterpreter.h"
@@ -55,7 +55,7 @@ namespace ROOT {
       ::hitFinder *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(::hitFinder));
       static ::ROOT::TGenericClassInfo 
-         instance("hitFinder", "hitFinder.hxx", 50,
+         instance("hitFinder", "hitFinder.hxx", 54,
                   typeid(::hitFinder), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &hitFinder_Dictionary, isa_proxy, 4,
                   sizeof(::hitFinder) );
@@ -66,14 +66,14 @@ namespace ROOT {
    }
    TGenericClassInfo *GenerateInitInstance(const ::hitFinder*)
    {
-      return GenerateInitInstanceLocal((::hitFinder*)nullptr);
+      return GenerateInitInstanceLocal(static_cast<::hitFinder*>(nullptr));
    }
    // Static variable to force the class initialization
-   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal((const ::hitFinder*)nullptr); R__UseDummy(_R__UNIQUE_DICT_(Init));
+   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal(static_cast<const ::hitFinder*>(nullptr)); R__UseDummy(_R__UNIQUE_DICT_(Init));
 
    // Dictionary for non-ClassDef classes
    static TClass *hitFinder_Dictionary() {
-      TClass* theClass =::ROOT::GenerateInitInstanceLocal((const ::hitFinder*)nullptr)->GetClass();
+      TClass* theClass =::ROOT::GenerateInitInstanceLocal(static_cast<const ::hitFinder*>(nullptr))->GetClass();
       hitFinder_TClassManip(theClass);
    return theClass;
    }
@@ -86,14 +86,14 @@ namespace ROOT {
 namespace ROOT {
    // Wrapper around operator delete
    static void delete_hitFinder(void *p) {
-      delete ((::hitFinder*)p);
+      delete (static_cast<::hitFinder*>(p));
    }
    static void deleteArray_hitFinder(void *p) {
-      delete [] ((::hitFinder*)p);
+      delete [] (static_cast<::hitFinder*>(p));
    }
    static void destruct_hitFinder(void *p) {
       typedef ::hitFinder current_t;
-      ((current_t*)p)->~current_t();
+      (static_cast<current_t*>(p))->~current_t();
    }
 } // end of namespace ROOT for class ::hitFinder
 
@@ -112,7 +112,7 @@ namespace ROOT {
       vector<unsigned int> *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(vector<unsigned int>));
       static ::ROOT::TGenericClassInfo 
-         instance("vector<unsigned int>", -2, "c++/v1/vector", 478,
+         instance("vector<unsigned int>", -2, "vector", 383,
                   typeid(vector<unsigned int>), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &vectorlEunsignedsPintgR_Dictionary, isa_proxy, 0,
                   sizeof(vector<unsigned int>) );
@@ -123,15 +123,15 @@ namespace ROOT {
       instance.SetDestructor(&destruct_vectorlEunsignedsPintgR);
       instance.AdoptCollectionProxyInfo(TCollectionProxyInfo::Generate(TCollectionProxyInfo::Pushback< vector<unsigned int> >()));
 
-      ::ROOT::AddClassAlternate("vector<unsigned int>","std::__1::vector<unsigned int, std::__1::allocator<unsigned int>>");
+      instance.AdoptAlternate(::ROOT::AddClassAlternate("vector<unsigned int>","std::__1::vector<unsigned int, std::__1::allocator<unsigned int>>"));
       return &instance;
    }
    // Static variable to force the class initialization
-   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal((const vector<unsigned int>*)nullptr); R__UseDummy(_R__UNIQUE_DICT_(Init));
+   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal(static_cast<const vector<unsigned int>*>(nullptr)); R__UseDummy(_R__UNIQUE_DICT_(Init));
 
    // Dictionary for non-ClassDef classes
    static TClass *vectorlEunsignedsPintgR_Dictionary() {
-      TClass* theClass =::ROOT::GenerateInitInstanceLocal((const vector<unsigned int>*)nullptr)->GetClass();
+      TClass* theClass =::ROOT::GenerateInitInstanceLocal(static_cast<const vector<unsigned int>*>(nullptr))->GetClass();
       vectorlEunsignedsPintgR_TClassManip(theClass);
    return theClass;
    }
@@ -144,21 +144,21 @@ namespace ROOT {
 namespace ROOT {
    // Wrappers around operator new
    static void *new_vectorlEunsignedsPintgR(void *p) {
-      return  p ? ::new((::ROOT::Internal::TOperatorNewHelper*)p) vector<unsigned int> : new vector<unsigned int>;
+      return  p ? ::new(static_cast<::ROOT::Internal::TOperatorNewHelper*>(p)) vector<unsigned int> : new vector<unsigned int>;
    }
    static void *newArray_vectorlEunsignedsPintgR(Long_t nElements, void *p) {
-      return p ? ::new((::ROOT::Internal::TOperatorNewHelper*)p) vector<unsigned int>[nElements] : new vector<unsigned int>[nElements];
+      return p ? ::new(static_cast<::ROOT::Internal::TOperatorNewHelper*>(p)) vector<unsigned int>[nElements] : new vector<unsigned int>[nElements];
    }
    // Wrapper around operator delete
    static void delete_vectorlEunsignedsPintgR(void *p) {
-      delete ((vector<unsigned int>*)p);
+      delete (static_cast<vector<unsigned int>*>(p));
    }
    static void deleteArray_vectorlEunsignedsPintgR(void *p) {
-      delete [] ((vector<unsigned int>*)p);
+      delete [] (static_cast<vector<unsigned int>*>(p));
    }
    static void destruct_vectorlEunsignedsPintgR(void *p) {
       typedef vector<unsigned int> current_t;
-      ((current_t*)p)->~current_t();
+      (static_cast<current_t*>(p))->~current_t();
    }
 } // end of namespace ROOT for class vector<unsigned int>
 
@@ -177,7 +177,7 @@ namespace ROOT {
       vector<pair<unsigned int,unsigned int> > *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(vector<pair<unsigned int,unsigned int> >));
       static ::ROOT::TGenericClassInfo 
-         instance("vector<pair<unsigned int,unsigned int> >", -2, "c++/v1/vector", 478,
+         instance("vector<pair<unsigned int,unsigned int> >", -2, "vector", 383,
                   typeid(vector<pair<unsigned int,unsigned int> >), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &vectorlEpairlEunsignedsPintcOunsignedsPintgRsPgR_Dictionary, isa_proxy, 0,
                   sizeof(vector<pair<unsigned int,unsigned int> >) );
@@ -188,15 +188,15 @@ namespace ROOT {
       instance.SetDestructor(&destruct_vectorlEpairlEunsignedsPintcOunsignedsPintgRsPgR);
       instance.AdoptCollectionProxyInfo(TCollectionProxyInfo::Generate(TCollectionProxyInfo::Pushback< vector<pair<unsigned int,unsigned int> > >()));
 
-      ::ROOT::AddClassAlternate("vector<pair<unsigned int,unsigned int> >","std::__1::vector<std::__1::pair<unsigned int, unsigned int>, std::__1::allocator<std::__1::pair<unsigned int, unsigned int>>>");
+      instance.AdoptAlternate(::ROOT::AddClassAlternate("vector<pair<unsigned int,unsigned int> >","std::__1::vector<std::__1::pair<unsigned int, unsigned int>, std::__1::allocator<std::__1::pair<unsigned int, unsigned int>>>"));
       return &instance;
    }
    // Static variable to force the class initialization
-   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal((const vector<pair<unsigned int,unsigned int> >*)nullptr); R__UseDummy(_R__UNIQUE_DICT_(Init));
+   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal(static_cast<const vector<pair<unsigned int,unsigned int> >*>(nullptr)); R__UseDummy(_R__UNIQUE_DICT_(Init));
 
    // Dictionary for non-ClassDef classes
    static TClass *vectorlEpairlEunsignedsPintcOunsignedsPintgRsPgR_Dictionary() {
-      TClass* theClass =::ROOT::GenerateInitInstanceLocal((const vector<pair<unsigned int,unsigned int> >*)nullptr)->GetClass();
+      TClass* theClass =::ROOT::GenerateInitInstanceLocal(static_cast<const vector<pair<unsigned int,unsigned int> >*>(nullptr))->GetClass();
       vectorlEpairlEunsignedsPintcOunsignedsPintgRsPgR_TClassManip(theClass);
    return theClass;
    }
@@ -209,21 +209,21 @@ namespace ROOT {
 namespace ROOT {
    // Wrappers around operator new
    static void *new_vectorlEpairlEunsignedsPintcOunsignedsPintgRsPgR(void *p) {
-      return  p ? ::new((::ROOT::Internal::TOperatorNewHelper*)p) vector<pair<unsigned int,unsigned int> > : new vector<pair<unsigned int,unsigned int> >;
+      return  p ? ::new(static_cast<::ROOT::Internal::TOperatorNewHelper*>(p)) vector<pair<unsigned int,unsigned int> > : new vector<pair<unsigned int,unsigned int> >;
    }
    static void *newArray_vectorlEpairlEunsignedsPintcOunsignedsPintgRsPgR(Long_t nElements, void *p) {
-      return p ? ::new((::ROOT::Internal::TOperatorNewHelper*)p) vector<pair<unsigned int,unsigned int> >[nElements] : new vector<pair<unsigned int,unsigned int> >[nElements];
+      return p ? ::new(static_cast<::ROOT::Internal::TOperatorNewHelper*>(p)) vector<pair<unsigned int,unsigned int> >[nElements] : new vector<pair<unsigned int,unsigned int> >[nElements];
    }
    // Wrapper around operator delete
    static void delete_vectorlEpairlEunsignedsPintcOunsignedsPintgRsPgR(void *p) {
-      delete ((vector<pair<unsigned int,unsigned int> >*)p);
+      delete (static_cast<vector<pair<unsigned int,unsigned int> >*>(p));
    }
    static void deleteArray_vectorlEpairlEunsignedsPintcOunsignedsPintgRsPgR(void *p) {
-      delete [] ((vector<pair<unsigned int,unsigned int> >*)p);
+      delete [] (static_cast<vector<pair<unsigned int,unsigned int> >*>(p));
    }
    static void destruct_vectorlEpairlEunsignedsPintcOunsignedsPintgRsPgR(void *p) {
       typedef vector<pair<unsigned int,unsigned int> > current_t;
-      ((current_t*)p)->~current_t();
+      (static_cast<current_t*>(p))->~current_t();
    }
 } // end of namespace ROOT for class vector<pair<unsigned int,unsigned int> >
 
@@ -242,7 +242,7 @@ namespace ROOT {
       vector<int> *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(vector<int>));
       static ::ROOT::TGenericClassInfo 
-         instance("vector<int>", -2, "c++/v1/vector", 478,
+         instance("vector<int>", -2, "vector", 383,
                   typeid(vector<int>), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &vectorlEintgR_Dictionary, isa_proxy, 0,
                   sizeof(vector<int>) );
@@ -253,15 +253,15 @@ namespace ROOT {
       instance.SetDestructor(&destruct_vectorlEintgR);
       instance.AdoptCollectionProxyInfo(TCollectionProxyInfo::Generate(TCollectionProxyInfo::Pushback< vector<int> >()));
 
-      ::ROOT::AddClassAlternate("vector<int>","std::__1::vector<int, std::__1::allocator<int>>");
+      instance.AdoptAlternate(::ROOT::AddClassAlternate("vector<int>","std::__1::vector<int, std::__1::allocator<int>>"));
       return &instance;
    }
    // Static variable to force the class initialization
-   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal((const vector<int>*)nullptr); R__UseDummy(_R__UNIQUE_DICT_(Init));
+   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal(static_cast<const vector<int>*>(nullptr)); R__UseDummy(_R__UNIQUE_DICT_(Init));
 
    // Dictionary for non-ClassDef classes
    static TClass *vectorlEintgR_Dictionary() {
-      TClass* theClass =::ROOT::GenerateInitInstanceLocal((const vector<int>*)nullptr)->GetClass();
+      TClass* theClass =::ROOT::GenerateInitInstanceLocal(static_cast<const vector<int>*>(nullptr))->GetClass();
       vectorlEintgR_TClassManip(theClass);
    return theClass;
    }
@@ -274,21 +274,21 @@ namespace ROOT {
 namespace ROOT {
    // Wrappers around operator new
    static void *new_vectorlEintgR(void *p) {
-      return  p ? ::new((::ROOT::Internal::TOperatorNewHelper*)p) vector<int> : new vector<int>;
+      return  p ? ::new(static_cast<::ROOT::Internal::TOperatorNewHelper*>(p)) vector<int> : new vector<int>;
    }
    static void *newArray_vectorlEintgR(Long_t nElements, void *p) {
-      return p ? ::new((::ROOT::Internal::TOperatorNewHelper*)p) vector<int>[nElements] : new vector<int>[nElements];
+      return p ? ::new(static_cast<::ROOT::Internal::TOperatorNewHelper*>(p)) vector<int>[nElements] : new vector<int>[nElements];
    }
    // Wrapper around operator delete
    static void delete_vectorlEintgR(void *p) {
-      delete ((vector<int>*)p);
+      delete (static_cast<vector<int>*>(p));
    }
    static void deleteArray_vectorlEintgR(void *p) {
-      delete [] ((vector<int>*)p);
+      delete [] (static_cast<vector<int>*>(p));
    }
    static void destruct_vectorlEintgR(void *p) {
       typedef vector<int> current_t;
-      ((current_t*)p)->~current_t();
+      (static_cast<current_t*>(p))->~current_t();
    }
 } // end of namespace ROOT for class vector<int>
 
@@ -307,7 +307,7 @@ namespace ROOT {
       vector<double> *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(vector<double>));
       static ::ROOT::TGenericClassInfo 
-         instance("vector<double>", -2, "c++/v1/vector", 478,
+         instance("vector<double>", -2, "vector", 383,
                   typeid(vector<double>), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &vectorlEdoublegR_Dictionary, isa_proxy, 4,
                   sizeof(vector<double>) );
@@ -318,15 +318,15 @@ namespace ROOT {
       instance.SetDestructor(&destruct_vectorlEdoublegR);
       instance.AdoptCollectionProxyInfo(TCollectionProxyInfo::Generate(TCollectionProxyInfo::Pushback< vector<double> >()));
 
-      ::ROOT::AddClassAlternate("vector<double>","std::__1::vector<double, std::__1::allocator<double>>");
+      instance.AdoptAlternate(::ROOT::AddClassAlternate("vector<double>","std::__1::vector<double, std::__1::allocator<double>>"));
       return &instance;
    }
    // Static variable to force the class initialization
-   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal((const vector<double>*)nullptr); R__UseDummy(_R__UNIQUE_DICT_(Init));
+   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal(static_cast<const vector<double>*>(nullptr)); R__UseDummy(_R__UNIQUE_DICT_(Init));
 
    // Dictionary for non-ClassDef classes
    static TClass *vectorlEdoublegR_Dictionary() {
-      TClass* theClass =::ROOT::GenerateInitInstanceLocal((const vector<double>*)nullptr)->GetClass();
+      TClass* theClass =::ROOT::GenerateInitInstanceLocal(static_cast<const vector<double>*>(nullptr))->GetClass();
       vectorlEdoublegR_TClassManip(theClass);
    return theClass;
    }
@@ -339,21 +339,21 @@ namespace ROOT {
 namespace ROOT {
    // Wrappers around operator new
    static void *new_vectorlEdoublegR(void *p) {
-      return  p ? ::new((::ROOT::Internal::TOperatorNewHelper*)p) vector<double> : new vector<double>;
+      return  p ? ::new(static_cast<::ROOT::Internal::TOperatorNewHelper*>(p)) vector<double> : new vector<double>;
    }
    static void *newArray_vectorlEdoublegR(Long_t nElements, void *p) {
-      return p ? ::new((::ROOT::Internal::TOperatorNewHelper*)p) vector<double>[nElements] : new vector<double>[nElements];
+      return p ? ::new(static_cast<::ROOT::Internal::TOperatorNewHelper*>(p)) vector<double>[nElements] : new vector<double>[nElements];
    }
    // Wrapper around operator delete
    static void delete_vectorlEdoublegR(void *p) {
-      delete ((vector<double>*)p);
+      delete (static_cast<vector<double>*>(p));
    }
    static void deleteArray_vectorlEdoublegR(void *p) {
-      delete [] ((vector<double>*)p);
+      delete [] (static_cast<vector<double>*>(p));
    }
    static void destruct_vectorlEdoublegR(void *p) {
       typedef vector<double> current_t;
-      ((current_t*)p)->~current_t();
+      (static_cast<current_t*>(p))->~current_t();
    }
 } // end of namespace ROOT for class vector<double>
 
@@ -372,7 +372,7 @@ namespace ROOT {
       vector<complex<double> > *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(vector<complex<double> >));
       static ::ROOT::TGenericClassInfo 
-         instance("vector<complex<double> >", -2, "c++/v1/vector", 478,
+         instance("vector<complex<double> >", -2, "vector", 383,
                   typeid(vector<complex<double> >), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &vectorlEcomplexlEdoublegRsPgR_Dictionary, isa_proxy, 0,
                   sizeof(vector<complex<double> >) );
@@ -383,15 +383,15 @@ namespace ROOT {
       instance.SetDestructor(&destruct_vectorlEcomplexlEdoublegRsPgR);
       instance.AdoptCollectionProxyInfo(TCollectionProxyInfo::Generate(TCollectionProxyInfo::Pushback< vector<complex<double> > >()));
 
-      ::ROOT::AddClassAlternate("vector<complex<double> >","std::__1::vector<std::__1::complex<double>, std::__1::allocator<std::__1::complex<double>>>");
+      instance.AdoptAlternate(::ROOT::AddClassAlternate("vector<complex<double> >","std::__1::vector<std::__1::complex<double>, std::__1::allocator<std::__1::complex<double>>>"));
       return &instance;
    }
    // Static variable to force the class initialization
-   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal((const vector<complex<double> >*)nullptr); R__UseDummy(_R__UNIQUE_DICT_(Init));
+   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal(static_cast<const vector<complex<double> >*>(nullptr)); R__UseDummy(_R__UNIQUE_DICT_(Init));
 
    // Dictionary for non-ClassDef classes
    static TClass *vectorlEcomplexlEdoublegRsPgR_Dictionary() {
-      TClass* theClass =::ROOT::GenerateInitInstanceLocal((const vector<complex<double> >*)nullptr)->GetClass();
+      TClass* theClass =::ROOT::GenerateInitInstanceLocal(static_cast<const vector<complex<double> >*>(nullptr))->GetClass();
       vectorlEcomplexlEdoublegRsPgR_TClassManip(theClass);
    return theClass;
    }
@@ -404,23 +404,88 @@ namespace ROOT {
 namespace ROOT {
    // Wrappers around operator new
    static void *new_vectorlEcomplexlEdoublegRsPgR(void *p) {
-      return  p ? ::new((::ROOT::Internal::TOperatorNewHelper*)p) vector<complex<double> > : new vector<complex<double> >;
+      return  p ? ::new(static_cast<::ROOT::Internal::TOperatorNewHelper*>(p)) vector<complex<double> > : new vector<complex<double> >;
    }
    static void *newArray_vectorlEcomplexlEdoublegRsPgR(Long_t nElements, void *p) {
-      return p ? ::new((::ROOT::Internal::TOperatorNewHelper*)p) vector<complex<double> >[nElements] : new vector<complex<double> >[nElements];
+      return p ? ::new(static_cast<::ROOT::Internal::TOperatorNewHelper*>(p)) vector<complex<double> >[nElements] : new vector<complex<double> >[nElements];
    }
    // Wrapper around operator delete
    static void delete_vectorlEcomplexlEdoublegRsPgR(void *p) {
-      delete ((vector<complex<double> >*)p);
+      delete (static_cast<vector<complex<double> >*>(p));
    }
    static void deleteArray_vectorlEcomplexlEdoublegRsPgR(void *p) {
-      delete [] ((vector<complex<double> >*)p);
+      delete [] (static_cast<vector<complex<double> >*>(p));
    }
    static void destruct_vectorlEcomplexlEdoublegRsPgR(void *p) {
       typedef vector<complex<double> > current_t;
-      ((current_t*)p)->~current_t();
+      (static_cast<current_t*>(p))->~current_t();
    }
 } // end of namespace ROOT for class vector<complex<double> >
+
+namespace ROOT {
+   static TClass *vectorlETH2DmUgR_Dictionary();
+   static void vectorlETH2DmUgR_TClassManip(TClass*);
+   static void *new_vectorlETH2DmUgR(void *p = nullptr);
+   static void *newArray_vectorlETH2DmUgR(Long_t size, void *p);
+   static void delete_vectorlETH2DmUgR(void *p);
+   static void deleteArray_vectorlETH2DmUgR(void *p);
+   static void destruct_vectorlETH2DmUgR(void *p);
+
+   // Function generating the singleton type initializer
+   static TGenericClassInfo *GenerateInitInstanceLocal(const vector<TH2D*>*)
+   {
+      vector<TH2D*> *ptr = nullptr;
+      static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(vector<TH2D*>));
+      static ::ROOT::TGenericClassInfo 
+         instance("vector<TH2D*>", -2, "vector", 383,
+                  typeid(vector<TH2D*>), ::ROOT::Internal::DefineBehavior(ptr, ptr),
+                  &vectorlETH2DmUgR_Dictionary, isa_proxy, 0,
+                  sizeof(vector<TH2D*>) );
+      instance.SetNew(&new_vectorlETH2DmUgR);
+      instance.SetNewArray(&newArray_vectorlETH2DmUgR);
+      instance.SetDelete(&delete_vectorlETH2DmUgR);
+      instance.SetDeleteArray(&deleteArray_vectorlETH2DmUgR);
+      instance.SetDestructor(&destruct_vectorlETH2DmUgR);
+      instance.AdoptCollectionProxyInfo(TCollectionProxyInfo::Generate(TCollectionProxyInfo::Pushback< vector<TH2D*> >()));
+
+      instance.AdoptAlternate(::ROOT::AddClassAlternate("vector<TH2D*>","std::__1::vector<TH2D*, std::__1::allocator<TH2D*>>"));
+      return &instance;
+   }
+   // Static variable to force the class initialization
+   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal(static_cast<const vector<TH2D*>*>(nullptr)); R__UseDummy(_R__UNIQUE_DICT_(Init));
+
+   // Dictionary for non-ClassDef classes
+   static TClass *vectorlETH2DmUgR_Dictionary() {
+      TClass* theClass =::ROOT::GenerateInitInstanceLocal(static_cast<const vector<TH2D*>*>(nullptr))->GetClass();
+      vectorlETH2DmUgR_TClassManip(theClass);
+   return theClass;
+   }
+
+   static void vectorlETH2DmUgR_TClassManip(TClass* ){
+   }
+
+} // end of namespace ROOT
+
+namespace ROOT {
+   // Wrappers around operator new
+   static void *new_vectorlETH2DmUgR(void *p) {
+      return  p ? ::new(static_cast<::ROOT::Internal::TOperatorNewHelper*>(p)) vector<TH2D*> : new vector<TH2D*>;
+   }
+   static void *newArray_vectorlETH2DmUgR(Long_t nElements, void *p) {
+      return p ? ::new(static_cast<::ROOT::Internal::TOperatorNewHelper*>(p)) vector<TH2D*>[nElements] : new vector<TH2D*>[nElements];
+   }
+   // Wrapper around operator delete
+   static void delete_vectorlETH2DmUgR(void *p) {
+      delete (static_cast<vector<TH2D*>*>(p));
+   }
+   static void deleteArray_vectorlETH2DmUgR(void *p) {
+      delete [] (static_cast<vector<TH2D*>*>(p));
+   }
+   static void destruct_vectorlETH2DmUgR(void *p) {
+      typedef vector<TH2D*> current_t;
+      (static_cast<current_t*>(p))->~current_t();
+   }
+} // end of namespace ROOT for class vector<TH2D*>
 
 namespace ROOT {
    static TClass *vectorlETH1DmUgR_Dictionary();
@@ -437,7 +502,7 @@ namespace ROOT {
       vector<TH1D*> *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(vector<TH1D*>));
       static ::ROOT::TGenericClassInfo 
-         instance("vector<TH1D*>", -2, "c++/v1/vector", 478,
+         instance("vector<TH1D*>", -2, "vector", 383,
                   typeid(vector<TH1D*>), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &vectorlETH1DmUgR_Dictionary, isa_proxy, 0,
                   sizeof(vector<TH1D*>) );
@@ -448,15 +513,15 @@ namespace ROOT {
       instance.SetDestructor(&destruct_vectorlETH1DmUgR);
       instance.AdoptCollectionProxyInfo(TCollectionProxyInfo::Generate(TCollectionProxyInfo::Pushback< vector<TH1D*> >()));
 
-      ::ROOT::AddClassAlternate("vector<TH1D*>","std::__1::vector<TH1D*, std::__1::allocator<TH1D*>>");
+      instance.AdoptAlternate(::ROOT::AddClassAlternate("vector<TH1D*>","std::__1::vector<TH1D*, std::__1::allocator<TH1D*>>"));
       return &instance;
    }
    // Static variable to force the class initialization
-   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal((const vector<TH1D*>*)nullptr); R__UseDummy(_R__UNIQUE_DICT_(Init));
+   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal(static_cast<const vector<TH1D*>*>(nullptr)); R__UseDummy(_R__UNIQUE_DICT_(Init));
 
    // Dictionary for non-ClassDef classes
    static TClass *vectorlETH1DmUgR_Dictionary() {
-      TClass* theClass =::ROOT::GenerateInitInstanceLocal((const vector<TH1D*>*)nullptr)->GetClass();
+      TClass* theClass =::ROOT::GenerateInitInstanceLocal(static_cast<const vector<TH1D*>*>(nullptr))->GetClass();
       vectorlETH1DmUgR_TClassManip(theClass);
    return theClass;
    }
@@ -469,23 +534,88 @@ namespace ROOT {
 namespace ROOT {
    // Wrappers around operator new
    static void *new_vectorlETH1DmUgR(void *p) {
-      return  p ? ::new((::ROOT::Internal::TOperatorNewHelper*)p) vector<TH1D*> : new vector<TH1D*>;
+      return  p ? ::new(static_cast<::ROOT::Internal::TOperatorNewHelper*>(p)) vector<TH1D*> : new vector<TH1D*>;
    }
    static void *newArray_vectorlETH1DmUgR(Long_t nElements, void *p) {
-      return p ? ::new((::ROOT::Internal::TOperatorNewHelper*)p) vector<TH1D*>[nElements] : new vector<TH1D*>[nElements];
+      return p ? ::new(static_cast<::ROOT::Internal::TOperatorNewHelper*>(p)) vector<TH1D*>[nElements] : new vector<TH1D*>[nElements];
    }
    // Wrapper around operator delete
    static void delete_vectorlETH1DmUgR(void *p) {
-      delete ((vector<TH1D*>*)p);
+      delete (static_cast<vector<TH1D*>*>(p));
    }
    static void deleteArray_vectorlETH1DmUgR(void *p) {
-      delete [] ((vector<TH1D*>*)p);
+      delete [] (static_cast<vector<TH1D*>*>(p));
    }
    static void destruct_vectorlETH1DmUgR(void *p) {
       typedef vector<TH1D*> current_t;
-      ((current_t*)p)->~current_t();
+      (static_cast<current_t*>(p))->~current_t();
    }
 } // end of namespace ROOT for class vector<TH1D*>
+
+namespace ROOT {
+   static TClass *maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR_Dictionary();
+   static void maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR_TClassManip(TClass*);
+   static void *new_maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR(void *p = nullptr);
+   static void *newArray_maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR(Long_t size, void *p);
+   static void delete_maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR(void *p);
+   static void deleteArray_maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR(void *p);
+   static void destruct_maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR(void *p);
+
+   // Function generating the singleton type initializer
+   static TGenericClassInfo *GenerateInitInstanceLocal(const map<unsigned int,TDetHit,less<double> >*)
+   {
+      map<unsigned int,TDetHit,less<double> > *ptr = nullptr;
+      static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(map<unsigned int,TDetHit,less<double> >));
+      static ::ROOT::TGenericClassInfo 
+         instance("map<unsigned int,TDetHit,less<double> >", -2, "map", 1018,
+                  typeid(map<unsigned int,TDetHit,less<double> >), ::ROOT::Internal::DefineBehavior(ptr, ptr),
+                  &maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR_Dictionary, isa_proxy, 0,
+                  sizeof(map<unsigned int,TDetHit,less<double> >) );
+      instance.SetNew(&new_maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR);
+      instance.SetNewArray(&newArray_maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR);
+      instance.SetDelete(&delete_maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR);
+      instance.SetDeleteArray(&deleteArray_maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR);
+      instance.SetDestructor(&destruct_maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR);
+      instance.AdoptCollectionProxyInfo(TCollectionProxyInfo::Generate(TCollectionProxyInfo::MapInsert< map<unsigned int,TDetHit,less<double> > >()));
+
+      instance.AdoptAlternate(::ROOT::AddClassAlternate("map<unsigned int,TDetHit,less<double> >","std::__1::map<unsigned int, TDetHit, std::__1::less<double>, std::__1::allocator<std::__1::pair<unsigned int const, TDetHit>>>"));
+      return &instance;
+   }
+   // Static variable to force the class initialization
+   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal(static_cast<const map<unsigned int,TDetHit,less<double> >*>(nullptr)); R__UseDummy(_R__UNIQUE_DICT_(Init));
+
+   // Dictionary for non-ClassDef classes
+   static TClass *maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR_Dictionary() {
+      TClass* theClass =::ROOT::GenerateInitInstanceLocal(static_cast<const map<unsigned int,TDetHit,less<double> >*>(nullptr))->GetClass();
+      maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR_TClassManip(theClass);
+   return theClass;
+   }
+
+   static void maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR_TClassManip(TClass* ){
+   }
+
+} // end of namespace ROOT
+
+namespace ROOT {
+   // Wrappers around operator new
+   static void *new_maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR(void *p) {
+      return  p ? ::new(static_cast<::ROOT::Internal::TOperatorNewHelper*>(p)) map<unsigned int,TDetHit,less<double> > : new map<unsigned int,TDetHit,less<double> >;
+   }
+   static void *newArray_maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR(Long_t nElements, void *p) {
+      return p ? ::new(static_cast<::ROOT::Internal::TOperatorNewHelper*>(p)) map<unsigned int,TDetHit,less<double> >[nElements] : new map<unsigned int,TDetHit,less<double> >[nElements];
+   }
+   // Wrapper around operator delete
+   static void delete_maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR(void *p) {
+      delete (static_cast<map<unsigned int,TDetHit,less<double> >*>(p));
+   }
+   static void deleteArray_maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR(void *p) {
+      delete [] (static_cast<map<unsigned int,TDetHit,less<double> >*>(p));
+   }
+   static void destruct_maplEunsignedsPintcOTDetHitcOlesslEdoublegRsPgR(void *p) {
+      typedef map<unsigned int,TDetHit,less<double> > current_t;
+      (static_cast<current_t*>(p))->~current_t();
+   }
+} // end of namespace ROOT for class map<unsigned int,TDetHit,less<double> >
 
 namespace ROOT {
    static TClass *maplEintcOintgR_Dictionary();
@@ -502,7 +632,7 @@ namespace ROOT {
       map<int,int> *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(map<int,int>));
       static ::ROOT::TGenericClassInfo 
-         instance("map<int,int>", -2, "c++/v1/map", 912,
+         instance("map<int,int>", -2, "map", 1018,
                   typeid(map<int,int>), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &maplEintcOintgR_Dictionary, isa_proxy, 0,
                   sizeof(map<int,int>) );
@@ -513,15 +643,15 @@ namespace ROOT {
       instance.SetDestructor(&destruct_maplEintcOintgR);
       instance.AdoptCollectionProxyInfo(TCollectionProxyInfo::Generate(TCollectionProxyInfo::MapInsert< map<int,int> >()));
 
-      ::ROOT::AddClassAlternate("map<int,int>","std::__1::map<int, int, std::__1::less<int>, std::__1::allocator<std::__1::pair<int const, int>>>");
+      instance.AdoptAlternate(::ROOT::AddClassAlternate("map<int,int>","std::__1::map<int, int, std::__1::less<int>, std::__1::allocator<std::__1::pair<int const, int>>>"));
       return &instance;
    }
    // Static variable to force the class initialization
-   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal((const map<int,int>*)nullptr); R__UseDummy(_R__UNIQUE_DICT_(Init));
+   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal(static_cast<const map<int,int>*>(nullptr)); R__UseDummy(_R__UNIQUE_DICT_(Init));
 
    // Dictionary for non-ClassDef classes
    static TClass *maplEintcOintgR_Dictionary() {
-      TClass* theClass =::ROOT::GenerateInitInstanceLocal((const map<int,int>*)nullptr)->GetClass();
+      TClass* theClass =::ROOT::GenerateInitInstanceLocal(static_cast<const map<int,int>*>(nullptr))->GetClass();
       maplEintcOintgR_TClassManip(theClass);
    return theClass;
    }
@@ -534,89 +664,31 @@ namespace ROOT {
 namespace ROOT {
    // Wrappers around operator new
    static void *new_maplEintcOintgR(void *p) {
-      return  p ? ::new((::ROOT::Internal::TOperatorNewHelper*)p) map<int,int> : new map<int,int>;
+      return  p ? ::new(static_cast<::ROOT::Internal::TOperatorNewHelper*>(p)) map<int,int> : new map<int,int>;
    }
    static void *newArray_maplEintcOintgR(Long_t nElements, void *p) {
-      return p ? ::new((::ROOT::Internal::TOperatorNewHelper*)p) map<int,int>[nElements] : new map<int,int>[nElements];
+      return p ? ::new(static_cast<::ROOT::Internal::TOperatorNewHelper*>(p)) map<int,int>[nElements] : new map<int,int>[nElements];
    }
    // Wrapper around operator delete
    static void delete_maplEintcOintgR(void *p) {
-      delete ((map<int,int>*)p);
+      delete (static_cast<map<int,int>*>(p));
    }
    static void deleteArray_maplEintcOintgR(void *p) {
-      delete [] ((map<int,int>*)p);
+      delete [] (static_cast<map<int,int>*>(p));
    }
    static void destruct_maplEintcOintgR(void *p) {
       typedef map<int,int> current_t;
-      ((current_t*)p)->~current_t();
+      (static_cast<current_t*>(p))->~current_t();
    }
 } // end of namespace ROOT for class map<int,int>
 
 namespace ROOT {
-   static TClass *maplEdoublecOTDetHitgR_Dictionary();
-   static void maplEdoublecOTDetHitgR_TClassManip(TClass*);
-   static void *new_maplEdoublecOTDetHitgR(void *p = nullptr);
-   static void *newArray_maplEdoublecOTDetHitgR(Long_t size, void *p);
-   static void delete_maplEdoublecOTDetHitgR(void *p);
-   static void deleteArray_maplEdoublecOTDetHitgR(void *p);
-   static void destruct_maplEdoublecOTDetHitgR(void *p);
-
-   // Function generating the singleton type initializer
-   static TGenericClassInfo *GenerateInitInstanceLocal(const map<double,TDetHit>*)
-   {
-      map<double,TDetHit> *ptr = nullptr;
-      static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(map<double,TDetHit>));
-      static ::ROOT::TGenericClassInfo 
-         instance("map<double,TDetHit>", -2, "c++/v1/map", 912,
-                  typeid(map<double,TDetHit>), ::ROOT::Internal::DefineBehavior(ptr, ptr),
-                  &maplEdoublecOTDetHitgR_Dictionary, isa_proxy, 0,
-                  sizeof(map<double,TDetHit>) );
-      instance.SetNew(&new_maplEdoublecOTDetHitgR);
-      instance.SetNewArray(&newArray_maplEdoublecOTDetHitgR);
-      instance.SetDelete(&delete_maplEdoublecOTDetHitgR);
-      instance.SetDeleteArray(&deleteArray_maplEdoublecOTDetHitgR);
-      instance.SetDestructor(&destruct_maplEdoublecOTDetHitgR);
-      instance.AdoptCollectionProxyInfo(TCollectionProxyInfo::Generate(TCollectionProxyInfo::MapInsert< map<double,TDetHit> >()));
-
-      ::ROOT::AddClassAlternate("map<double,TDetHit>","std::__1::map<double, TDetHit, std::__1::less<double>, std::__1::allocator<std::__1::pair<double const, TDetHit>>>");
-      return &instance;
+   // Registration Schema evolution read functions
+   int RecordReadRules_hitFinder_Dict() {
+      return 0;
    }
-   // Static variable to force the class initialization
-   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal((const map<double,TDetHit>*)nullptr); R__UseDummy(_R__UNIQUE_DICT_(Init));
-
-   // Dictionary for non-ClassDef classes
-   static TClass *maplEdoublecOTDetHitgR_Dictionary() {
-      TClass* theClass =::ROOT::GenerateInitInstanceLocal((const map<double,TDetHit>*)nullptr)->GetClass();
-      maplEdoublecOTDetHitgR_TClassManip(theClass);
-   return theClass;
-   }
-
-   static void maplEdoublecOTDetHitgR_TClassManip(TClass* ){
-   }
-
-} // end of namespace ROOT
-
-namespace ROOT {
-   // Wrappers around operator new
-   static void *new_maplEdoublecOTDetHitgR(void *p) {
-      return  p ? ::new((::ROOT::Internal::TOperatorNewHelper*)p) map<double,TDetHit> : new map<double,TDetHit>;
-   }
-   static void *newArray_maplEdoublecOTDetHitgR(Long_t nElements, void *p) {
-      return p ? ::new((::ROOT::Internal::TOperatorNewHelper*)p) map<double,TDetHit>[nElements] : new map<double,TDetHit>[nElements];
-   }
-   // Wrapper around operator delete
-   static void delete_maplEdoublecOTDetHitgR(void *p) {
-      delete ((map<double,TDetHit>*)p);
-   }
-   static void deleteArray_maplEdoublecOTDetHitgR(void *p) {
-      delete [] ((map<double,TDetHit>*)p);
-   }
-   static void destruct_maplEdoublecOTDetHitgR(void *p) {
-      typedef map<double,TDetHit> current_t;
-      ((current_t*)p)->~current_t();
-   }
-} // end of namespace ROOT for class map<double,TDetHit>
-
+   static int _R__UNIQUE_DICT_(ReadRules_hitFinder_Dict) = RecordReadRules_hitFinder_Dict();R__UseDummy(_R__UNIQUE_DICT_(ReadRules_hitFinder_Dict));
+} // namespace ROOT
 namespace {
   void TriggerDictionaryInitialization_hitFinder_Dict_Impl() {
     static const char* headers[] = {
@@ -624,9 +696,9 @@ namespace {
 nullptr
     };
     static const char* includePaths[] = {
-"/usr/local/root/include",
-"/usr/local/root-v6-26-10-buildFFTNew/include/",
-"/Users/gold/GOOGLE2/bacon2Data/bobj/",
+"/usr/local/Cellar/root/6.36.02/include/root",
+"/usr/local/Cellar/root/6.36.02/include/root",
+"/Users/mgold/bacon2Data/bobj/",
 nullptr
     };
     static const char* fwdDeclCode = R"DICTFWDDCLS(
@@ -635,7 +707,7 @@ nullptr
 #pragma clang diagnostic ignored "-Wignored-attributes"
 #pragma clang diagnostic ignored "-Wreturn-type-c-linkage"
 extern int __Cling_AutoLoading_Map;
-namespace std{inline namespace __1{template <class _Tp> class __attribute__((annotate("$clingAutoload$iosfwd")))  __attribute__((annotate("$clingAutoload$string")))  allocator;
+namespace std{inline namespace __1{template <class _Tp> class __attribute__((annotate("$clingAutoload$__fwd/string.h")))  __attribute__((annotate("$clingAutoload$string")))  allocator;
 }}
 class __attribute__((annotate("$clingAutoload$hitFinder.hxx")))  hitFinder;
 )DICTFWDDCLS";

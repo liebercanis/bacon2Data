@@ -78,6 +78,7 @@ TNtuple *ntGamma;
 TNtuple *ntLateSum;
 TNtuple *ntPreSum;
 TNtuple *ntLateInt;
+TNtuple *ntHitStart;
 TNtuple *ntHitCount;
 Long64_t maxEntry;
 Long64_t totalPass;
@@ -579,6 +580,7 @@ unsigned long countFiles()
     const auto diff0 = std::difftime(fileTime, time0);
     const auto diff1 = std::difftime(fileTime, time1);
     bool timetest = diff0 >= 0 && diff1 <= 0;
+    timetest = true;
     // printf("fileTime: %s  month=%i day=%i year=%i  diff0=%.0f diff1=%.0f pass=%i  file=%s\n",
     //        asctime(localtime(&fileTime)), month, day, year, diff0, diff1, int(timetest), tname.Data());
     if (!timetest)
@@ -769,6 +771,7 @@ void loop()
 
         // trigger time shift to time of first trigger SIPM
         int theHitTime = thit.firstBin + nominalTrigger - theMaximumBin;
+        ntHitStart->Fill(entry, idet, thit.startTime, theHitTime);
         // int theHitTime = thit.firstBin;
         // if (thit.firstBin < nominalTrigger && idet == 9)
         //  printf("line 729 event %lld det %i hit %i firstBin %i theMaximumBin %i theHitTime %i\n", entry, idet, ihit, thit.firstBin, theMaximumBin, theHitTime);
@@ -901,6 +904,7 @@ void post(TString tag)
   }
   fout->cd();
   // trigger info ntuple
+  ntHitStart = new TNtuple("ntHitStart", "hit start", "nev:chan:startTime:hitTime");
   ntHitCount = new TNtuple("ntHitCount", "hit count", "file:nev:chan:early:late");
   ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtTotSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
   ntTrigChan = new TNtuple("ntTrigChan", "trigger info by channel", "event:trigTime:chan:hitTime:maxBin:passBit");
