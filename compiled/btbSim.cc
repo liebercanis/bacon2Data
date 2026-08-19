@@ -913,7 +913,7 @@ void btb(int ngen = 10000000, double thePPM = 30.)
   for (int i = 0; i < NPOINTS; ++i)
   {
     distance[i] = double(i) * 0.05;
-    abdist[i] = Absorbtion(theDopant, distance[i]);
+    abdist[i] = Absorption(theDopant, distance[i]);
     // printf("%i ppm %f dist %f A %.3E\n", i, theDopant, distance[i], abdist[i]);
   }
 

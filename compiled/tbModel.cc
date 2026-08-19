@@ -6,6 +6,7 @@
 #include <fstream>
 #include "TGraph.h"
 #include "TMinuit.h"
+#include "distanceLevels.hh"
 #include "modelAllFit.hh"
 #include "failCodes.hh"
 
@@ -26,6 +27,7 @@ std::vector<TH1D *> hcurve;    ///< Raw curve histograms per channel
 std::vector<TH1D *> hffit;     ///< Fitted waveforms per channel
 std::vector<TH1D *> hmodel;    ///< Model histograms per channel (reserved for future use)
 std::vector<TH1D *> hfitModel; ///< Final fitted model histograms per channel
+std::vector<double> ppmFile;
 
 // ============================================================================
 //  ANALYSIS PARAMETERS
@@ -103,8 +105,29 @@ void fillCompWave(int ichan, int icomp, TH1D *hist)
  * @param theFitChannel Channel index to fit. Use -1 to simultaneously fit all 12 PMT channels.
  *                     This enables global optimization of parameters shared across detectors.
  */
-void tbDraw(int theFitChannel = 7, double dopant = 10.)
+void tbDraw(int theFitChannel = 7, double dopant = 30.)
 {
+  // draw absorption
+  double dist = 10.; // cm
+  double ppm[NPOINTS];
+  double ab[NPOINTS];
+  for (int i = 0; i < NPOINTS; ++i)
+  {
+    ppm[i] = double(i) * .001;
+    ab[i] = Absorption(ppm[i], dist);
+    // printf("ppm %f dist %f A %.3E\n", ppm[i], dist, ab[i]);
+  }
+
+  TGraph *gAb = new TGraph(NPOINTS, &ppm[0], &ab[0]);
+  gAb->SetMarkerStyle(21);
+  gAb->SetMarkerSize(.7);
+  gAb->SetName("absorbtion");
+  gAb->SetTitle("absorbtion model");
+  gAb->GetXaxis()->SetTitle("PPM");
+  gAb->GetYaxis()->SetTitle(Form("absorbtion factor at  %.0f cm", dist));
+  TCanvas *cab = new TCanvas("absorbtion", "absorbtion");
+  cab->SetGrid();
+  gAb->Draw("ap");
 
   double distance[NPOINTS]; // cm
   double abdist[NPOINTS];
@@ -114,16 +137,6 @@ void tbDraw(int theFitChannel = 7, double dopant = 10.)
     distance[i] = double(i) * .005;
     abdist[i] = Absorption(theDopant, distance[i]);
     // printf("ppm %f dist %f A %.3E\n", theDopant, distance[i], ab[i]);
-  }
-
-  // draw absorption
-  double dist = 1.; // cm
-  double ppm[NPOINTS];
-  double ab[NPOINTS];
-  for (int i = 0; i < NPOINTS; ++i)
-  {
-    ppm[i] = double(i) * .001;
-    ab[i] = Absorption(ppm[i], dist);
   }
 
   TGraph *gAbDist = new TGraph(NPOINTS, &distance[0], &abdist[0]);
@@ -138,26 +151,11 @@ void tbDraw(int theFitChannel = 7, double dopant = 10.)
   cabDist->SetLogx();
   gAbDist->Draw("ap");
 
-  TGraph *gAbPPM = new TGraph(NPOINTS, &ppm[0], &ab[0]);
-  gAbPPM->SetMarkerStyle(21);
-  gAbPPM->SetMarkerSize(.7);
-  gAbPPM->SetName("absorbtion-ppm");
-  gAbPPM->SetTitle(Form("absorbtion factor at distance %.0f cm", dist));
-  gAbPPM->GetXaxis()->SetTitle("dopant [PPM]");
-  gAbPPM->GetYaxis()->SetTitle("absorbtion factor");
-  TCanvas *cabPPM = new TCanvas("absorbtionPPM", "absorbtionPPM");
-  cabPPM->SetGrid();
-  cabPPM->SetLogx();
-  gAbPPM->Draw("ap");
-
   // ============================================================================
   //  ANALYSIS CONFIGURATION
   // ============================================================================
 
-  // Initialize model parameters and optical properties from modelAllFit.hh
-  setupModelAllFit();
-
-  fout = new TFile(Form("tbDrawPPM%.2f.root", theDopant), "recreate");
+  fout = new TFile(Form("tbModelPPM%.2f.root", theDopant), "recreate");
 
   // == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == ==
   //  MINUIT OPTIMIZER INITIALIZATION
@@ -352,4 +350,39 @@ void tbDraw(int theFitChannel = 7, double dopant = 10.)
   fout->Write();
 
   printf("\n...  finished tbDraw \n");
+}
+void tbModel()
+{
+  // Initialize model parameters and optical properties from modelAllFit.hh
+  setupModelAllFit();
+
+  // ppm of file
+
+  ppmFile.push_back(1.E-2);
+  ppmFile.push_back(0.01);
+  ppmFile.push_back(0.03);
+  ppmFile.push_back(0.05);
+  ppmFile.push_back(0.1);
+  ppmFile.push_back(0.3);
+  ppmFile.push_back(0.5);
+  ppmFile.push_back(1.);
+  ppmFile.push_back(2.);
+  ppmFile.push_back(5.);
+  ppmFile.push_back(10.);
+  ppmFile.push_back(15.);
+  ppmFile.push_back(30.);
+
+  for (int ifile = 0; ifile < ppmFile.size(); ++ifile)
+  {
+    {
+      for (int ilevel = 0; ilevel < NLEVELS; ++ilevel)
+      {
+        double ab = Absorption(ppmFile[ifile], distanceLevel[ilevel]);
+        printf("ppm %f dist %f A %.3E\n", ppmFile[ifile], distanceLevel[ilevel], ab);
+      }
+    }
+  }
+
+  for (unsigned ifile = 0; ifile < ppmFile.size(); ++ifile)
+    tbDraw(-2, ppmFile[ifile]);
 }

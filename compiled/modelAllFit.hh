@@ -1,4 +1,4 @@
-// file with fit fcn
+//  file with fit fcn
 // new version Sept 10 2025
 // the model:
 //    arXiv:2009.10755v4 [physics.ins-det] 18 Jul 2022
@@ -206,15 +206,24 @@ static double effGeoFunc(int ichan)
   return e;
 }
 
-static double Absorbtion(double ppm, double dist)
+static double Absorption(double ppm, double dist)
 {
   // Calculate absorption as a function of distance and xenon concentration.%
   // Taken from fits to Neumeier data at 0.1 PPM and scaled;
+  /* corrected for ppm by mass
   double A = 0.615;
   ppm = max(1.0E-9, ppm);
-  double lambda1 = 12.7 * 0.1 / ppm;
-  double lambda2 = 740 * 0.1 / ppm;
-  double Tr128 = A * exp(-dist / lambda1) + (1 - A) * exp(-dist / lambda2);
+  double lambda1 = 12.7 * .3 * 0.1 / ppm;
+  double lambda2 = 740 * .3 * 0.1 / ppm;
+  */
+  /* new fit from Doug August 19*/
+  ppm = max(1.0E-9, ppm);
+  double A = 0.0228;
+  double C = 0.643;
+  double lambda1 = 2568. * 0.1 / ppm;
+  double lambda2 = 3.38 * 0.1 / ppm;
+  double lambda3 = 50.5 * 0.1 / ppm;
+  double Tr128 = A * exp(-dist / lambda1) + C * exp(-dist / lambda2) + (1 - A - C) * exp(-dist / lambda3);
   return 1. - Tr128;
 }
 
@@ -374,11 +383,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
   f = 0;          // return value
   double bw = 2.; // ns
   double ppm = max(1.0E-9, par[PPM]);
-  if (ppm > 25.0)
-  {
-    tResolution = 34.4;
-    // printf(" ppm %f tResolution %f ....", par[PPM], tResolution);
-  }
+
   double norm = par[NORM];
   double tTriplet = par[TAU3];
   double sfrac = par[SFRAC];
