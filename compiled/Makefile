@@ -100,22 +100,11 @@ sisana: sisana.cc
 
 .PHONY : clean show
 
+# executables this Makefile builds
+EXES := summary anacg btbSim postAna btbSim5 build convertRaw sis sisana ana1 anaca ana
+
 clean:
-	rm -f *.o 
-	rm -f ana
-	rm -rf ana.dSYM
-	rm -f ana1
-	rm -rf ana1.dSYM
-	rm -f anaca
-	rm -rf anaca.dSYM
-	rm -f anacg
-	rm -rf anacg.dSYM
-	rm -f sis
-	rm -rf sis.dSYM
-	rm -f build
-	rm -rf build.dSYM
-	rm -f summary
-	rm -rf summary.dSYM
+	rm -rf *.o $(EXES) $(addsuffix .dSYM,$(EXES))
 show:
 	@echo ROOTSYS = $(ROOTSYS)
 	@echo LD =$(LD)
