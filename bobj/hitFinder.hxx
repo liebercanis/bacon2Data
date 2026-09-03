@@ -40,6 +40,7 @@
 #include "TDetHit.hxx"
 #include "TBRun.hxx"
 #include "SGFilter.hh"
+#include <cmath>
 
 using namespace std;
 

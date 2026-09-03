@@ -9,6 +9,7 @@
 #include <TGraphErrors.h>
 #include <TNamed.h>
 #include <vector>
+#include <cmath>
 
 using namespace std;
 
