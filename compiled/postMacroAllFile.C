@@ -539,7 +539,7 @@ void postMacroAllFile(unsigned theFile = 0)
     for (int i = 0; i < NCHAN; ++i)
     {
         // integral is over bins
-        int earlyBin = 1400 / 2;
+        int earlyBin = 1350 / 2;
         int lateBin = 1460 / 2;
         // Integral(Int_t binx1, Int_t binx2, Option_t *option="") const
         singletIntegral[i] = hEffNorm[i]->Integral(earlyBin, lateBin);

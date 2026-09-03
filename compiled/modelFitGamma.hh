@@ -215,11 +215,13 @@ static double QEff128(double ppm, double dist)
 static double Absorption(double ppm, double dist)
 {
   // Calculate absorption as a function of distance and xenon concentration.% Taken from fits to Neumeier data.
+  if (ppm < 1.E-9)
+    return 0;
   double A = 0.615;
   double lambda1 = 12.7 * 0.1 / ppm;
   double lambda2 = 740 * 0.1 / ppm;
   double Tr128 = A * exp(-dist / lambda1) + (1 - A) * exp(-dist / lambda2);
-  return 1. - Tr128;
+  return = 1. - Tr128;
 }
 
 static double expGaus(double x, double tau)
@@ -369,25 +371,19 @@ static double lightModel(Double_t *xx, Double_t *par)
   // ft = ft;
   fm = fm * SiPMQE150 / SiPMQ128;
 
-  if (ichan == 5)
+  if (ichan == 0)
   {
     fx = fx * SiPMQE175 / SiPMQ128;
     fs = 0;
     ft = 0;
     fm = 0;
   }
-  else if (ichan == 1)
-  {
-    fr = 0;
-    fx = 0;
-    ft = 0;
-    fm = 0;
-    bkg = 0;
-  }
-  else if (ichan == 4)
+  else if (ichan == 8)
   {
     fx = fx * SiPMQE175 / SiPMQ128;
+    fs = 0;
     ft = 0;
+    fm = 0;
   }
   // PMT sees only  175
   else if (ichan == 12)

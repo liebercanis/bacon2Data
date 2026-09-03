@@ -15,6 +15,7 @@
 #include "TKey.h"
 #include "TGraph.h"
 #include "TMinuit.h"
+#include "TLatex.h"
 #include "modelAllFit.hh"
 
 // ============================================================================
@@ -29,11 +30,13 @@ TFile *fin;         ///< Input ROOT file handle
 TFile *fout;        ///< Output ROOT file handle for results
 TNtuple *ntParScan; ///< N-tuple storing parameter scan results
 
-std::vector<TH1D *> hnorm;     ///< Normalized detector response histograms per channel
-std::vector<TH1D *> hcurve;    ///< Raw curve histograms per channel
-std::vector<TH1D *> hffit;     ///< Fitted waveforms per channel
-std::vector<TH1D *> hmodel;    ///< Model histograms per channel (reserved for future use)
-std::vector<TH1D *> hfitModel; ///< Final fitted model histograms per channel
+std::vector<TH1D *> hnorm;                   ///< Normalized detector response histograms per channel
+std::vector<TH1D *> hcurve;                  ///< Raw curve histograms per channel
+std::vector<TH1D *> hffit;                   ///< Fitted waveforms per channel
+std::vector<TH1D *> hmodel;                  ///< Model histograms per channel (reserved for future use)
+std::vector<TH1D *> hfitModel;               ///< Final fitted model histograms per channel
+std::vector<TH1D *> hModelFullWaves;         /// full waveforms per channel
+std::vector<std::vector<TH1D *>> hCompWaves; ///< Component waveforms per channel and component type
 
 // ============================================================================
 //  ANALYSIS PARAMETERS
@@ -41,12 +44,13 @@ std::vector<TH1D *> hfitModel; ///< Final fitted model histograms per channel
 int nominalTrigger = 729;  ///< Expected trigger timing bin
 double singletStart = 700; ///< Singlet scintillation region start [ns]
 double singletEnd = 750;   ///< Singlet scintillation region end [ns]
+double theTrigStart = 0;
 
 static Double_t vstart[NPARS]; ///< Starting parameter values for Minuit minimization
 static Double_t step[NPARS];   ///< Step sizes for Minuit parameter exploration
 
 /// Plotting colors for each detector channel visualization
-int colors[NCHAN] = {kRed, kGreen, kBlue, kYellow, kMagenta, kCyan, kOrange, kSpring, kTeal, kAzure, kViolet, kPink, kGray};
+int colors[NCHAN] = {kRed, kGreen, kBlue, kBlue + 3, kMagenta, kCyan, kOrange, kSpring, kTeal, kAzure, kViolet, kPink, kGray};
 
 // ============================================================================
 //  UTILITY FUNCTIONS FOR FITTING AND ANALYSIS
@@ -101,8 +105,8 @@ TCanvas *makeCanFit(int i1, int i2, TString canName)
     /****  rebin for drawing *****/
     // hnorm[i]->Rebin(50);
     // hfitModel[i]->Rebin(50);
-    hnorm[i]->GetXaxis()->SetRangeUser(1000, 500);
-    hfitModel[i]->GetXaxis()->SetRangeUser(1000, 5000);
+    hnorm[i]->GetXaxis()->SetRangeUser(1000, 7500);
+    hfitModel[i]->GetXaxis()->SetRangeUser(1000, 7500);
     hnorm[i]->GetYaxis()->SetRangeUser(.01, 5.);
     hfitModel[i]->GetYaxis()->SetRangeUser(.01, 5.);
     hfitModel[i]->SetLineWidth(2);
@@ -111,8 +115,13 @@ TCanvas *makeCanFit(int i1, int i2, TString canName)
     gPad->SetLogy();
     hnorm[i]->Draw("HIST");
     hfitModel[i]->Draw("HISTSAME");
+    TLatex *ppmLabel = new TLatex();
+    ppmLabel->SetNDC();
+    ppmLabel->SetTextSize(0.04);
+    ppmLabel->DrawLatex(0.6, 0.85, Form("fitted PPM = %.3f", lpar[PPM]));
   }
   // can->BuildLegend();
+
   can->SetLogy();
   can->Print(".pdf");
   return can;
@@ -124,8 +133,8 @@ TCanvas *makeCanFitOne(int i, int theFileNumber)
   canName.Form("corLightCan%iFile%i", i, theFileNumber);
   printf(" makeCanFitOne chan %i %s \n", i, canName.Data());
   TCanvas *can = new TCanvas(canName, canName);
-  hnorm[i]->GetXaxis()->SetRangeUser(1000, 5000);
-  hfitModel[i]->GetXaxis()->SetRangeUser(1000, 5000);
+  hnorm[i]->GetXaxis()->SetRangeUser(1000, 7500);
+  hfitModel[i]->GetXaxis()->SetRangeUser(1000, 7500);
   // hnorm[i]->GetYaxis()->SetRangeUser(.1, 5.);
   //   hfitModel[i]->GetYaxis()->SetRangeUser(.1, 5.);
   hfitModel[i]->SetLineWidth(2);
@@ -135,9 +144,33 @@ TCanvas *makeCanFitOne(int i, int theFileNumber)
   hfitModel[i]->Draw("HISTSAME");
   // can->BuildLegend();
   gStyle->SetOptStat(0);
+
+  TLatex *ppmLabel = new TLatex();
+  ppmLabel->SetNDC();
+  ppmLabel->SetTextSize(0.04);
+  ppmLabel->DrawLatex(0.6, 0.85, Form("fitted PPM = %.3f", lpar[PPM]));
+
   can->SetLogy();
   can->Print(".pdf");
   return can;
+}
+
+void plotComponents(int ifile, int ichan)
+{
+  TCanvas *can = new TCanvas(Form("compFile%iChan%i", ifile, ichan), Form("compFile%iChan%i", ifile, ichan));
+  for (int icomp = 0; icomp < NUMCOMP; ++icomp)
+  {
+    hCompWaves[ichan][icomp]->GetXaxis()->SetRangeUser(1000, 7500);
+    hCompWaves[ichan][icomp]->GetYaxis()->SetRangeUser(1.E-4, 1);
+    hCompWaves[ichan][icomp]->SetLineColor(colors[icomp]);
+    hCompWaves[ichan][icomp]->Draw(icomp == 0 ? "hist" : "hist same");
+  }
+  hModelFullWaves[ichan]->SetLineColor(kBlack);
+  hModelFullWaves[ichan]->SetLineWidth(4);
+  hModelFullWaves[ichan]->GetYaxis()->SetRangeUser(1.E-4, 1);
+  hModelFullWaves[ichan]->Draw("histsames");
+  can->SetLogy();
+  can->BuildLegend();
 }
 
 /**
@@ -245,10 +278,15 @@ TGraph *parameterScan(int thePar)
  */
 void fillFitWave(int ichan, TH1D *hist)
 {
-  std::cout << " fillFitWave " << ichan << "  " << hist->GetName() << std::endl;
+  std::cout << "line 249 fillFitWave " << ichan << "  " << hist->GetName()
+            << " bins " << hist->GetNbinsX() << " bin " << int(theTrigStart) / 2 << std::endl;
   hist->Reset("ICES");
   for (int ib = 1; ib < hist->GetNbinsX(); ++ib)
   {
+    /* debug
+    if (ib > int(theTrigStart / 2.) && ib < int(theTrigStart / 2.) + 100) // example condition to check for a specific bin
+      printf("line 255 in fillFitWave ichan %i sample %i val %E  \n", ichan, ib, fitWave[ichan][ib]);
+      */
     double val = max(fitWave[ichan][ib], 1.E-9);
     hist->SetBinContent(ib, val);
     hist->SetBinError(ib, 0.);
@@ -280,6 +318,7 @@ void fillCompWave(int ichan, int icomp, TH1D *hist)
     hist->GetYaxis()->SetTitle("yield");
     hist->GetXaxis()->SetTitle("time [ns]");
   }
+  hCompWaves[ichan].push_back(hist);
   std::cout << std::endl;
 }
 
@@ -411,6 +450,9 @@ bool openFile(TString fileName)
 void tbFit(int theFitChannel = -2, int theFileNumber = 0)
 {
 
+  hCompWaves.resize(NCHAN);
+  hModelFullWaves.resize(NCHAN);
+
   // Initialize histogram vectors for all channels
   hffit.resize(NCHAN);
   hmodel.resize(NCHAN);
@@ -534,19 +576,25 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   //  FIT PARAMETER INITIALIZATION
   // ============================================================================
   printf("using max bin chan 9 for trigstart %f\n", 2. * hnorm[9]->GetMaximumBin());
-  double theTrigStart = 1200; // 2. * hnorm[9]->GetMaximumBin() - 10. * tResolution; ///< Trigger timing offse
+  theTrigStart = 2. * hnorm[9]->GetMaximumBin() - 10. * tResolution; ///< Trigger timing offse
 
   printf("trigstart %f\n", theTrigStart);
   // Set initial guesses for all fit parameters
   vstart[NORM] = startNorm;         ///< Photon yield per event
   vstart[TRIGSTART] = theTrigStart; ///< Trigger timing offset
   // for Gamma I_s/I_t=0.3
-  vstart[SFRAC] = 0.23;               ///< Singlet fraction (ref: Segretto 2021)
-  vstart[PPM] = dopant;               ///< Dopant concentration
-  vstart[TAU3] = tTriplet0;           ///< Triplet decay time
-  vstart[TAUM] = 4700.0;              ///< Mixed component decay time
-  vstart[BKGCONST] = 0.0;             ///< Constant background rate
-  vstart[KXCONST] = 1.0;              ///< Rate of transfer to mixed state
+  vstart[SFRAC] = 0.23;     ///< Singlet fraction (ref: Segretto 2021)
+  vstart[PPM] = dopant;     ///< Dopant concentration
+  vstart[TAU3] = tTriplet0; ///< Triplet decay time
+  vstart[TAUM] = 4700.0;    ///< Mixed component decay time
+  vstart[BKGCONST] = 0.0;   ///< Constant background rate
+  vstart[KXCONST] = 1.0;    ///< Rate of transfer to mixed state
+  // radiative
+  vstart[R2CONST] = r2ConstDefault;
+  vstart[R3CONST] = r3ConstDefault;
+  vstart[C1CONST] = C1ConstDefault;
+  vstart[ABSORB1CONST] = absorb1ConstDefault;
+
   vstart[THECHANNEL] = theFitChannel; ///< Channel selection flag
   printf("starting parameter values \n");
   for (int ip = 0; ip < NPARS; ++ip)
@@ -576,58 +624,89 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
 
   // fix channel
   arglist[0] = THECHANNEL + 1; // channel
+  printf("\t fix THECHANNEL %.0f \n", arglist[0]);
   gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
-  arglist[0] = TRIGSTART + 1;           // trigger
-                                        // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
-  arglist[1] = 1.0 * vstart[TRIGSTART]; // low
-  arglist[2] = 10. * vstart[TRIGSTART]; // high
-  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  arglist[0] = TRIGSTART + 1; // trigger
+  printf("\t fix TRIGSTART %.0f \n", arglist[0]);
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+  // arglist[1] = 1.0 * vstart[TRIGSTART]; // low
+  // arglist[2] = 10. * vstart[TRIGSTART]; // high
+  //  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
   arglist[0] = BKGCONST + 1; // par
-  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+  printf("\t fix BKGCONST %.0f \n", arglist[0]);
+  gMinuit->mnexcm("FIX BKGCONST", arglist, 1, ierflg);
+
+  arglist[0] = R2CONST + 1; // par
+  printf("\t fix R2ONST %.0f \n", arglist[0]);
+  gMinuit->mnexcm("FIX R2CONST", arglist, 1, ierflg);
+
+  arglist[0] = R3CONST + 1; // par
+  printf("\t fix R3ONST %.0f \n", arglist[0]);
+  gMinuit->mnexcm("FIX R3CONST", arglist, 1, ierflg);
+
+  arglist[0] = C1CONST + 1;             // par
+  arglist[1] = 1.E-1 * vstart[C1CONST]; // low
+  arglist[2] = 1.E4 * vstart[C1CONST];  // high
+  printf("\t SET C1CONST %.0f from %.3E to %.3E \n", arglist[0], arglist[1], arglist[2]);
+  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
   arglist[0] = KXCONST + 1; // par
-  // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
-  arglist[1] = -1.0 * vstart[KXCONST];  // low
-  arglist[2] = 1000. * vstart[KXCONST]; // high
+  printf("\t FIX KXCONST %.0f \n", arglist[0]);
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+  // arglist[1] = 1.E-1 * vstart[KXCONST]; // low
+  // arglist[2] = 1.E4 * vstart[KXCONST];  // high
   // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
-  gMinuit->mnexcm("FIX", arglist, 3, ierflg);
-  // arglist[0] = SFRAC + 1; // kp
-  // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+  //  arglist[0] = SFRAC + 1; // kp
+  //  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
   // Set bounds for variable parameters to restrict optimization domain
   arglist[0] = NORM + 1;            // par
   arglist[1] = 0.01 * vstart[NORM]; // low
   arglist[2] = 10. * vstart[NORM];  // high
   gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  printf("\t set LIM  %.0f \n", arglist[0]);
   // gMinuit->mnexcm("FIX", arglist, 3, ierflg);
 
   arglist[0] = SFRAC + 1;     // par
   arglist[1] = vstart[SFRAC]; // low
   arglist[2] = vstart[SFRAC];
+  printf("\t FIX SFRAC %.0f \n", arglist[0]);
   // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
-  gMinuit->mnexcm("FIX", arglist, 3, ierflg);
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
   // set limits ... here par starts with 1 so add 1
   arglist[0] = TAU3 + 1;         // par
   arglist[1] = 0.01 * tTriplet0; // low
   arglist[2] = 2.0 * tTriplet0;  // high
   // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  printf("\t fix TAU3 %.0f \n", arglist[0]);
   gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
   // set limits ... here par starts with 1 so add 1
-  arglist[0] = PPM + 1; // par
-  arglist[1] = 0.0;     // low
-  arglist[2] = 50.0;    // high
-  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
-  // gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+  arglist[0] = PPM + 1;     // par
+  arglist[1] = vstart[PPM]; // low
+  printf("\t fix PPM %.0f \n", arglist[0]);
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+  // arglist[1] = 1.0E-15; // low
+  // arglist[2] = 50.0;    // high
+  // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
   arglist[0] = TAUM + 1;     // par tau mixed
   arglist[1] = 0.01 * tMix0; // low
   arglist[2] = 10. * tMix0;  // high
   // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
-  gMinuit->mnexcm("FIX", arglist, 3, ierflg);
+  printf("\t fix TAUM %.0f \n", arglist[0]);
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+
+  arglist[0] = ABSORB1CONST + 1;           // par tau mixed
+  arglist[1] = 0.01 * absorb1ConstDefault; // low
+  arglist[2] = 1.E9 * absorb1ConstDefault; // high
+  // printf("\t set LIM ABSORB1 %.0f from %.3E to %.3E\n", arglist[0], arglist[1], arglist[2]);
+  // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  printf("\t FIX ABSORB1 %.0f \n", arglist[0]);
+  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
   // ============================================================================
   //  VERIFICATION AND MINIMIZATION
@@ -708,10 +787,12 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
       hFit->SetLineColor(colors[ic]);
       hfitModel[ic] = hFit;
       fillFitWave(ic, hFit);
+      hModelFullWaves[ic] = hFit;
     }
   }
   else // only 1 channel
   {
+    printf("tbFit: filling fitWave for channel %i \n", theFitChannel);
     TH1D *hFit = (TH1D *)hnorm[theFitChannel]->Clone(Form("fitWaveFitChan%i", theFitChannel));
     hFit->Reset("ICES");
     hFit->SetTitle((Form("fitWaveFitChan%i %.3fPPM", theFitChannel, dopant)));
@@ -720,6 +801,7 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
     hFit->SetLineColor(colors[theFitChannel]);
     hfitModel[theFitChannel] = hFit;
     fillFitWave(theFitChannel, hFit);
+    hModelFullWaves[theFitChannel] = hFit;
   }
 
   // Create subdirectory in output file for component decomposition histograms
@@ -805,7 +887,18 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   }
 
   // printf(" shift %.2f peak curve chan 9 %d peak fit %d ns \n", shift, 2 * hcurve[9]->GetMaximumBin(), 2 * hffit[9]->GetMaximumBin());
-
+  for (int ichan = 0; ichan < NCHAN; ++ichan)
+  {
+    for (int icomp = 0; icomp < hCompWaves[ichan].size(); ++icomp)
+    {
+      if (hCompWaves[ichan][icomp])
+      {
+        printf("tbDraw chan %i comp %i name %s \n", ichan, icomp, hCompWaves[ichan][icomp]->GetName());
+      }
+    }
+  }
+  if (theFitChannel > 0)
+    plotComponents(theFileNumber, theFitChannel); // ifile,ichan
   fout->Write();
   printf("\n...  finished tbFit \n");
 }
