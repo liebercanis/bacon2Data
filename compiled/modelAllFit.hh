@@ -1,8 +1,12 @@
-//  file with fit fcn
-// new version Sept 10 2025
-// the model:
-//    arXiv:2009.10755v4 [physics.ins-det] 18 Jul 2022
-// time is in nanoseconds
+/******************************************************
+ file with fit fcn
+ new version Sept 10 2025
+ the model:
+    arXiv:2009.10755v4 [physics.ins-det] 18 Jul 2022
+ time is in nanoseconds
+ add in radiative component Aug 28 2026
+ Agnes et al arXiv:2410.22863v2
+*******************************************************/
 #include "TString.h"
 #include "TF1.h"
 #include "TH1.h"
@@ -17,6 +21,8 @@ enum
   XENONCOMP,
   MIXEDCOMP,
   BKGCOMP,
+  RADIATIVECOMP,
+  VISIBLECOMP,
   NUMCOMP
 };
 // fit parameters
@@ -30,6 +36,10 @@ enum
   TAUM,
   BKGCONST,
   KXCONST,
+  R2CONST,
+  R3CONST,
+  C1CONST,
+  ABSORB1CONST,
   THECHANNEL,
   NPARS
 };
@@ -65,7 +75,14 @@ static double kxZero = 2.9 * kUnit0; // kx in the paper diffusion limited reacti
 //
 static double LY = 41.; // Doke, April 2009 https://arxiv.org/abs/0910.4956v1
 // LEGEND value 25.6;                              //  photons/kev LEGEND number , ref see Doke
-static double nPhotons = 60. * LY; // 60 keV gamma
+static double nPhotons = 60. * LY;                  // 60 keV gamma
+static double visibleYield = 0.2;                   // photons/keV
+static double nPhotonsVisible = 60. * visibleYield; //
+/* from Bondar arXiv:2202.09*/
+static double r2ConstDefault = 3.76E-5;
+static double r3ConstDefault = 1.95E-4;
+static double C1ConstDefault = 0.09;
+static double absorb1ConstDefault = 2568.0;
 //
 static int iTrigger = 729;
 
@@ -126,6 +143,10 @@ static void setParNames() // tousif
   lparNames[TAUM] = TString("taumix");
   lparNames[BKGCONST] = TString("bkgconst");
   lparNames[KXCONST] = TString("kxconst");
+  lparNames[R2CONST] = TString("r2const");
+  lparNames[R3CONST] = TString("r3const");
+  lparNames[C1CONST] = TString("c1onst");
+  lparNames[ABSORB1CONST] = TString("absorb1const");
   lparNames[THECHANNEL] = TString("theChannel");
 }
 
@@ -136,6 +157,8 @@ static void setCompNames() // tousif
   compNames[XENONCOMP] = TString("xenonComp");
   compNames[MIXEDCOMP] = TString("mixedComp");
   compNames[BKGCOMP] = TString("bkgComp");
+  compNames[RADIATIVECOMP] = TString("radiativeComp");
+  compNames[VISIBLECOMP] = TString("visibleComp");
 }
 
 static void setupModelAllFit()
@@ -220,11 +243,12 @@ static double Absorption(double ppm, double dist)
   ppm = max(1.0E-9, ppm);
   double A = 0.0228;
   double C = 0.643;
-  double lambda1 = 2568. * 0.1 / ppm;
+  double lambda1 = absorb1ConstDefault * 0.1 / ppm;
   double lambda2 = 3.38 * 0.1 / ppm;
   double lambda3 = 50.5 * 0.1 / ppm;
   double Tr128 = A * exp(-dist / lambda1) + C * exp(-dist / lambda2) + (1 - A - C) * exp(-dist / lambda3);
-  return 1. - Tr128;
+  // return 1. - Tr128;
+  return 0;
 }
 
 /** exponential convolution with  gaussian time resolution ***/
@@ -237,7 +261,10 @@ static double expGaus(double x, double tau)
   // protect against very small value
   // f = max(f, 1.0E-20);
   if (isnan(f))
-    printf(" !!!! expGaus NAN!! x %f tau %f args %f %f f%E m\n", x, tau, arg1, arg2, f);
+  {
+    printf(" !!!! expGaus NAN!! x %f tau %f args %f %f f%E set to 0 \n", x, tau, arg1, arg2, f);
+    return 0;
+  }
   return f;
 }
 
@@ -260,10 +287,13 @@ static void printModel(int ibin, Double_t *par)
   double x = double(ibin) - xTrigger; // subract trigger sample
   double bw = 2.;                     // ns
   double ppm = max(1.0E-9, par[PPM]);
-  double norm = par[NORM];
+  double norm = par[NORM]; // start is 60*LY;
   double tTriplet = par[TAU3];
   double sfrac = par[SFRAC];
   double tMix = par[TAUM];
+  double rad3 = par[R3CONST];
+  double rad2 = par[R2CONST];
+  double crad = par[C1CONST];
   // double bkg = par[BKGCONST];
 
   double kx = par[KXCONST] * kxZero * ppm;  // rate of tansfer to mixed state
@@ -281,6 +311,7 @@ static void printModel(int ibin, Double_t *par)
 
   double fsChan[NCHAN];
   double ftChan[NCHAN];
+  // double fvisChan[NCHAN];
   double mVal[NCHAN];
   double effChan[NCHAN];
   double abChan[NCHAN];
@@ -329,6 +360,9 @@ static void printModel(int ibin, Double_t *par)
 
     double alpha1 = sfrac * bw * norm * effChan[ic];        // singlet norm N1 in paper
     double alpha3 = (1. - sfrac) * bw * norm * effChan[ic]; // triplet norm N3 in paper
+    double visRatio = visibleYield / LY;
+    double alpha1Vis = visRatio * alpha1; // visible norm Nvis in paper
+    double alpha2Vis = visRatio * alpha1; // visible norm Nvis in paper
     alpha1Chan[ic] = alpha1;
     alpha3Chan[ic] = alpha3;
     // printf("ic %i alpha1 %E alpha3 %E \n", ic, alpha1, alpha3);
@@ -353,6 +387,7 @@ static void printModel(int ibin, Double_t *par)
     double mterm1 = alpha1 * c1 / (l1 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t1));
     double mterm3 = alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
     double fm = (mterm1 + mterm3) / tMix; // mixed
+
     // total light for channel
     mVal[ic] = (fsChan[ic] + ftChan[ic] + fx + fm) * SiPMQE128Ham;
     printf("plotMoedl chan %i ibin %i time %f eff %.2E alpha1 %.2E alpha3 %.2E c1 %.2E c3 %.2E t1  %.2E fs %.2E ft %.2E ft.2E fx %.2E fm %.2E mval%.2E \n", ic, ibin, x, effChan[ic], alpha1, alpha3, c1, c3, t1, fsChan[ic], ftChan[ic], fx, fm, mVal[ic]);
@@ -388,6 +423,10 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
   double tTriplet = par[TAU3];
   double sfrac = par[SFRAC];
   double tMix = par[TAUM];
+  double rad3 = par[R3CONST];
+  double rad2 = par[R2CONST];
+  double c1rad = par[C1CONST];
+  double abs1Const = par[ABSORB1CONST];
 
   // double bkg = par[BKGCONST];
 
@@ -401,7 +440,9 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
      ************  par[THECHANNEL] =-1 for all
      */
     if (par[THECHANNEL] > 0 && ic != par[THECHANNEL])
+    {
       continue;
+    }
 
     if (par[THECHANNEL] == -2)
     { // dont use trigger sipms
@@ -411,7 +452,10 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
 
     /* skip bad channels */
     if (isBadChannel(ic))
+    {
+      printf("fcn skipping bad channel %i \n", ic);
       continue;
+    }
 
     // **** level
     int ilevel = 0; // triggger 9,10,11
@@ -433,13 +477,14 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
      * absorption as a function of distance and xenon concentration.%
      ****/
     double ab = 0.0;
-    if (ppm > 1.0E-9)
-    {
-      double lambda1 = 12.7 * 0.1 / ppm;
-      double lambda2 = 740 * 0.1 / ppm;
-      double Tr128 = 0.615 * exp(-dist / lambda1) + (1 - 0.615) * exp(-dist / lambda2);
-      ab = 1. - Tr128;
-    }
+    double A = 0.0228;
+    double C = 0.643;
+    double lambda1 = abs1Const * 0.1 / ppm;
+    double lambda2 = 3.38 * 0.1 / ppm;
+    double lambda3 = 50.5 * 0.1 / ppm;
+    double Tr128 = A * exp(-dist / lambda1) + C * exp(-dist / lambda2) + (1 - A - C) * exp(-dist / lambda3);
+    ab = 1. - Tr128;
+    ab = 0;
 
     /* geometric efficiencies */
     double fourPi = 2. * TMath::TwoPi();
@@ -454,7 +499,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
 
     // values in samples
     int ilow = 650; //
-    int ihigh = 8000 / 2;
+    int ihigh = 7500;
     // MAXSAMPLE; // singlet MAXSAMPLE;
     //  singlet region
     //  ihigh = 1500;
@@ -476,6 +521,11 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       double kxPrime = kqZero + kx + 1. / tMix;           // k_x^\prime in paper
       double tkxPrime = 1. / kxPrime;                     // corresponding time
 
+      /* visible yield */
+      double visRatio = visibleYield / LY;
+      double alpha1Vis = visRatio * alpha1; // visible norm Nvis in paper
+      double alpha2Vis = visRatio * alpha1; // visible norm Nvis in paper
+
       // convenient rates lambda in paper
       double l1 = 1. / tSinglet0 + kqZero + kx; // lamda 1 in paper
       double l3 = 1. / tTriplet + kqZero + kx;  // lamda 3 in paper
@@ -493,6 +543,17 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       // convoute with resolution using expGaus
       double fs = (1. - ab) * alpha1 / tSinglet0 * expGaus(x, t1); // singlet
       double ft = (1. - ab) * alpha3 / tTriplet * expGaus(x, t3);  // triplet
+      // visible component
+      double fvis = 0.; // visibleYield * norm * effGeo;
+
+      // radiative conpontent
+      double krad3 = rad3 + 1. / tMix;
+      double krad23 = rad2 - krad3;
+      // here time x is nanoseconds
+      double tnano = 2 * x;
+      double pRadiative = rad2 * krad3 / krad23 * TMath::Exp(-krad3 * tnano) * (1. - TMath::Exp(-krad23 * tnano));
+      pRadiative = max(pRadiative, 1.E-9);
+      double frad = c1rad * bw * norm * effGeo * abs(pRadiative);
 
       // xenenon emission x_i terms in paper
       double xterm1 = c1 * kx * alpha1 / (l1 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe0)) / (lX - l1));
@@ -512,12 +573,14 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
         ft = 0;
         fm = 0;
         fx = 0;
+        frad = 0;
       }
       else if (ic == 8) // glass covered sees only  175
       {
         fs = 0;
         ft = 0;
         fm = fm * SiPMQE150;
+        frad = frad * SiPMQE150;
         fx = fx * SiPMQE175;
       }
       else if (ic == 12) // PMT
@@ -525,6 +588,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
         fs = 0;
         ft = 0;
         fm = fm * PMTQE150;
+        frad = frad * SiPMQE150;
         fx = fx * PMTQE175;
       }
       else
@@ -533,59 +597,66 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
         fs = fs * SiPMQE128Ham;
         ft = ft * SiPMQE128Ham;
         fm = fm * SiPMQE150;
+        frad = frad * SiPMQE150;
         fx = fx * SiPMQE175;
       }
 
       // total light for channel and bin ic
       // double mval = fs + ft + fx + fm + lateBkg[ic];
       double mval = fs + ft + fx + fm;
-      // mval = fs + ft;
-      //  for plottting components
+      // printf("line501  model value chan %i sample %i x %E fs %E ft %E fx %E fm %E frad %E mval %E  \n", ic, j, x, fs, ft, fx, fm, frad, mval);
+      //  mval =] fs + ft;
+      //   for plottting components
       fitComp[ic][SINGLETCOMP][j] = fs;
       fitComp[ic][TRIPLETCOMP][j] = ft;
       fitComp[ic][XENONCOMP][j] = fx;
+      fitComp[ic][RADIATIVECOMP][j] = frad;
+      fitComp[ic][VISIBLECOMP][j] = fvis;
       // if (ic == 8 && j == 1500)
       //   printf("....line418 sample %i fx %E \n", j, fx);
       fitComp[ic][MIXEDCOMP][j] = fm;
       // fitComp[ic][BKGCOMP][j] = lateBkg[j];
       //  output fitted function
       fitWave[ic][j] = mval;
-      if (ic == -1 && j == iTrigger)
-      {
-        printf("fcnxxx chan %i j %i time %f eff %.2E alpha1 %.2E alpha3 %.2E c1 %.2E c3 %.2E t1 %.2E fs%.2E ft %.2E ft.2E fx %.2E fm %.2E mval%.2E \n", ic, j, x, effGeo, alpha1, alpha3, c1, c3, t1, fs, ft, fx, fm, mval);
-        printf("fcnxxxx ab %f alpha1 %.2E sfrac %.2E bw %.2E norm %.2E eff %.2E y %.2E expt1 %.3E expt3 %.3E\n", ab, alpha1, sfrac, bw, norm, effGeo, buff[ic][j], expGaus(x, t1), expGaus(x, t3));
-      }
+
+      // printf("line614 modelFitAll chan %i j %i --  fs %E ft %E fx %E fm %E frad %E mval %E \n", ic, j, fs, ft, fx, fm, frad, mval);
 
       /*******/
       if (mval <= 0)
       {
-        // printf("line226 NEGATIVE model value chan %i sample %i x %E fs %E ft %E fx %E fm %E bkg %E set to 0 \n", ic, j, x, fs, ft, fx, fm, bkg);
+        // printf("line563 NEGATIVE model value chan %i sample %i xTrigger %i x %E fs %E ft %E fx %E fm %E bkg %E set to 0 \n", ic, j, j - int(xTrigger / 2.0), x, fs, ft, fx, fm, mval);
         continue;
-      }
+      } /* for bug in not fixed TRIGSTART
+       else if (j > int(xTrigger) / 2 && j < int(xTrigger) / 2 + 100) // example condition to check for a specific bin
+         printf("line567 POSITIVE model value chan %i sample %i xT
+         */
 
       // build the likelihood f to minimize
       double y = buff[ic][j]; // observe)d
       // we do an NLL
       double yterm = 0.0; // in this case Prob=1 so log=0
-      if (y <= 0)         // skip zero bins
+      if (y <= 0)
+      {
+        // skip zero bins
         continue;
+      }
 
       yterm = y - y * log(y);
       if (isnan(yterm))
       {
-        printf("line255  ibin YTERM is NAN chan %i sample  %i f=%E  y = %E fs %E ft %E fx %E fm %E bkg %E \n", ic, j, f, y, fs, ft, fx, fm, lateBkg[j]);
+        printf("line577 ibin YTERM is NAN chan %i sample  %i f=%E  y = %E fs %E ft %E fx %E fm %E bkg %E \n", ic, j, f, y, fs, ft, fx, fm, lateBkg[j]);
       }
       else
       { // sum up NLL as defined ROOT documentation
         f += mval - y * log(mval) - yterm;
-        // printf("line555 modelFitAll chan %i j %i y %E fx %E fm %E mval %E nLL = %E\n", ic, j, y, fx, fm, mval, f);
+        // printf("line555 modelFitAll chan %i j %i y %E fx %E frad %E fm %E mval %E nLL = %E\n", ic, j, y, fx, fm, frad, mval, f);
       }
 
       // ntScan->Fill(par[PPM], fx, f);
       //   leave warnning printout
       if (isnan(f))
       {
-        printf("line265  ibin F is NAN chan %i sample %i f=%E mval = %E x = %E y = %E yterm %E effGeo  %E t1 %E t3 %E fs %E ft %E fx %E fm %E bkg %E \n", ic, j, f, mval, x, y, yterm, effGeo, t1, t3, fs, ft, fx, fm, lateBkg[j]);
+        printf("line265  ibin F is NAN chan %i sample %i f=%E mval = %E x = %E y = %E yterm %E rad3 %E krad23 %E fs %E ft %E fx %E fm %E frad %E \n", ic, j, f, mval, x, y, yterm, rad3, krad23, fs, ft, fx, fm, frad);
       }
     }
 
