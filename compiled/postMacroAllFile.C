@@ -49,8 +49,10 @@ TFile *fin;
 TFile *fout;
 TGraph *gSingletIntegrals;
 TGraph *gLateIntegrals;
+TGraph *gTotalIntegrals;
 std::vector<double> singletIntegral;
 std::vector<double> lateIntegral;
+std::vector<double> totalIntegral;
 std::vector<TString> codeNames;
 std::vector<int> failCodes;
 std::vector<TString> bitNames;
@@ -61,6 +63,7 @@ std::vector<TH1D *> hcurve;
 double rayleighLength = 99.;
 double ppm = 0.15;
 
+TH1D *hEvGaus;
 TReadGains *readGains;
 std::vector<double> absorptionFactor;
 std::vector<double> rayleighAtten;
@@ -117,12 +120,38 @@ if (!isSimulation)
         */
 }
 
+/* include sipm efficiency Sept 9 2026*/
 void makeEffNorm(int i)
 {
-    double baseline = hnorm[i]->Integral(0, 600) / 600.; // sum bin range
+    int maxIntBin = 400;
+    double baseline = hnorm[i]->Integral(0, maxIntBin) / double(maxIntBin); // sum bin range
+    /* mode histograms */
+    delete hEvGaus;
+    // not saved hand tune range and number of bins
+    hEvGaus = new TH1D(Form("evGausChan%i", i), Form("evGausChan%i", i), 100, -20. * baseline, 20. * baseline); // bins are ADC counts
+    hEvGaus->SetDirectory(nullptr);
+    for (unsigned ibin = 0; ibin < maxIntBin; ++ibin)
+    {
+        if (hnorm[i]->GetBinContent(ibin) == 0)
+            continue;
+        hEvGaus->Fill(hnorm[i]->GetBinContent(ibin) - baseline);
+        // printf("chan %i ibin %i val %.3E base %.3E diff %.3E \n", i, ibin, hnorm[i]->GetBinContent(ibin), baseline, hnorm[i]->GetBinContent(ibin) - baseline);
+    }
+    TH1D *hEvGausClone = (TH1D *)hEvGaus->Clone(Form("evGausCloneChan%i", i));
+    // get the distribution mode
+    int maxGausBin = hEvGaus->GetMaximumBin();
+    double baselineMode = hEvGaus->GetBinCenter(maxGausBin);
+    // subtract off the mode from the baseline
+    baseline += baselineMode;
+    // printf("line 136 chan %i baseline %.3E max %i mode %.3E \n", i, baseline, maxGausBin, baselineMode);
+    /*
+    TFitResultPtr fitPointer = hnorm[i]->Fit("pol0", "SQ", "", 0, maxIntBin);
+    double baselineFit = fitPointer->Parameter(0);
+    */
+
     // double corr = 1. / relativeEff[i] / effGeoFunc(i) / rayleighAtten[i] / absorptionFactor[i];
-    double corr = 1. / effGeoFunc(i) / readGains->relativeNorm[i];
-    printf("chan%i  integral %.3E base %.3E geo %.3E abs %.3E corr %.3E \n", i, hnorm[i]->Integral(), baseline, effGeoFunc(i), absorptionFactor[i], corr);
+    double corr = 1. / effGeoFunc(i) / readGains->relativeNorm[i] / SiPMQE128Ham;
+    // printf("chan%i  integral %.3E base %.3E geo %.3E abs %.3E corr %.3E \n", i, hnorm[i]->Integral(), baseline, effGeoFunc(i), absorptionFactor[i], corr);
     hGeoNorm[i] = (TH1D *)hnorm[i]->Clone(Form("GeoNormChan%i", i));
     hRayleighNorm[i] = (TH1D *)hnorm[i]->Clone(Form("RayleighNormChan%i", i));
     hEffNorm[i] = (TH1D *)hnorm[i]->Clone(Form("effNormChan%i", i));
@@ -132,11 +161,12 @@ void makeEffNorm(int i)
         double val = hnorm[i]->GetBinContent(ibin) - baseline;
         val = max(val, 0.); // avoid negative values
         //      *absorptionFactor[i];
-        hGeoNorm[i]->SetBinContent(ibin, val / effGeoFunc(i));
-        hRayleighNorm[i]->SetBinContent(ibin, val / effGeoFunc(i) / rayleighAtten[i]);
+        hGeoNorm[i]->SetBinContent(ibin, val / effGeoFunc(i) / SiPMQE128Ham);
+        hRayleighNorm[i]->SetBinContent(ibin, val / effGeoFunc(i) / rayleighAtten[i] / SiPMQE128Ham);
         hEffNorm[i]->SetBinContent(ibin, val * corr);
         hEffNorm[i]->SetBinError(ibin, hnorm[i]->GetBinError(ibin) * corr);
     }
+    printf("line 142 NORM chan %i dist %f geo %.3E baseline %.3E mode %.3E corr %.3E LightNorm integral  %.3E hnormintegral600 %.3E EffNorm integral600 %.3E  EffNorm integral %.3E \n", i, distanceLevel[getLevel(i)], effGeoFunc(i), baseline, baselineMode, corr, hnorm[i]->Integral(), hnorm[i]->Integral(0, 600), hEffNorm[i]->Integral(0, 600), hEffNorm[i]->Integral());
 }
 
 // Color palette with 12 distinct colors for plotting
@@ -335,6 +365,9 @@ void postMacroAllFile(unsigned theFile = 0)
     ifile = theFile;
     fout = new TFile(Form("postMacroAllFile%i.root", ifile), "recreate");
 
+    //  fileList.push_back("post-anaCRun-run-10_30_2025-file_9.root");
+    // fileList.push_back("post-anaCRun-btbSimNEW-run-09_08_2026-1000-PPM-30000.root");
+
     fileList.push_back("post-04_16_2026-04_16_2026-10281297.root");
     fileList.push_back("post-04_24_2026-04_24_2026-10341507.root");
     fileList.push_back("post-04_28_2026-04_28_2026-11344902.root");
@@ -382,7 +415,7 @@ void postMacroAllFile(unsigned theFile = 0)
         return;
     }
     // collect histograms from this file
-    for (unsigned ichan = 0; ichan < 13; ++ichan)
+    for (unsigned ichan = 0; ichan < NCHAN; ++ichan)
     {
         TString histName = Form("LightNormChan%i", ichan);
         hnorm.push_back(getHistFromFile(histName));
@@ -452,16 +485,18 @@ void postMacroAllFile(unsigned theFile = 0)
     //    printf("code %i %x name %s \n", ic, ic, codeNames[ic].Data());
 
     getOtherEffCorrections();
+    /*
     for (unsigned i = 0; i < 13; ++i)
         printf("chan %u Rayleigh %.3E relative eff %.3E   \n", i, rayleighAtten[i], relativeEff[i]);
     printf("file %u makeEffHistos \n", ifile);
+    */
 
     // clone and normalize to geometric efficiency
     // cd into fout so Clone() places new histograms in fout, not fin
     fout->cd();
-    hGeoNorm.resize(13);
-    hRayleighNorm.resize(13);
-    hEffNorm.resize(13);
+    hGeoNorm.resize(NCHAN);
+    hRayleighNorm.resize(NCHAN);
+    hEffNorm.resize(NCHAN);
     for (unsigned i = 0; i < hEffNorm.size(); ++i)
     {
         if (!hnorm[i])
@@ -536,6 +571,7 @@ void postMacroAllFile(unsigned theFile = 0)
     // fill integral arrays
     singletIntegral.resize(NCHAN);
     lateIntegral.resize(NCHAN);
+    totalIntegral.resize(NCHAN);
     for (int i = 0; i < NCHAN; ++i)
     {
         // integral is over bins
@@ -544,7 +580,8 @@ void postMacroAllFile(unsigned theFile = 0)
         // Integral(Int_t binx1, Int_t binx2, Option_t *option="") const
         singletIntegral[i] = hEffNorm[i]->Integral(earlyBin, lateBin);
         lateIntegral[i] = hEffNorm[i]->Integral(lateBin, 3000 / 2);
-        printf("line546 chan %i singlet %E \n", i, singletIntegral[i]);
+        totalIntegral[i] = hEffNorm[i]->Integral(0, 15000 / 2);
+        printf("line546 chan %i singlet %E late %E total %E \n", i, singletIntegral[i], lateIntegral[i], totalIntegral[i]);
         //  singletIntegral[i] = hGeoNorm[i]->Integral(0., 1400.);
         //  lateIntegral[i] = hGeoNorm[i]->Integral(1400., 3500.);
 
@@ -562,6 +599,7 @@ void postMacroAllFile(unsigned theFile = 0)
 
     gSingletIntegrals = new TGraph(NCHAN, &xchan[0], &singletIntegral[0]);
     gLateIntegrals = new TGraph(NCHAN, &xchan[0], &lateIntegral[0]);
+    gTotalIntegrals = new TGraph(NCHAN, &xchan[0], &totalIntegral[0]);
 
     gSingletIntegrals->SetName(Form("gSingletIntegralsFile%i", theFile));
     gSingletIntegrals->SetTitle(Form("gSingletIntegralsFile%i", theFile));
@@ -571,17 +609,24 @@ void postMacroAllFile(unsigned theFile = 0)
     gLateIntegrals->SetTitle(Form("gLateIntegralsFile%i", theFile));
     fout->Append(gLateIntegrals);
 
+    gTotalIntegrals->SetName(Form("gTotalIntegralsFile%i", theFile));
+    gTotalIntegrals->SetTitle(Form("gTotalIntegralsFile%i", theFile));
+    fout->Append(gTotalIntegrals);
+
     // to fix the scale for the double Draw, use TMultiGraph
 
-    TCanvas *cintegral = new TCanvas(Form("integrals%s", tag.Data()), Form("integral%s", tag.Data()));
+    TCanvas *cintegral = new TCanvas(Form("total-integrals-%s", tag.Data()), Form("integral%s", tag.Data()));
     gSingletIntegrals->GetHistogram()->GetXaxis()->SetTitle("channel");
     gSingletIntegrals->GetHistogram()->GetYaxis()->SetTitle("integral value");
     gLateIntegrals->GetHistogram()->GetXaxis()->SetTitle("channel");
     gLateIntegrals->GetHistogram()->GetYaxis()->SetTitle("integral value");
+    gTotalIntegrals->GetHistogram()->GetXaxis()->SetTitle("channel");
+    gTotalIntegrals->GetHistogram()->GetYaxis()->SetTitle("integral value");
     gSingletIntegrals->SetMarkerStyle(21);
     gLateIntegrals->SetMarkerStyle(22);
-    gLateIntegrals->Draw("ap");
-    gSingletIntegrals->Draw("psame");
+    gTotalIntegrals->SetMarkerStyle(22);
+    gTotalIntegrals->Draw("ap");
+    // gSingletIntegrals->Draw("psame");
     cintegral->SetLogx();
     cintegral->BuildLegend();
 
@@ -634,5 +679,5 @@ void postMacroAllFile(unsigned theFile = 0)
     // without deleting the objects; the canvases become the sole owners.
     fout->GetList()->Clear();
     fin->Close();
-    fout->Close();
+    // fout->Close();
 }
