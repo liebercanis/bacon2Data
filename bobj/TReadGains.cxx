@@ -27,22 +27,95 @@ ClassImp(TReadGains)
 
     readPeakGains();
     readSumGains();
-    relativeEff.resize(NUMCHANNELS);
+    relativeLEDEff.resize(NUMCHANNELS);
     // from LED run as eff_i - mean
     // devide to correct
-    relativeEff[0] = 1. + 0.245877;
-    relativeEff[1] = 1. + 0.0567434;
-    relativeEff[2] = 1. + 0.21173;
-    relativeEff[3] = 1. - 0.217802;
-    relativeEff[4] = 1. + 0.274232;
-    relativeEff[5] = 1. + 0.00278381;
-    relativeEff[6] = 1. - 0.359765;
-    relativeEff[7] = 1. - 0.184547;
-    relativeEff[8] = 1. - 0.0292534;
-    relativeEff[9] = 1.0;
-    relativeEff[10] = 1.0;
-    relativeEff[11] = 1.0;
-    relativeEff[12] = 1.0;
+    relativeLEDEff[0] = 1. + 0.245877;
+    relativeLEDEff[1] = 1. + 0.0567434;
+    relativeLEDEff[2] = 1. + 0.21173;
+    relativeLEDEff[3] = 1. - 0.217802;
+    relativeLEDEff[4] = 1. + 0.274232;
+    relativeLEDEff[5] = 1. + 0.00278381;
+    relativeLEDEff[6] = 1. - 0.359765;
+    relativeLEDEff[7] = 1. - 0.184547;
+    relativeLEDEff[8] = 1. - 0.0292534;
+    relativeLEDEff[9] = 1.0;
+    relativeLEDEff[10] = 1.0;
+    relativeLEDEff[11] = 1.0;
+    relativeLEDEff[12] = 1.0;
+
+    // relativeEff from zero PPM run
+    relativeEff.resize(NUMCHANNELS);
+    for (unsigned i = 0; i < relativeEff.size(); ++i)
+        relativeEff[i] = 1;
+
+    // with 0.15 PPM
+    relativeEff[1] = 1.0 + -0.320668;
+    relativeEff[2] = 1.0 + 0.127058;
+    relativeEff[3] = 1.0 + 0.034291;
+    relativeEff[4] = 1.0 + 0.081117;
+    relativeEff[5] = 1.0 + -0.022577;
+    relativeEff[6] = 1.0 + 0.051182;
+    relativeEff[7] = 1.0 + 0.049597;
+    relativeEff[9] = 1.0 + 2.050647;
+    relativeEff[10] = 1.0 + 2.223320;
+    relativeEff[11] = 1.0 + 1.981977;
+    relativeEff[12] = 1.0 + -0.853489;
+
+    // with 0.05 PPM
+    /*
+    relativeEff[1] = 1. + -0.312058;
+    relativeEff[2] = 1. + 0.141342;
+    relativeEff[3] = 1. + 0.002901;
+    relativeEff[4] = 1. + 0.048306;
+    relativeEff[5] = 1. + -0.052241;
+    relativeEff[6] = 1. + 0.086694;
+    relativeEff[7] = 1. + 0.085056;
+    relativeEff[9] = 1. + 3.337998;
+    relativeEff[10] = 1. + 3.583538;
+    relativeEff[11] = 1. + 3.240349;
+    relativeEff[12] = 1. + -0.839874;
+    */
+
+    /*
+        0 PPM
+        //relativeEff[0] = 1. + -0.832702;
+        relativeEff[1] = 1. + -0.421601;
+        relativeEff[2] = 1. + -0.040397;
+        relativeEff[3] = 1. + -0.022906;
+        relativeEff[4] = 1. + 0.021330;
+        relativeEff[5] = 1. + -0.076629;
+        relativeEff[6] = 1. + 0.271060;
+        relativeEff[7] = 1. + 0.269144;
+        //relativeEff[8] = 1. + -0.922346;
+        relativeEff[9] = 1. + 5.393614;
+        relativeEff[10] = 1. + 5.755505;
+        relativeEff[11] = 1. + 5.249692;
+        relativeEff[12] = 1. + -0.881690;
+        */
+
+    relativeNorm.resize(NUMCHANNELS);
+    for (unsigned i = 0; i < relativeNorm.size(); ++i)
+        relativeNorm[i] = 1;
+
+    /** from limit range fit  old
+    relativeNorm[0] = 1.0 + 2.203244;
+    relativeNorm[2] = 1.0 + -0.045537;
+    relativeNorm[3] = 1.0 + -0.106738;
+    relativeNorm[4] = 1.0 + -0.137989;
+    relativeNorm[5] = 1.0 + -0.204397;
+    relativeNorm[6] = 1.0 + 0.151084;
+    relativeNorm[7] = 1.0 + 0.152126;
+    */
+    // after baseline mode subtraction sept 15 2026 skip channels 0, 8
+
+    relativeEff[1] = 1. + -0.446354;
+    relativeEff[2] = 1. + -0.076883;
+    relativeEff[3] = 1. + -0.030821;
+    relativeEff[4] = 1. + 0.017561;
+    relativeEff[5] = 1. + -0.090557;
+    relativeEff[6] = 1. + 0.316456;
+    relativeEff[7] = 1. + 0.310597;
 
     printGains();
 }
