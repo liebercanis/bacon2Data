@@ -1879,11 +1879,12 @@ void btb(int ngen = 10000000, double thePPM = 30.)
   for (int ich = 0; ich < 13; ++ich)
     printf(" effScaleFactor[%i] = %.3E ;\n", ich, hGeoEff[ich]->GetMean());
 
-  printf("efficiencies:\n");
+  printf("efficiencies and sum:\n");
   for (int ich = 0; ich < NCHAN; ++ich)
   {
     double eff = effGeoFunc(ich) * SiPMQE128Ham;
-    printf("\t channel %i chanEff %.2E nominal eff %.2E ratio %.3E \n", ich, chanEff[ich], eff, chanEff[ich] / eff);
+    printf("\t channel %i chanEff %.2E nominal eff %.2E ratio %.3E photonSum %.3f   \n", ich, chanEff[ich], eff, chanEff[ich] / eff, hPhotonSum[ich]->Integral());
+    // hSignalSumNoBaseline[ich]->Integral(), hSignalNorm[ich]->Integral(), hSignalEff[ich]->Integral());
   }
 
   printf("********* end of btb with ngen %i triggers %i rawRun %i LY %.2f coincidence %.3f rate %.3f Hz ********\n", ngen, nTrigger, int(rawRun->btree->GetEntries()), LY, maxTriggerTimeDifference, trigRate);

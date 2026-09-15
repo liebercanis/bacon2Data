@@ -13,15 +13,21 @@ TString fileName;
 TGraph *gr;
 vector<TGraph *> gsinglet;
 vector<TGraph *> glate;
+vector<TGraph *> gtotal;
 vector<double> ppmFile;
 vector<vector<double>> absorb;
-vector<vector<double>> singletVal;
 vector<vector<double>> modelSingletVal;
 vector<vector<double>> modelLateVal;
+vector<vector<double>> modelTotalVal;
+vector<vector<double>> singletVal;
 vector<vector<double>> lateVal;
+vector<vector<double>> totalVal;
+vector<vector<TH1D *>> hEffNormByFile;   // by [file][channel]
+vector<vector<double>> singletValByFile; // by [file][channel]
 
 void makeIntegralGraphs()
 {
+
     ppmFile.push_back(0.001);
     ppmFile.push_back(0.01);
     ppmFile.push_back(0.03);
@@ -33,6 +39,14 @@ void makeIntegralGraphs()
     ppmFile.push_back(2.);
     ppmFile.push_back(5.);
     ppmFile.push_back(10.);
+
+    hEffNormByFile.resize(ppmFile.size());
+    singletValByFile.resize(ppmFile.size());
+    for (int i = 0; i < ppmFile.size(); ++i)
+    {
+        hEffNormByFile[i].resize(NCHAN);   // number of channels
+        singletValByFile[i].resize(NCHAN); // number of channels
+    }
 
     // Initialize model parameters and optical properties from modelAllFit.hh
     setupModelAllFit();
@@ -77,13 +91,20 @@ void makeIntegralGraphs()
         // cout << " got graph " << gr->GetName() << endl;
         fout->Add(gr);
         glate.push_back(gr);
+
+        graphName.Form("gTotalIntegralsFile%i", ifile);
+        fin->GetObject(graphName, gr);
+        // cout << " got graph " << gr->GetName() << endl;
+        fout->Add(gr);
+        gtotal.push_back(gr);
         fin->Close();
     }
-    printf("line 81 ppm file %li gsinglet %li glate %li \n", ppmFile.size(), gsinglet.size(), glate.size());
+    printf("line 81 ppm file %li gsinglet %li gtotal %li \n", ppmFile.size(), gsinglet.size(), gtotal.size());
     // fout->ls();
     modelSingletVal.resize(gsinglet[0]->GetN()); // number of channels
     modelLateVal.resize(glate[0]->GetN());       // number of channels
-    for (int ifile = 0; ifile < 11; ++ifile)
+    modelTotalVal.resize(glate[0]->GetN());      // number of channels
+    for (int ifile = 0; ifile < ppmFile.size(); ++ifile)
     {
         fileName.Form("tbModelPPM%0.3f.root", ppmFile[ifile]);
         // printf("open %s \n", fileName.Data());
@@ -99,6 +120,7 @@ void makeIntegralGraphs()
                 printf("cannot get %s from %s \n", histName.Data(), fileName.Data());
                 modelSingletVal[ichan].push_back(0);
                 modelLateVal[ichan].push_back(0);
+                modelTotalVal[ichan].push_back(0);
                 continue;
             }
             // TH1D *hcopy = (TH1D *)hist->Clone(Form("fitWaveFitChan%iFile%i", ichan, ifile));
@@ -109,16 +131,50 @@ void makeIntegralGraphs()
             // printf("get %s \n", hist->GetName());
             double singletIntegral = hist->Integral(earlyBin, lateBin);
             double lateIntegral = hist->Integral(lateBin, 3000 / 2);
+            double totalIntegral = hist->Integral(earlyBin, 15000 / 2);
             modelSingletVal[ichan].push_back(singletIntegral);
             modelLateVal[ichan].push_back(lateIntegral);
+            modelTotalVal[ichan].push_back(totalIntegral);
 
-            // printf("line 106 chan %i file %i PPM %.3f singlet integral %.3E late integral %.3E model singlet %.3E size %lu \n", ichan, ifile, ppmFile[ifile], singletIntegral, lateIntegral, modelSingletVal[ichan].back(), modelSingletVal[ichan].size());
-            // int jfile = modelSingletVal[ichan].size() - 1;
-            // printf("\t line 109 modelSingletVal ich %i ifile %i val %f \n", ichan, jfile, modelSingletVal[ichan][jfile]);
-            //  hist->SetLineColor(ifile + 1);
-            //  fout->Add(hist);
+            // printf("line128 !!!!!! chan %i file %i PPM %.3f singlet integral %.3E late integral %.3E total integral%.3E !!!!!!\n", ichan, ifile, ppmFile[ifile], singletIntegral, lateIntegral, totalIntegral);
+            //  int jfile = modelSingletVal[ichan].size() - 1;
+            //  printf("\t line 109 modelSingletVal ich %i ifile %i val %f \n", ichan, jfile, modelSingletVal[ichan][jfile]);
+            //   hist->SetLineColor(ifile + 1);
+            //   fout->Add(hist);
         }
         fin->Close();
+    }
+    /* pick up normalized Light Curves*/
+    for (int ifile = 0; ifile < ppmFile.size(); ++ifile)
+    {
+        fileName.Form("postMacroAllFile%i.root", ifile);
+        TFile *fin = new TFile(fileName, "readonly");
+        for (int ichan = 0; ichan < NCHAN; ++ichan)
+        {
+            TString histName;
+            TH1D *hist = nullptr;
+            histName.Form("effNormChan%iFile%i", ichan, ifile);
+            fin->GetObject(histName, hist);
+            if (hist != nullptr)
+            {
+                hist->SetDirectory(0); // detach so it survives fin->Close()
+            }
+            else
+            {
+                printf("line 166 file %i chan %i hist %s not found \n", ifile, ichan, histName.Data());
+            }
+            hEffNormByFile[ifile][ichan] = hist;
+        }
+        fin->Close();
+    }
+    for (int ifile = 0; ifile < ppmFile.size(); ++ifile)
+    {
+        printf("line 172 file %i \n", ifile);
+        for (int ichan = 0; ichan < NCHAN; ++ichan)
+        {
+            printf("line 175 file %i chan %i hist %s integral %.3f \n", ifile, ichan, hEffNormByFile[ifile][ichan]->GetName(), hEffNormByFile[ifile][ichan]->Integral());
+            fout->Add(hEffNormByFile[ifile][ichan]);
+        }
     }
 
     // printf("modelSingletVal size %lu \n", modelSingletVal.size());
@@ -149,6 +205,7 @@ void makeIntegralGraphs()
                 continue;
             gsinglet[ifile]->GetPoint(ic, x, y);
             singletVal[ic].push_back(y);
+            singletValByFile[ifile][ic] = y;
             printf("line150 file %i ic %i PPM %f point %lu singlet %f\n", ifile, ic, ppmFile[ifile], singletVal[ic].size() - 1, singletVal[ic].back());
         }
     }
@@ -178,6 +235,21 @@ void makeIntegralGraphs()
     }
     printf("line111 late  val size %lu\n", lateVal.size());
 
+    totalVal.resize(gtotal[0]->GetN());          // number of channels
+    for (unsigned i = 0; i < gtotal.size(); ++i) // loop over all files
+    {
+        Double_t x, y;
+        for (int ich = 0; ich < gtotal[i]->GetN(); ++ich) // loop over channels
+        {
+            if (ich == 0)
+                continue;
+            gtotal[i]->GetPoint(ich, x, y);
+            totalVal[ich].push_back(y);
+            printf("line204 file %i ich %i PPM %f total %f \n", i, ich, ppmFile[i], totalVal[ich].back());
+        }
+    }
+    printf("line111 total  val size %lu\n", totalVal.size());
+
     // get singlet integrals from model make graphs for each level
     /* setup multigraph singlet*/
     TGraph *singletPPM;
@@ -198,10 +270,20 @@ void makeIntegralGraphs()
         printf("level %i %s \n", ilevel, mgLate[ilevel]->GetName());
     }
 
+    TGraph *totalPPM;
+    TMultiGraph *mgTotal[4]; // one for each level
+    for (int ilevel = 0; ilevel < 4; ++ilevel)
+    {
+        mgTotal[ilevel] = new TMultiGraph(Form("mgTotalLevel%i", ilevel), Form("Total Integrals level %i vs PPM", ilevel));
+        mgTotal[ilevel]->SetName(Form("mgTotalLevel%i", ilevel));
+        printf("level %i %s \n", ilevel, mgTotal[ilevel]->GetName());
+    }
+
     /*
         make model graphs
     */
 
+    /* scale singlet model graph */
     for (int ich = 0; ich < modelSingletVal.size(); ++ich)
     {
         if (ich == 0)
@@ -218,7 +300,7 @@ void makeIntegralGraphs()
         }
     }
 
-    /* late integral has to be compared do model no (1-A) */
+    /* scale late integral has to be compared do model no (1-A) */
     for (int ich = 0; ich < modelLateVal.size(); ++ich)
     {
         if (ich == 0)
@@ -232,6 +314,23 @@ void makeIntegralGraphs()
         { // loop over files}
             modelLateVal[ich][ifile] = modelLateVal[ich][ifile] * ratio;
             // printf("line 151 modelLateVal ifile %i ppm %.3f modelLateVal %f  \n", ifile, ppmFile[ifile], modelLateVal[ich][ifile]);
+        }
+    }
+
+    /* scale total integral has to be compared do model no (1-A) */
+    for (int ich = 0; ich < modelTotalVal.size(); ++ich)
+    {
+        if (ich == 0)
+            continue;
+        printf("line 149 modelTotalVal ich %i size %lu \n", ich, modelTotalVal[ich].size());
+        if (modelTotalVal[ich].size() == 0)
+            continue;
+        /* normalize */
+        double ratio = totalVal[ich][0] / modelTotalVal[ich][0];
+        for (int ifile = 0; ifile < modelTotalVal[ich].size(); ++ifile)
+        { // loop over files}
+            modelTotalVal[ich][ifile] = modelTotalVal[ich][ifile] * ratio;
+            // printf("line 151 modelTotalVal ifile %i ppm %.3f modelTotalVal %f  \n", ifile, ppmFile[ifile], modelTotal    Val[ich][ifile]);
         }
     }
 
@@ -262,7 +361,7 @@ void makeIntegralGraphs()
         fout->Add(modelSinglet);
     }
 
-    /* late model graph */
+    /* scale late model graph */
     oldLevel = -1;
     TGraph *modelLate = nullptr;
     for (int ich = 0; ich < glate.size(); ++ich)
@@ -287,6 +386,32 @@ void makeIntegralGraphs()
         mgLate[ilevel]->Add(modelLate, "line");
         printf("level %i %s \n", ilevel, modelLate->GetName());
         fout->Add(modelLate);
+    }
+
+    oldLevel = -1;
+    TGraph *modelTotal = nullptr;
+    for (int ich = 0; ich < gtotal.size(); ++ich)
+    {
+        int ilevel = getLevel(ich);
+        if (ilevel > 3)
+            continue;
+        if (ilevel != oldLevel)
+        {
+            oldLevel = ilevel;
+        }
+        // else
+        //     continue;
+        //  printf("line 134 %i %lu %lu \n", ich, singletVal[ich].size(), modelLateVal[ich].size());
+        modelTotal = new TGraph(modelTotalVal[ich].size(), &ppmFile[0], &modelTotalVal[ich][0]);
+        modelTotal->SetName(Form("modelTotalLevel%ichan%i", ilevel, ich));
+        modelTotal->SetTitle(Form("modelTotalLevel%ichan%i", ilevel, ich));
+        modelTotal->SetLineColor(kBlue);
+        modelTotal->SetLineWidth(2);
+        if (ich == 0 || ich == 8)
+            continue;
+        mgTotal[ilevel]->Add(modelTotal, "line");
+        printf("level %i %s \n", ilevel, modelTotal->GetName());
+        fout->Add(modelTotal);
     }
 
     for (int ich = 0; ich < gsinglet.size(); ++ich)
@@ -336,7 +461,6 @@ void makeIntegralGraphs()
     }
 
     // put everything together
-
     for (int ich = 0; ich < glate.size(); ++ich)
     {
         if (ich == 0)
@@ -375,6 +499,45 @@ void makeIntegralGraphs()
 
         fout->Append(clate);
     }
+    /*totals */
+    for (int ich = 0; ich < gtotal.size(); ++ich)
+    {
+        if (ich == 0)
+            continue;
+        int ilevel = getLevel(ich);
+        if (ilevel > 3)
+            continue;
+        totalPPM = new TGraph(totalVal[ich].size(), &ppmFile[0], &totalVal[ich][0]);
+        if (ich != 0 && ich != 8)
+        {
+            mgTotal[ilevel]->Add(totalPPM, "p");
+            // printf("line 220 add ich %i level %i %s\n", ich, ilevel, totalPPM->GetName());
+        }
+        totalPPM->SetName(Form("canTotalPPMChan%i", ich));
+        totalPPM->SetTitle(Form("canTotalPPMChan%i", ich));
+        totalPPM->GetHistogram()->GetXaxis()->SetTitle("PPM");
+        totalPPM->GetHistogram()->GetYaxis()->SetTitle("total integral");
+        totalPPM->SetMarkerStyle(21);
+        totalPPM->SetMarkerStyle(21);
+        totalPPM->SetMarkerColor(ich + 1);
+        totalPPM->SetLineColor(ich + 1);
+        if (ich == 9)
+            totalPPM->SetMarkerColor(kGreen);
+        // printf("line 213 add ich %i level %i %s\n", ich, ilevel, totalPPM->GetName());
+        TCanvas *cTotal = new TCanvas(Form("canTotalPPMChan%i", ich), "canTotalPPM");
+        cTotal->SetTitle(Form("canTotalPPMChan%i", ich));
+        totalPPM->SetMarkerStyle(21);
+        totalPPM->GetHistogram()->GetXaxis()->SetTitle("PPM");
+        totalPPM->GetHistogram()->GetYaxis()->SetTitle("total integral");
+
+        totalPPM->Draw("ap");
+        cTotal->SetGrid();
+        cTotal->SetLogx();
+        cTotal->Print(".pdf");
+        fout->Add(totalPPM);
+
+        // printf("line 220 add ich %i level %i %s\n", ich, ilevel, totalPPM->GetName());
+    }
 
     /* late level canvas */
     for (int ilevel = 0; ilevel < 4; ++ilevel)
@@ -391,5 +554,165 @@ void makeIntegralGraphs()
         fout->Append(cmg);
     }
 
+    /* total level canvas */
+    for (int ilevel = 0; ilevel < 4; ++ilevel)
+    {
+        TCanvas *cmg = new TCanvas(Form("canTotalMultiLevel%i", ilevel), Form("canTotalMultiLevel%i", ilevel));
+        cmg->SetGrid();
+        cmg->SetLogx();
+        mgTotal[ilevel]->GetXaxis()->SetTitle("PPM");
+        mgTotal[ilevel]->GetYaxis()->SetTitle(Form("total integral level %i", ilevel));
+        mgTotal[ilevel]->Draw("a");
+        cmg->BuildLegend();
+        cmg->Print(Form("totalMultiLevel%i.pdf", ilevel));
+        fout->Add(mgTotal[ilevel]);
+        fout->Append(cmg);
+    }
+
+    /* effNorm integral vs channel number, one curve per file */
+    int effNormColors[] = {kRed, kGreen + 2, kBlue, kMagenta, kCyan + 2, kOrange + 7,
+                           kSpring, kTeal + 2, kAzure + 2, kViolet, kPink + 9, kBlack};
+    TMultiGraph *mgEffNorm = new TMultiGraph("mgEffNormByChannel", "effNorm integral vs channel number");
+
+    for (int ifile = 0; ifile < ppmFile.size(); ++ifile)
+    {
+        printf("line 569  EffNormByFile for file %i \n", ifile);
+        vector<double> chanNum;
+        vector<double> chanNumError;
+        vector<double> effInt;
+        vector<double> effIntError;
+        for (int ichan = 0; ichan < hEffNormByFile[ifile].size(); ++ichan)
+        {
+            if (!hEffNormByFile[ifile][ichan])
+                continue;
+            chanNum.push_back(ichan);
+            chanNumError.push_back(0);
+            double error = 0;
+            effInt.push_back(hEffNormByFile[ifile][ichan]->IntegralAndError(0, 7500, error));
+            effIntError.push_back(error);
+            printf("\t \t line 580 ichan %i effNorm integral %f ± %f \n", ichan, effInt.back(), effIntError.back());
+        }
+        if (chanNum.size() == 0)
+            continue;
+        TGraphErrors *gEffNorm = new TGraphErrors(chanNum.size(), &chanNum[0], &effInt[0], &chanNumError[0], &effIntError[0]);
+
+        gEffNorm->SetName(Form("gEffNormByChanFile%i", ifile));
+        gEffNorm->SetTitle(Form("%.3f PPM", ppmFile[ifile]));
+        gEffNorm->SetMarkerStyle(21);
+        gEffNorm->SetMarkerColor(effNormColors[ifile % 12]);
+        gEffNorm->SetLineColor(effNormColors[ifile % 12]);
+        mgEffNorm->Add(gEffNorm, "lp");
+        fout->Add(gEffNorm);
+    }
+    TCanvas *canEffNormByChan = new TCanvas("canEffNormByChan", "effNorm vs channel");
+    canEffNormByChan->SetGrid();
+    mgEffNorm->GetXaxis()->SetTitle("channel number");
+    mgEffNorm->GetYaxis()->SetTitle("effNorm integral");
+    mgEffNorm->Draw("a");
+    canEffNormByChan->BuildLegend();
+    canEffNormByChan->Print("effNormByChannel.pdf");
+    fout->Add(mgEffNorm);
+    fout->Append(canEffNormByChan);
+
+    /* singlet integral vs channel number, one curve per file */
+    TMultiGraph *mgSingletByFile = new TMultiGraph("mgSingletValByFile", "singlet integral vs channel number");
+    for (int ifile = 0; ifile < ppmFile.size(); ++ifile)
+    {
+        vector<double> chanNum;
+        vector<double> singletInt;
+        for (int ichan = 1; ichan < singletValByFile[ifile].size(); ++ichan) // channel 0 has no data
+        {
+            chanNum.push_back(ichan);
+            singletInt.push_back(singletValByFile[ifile][ichan]);
+        }
+        if (chanNum.size() == 0)
+            continue;
+        TGraph *gSingletByFile = new TGraph(chanNum.size(), &chanNum[0], &singletInt[0]);
+        gSingletByFile->SetName(Form("gSingletValByChanFile%i", ifile));
+        gSingletByFile->SetTitle(Form("%.3f PPM", ppmFile[ifile]));
+        gSingletByFile->SetMarkerStyle(21);
+        gSingletByFile->SetMarkerColor(effNormColors[ifile % 12]);
+        gSingletByFile->SetLineColor(effNormColors[ifile % 12]);
+        mgSingletByFile->Add(gSingletByFile, "lp");
+        fout->Add(gSingletByFile);
+    }
+    TCanvas *canSingletValByFile = new TCanvas("canSingletValByFile", "singlet integral vs channel");
+    canSingletValByFile->SetGrid();
+    mgSingletByFile->GetXaxis()->SetTitle("channel number");
+    mgSingletByFile->GetYaxis()->SetTitle("singlet integral");
+    mgSingletByFile->Draw("a");
+    canSingletValByFile->BuildLegend();
+    canSingletValByFile->Print("singletValByChannel.pdf");
+    fout->Add(mgSingletByFile);
+    fout->Append(canSingletValByFile);
+
+    /* hEffNormByFile waveform for each channel, overlaying every file */
+    for (int ichan = 0; ichan < NCHAN; ++ichan)
+    {
+        bool anyData = false;
+        for (int ifile = 0; ifile < ppmFile.size(); ++ifile)
+            if (hEffNormByFile[ifile][ichan])
+            {
+                anyData = true;
+                break;
+            }
+        if (!anyData)
+            continue;
+
+        TCanvas *canEffNormWave = new TCanvas(Form("canEffNormWaveChan%i", ichan), Form("effNorm waveform chan %i", ichan));
+        canEffNormWave->SetGrid();
+        canEffNormWave->SetLogy();
+        TLegend *legEffNormWave = new TLegend(0.7, 0.55, 0.9, 0.9);
+        bool firstDrawn = false;
+        for (int ifile = 0; ifile < ppmFile.size(); ++ifile)
+        {
+            if (!hEffNormByFile[ifile][ichan])
+                continue;
+            TH1D *h = hEffNormByFile[ifile][ichan];
+            h->SetLineColor(effNormColors[ifile % 12]);
+            h->SetTitle(Form("effNorm chan %i", ichan));
+            h->GetXaxis()->SetRangeUser(1000, 7500);
+            h->GetXaxis()->SetTitle("time [ns]");
+            h->GetYaxis()->SetTitle("effNorm yield");
+            legEffNormWave->AddEntry(h, Form("%.3f PPM", ppmFile[ifile]), "l");
+            h->Rebin(10);
+            h->Draw(firstDrawn ? "hist same" : "hist");
+            firstDrawn = true;
+        }
+        legEffNormWave->Draw();
+        canEffNormWave->Print(Form("effNormWaveChan%i.pdf", ichan));
+        fout->Append(canEffNormWave);
+    }
+
+    /* hEffNormByFile waveform for each file overlaying every channel */
+    for (int ifile = 0; ifile < ppmFile.size(); ++ifile)
+    {
+        TCanvas *canEffNormByFile = new TCanvas(Form("canEffNormByFile%i", ifile), Form("effNorm waveform file %i", ifile));
+        canEffNormByFile->SetGrid();
+        canEffNormByFile->SetLogy();
+        TLegend *legEffNormWave = new TLegend(0.7, 0.55, 0.9, 0.9);
+        bool firstDrawn = false;
+        for (int ichan = 0; ichan < NCHAN; ++ichan)
+        {
+            if (!hEffNormByFile[ifile][ichan])
+                continue;
+            if (ichan == 0 || ichan > 8)
+                continue; // channel 0 has no data
+            TH1D *h = hEffNormByFile[ifile][ichan];
+            h->SetLineColor(effNormColors[ichan % 12]);
+            h->SetMarkerColor(effNormColors[ichan % 12]);
+            h->SetTitle(Form("effNorm chan %i", ichan));
+            h->GetXaxis()->SetRangeUser(1000, 15000);
+            h->GetXaxis()->SetTitle("time [ns]");
+            h->GetYaxis()->SetTitle("effNorm yield");
+            legEffNormWave->AddEntry(h, Form("%.3f PPM", ppmFile[ifile]), "l");
+            h->Draw(firstDrawn ? "hist same" : "hist");
+            firstDrawn = true;
+        }
+        // legEffNormWave->Draw();
+        canEffNormByFile->BuildLegend();
+        canEffNormByFile->Print(Form("effNormByFile%i.pdf", ifile));
+        fout->Append(canEffNormByFile);
+    }
     fout->Write();
 }
