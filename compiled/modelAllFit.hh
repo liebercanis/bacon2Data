@@ -1,17 +1,3 @@
-/******************************************************
- file with fit fcn
- new version Sept 10 2025
- the model:
-    arXiv:2009.10755v4 [physics.ins-det] 18 Jul 2022
- time is in nanoseconds
- add in radiative component Aug 28 2026
- Agnes et al arXiv:2410.22863v2
-*******************************************************/
-#include "TString.h"
-#include "TF1.h"
-#include "TH1.h"
-#include <TNtuple.h>
-#include "distanceLevels.hh"
 
 // light components
 enum
@@ -83,6 +69,9 @@ static double r2ConstDefault = 3.76E-5;
 static double r3ConstDefault = 1.95E-4;
 static double C1ConstDefault = 0.09;
 static double absorb1ConstDefault = 2568.0;
+static double Aconstant = 0.228;
+static double Cconstant = 0.643;
+// static double absorb1ConstDefault = 1.0E9;
 //
 static int iTrigger = 729;
 
@@ -241,14 +230,12 @@ static double Absorption(double ppm, double dist)
   */
   /* new fit from Doug August 19*/
   ppm = max(1.0E-9, ppm);
-  double A = 0.0228;
-  double C = 0.643;
   double lambda1 = absorb1ConstDefault * 0.1 / ppm;
   double lambda2 = 3.38 * 0.1 / ppm;
   double lambda3 = 50.5 * 0.1 / ppm;
-  double Tr128 = A * exp(-dist / lambda1) + C * exp(-dist / lambda2) + (1 - A - C) * exp(-dist / lambda3);
-  // return 1. - Tr128;
-  return 0;
+  double Tr128 = Aconstant * exp(-dist / lambda1) + Cconstant * exp(-dist / lambda2) + (1 - Aconstant - Cconstant) * exp(-dist / lambda3);
+  // printf("Absorption: ppm %.3f dist %.3f A %.3E C %.3E lambda1 %.3f lambda2 %.3f lambda3 %.3f Tr128 %.3E \n", ppm, dist, Aconstant, Cconstant , lambda1, lambda2, lambda3, Tr128);
+  return 1. - Tr128;
 }
 
 /** exponential convolution with  gaussian time resolution ***/
@@ -414,7 +401,6 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
   // pack parameters into static array onto lightModel
   // for (int k = 0; 8 < npar; ++k)
   //  lpar[k] = par[k];
-
   f = 0;          // return value
   double bw = 2.; // ns
   double ppm = max(1.0E-9, par[PPM]);
@@ -477,14 +463,13 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
      * absorption as a function of distance and xenon concentration.%
      ****/
     double ab = 0.0;
-    double A = 0.0228;
-    double C = 0.643;
+
     double lambda1 = abs1Const * 0.1 / ppm;
     double lambda2 = 3.38 * 0.1 / ppm;
     double lambda3 = 50.5 * 0.1 / ppm;
-    double Tr128 = A * exp(-dist / lambda1) + C * exp(-dist / lambda2) + (1 - A - C) * exp(-dist / lambda3);
+    double Tr128 = Aconstant * exp(-dist / lambda1) + Cconstant * exp(-dist / lambda2) + (1 - Aconstant - Cconstant) * exp(-dist / lambda3);
     ab = 1. - Tr128;
-    ab = 0;
+    // printf("line473 ppm %.3f ab %.3E\n", ppm, ab);
 
     /* geometric efficiencies */
     double fourPi = 2. * TMath::TwoPi();
@@ -492,6 +477,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     double aPmt = TMath::Pi() / 4.0 * pow(6.40, 2); // R11410-20  Effective area : 64 mm dia units here are cm
     if (ic == 12)
       effGeo = aPmt / fourPi / pow(dist, 2.);
+    double effGeoTrig = pow(0.6, 2.) / fourPi / pow(distanceLevel[0], 2.);
     /*
         set to 1 using geo normalized data
     */
@@ -499,7 +485,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
 
     // values in samples
     int ilow = 650; //
-    int ihigh = 7500;
+    // int ihigh = 7500;
+    int ihigh = 4000 / 2;
     // MAXSAMPLE; // singlet MAXSAMPLE;
     //  singlet region
     //  ihigh = 1500;
@@ -515,11 +502,12 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       /* set sample starting based on TRIGSTART*/
       double xTrigger = par[TRIGSTART];
       double x = (double(j - int(xTrigger / 2.0)) + 0.5); // bin center convert to ns mutiplying by bin width
-      double alpha1 = sfrac * bw * norm * effGeo;         // singlet norm N1 in paper
-      double alpha3 = (1. - sfrac) * bw * norm * effGeo;  // triplet norm N3 in paper
-      double kx = par[KXCONST] * kxZero * ppm;            // rate of tansfer to mixed state
-      double kxPrime = kqZero + kx + 1. / tMix;           // k_x^\prime in paper
-      double tkxPrime = 1. / kxPrime;                     // corresponding time
+      /* fit to geometric corrected light curves so do not multiply by effGeo */
+      double alpha1 = sfrac * bw * norm;        // singlet norm N1 in paper
+      double alpha3 = (1. - sfrac) * bw * norm; // triplet norm N3 in paper
+      double kx = par[KXCONST] * kxZero * ppm;  // rate of tansfer to mixed state
+      double kxPrime = kqZero + kx + 1. / tMix; // k_x^\prime in paper
+      double tkxPrime = 1. / kxPrime;           // corresponding time
 
       /* visible yield */
       double visRatio = visibleYield / LY;
@@ -553,7 +541,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       double tnano = 2 * x;
       double pRadiative = rad2 * krad3 / krad23 * TMath::Exp(-krad3 * tnano) * (1. - TMath::Exp(-krad23 * tnano));
       pRadiative = max(pRadiative, 1.E-9);
-      double frad = c1rad * bw * norm * effGeo * abs(pRadiative);
+      double frad = c1rad * norm * abs(pRadiative);
 
       // xenenon emission x_i terms in paper
       double xterm1 = c1 * kx * alpha1 / (l1 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe0)) / (lX - l1));
