@@ -24,15 +24,16 @@ TNtuple *ntParScan;    ///< N-tuple storing parameter scan results
 TMultiGraph *mgAbDist; ///< Multi-graph for absorption vs distance
 TMultiGraph *mgAbPPM;  ///< Multi-graph for absorption vs PPM
 
-std::vector<TH1D *> hnorm;               ///< Normalized detector response histograms per channel
-std::vector<TH1D *> hcurve;              ///< Raw curve histograms per channel
-std::vector<TH1D *> hffit;               ///< Fitted waveforms per channel
-std::vector<TH1D *> hmodel;              ///< Model histograms per channel (reserved for future use)
-std::vector<TH1D *> hfitModel;           ///< Final fitted model histograms per channel
-std::vector<double> abValueByConstant1;  /// absorption by constant values
-std::vector<double> abValueByConstant10; /// absorption by constant values
-std::vector<double> singletByAbsorb;     /// singlet by absorption values
-std::vector<double> absorbConstValue;    /// singlet by absorption values
+std::vector<TH1D *> hnorm;                                 ///< Normalized detector response histograms per channel
+std::vector<TH1D *> hcurve;                                ///< Raw curve histograms per channel
+std::vector<TH1D *> hffit;                                 ///< Fitted waveforms per channel
+std::vector<TH1D *> hmodel;                                ///< Model histograms per channel (reserved for future use)
+std::vector<TH1D *> hfitModel;                             ///< Final fitted model histograms per channel
+std::vector<double> abValueByConstant1;                    /// absorption by constant values
+std::vector<double> abValueByConstant10;                   /// absorption by constant values
+std::vector<double> singletByAbsorb;                       /// singlet by absorption values
+std::vector<double> absorbConstValue;                      /// singlet by absorption values
+std::vector<std::vector<double>> singletByDopantAndAbsorb; /// singlet by dopant, absorption values
 
 // ============================================================================
 //  ANALYSIS PARAMETERS
@@ -54,26 +55,6 @@ int colors[NCHAN] = {kRed, kGreen, kBlue, kYellow, kMagenta, kCyan, kOrange, kSp
 int absorbColors[] = {kRed, kGreen + 2, kBlue, kMagenta, kCyan + 2, kOrange + 7,
                       kSpring, kTeal + 2, kAzure + 2, kViolet, kPink + 9, kBlack};
 
-static double AbsorptionByValue(double ppm, double dist, double absorb1Const = absorb1ConstDefault)
-{
-  // Calculate absorption as a function of distance and xenon concentration.%
-  // Taken from fits to Neumeier data at 0.1 PPM and scaled;
-  /* corrected for ppm by mass
-  double A = 0.615;
-  ppm = max(1.0E-9, ppm);
-  double lambda1 = 12.7 * .3 * 0.1 / ppm;
-  double lambda2 = 740 * .3 * 0.1 / ppm;
-  */
-  /* new fit from Doug August 19*/
-  ppm = max(1.0E-9, ppm);
-  absorb1Const = max(1.0E-9, absorb1Const); // avoid 0/0 -> NaN when dist is also 0
-  double lambda1 = absorb1Const * 0.1 / ppm;
-  double lambda2 = 3.38 * 0.1 / ppm;
-  double lambda3 = 50.5 * 0.1 / ppm;
-  double Tr128 = Aconstant * exp(-dist / lambda1) + Cconstant * exp(-dist / lambda2) + (1 - Aconstant - Cconstant) * exp(-dist / lambda3);
-  // printf("Absorption: ppm %.3f dist %.3f A %.3E C %.3E lambda1 %.3f lambda2 %.3f lambda3 %.3f Tr128 %.3E \n", ppm, dist, Aconstant, Cconstant, lambda1, lambda2, lambda3, Tr128);
-  return 1. - Tr128;
-}
 /**
  * @brief Populate histogram with fitted waveform samples from optimization result
  * @details Transfers fitWave array (computed by fcn() during minimization) into a TH1D
@@ -146,7 +127,7 @@ double AbsorptionForConstant(double ppm, double dist, double absorb1Const = abso
  * @param theFitChannel Channel index to fit. Use -1 to simultaneously fit all 12 PMT channels.
  *                     This enables global optimization of parameters shared across detectors.
  */
-void tbDrawAbsorb(int theFitChannel = 7, double dopant = 10., double absorb1Const = absorb1ConstDefault, int icolor = 0)
+void tbDrawAbsorb(int theFitChannel = 7, double dopant = 10., double absorb1Const = absorb1ConstDefault, int jdop = 0, int iabs = 0)
 {
 
   std::vector<double> distance(NPOINTS); //
@@ -157,7 +138,7 @@ void tbDrawAbsorb(int theFitChannel = 7, double dopant = 10., double absorb1Cons
   for (int i = 0; i < NPOINTS; ++i)
   {
     distance[i] = double(i) * .005;
-    abdist[i] = AbsorptionForConstant(theDopant, distance[i], absorb1Const);
+    abdist[i] = AbsorptionByValue(theDopant, distance[i], absorb1Const);
     // printf("ppm %f dist %f A %.3E\n", theDopant, distance[i], ab[i]);
   }
 
@@ -177,8 +158,8 @@ void tbDrawAbsorb(int theFitChannel = 7, double dopant = 10., double absorb1Cons
   gAbDist->SetName(Form("absorbtionVsDistancePPM%.3fAbsConst%.0E", theDopant, absorb1Const));
   gAbDist->SetTitle(Form("absorbtionVsDistancePPM%.3fAbsConst%.0E", theDopant, absorb1Const));
   gAbDist->GetXaxis()->SetTitle(Form("distance [cm] absorb1Const: %.3f", absorb1Const));
-  gAbDist->SetLineColor(absorbColors[icolor % 12]);
-  gAbDist->SetMarkerColor(absorbColors[icolor % 12]);
+  gAbDist->SetLineColor(absorbColors[iabs % 12]);
+  gAbDist->SetMarkerColor(absorbColors[iabs % 12]);
   TCanvas *cabDist = new TCanvas("absorbtionDist", "absorbtionDist");
   cabDist->SetGrid();
   cabDist->SetLogx();
@@ -193,8 +174,8 @@ void tbDrawAbsorb(int theFitChannel = 7, double dopant = 10., double absorb1Cons
   gAbPPM->SetTitle(Form("absorbtionVsPPMAt1cmAbsConst%.0E", absorb1Const));
   gAbPPM->GetXaxis()->SetTitle("dopant [PPM]");
   gAbPPM->GetYaxis()->SetTitle("absorbtion factor");
-  gAbPPM->SetLineColor(absorbColors[icolor % 12]);
-  gAbPPM->SetMarkerColor(absorbColors[icolor % 12]);
+  gAbPPM->SetLineColor(absorbColors[iabs % 12]);
+  gAbPPM->SetMarkerColor(absorbColors[iabs % 12]);
   TCanvas *cabPPM = new TCanvas("absorbtionPPM", "absorbtionPPM");
   cabPPM->SetGrid();
   cabPPM->SetLogx();
@@ -365,7 +346,7 @@ void tbDrawAbsorb(int theFitChannel = 7, double dopant = 10., double absorb1Cons
     fillFitWave(theFitChannel, hFit);
     int earlyBin = 1350 / 2;
     int lateBin = 1460 / 2;
-    singletByAbsorb.push_back(hFit->Integral(earlyBin, lateBin));
+    singletByDopantAndAbsorb[jdop][iabs] = hFit->Integral(earlyBin, lateBin);
   }
 
   // drawing
@@ -413,13 +394,19 @@ void tbDraw(int theFitChannel = 7, double dopant = 10)
   mgAbPPM = new TMultiGraph("mgAbPPM", "absorption vs PPM, all absorbConst");
 
   int nAbsorbConst = 20; /// number of absorbConst values
-  for (int i = 0; i < nAbsorbConst; ++i)
+  int nDopant = 10;      /// number of dopant values
+  singletByDopantAndAbsorb.resize(nDopant, std::vector<double>(nAbsorbConst, 0.));
+  for (int jdop = 0; jdop < nDopant; ++jdop)
   {
-    double ab = pow(2., i + 1);
-    //  *absorb1ConstDefault;
-    absorbConstValue.push_back(ab);
-    printf("\n\n\t\t******* tbDraw: calling tbDrawAbsorb for absorbConst %.3E******", ab);
-    tbDrawAbsorb(theFitChannel, dopant, ab, i);
+    double dopantj = 1.0 * double(jdop); // dopant values from 0.1 t
+    for (int iabs = 0; iabs < nAbsorbConst; ++iabs)
+    {
+      double ab = pow(2., iabs + 1);
+      //  *absorb1ConstDefault;
+      absorbConstValue.push_back(ab);
+      printf("\n\n\t\t******* tbDraw: calling tbDrawAbsorb for iabs = %d, absorbConst %.3E dopant %.3f ******", iabs, ab, dopantj);
+      tbDrawAbsorb(theFitChannel, dopantj, ab, jdop, iabs);
+    }
   }
 
   // Draw multi-graphs for absorption vs distance and absorption vs PPM
@@ -446,32 +433,6 @@ void tbDraw(int theFitChannel = 7, double dopant = 10)
   canAbPPM->Print("mgAbPPM.pdf");
   fout->Add(mgAbPPM);
   fout->Append(canAbPPM);
-
-  if (singletByAbsorb.size() != absorbConstValue.size())
-  {
-    printf("tbDraw: size mismatch absorbConstValue %lu singletByAbsorb %lu, skipping graph\n",
-           absorbConstValue.size(), singletByAbsorb.size());
-    return;
-  }
-  TGraph *gSingletByAbsorb = new TGraph(absorbConstValue.size(), &absorbConstValue[0], &singletByAbsorb[0]);
-  gSingletByAbsorb->SetName(Form("singletByAbsorbChan%iPPM%.3f", theFitChannel, dopant));
-  gSingletByAbsorb->SetTitle(Form("singletByAbsorbChan%iPPM%.3f", theFitChannel, dopant));
-  gSingletByAbsorb->SetMarkerStyle(21);
-  gSingletByAbsorb->GetXaxis()->SetTitle("absorbConst");
-  gSingletByAbsorb->GetYaxis()->SetTitle("singlet integral");
-  TCanvas *canSingletByAbsorb = new TCanvas(Form("singletByAbsorbChan%iPPM%.3f", theFitChannel, dopant), "singlet integral vs absorbConst");
-  canSingletByAbsorb->SetGrid();
-  canSingletByAbsorb->SetLogx();
-  gSingletByAbsorb->Draw("ap");
-  canSingletByAbsorb->Print("singletByAbsorb.pdf");
-
-  if (abValueByConstant1.size() != absorbConstValue.size())
-  {
-    printf("tbDraw: size mismatch absorbConstValue %lu abValueByConstant %lu, skipping graph\n",
-           absorbConstValue.size(), abValueByConstant1.size());
-    fout->Write();
-    return;
-  }
 
   // at dist 1 cm
   TGraph *gAbValueByConstant1 = new TGraph(absorbConstValue.size(), &absorbConstValue[0], &abValueByConstant1[0]);
@@ -502,6 +463,37 @@ void tbDraw(int theFitChannel = 7, double dopant = 10)
   canAbValueByConstant10->Print("abValueByConstant10.pdf");
   fout->Add(gAbValueByConstant10);
   fout->Append(canAbValueByConstant10);
+
+  // singlet integral vs dopant, one curve per absorbConst value
+  TMultiGraph *mgSingletByDopant = new TMultiGraph("mgSingletByDopant", "singlet integral vs dopant");
+  for (int iabs = 0; iabs < nAbsorbConst; ++iabs)
+  {
+    std::vector<double> dopantVals;
+    std::vector<double> singletVals;
+    for (int jdop = 0; jdop < nDopant; ++jdop)
+    {
+      dopantVals.push_back(1.0 * double(jdop));
+      singletVals.push_back(singletByDopantAndAbsorb[jdop][iabs]);
+    }
+    double ab = pow(2., iabs + 1);
+    TGraph *gSingletByDopant = new TGraph(dopantVals.size(), &dopantVals[0], &singletVals[0]);
+    gSingletByDopant->SetName(Form("gSingletByDopantAbs%.0E", ab));
+    gSingletByDopant->SetTitle(Form("absorbConst=%.0E", ab));
+    gSingletByDopant->SetLineColor(absorbColors[iabs % 12]);
+    gSingletByDopant->SetMarkerColor(absorbColors[iabs % 12]);
+    gSingletByDopant->SetMarkerStyle(21);
+    mgSingletByDopant->Add(gSingletByDopant, "lp");
+    fout->Add(gSingletByDopant);
+  }
+  TCanvas *canSingletByDopant = new TCanvas("canSingletByDopant", "singlet integral vs dopant");
+  canSingletByDopant->SetGrid();
+  mgSingletByDopant->GetXaxis()->SetTitle("dopant [PPM]");
+  mgSingletByDopant->GetYaxis()->SetTitle("singlet integral");
+  mgSingletByDopant->Draw("a");
+  canSingletByDopant->BuildLegend();
+  canSingletByDopant->Print("singletByDopant.pdf");
+  fout->Add(mgSingletByDopant);
+  fout->Append(canSingletByDopant);
 
   fout->Write();
 
