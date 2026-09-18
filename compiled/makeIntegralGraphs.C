@@ -6,8 +6,8 @@
 #include "TGraph.h"
 #include "TMultiGraph.h"
 #include "TCanvas.h"
-#include "modelAllFit.hh"
 #include "distanceLevels.hh"
+#include "modelAllFit.hh"
 TFile *fout;
 TString fileName;
 TGraph *gr;
