@@ -25,7 +25,7 @@ enum
   R2CONST,
   R3CONST,
   C1CONST,
-  ABSORB1CONST,
+  LAMBDA1CONST,
   THECHANNEL,
   NPARS
 };
@@ -42,6 +42,10 @@ static double buff[NCHAN][MAXSAMPLE]; // buffer to store light curve data
 static double fitWave[NCHAN][MAXSAMPLE];
 static double fitComp[NCHAN][NUMCOMP][MAXSAMPLE];
 static double lateBkg[NCHAN]; // no longer used
+
+/*** define singlet integral region Sept 28 2026 */
+static int earlyBin = 1400 / 2; //
+static int lateBin = 1460 / 2;
 
 /***** units are nanoseconds ****/
 static double shift = 9.;
@@ -64,14 +68,22 @@ static double LY = 41.; // Doke, April 2009 https://arxiv.org/abs/0910.4956v1
 static double nPhotons = 60. * LY;                  // 60 keV gamma
 static double visibleYield = 0.2;                   // photons/keV
 static double nPhotonsVisible = 60. * visibleYield; //
-/* from Bondar arXiv:2202.09*/
+/* from Bondar arXiv:2202.09 radiative component */
 static double r2ConstDefault = 3.76E-5;
 static double r3ConstDefault = 1.95E-4;
 static double C1ConstDefault = 0.09;
-static double absorb1ConstDefault = 2568.0;
-static double Aconstant = 0.228;
-static double Cconstant = 0.643;
-// static double absorb1ConstDefault = 1.0E9;
+/******
+   absprption model Doug sept 25 2026 with PPM_MOLAR
+******/
+static double lambda1ConstDefault = 9.08; // cm at 0.1 PPM_MOLAR
+// static double lambda1ConstDefault = 2.E4;    // cm at 0.1 PPM_MOLAR very large value for testing
+static double lambda2ConstDefault = 65.69;   // cm at 0.1 PPM_MOLAR
+static double lambda3ConstDefault = 1928.92; // cm at 0.1 PPM_MOLAR
+// static double absorb1ConstDefault = 8.E3;
+static double AConstantDefault = 0.6351;
+static double CConstantDefault = 0.1555;
+
+static double backgroundConstDefault = 0.04153;
 //
 static int iTrigger = 729;
 
@@ -135,7 +147,7 @@ static void setParNames() // tousif
   lparNames[R2CONST] = TString("r2const");
   lparNames[R3CONST] = TString("r3const");
   lparNames[C1CONST] = TString("c1onst");
-  lparNames[ABSORB1CONST] = TString("absorb1const");
+  lparNames[LAMBDA1CONST] = TString("lambda1const");
   lparNames[THECHANNEL] = TString("theChannel");
 }
 
@@ -221,33 +233,25 @@ static double effGeoFunc(int ichan)
 static double Absorption(double ppm, double dist)
 {
   // Calculate absorption as a function of distance and xenon concentration.%
-  // Taken from fits to Neumeier data at 0.1 PPM and scaled;
-  /* corrected for ppm by mass
-  double A = 0.615;
+  // Taken from fits to Neumeier data at 0.1 PPM_MOLAR and scaled;
   ppm = max(1.0E-9, ppm);
-  double lambda1 = 12.7 * .3 * 0.1 / ppm;
-  double lambda2 = 740 * .3 * 0.1 / ppm;
-  */
-  /* new fit from Doug August 19*/
-  ppm = max(1.0E-9, ppm);
-  double lambda1 = absorb1ConstDefault * 0.1 / ppm;
-  double lambda2 = 3.38 * 0.1 / ppm;
-  double lambda3 = 50.5 * 0.1 / ppm;
-  double Tr128 = Aconstant * exp(-dist / lambda1) + Cconstant * exp(-dist / lambda2) + (1 - Aconstant - Cconstant) * exp(-dist / lambda3);
+  double lambda1 = lambda1ConstDefault * 0.1 / ppm;
+  double lambda2 = lambda2ConstDefault * 0.1 / ppm;
+  double lambda3 = lambda3ConstDefault * 0.1 / ppm;
+  double Tr128 = AConstantDefault * exp(-dist / lambda1) + CConstantDefault * exp(-dist / lambda2) + (1 - AConstantDefault - CConstantDefault) * exp(-dist / lambda3);
   // printf("Absorption: ppm %.3f dist %.3f A %.3E C %.3E lambda1 %.3f lambda2 %.3f lambda3 %.3f Tr128 %.3E \n", ppm, dist, Aconstant, Cconstant , lambda1, lambda2, lambda3, Tr128);
   return 1. - Tr128;
 }
-static double AbsorptionByValue(double ppm, double dist, double absorb1Const = absorb1ConstDefault)
+/* add labda1Const as argument*/
+static double AbsorptionByValue(double ppm, double dist, double lambda1Const = lambda1ConstDefault)
 {
   // Calculate absorption as a function of distance and xenon concentration.%
   // Taken from fits to Neumeier data at 0.1 PPM and scaled;
-
-  /* new fit from Doug August 19*/
   ppm = max(1.0E-9, ppm);
-  double lambda1 = absorb1ConstDefault * 0.1 / ppm;
-  double lambda2 = 3.38 * 0.1 / ppm;
-  double lambda3 = 50.5 * 0.1 / ppm;
-  double Tr128 = Aconstant * exp(-dist / lambda1) + Cconstant * exp(-dist / lambda2) + (1 - Aconstant - Cconstant) * exp(-dist / lambda3);
+  double lambda1 = lambda1Const * 0.1 / ppm;
+  double lambda2 = lambda2ConstDefault * 0.1 / ppm;
+  double lambda3 = lambda3ConstDefault * 0.1 / ppm;
+  double Tr128 = AConstantDefault * exp(-dist / lambda1) + CConstantDefault * exp(-dist / lambda2) + (1 - AConstantDefault - CConstantDefault) * exp(-dist / lambda3);
   // printf("Absorption: ppm %.3f dist %.3f A %.3E C %.3E lambda1 %.3f lambda2 %.3f lambda3 %.3f Tr128 %.3E \n", ppm, dist, Aconstant, Cconstant , lambda1, lambda2, lambda3, Tr128);
   return 1. - Tr128;
 }
@@ -348,14 +352,7 @@ static void printModel(int ibin, Double_t *par)
       effChan[ic] = aPmt / fourPi / pow(distanceLevel[ilevel], 2.);
 
     // absorption
-    double ab = 1.0;
-    if (ppm > 1.0E-3)
-    {
-      double lambda1 = 12.7 * 0.1 / ppm;
-      double lambda2 = 740 * 0.1 / ppm;
-      double Tr128 = 0.615 * exp(-distanceLevel[ilevel] / lambda1) + (1 - 0.615) * exp(-distanceLevel[ilevel] / lambda2);
-      ab = 1. - Tr128;
-    }
+    double ab = Absorption(ppm, distanceLevel[ilevel]);
     abChan[ic] = ab;
 
     double alpha1 = sfrac * bw * norm * effChan[ic];        // singlet norm N1 in paper
@@ -425,7 +422,6 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
   double rad3 = par[R3CONST];
   double rad2 = par[R2CONST];
   double c1rad = par[C1CONST];
-  double abs1Const = par[ABSORB1CONST];
 
   // double bkg = par[BKGCONST];
 
@@ -475,14 +471,12 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     /****
      * absorption as a function of distance and xenon concentration.%
      ****/
-    double ab = 0.0;
-
-    double lambda1 = abs1Const * 0.1 / ppm;
-    double lambda2 = 3.38 * 0.1 / ppm;
-    double lambda3 = 50.5 * 0.1 / ppm;
-    double Tr128 = Aconstant * exp(-dist / lambda1) + Cconstant * exp(-dist / lambda2) + (1 - Aconstant - Cconstant) * exp(-dist / lambda3);
-    ab = 1. - Tr128;
-    // printf("line473 ppm %.3f ab %.3E\n", ppm, ab);
+    double lambda1 = par[LAMBDA1CONST] * 0.1 / ppm;
+    double lambda2 = lambda2ConstDefault * 0.1 / ppm;
+    double lambda3 = lambda3ConstDefault * 0.1 / ppm;
+    double Tr128 = AConstantDefault * exp(-dist / lambda1) + CConstantDefault * exp(-dist / lambda2) + (1 - AConstantDefault - CConstantDefault) * exp(-dist / lambda3);
+    double ab = 1. - Tr128;
+    // printf("line485*********** absconst %.3E ppm %.3f ab %.3E *************\n", abs1Const, ppm, ab);
 
     /* geometric efficiencies */
     double fourPi = 2. * TMath::TwoPi();
@@ -497,16 +491,16 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     effGeo = 1.;
 
     // values in samples
-    int ilow = 650; //
-    // int ihigh = 7500;
-    int ihigh = 4000 / 2;
-    // MAXSAMPLE; // singlet MAXSAMPLE;
-    //  singlet region
-    //  ihigh = 1500;
+    int iLowFitRange = 650; //
+                            // int iHighFitRange = 7500;
+    int iHighFitRange = 4000 / 2;
+    //  MAXSAMPLE; // singlet MAXSAMPLE;
+    //   singlet region
+    //   iHighFitRange = 1500;
     /****
      ****   loop over bins to fit
      */
-    for (int j = ilow; j < ihigh; ++j) // 7500 is total samples
+    for (int j = iLowFitRange; j < iHighFitRange; ++j) // 7500 is total samples
     {
       /* skip dip region for trigger sipms */
       bool dip = j > 1400 / 2 && j < 1700 / 2;
@@ -541,9 +535,14 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       double c3 = kx + ab / tTriplet;
 
       // model emission components terms in equation 6
-      // convoute with resolution using expGaus
+      // convoute with resolution using expGaust
+      /* ****** test set ab in fs to zero ****** */
       double fs = (1. - ab) * alpha1 / tSinglet0 * expGaus(x, t1); // singlet
-      double ft = (1. - ab) * alpha3 / tTriplet * expGaus(x, t3);  // triplet
+      double t1Zer0 = 1.0 / (1. / tSinglet0 + kqZero + kxZero);
+      // fs = alpha1 / tSinglet0 * expGaus(x, t1Zer0); // singlet
+      //  if (j == 710)
+      //    printf("line 549 t1zero %f fs %E\n", t1Zer0, fs);
+      double ft = (1. - ab) * alpha3 / tTriplet * expGaus(x, t3); // triplet
       // visible component
       double fvis = 0.; // visibleYield * norm * effGeo;
 

@@ -29,6 +29,9 @@ std::vector<TH1D *> hmodel;    ///< Model histograms per channel (reserved for f
 std::vector<TH1D *> hfitModel; ///< Final fitted model histograms per channel
 std::vector<double> ppmFile;
 std::vector<std::vector<std::vector<TH1D *>>> hCompWaves; ///< Component waveforms per channel and component type
+std::vector<std::vector<double>> singletByFile;           /// full waveforms per channel
+
+double theLambda1Constant = lambda1ConstDefault; ///< Absorption constant for current analysis
 
 // ============================================================================
 //  ANALYSIS PARAMETERS
@@ -174,7 +177,7 @@ void tbDraw(int theFitChannel = 7, int ifile = 0)
   //  ANALYSIS CONFIGURATION
   // ============================================================================
 
-  fout = new TFile(Form("tbModelPPM%.3f.root", theDopant), "recreate");
+  fout = new TFile(Form("tbModelPPM%i.root", ifile), "recreate");
 
   // == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == ==
   //  MINUIT OPTIMIZER INITIALIZATION
@@ -204,14 +207,14 @@ void tbDraw(int theFitChannel = 7, int ifile = 0)
   vstart[SFRAC] = 0.23;     ///< Singlet fraction (ref: Segretto 2021)
   vstart[PPM] = dopant;     ///< Dopant concentration
   vstart[TAU3] = tTriplet0; ///< Triplet decay time
-  vstart[TAUM] = 4700.0;    ///< Mixed component decay time
+  vstart[TAUM] = 4700.0;    ////< Mixed component decay time
   vstart[BKGCONST] = 0.0;   ///< Constant background rate
   vstart[KXCONST] = 1.0;    ///< Rate of transfer to mixed state
   // radiative
   vstart[R2CONST] = r2ConstDefault;
   vstart[R3CONST] = r3ConstDefault;
   vstart[C1CONST] = C1ConstDefault;
-  vstart[ABSORB1CONST] = absorb1ConstDefault;
+  vstart[LAMBDA1CONST] = theLambda1Constant;
 
   vstart[THECHANNEL] = theFitChannel; ///< Channel selection flag
   printf("starting parameter values \n");
@@ -311,11 +314,11 @@ void tbDraw(int theFitChannel = 7, int ifile = 0)
   printf("\t fix TAUM %.0f \n", arglist[0]);
   gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
-  arglist[0] = ABSORB1CONST + 1;           // par tau mixed
-  arglist[1] = 0.01 * absorb1ConstDefault; // low
-  arglist[2] = 10. * absorb1ConstDefault;  // high
+  arglist[0] = LAMBDA1CONST + 1;           // par tau mixed
+  arglist[1] = 0.01 * lambda1ConstDefault; // low
+  arglist[2] = 10. * lambda1ConstDefault;  // high
   // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
-  printf("\t fix ABSORB1CONST %.0f \n", arglist[0]);
+  printf("\t fix LAMBDA1CONST %.0f \n", arglist[0]);
   gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
   printf("\n...  call mnprin \n");
@@ -335,7 +338,9 @@ void tbDraw(int theFitChannel = 7, int ifile = 0)
     return;
   }
 
-  // fill fit wave
+  // fill fit wave and make singlet graph
+  vector<double> singletValues;
+  vector<double> chanNumber;
 
   // Initialize histogram vectors for all channels
   printf("\t\t start filling histograms \n");
@@ -354,7 +359,15 @@ void tbDraw(int theFitChannel = 7, int ifile = 0)
       hfitModel[ic] = hFit;
       // printf("hfitModel name %s \n", hFit->GetName());
       fillFitWave(ic, hFit);
+      chanNumber.push_back(double(ic));
+      singletValues.push_back(hFit->Integral(earlyBin, lateBin));
+      singletByFile[ic].push_back(singletValues.back());
     }
+    // make singlet graph
+    TGraph *singletGraph = new TGraph(singletValues.size(), &chanNumber[0], &singletValues[0]);
+    singletGraph->SetName(Form("singletGraphPPM%i", ifile));
+    singletGraph->SetTitle(Form("singletGraphPPM%i", ifile));
+    fout->Add(singletGraph);
   }
   else // only 1 channel
   {
@@ -369,8 +382,8 @@ void tbDraw(int theFitChannel = 7, int ifile = 0)
     fillFitWave(theFitChannel, hFit);
   }
 
-  // drawing
-  // Store individual component contributions (singlet, triplet, mixed) for each channel
+  // fill individual component contributions (singlet, triplet, mixed) for each channel
+
   if (theFitChannel < 0)
   {
     for (unsigned ic = 0; ic < NCHANPMT; ++ic)
@@ -383,7 +396,13 @@ void tbDraw(int theFitChannel = 7, int ifile = 0)
         hFit->SetLineColor(colors[ic]);
         fillCompWave(ic, icomp, hFit); // only need one of these
         hCompWaves[ifile][ic].push_back(hFit);
-        // printf("hFit name %s \n", hFit->GetName());
+        /*
+        if (icomp == 0)
+        {
+          singletValues.push_back(hFit->Integral(earlyBin, lateBin));
+          singletByFile[ic].push_back(singletValues.back());
+        }
+        */
       }
     }
   }
@@ -404,7 +423,7 @@ void tbDraw(int theFitChannel = 7, int ifile = 0)
 
   fout->Write();
 
-  printf("\n...  finished tbDraw \n");
+  printf("\n...  finished tbDraw  file %i \n", ifile);
 }
 void tbModel()
 {
@@ -428,14 +447,15 @@ void tbModel()
   ppmFile.push_back(15.);
   ppmFile.push_back(30.);
 
+  std::vector<double> abValues;
+
   for (int ifile = 0; ifile < ppmFile.size(); ++ifile)
   {
+    abValues.push_back(Absorption(ppmFile[ifile], 10.)); // dist = 10 cm, matches tbDraw()'s reference distance
+    for (int ilevel = 0; ilevel < NLEVELS; ++ilevel)
     {
-      for (int ilevel = 0; ilevel < NLEVELS; ++ilevel)
-      {
-        double ab = Absorption(ppmFile[ifile], distanceLevel[ilevel]);
-        // printf("ppm %f dist %f A %.3E\n", ppmFile[ifile], distanceLevel[ilevel], ab);
-      }
+      double ab = Absorption(ppmFile[ifile], distanceLevel[ilevel]);
+      // printf("ppm %f dist %f A %.3E\n", ppmFile[ifile], distanceLevel[ilevel], ab);
     }
   }
 
@@ -445,7 +465,9 @@ void tbModel()
     hCompWaves[ifile].resize(NCHAN);
   }
 
-  printf("\t number of file %li \n", ppmFile.size());
+  singletByFile.resize(NCHAN);
+
+  printf("\t number of file %li lambda1Constant = %.3E\n", ppmFile.size(), lpar[LAMBDA1CONST]);
   gStyle->SetOptStat(0);
   for (unsigned ifile = 0; ifile < ppmFile.size(); ++ifile)
   {
@@ -465,4 +487,58 @@ void tbModel()
       plotComponents(ifile, ichan); // ifile,ichan
     }
   }
+
+  printf("\t number of file %li lambda1Constant = %.3E\n", ppmFile.size(), lpar[LAMBDA1CONST]);
+
+  // singlet integral vs file (PPM), one graph per channel
+  TMultiGraph *mgSingletByFile = new TMultiGraph("mgSingletByFile", "singlet integral vs PPM, all channels");
+  for (unsigned ic = 0; ic < NCHANPMT; ++ic)
+  {
+    if (singletByFile[ic].size() != ppmFile.size())
+    {
+      printf("mgSingletByFile: chan %u size mismatch ppmFile %lu singletByFile %lu, skipping\n",
+             ic, ppmFile.size(), singletByFile[ic].size());
+      continue;
+    }
+    if (ic == 0 || ic == 8)
+      continue; // skip channels 0 and 8 due to known issues)
+    TGraph *gSingletChan = new TGraph(ppmFile.size(), &ppmFile[0], &singletByFile[ic][0]);
+    gSingletChan->SetName(Form("gSingletByFileChan%u", ic));
+    gSingletChan->SetTitle(Form("chan %u", ic));
+    gSingletChan->SetLineColor(colors[ic]);
+    gSingletChan->SetMarkerColor(colors[ic]);
+    gSingletChan->SetMarkerStyle(21);
+    mgSingletByFile->Add(gSingletChan, "lp");
+    fout->Add(gSingletChan);
+  }
+  TCanvas *canSingletByFile = new TCanvas("canSingletByFile", "singlet integral vs PPM, all channels");
+  canSingletByFile->SetGrid();
+  canSingletByFile->SetLogx();
+  mgSingletByFile->GetXaxis()->SetTitle("PPM");
+  mgSingletByFile->GetYaxis()->SetTitle("singlet integral");
+  mgSingletByFile->Draw("a");
+  canSingletByFile->BuildLegend();
+  canSingletByFile->Print("singletByFile.pdf");
+  fout->Add(mgSingletByFile);
+  fout->Append(canSingletByFile);
+
+  // absorption value vs PPM
+  if (abValues.size() != ppmFile.size())
+  {
+    printf("abValues: size mismatch ppmFile %lu abValues %lu, skipping graph\n", ppmFile.size(), abValues.size());
+    return;
+  }
+  TGraph *gAbValues = new TGraph(ppmFile.size(), &ppmFile[0], &abValues[0]);
+  gAbValues->SetName("gAbValues");
+  gAbValues->SetTitle("absorption factor vs PPM (10 cm)");
+  gAbValues->SetMarkerStyle(21);
+  gAbValues->GetXaxis()->SetTitle("PPM");
+  gAbValues->GetYaxis()->SetTitle("absorption factor at 10 cm");
+  TCanvas *canAbValues = new TCanvas("canAbValues", "absorption factor vs PPM");
+  canAbValues->SetGrid();
+  canAbValues->SetLogx();
+  gAbValues->Draw("ap");
+  canAbValues->Print("abValues.pdf");
+  fout->Add(gAbValues);
+  fout->Append(canAbValues);
 }

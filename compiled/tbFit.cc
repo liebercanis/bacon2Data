@@ -1,5 +1,4 @@
 /*
-
  * @file tbFit.cc
  * @brief Time-based waveform fitting using Minuit optimizer for BACoN detector analysis
  * @details Performs chi-squared minimization fitting to detector curves using the ROOT Minuit library.
@@ -16,6 +15,7 @@
 #include "TGraph.h"
 #include "TMinuit.h"
 #include "TLatex.h"
+#include "distanceLevels.hh"
 #include "modelAllFit.hh"
 
 // ============================================================================
@@ -37,6 +37,8 @@ std::vector<TH1D *> hmodel;                  ///< Model histograms per channel (
 std::vector<TH1D *> hfitModel;               ///< Final fitted model histograms per channel
 std::vector<TH1D *> hModelFullWaves;         /// full waveforms per channel
 std::vector<std::vector<TH1D *>> hCompWaves; ///< Component waveforms per channel and component type
+std::vector<double> totalIntegral;           // channel, integral of light curve
+double lightNorm;                            // normalization of fit
 
 // ============================================================================
 //  ANALYSIS PARAMETERS
@@ -118,7 +120,14 @@ TCanvas *makeCanFit(int i1, int i2, TString canName)
     TLatex *ppmLabel = new TLatex();
     ppmLabel->SetNDC();
     ppmLabel->SetTextSize(0.04);
-    ppmLabel->DrawLatex(0.6, 0.85, Form("fitted PPM = %.3f", lpar[PPM]));
+    double ylabel = 0.88;
+    for (int ip = 0; ip < NPARS; ++ip)
+    {
+      if (gMinuit->fNiofex[ip] == 0) // 0 means fixed/not currently variable
+        continue;
+      ppmLabel->DrawLatex(0.3, ylabel, Form("fitted %s = %.3f", lparNames[ip].Data(), lpar[ip]));
+      ylabel -= 0.05;
+    }
   }
   // can->BuildLegend();
 
@@ -148,7 +157,14 @@ TCanvas *makeCanFitOne(int i, int theFileNumber)
   TLatex *ppmLabel = new TLatex();
   ppmLabel->SetNDC();
   ppmLabel->SetTextSize(0.04);
-  ppmLabel->DrawLatex(0.6, 0.85, Form("fitted PPM = %.3f", lpar[PPM]));
+  double ylabel = 0.88;
+  for (int ip = 0; ip < NPARS; ++ip)
+  {
+    if (gMinuit->fNiofex[ip] == 0) // 0 means fixed/not currently variable
+      continue;
+    ppmLabel->DrawLatex(0.3, ylabel, Form("fitted %s = %.3f", lparNames[ip].Data(), lpar[ip]));
+    ylabel -= 0.05;
+  }
 
   can->SetLogy();
   can->Print(".pdf");
@@ -368,6 +384,7 @@ void getCurves()
     if (name.Contains("effNorm"))
     {
       hnorm.push_back(h);
+      printf("getCurves: %s integral %f \n", h->GetName(), h->Integral());
       fout->Append(h);
     }
   }
@@ -459,6 +476,7 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
 
   // ppm of file
   std::vector<double> ppmFile;
+  std::vector<int> ppmFileNumber;
 
   ppmFile.push_back(1.E-2);
   ppmFile.push_back(0.01);
@@ -473,8 +491,14 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   ppmFile.push_back(10.);
   ppmFile.push_back(15.);
   ppmFile.push_back(30.);
-
   printf("tbFit: ppmFile size %lu \n", ppmFile.size());
+  for (unsigned ifile = 0; ifile < ppmFile.size(); ++ifile)
+  {
+    ppmFileNumber.push_back(ifile);
+    printf("ifile %u PPM %.4f \n", ifile, ppmFile[ifile]);
+  }
+  totalIntegral.resize(NCHAN);
+
   for (unsigned i = 0; i < ppmFile.size(); ++i)
     printf("tbFit: ppmFile %u %.3f \n", i, ppmFile[i]);
 
@@ -485,7 +509,7 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   inputFile = TString("postMacro-04_16_2026-04_16_2026.root");
   inputFile = TString(Form("postMacroAllFile%i.root", theFileNumber));
   // inputFile = TString("anaCRun-btbSimNEW-2026-02-23-10-18-100000-0.root");
-  printf("MESSAGE: fit theFitChannel %i the file %s PPM %.3f\n", theFitChannel, inputFile.Data(), ppmFile[theFileNumber]);
+  printf("fit theFitChannel %i the file %s PPM %.3f\n", theFitChannel, inputFile.Data(), ppmFile[theFileNumber]);
 
   if (!openFile(inputFile))
     return;
@@ -524,7 +548,13 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   getCurves();
   printf("got curves %lu \n", hnorm.size());
   for (unsigned i = 0; i < hnorm.size(); ++i)
+  {
+    /* scale singlet model graph */
     printf("%i hist %s\n", i, hnorm[i]->GetName());
+    int earlyBin = 1350 / 2;
+    int lateBin = 1460 / 2;
+    totalIntegral[i] = hnorm[i]->Integral(0, 15000 / 2);
+  }
 
   // Extract and characterize late-time background for each channel
   // either from average or from fit to poly1
@@ -583,17 +613,17 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   vstart[NORM] = startNorm;         ///< Photon yield per event
   vstart[TRIGSTART] = theTrigStart; ///< Trigger timing offset
   // for Gamma I_s/I_t=0.3
-  vstart[SFRAC] = 0.23;     ///< Singlet fraction (ref: Segretto 2021)
-  vstart[PPM] = dopant;     ///< Dopant concentration
-  vstart[TAU3] = tTriplet0; ///< Triplet decay time
-  vstart[TAUM] = 4700.0;    ///< Mixed component decay time
-  vstart[BKGCONST] = 0.0;   ///< Constant background rate
-  vstart[KXCONST] = 1.0;    ///< Rate of transfer to mixed state
+  vstart[SFRAC] = 0.23;                      ///< Singlet fraction (ref: Segretto 2021)
+  vstart[PPM] = dopant;                      ///< Dopant concentration
+  vstart[TAU3] = tTriplet0;                  ///< Triplet decay time
+  vstart[TAUM] = 4700.0;                     ///< Mixed component decay time
+  vstart[BKGCONST] = backgroundConstDefault; ///< Constant background rate
+  vstart[KXCONST] = 1.0;                     ///< Rate of transfer to mixed state
   // radiative
   vstart[R2CONST] = r2ConstDefault;
   vstart[R3CONST] = r3ConstDefault;
   vstart[C1CONST] = C1ConstDefault;
-  vstart[ABSORB1CONST] = absorb1ConstDefault;
+  vstart[LAMBDA1CONST] = lambda1ConstDefault;
 
   vstart[THECHANNEL] = theFitChannel; ///< Channel selection flag
   printf("starting parameter values \n");
@@ -635,8 +665,23 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   //  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
 
   arglist[0] = BKGCONST + 1; // par
-  printf("\t fix BKGCONST %.0f \n", arglist[0]);
-  gMinuit->mnexcm("FIX BKGCONST", arglist, 1, ierflg);
+  // gMinuit->mnexcm("FIX BKGCONST", arglist, 1, ierflg);
+  arglist[1] = 1.E-1 * vstart[BKGCONST]; // low
+  arglist[2] = 1.E1 * vstart[BKGCONST];  // high
+  printf("\t FIX BKGCONST %.0f from %.3E to %.3E \n", arglist[0], arglist[1], arglist[2]);
+  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+
+  bool floatBACK = false;
+  if (floatBACK)
+  {
+    printf("\t set limits PPPM par %.0f default %.3E from %.3E to %.3E \n", arglist[0], vstart[BKGCONST], arglist[1], arglist[2]);
+    gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  }
+  else
+  {
+    printf("\t fix BACKGROUND par %.0f val %.3E \n", arglist[0], vstart[BKGCONST]);
+    gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+  }
 
   arglist[0] = R2CONST + 1; // par
   printf("\t fix R2ONST %.0f \n", arglist[0]);
@@ -649,8 +694,9 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   arglist[0] = C1CONST + 1;             // par
   arglist[1] = 1.E-1 * vstart[C1CONST]; // low
   arglist[2] = 1.E4 * vstart[C1CONST];  // high
-  printf("\t SET C1CONST %.0f from %.3E to %.3E \n", arglist[0], arglist[1], arglist[2]);
-  gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  printf("\t FIX C1CONST %.0f from %.3E to %.3E \n", arglist[0], arglist[1], arglist[2]);
+  // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  gMinuit->mnexcm("FIX C1CONST", arglist, 1, ierflg);
 
   arglist[0] = KXCONST + 1; // par
   printf("\t FIX KXCONST %.0f \n", arglist[0]);
@@ -685,13 +731,20 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
   // set limits ... here par starts with 1 so add 1
-  arglist[0] = PPM + 1;     // par
-  arglist[1] = vstart[PPM]; // low
-  printf("\t fix PPM %.0f \n", arglist[0]);
-  gMinuit->mnexcm("FIX", arglist, 1, ierflg);
-  // arglist[1] = 1.0E-15; // low
-  // arglist[2] = 50.0;    // high
-  // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  arglist[0] = PPM + 1; // par
+  arglist[1] = 1.0E-9;  // low
+  arglist[2] = 100.0;   // high
+  bool floatPPM = true;
+  if (floatPPM)
+  {
+    printf("\t set limits PPPM par %.0f default %.3E from %.3E to %.3E \n", arglist[0], vstart[PPM], arglist[1], arglist[2]);
+    gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
+  }
+  else
+  {
+    printf("\t fix PPM par %.0f val %.3E \n", arglist[0], vstart[PPM]);
+    gMinuit->mnexcm("FIX", arglist, 1, ierflg);
+  }
 
   arglist[0] = TAUM + 1;     // par tau mixed
   arglist[1] = 0.01 * tMix0; // low
@@ -700,12 +753,12 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   printf("\t fix TAUM %.0f \n", arglist[0]);
   gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
-  arglist[0] = ABSORB1CONST + 1;           // par tau mixed
-  arglist[1] = 0.01 * absorb1ConstDefault; // low
-  arglist[2] = 1.E9 * absorb1ConstDefault; // high
+  arglist[0] = LAMBDA1CONST + 1;           // par tau mixed
+  arglist[1] = 0.1 * lambda1ConstDefault;  // low
+  arglist[2] = 1.E9 * lambda1ConstDefault; // high
   // printf("\t set LIM ABSORB1 %.0f from %.3E to %.3E\n", arglist[0], arglist[1], arglist[2]);
   // gMinuit->mnexcm("SET LIM", arglist, 3, ierflg);
-  printf("\t FIX ABSORB1 %.0f \n", arglist[0]);
+  // printf("\t set limit ABSORB1 param %.0f starting %.3E from %.3E to %.3E\n", arglist[0], absorb1ConstDefault, arglist[1], arglist[2]);
   gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
   // ============================================================================
@@ -775,6 +828,7 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
     gMinuit->GetParameter(i, value, error);
     lpar[i] = value;
   }
+  lightNorm = lpar[NORM];
 
   if (theFitChannel < 0)
   {
@@ -834,6 +888,7 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
       fillCompWave(theFitChannel, icomp, hFit);
     }
   }
+  fout->cd(); // leave the "components" subdirectory, everything below belongs at top level
 
   // ============================================================================
   //  PARAMETER SCAN AND VISUALIZATION
@@ -900,5 +955,17 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   if (theFitChannel > 0)
     plotComponents(theFileNumber, theFitChannel); // ifile,ichan
   fout->Write();
-  printf("\n...  finished tbFit \n");
+
+  printf("tbFit: finished fit for file %i norm %f \n", theFileNumber, lightNorm);
+  for (unsigned ich = 0; ich < totalIntegral.size(); ++ich)
+    printf(" channel %i light integral %f \n", ich, totalIntegral[ich]);
+
+  printf("\nMESSAGE ...  finished tbFit theFitChannel %i file %i \n", theFitChannel, theFileNumber);
+  printf("MESSAGE fitted parameter values:\n");
+  for (int ip = 0; ip < NPARS; ++ip)
+  {
+    if (gMinuit->fNiofex[ip] == 0) // 0 means fixed/not currently variable
+      continue;
+    printf("\t MESSAGE parameter %i fitted %s = %.4f\n", ip, lparNames[ip].Data(), lpar[ip]);
+  }
 }
