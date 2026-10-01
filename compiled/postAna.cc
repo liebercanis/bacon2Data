@@ -771,7 +771,9 @@ void loop()
         }
 
         // trigger time shift to time of first trigger SIPM
-        int theHitTime = thit.firstBin + nominalTrigger - theMaximumBin;
+        // int theHitTime = thit.firstBin + nominalTrigger - theMaximumBin;
+        /* go back to default as done in anaCRunGamma */
+        int theHitTime = thit.firstBin;
         ntHitStart->Fill(entry, idet, thit.startTime, theHitTime);
         // int theHitTime = thit.firstBin;
         // if (thit.firstBin < nominalTrigger && idet == 9)
