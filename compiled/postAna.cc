@@ -16,6 +16,7 @@
 #include <numeric>
 #include <algorithm> // std::sort
 #include <ctime>     // for time() and ctime()
+#include <cstdlib>
 // root/chan
 #include <TROOT.h>
 #include <TKey.h>
