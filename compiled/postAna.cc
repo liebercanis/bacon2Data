@@ -221,6 +221,7 @@ void normalize(int ichan)
       hSave2->SetBinError(ibin, ebin / double(totalPass));
     }
   }
+  printf("line224 Channel %d: %s - Integral: %f - Total Pass: %lld normalized Integral %f \n", ichan, hist->GetName(), hist->Integral(), totalPass, hSave->Integral());
 }
 
 //// https://mathworld.wolfram.com/TernaryDiagram.html
