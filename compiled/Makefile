@@ -21,7 +21,7 @@ BOBJ=../bobj
 
 
 CXXFLAGS     :=  $(ROOTCFLAGS) -fPIC  -I$(LOCAL) 
-CXXFLAGS     += -I$(LOCAL) -I/$/usr/include -I/usr/local/include -I$(BOBJ)
+CXXFLAGS     += -I$(LOCAL) -I/usr/include -I/usr/local/include -I$(BOBJ)
 LIBS         := -L$(BOBJ) -lBaconAna $(ROOTLIBS) -L$(ROOTSYS)/lib/root -lMinuit  
 ## remove CXXFLAGS += -fPIC  -fsanitize=address 
 
