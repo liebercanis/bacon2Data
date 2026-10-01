@@ -46,6 +46,8 @@ public:
   std::vector<double> sipmSumGain;
   std::vector<double> sipmSumGainError;
   std::vector<double> relativeEff;
+  std::vector<double> relativeNorm;
+  std::vector<double> relativeLEDEff;
   double nominalGain;     // 170.;     // was 160.0; set Jue 13 2025
   double nominalTrigGain; //
   double nominalQsumGain;
