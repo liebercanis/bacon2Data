@@ -44,8 +44,9 @@
 #include "hitFinder.hxx"
 #include "TBFile.hxx"
 #include "TReadGains.hxx"
-#include "modelAllFit.hh" // for geo ff function and distance levels
-#include "failCodes.hh"   // for fail bit names and codes
+#include "distanceLevels.hh"
+#include "modelAllFit.hh"
+#include "failCodes.hh" // for fail bit names and codes
 
 using namespace TMath;
 
