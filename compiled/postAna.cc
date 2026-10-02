@@ -1,4 +1,5 @@
 /*
+        printf("\t entry %u : event %.0f chan %.0f  firstTime=%.1f time=%.1f \n", jentry, args[0], args[1], args[2], args[3]);
   program to analyze RunTree chain from date tag this is second pass after pulse findiing anacRunGamma.cc has been run
         uses TTree RunTree making a chain from date tag xx_xx_yyyy
             M Gold Nov 12 2025
@@ -103,6 +104,7 @@ std::vector<TH1D *> hQSum;
 std::vector<TH1D *> hNextHitTime;
 std::vector<TH1D *> hNextHitTimeOther;
 
+TH1D *hTheHitTime;
 TH1D *hEventPass;
 TH1D *eventCount;
 TH1D *hEventPassNew;
@@ -125,6 +127,7 @@ std::vector<TH1D *> hLateSumChan;
 std::vector<TH1D *> hLightCurve;
 std::vector<TH1D *> hLightNorm;
 std::vector<TH1D *> hLightEff;
+std::vector<std::vector<double>> trigTimeByFileEvent;
 
 std::vector<double> qsumGain; // read from class TReadGain
 double aveGain;
@@ -579,13 +582,14 @@ unsigned long countFiles()
     tmStruct.tm_year = year - 1900; // struct tm counts from 1900
     tmStruct.tm_mon = month - 1;    // struct tm is 0-based
     tmStruct.tm_mday = day;
+    printf("file %s %i %i %i\n", tname.Data(), day, month, year);
     time_t fileTime = mktime(&tmStruct);
-    const auto diff0 = std::difftime(fileTime, time0);
-    const auto diff1 = std::difftime(fileTime, time1);
+    const double diff0 = std::difftime(fileTime, time0);
+    const double diff1 = std::difftime(fileTime, time1);
     bool timetest = diff0 >= 0 && diff1 <= 0;
-    timetest = true;
-    // printf("fileTime: %s  month=%i day=%i year=%i  diff0=%.0f diff1=%.0f pass=%i  file=%s\n",
-    //        asctime(localtime(&fileTime)), month, day, year, diff0, diff1, int(timetest), tname.Data());
+    printf("line 509 file %s %i %i %i\n", tname.Data(), day, month, year);
+    printf("fileTime: %s  month=%i day=%i year=%i  diff0=%.0f diff1=%.0f pass=%i  file=%s\n",
+           asctime(localtime(&fileTime)), month, day, year, diff0, diff1, int(timetest), tname.Data());
     if (!timetest)
     {
       cout << "   skip out of time file " << name << endl;
@@ -642,12 +646,15 @@ void setTime(TString startTag, TString endTag)
 
 void loop()
 {
+
   /* nominal gains have been applied in pulse finding step */
   totalPass = 0;
   printf(" start of entry loop maxEntry=%lld\n", maxEntry);
   // loop over entries
   for (Long64_t entry = 0; entry < maxEntry; ++entry)
   {
+    RunTree->LoadTree(entry);                   // Loads the correct tree/file for entry i
+    Int_t fileIndex = RunTree->GetTreeNumber(); // Returns the file number (0, 1, 2...) }
 
     ++hitCountNev;
 
@@ -773,9 +780,10 @@ void loop()
         }
 
         // trigger time shift to time of first trigger SIPM
-        // int theHitTime = thit.firstBin + nominalTrigger - theMaximumBin;
-        /* go back to default as done in anaCRunGamma */
-        int theHitTime = thit.firstBin;
+        //* subtract off ave trigger time from anaCRunGamma */
+        int theHitTime = thit.firstBin + trigTimeByFileEvent[fileIndex][int(entry)] - theMaximumBin;
+        hTheHitTime->Fill(theHitTime);
+        // printf("line784 entry %lld fileIndex %i trigTimeByFile %.0f maxBin %i theHitTime %i \n", entry, fileIndex, trigTimeByFileEvent[fileIndex][int(entry)], theMaximumBin, theHitTime);
         ntHitStart->Fill(entry, idet, thit.startTime, theHitTime);
         // int theHitTime = thit.firstBin;
         // if (thit.firstBin < nominalTrigger && idet == 9)
@@ -837,14 +845,6 @@ void loop()
           if (jdetNumber == idetNumber)
             continue;
           // other det hits loop
-          for (unsigned jhit = 0; jhit < detList[jdetNumber]->hits.size(); ++jhit)
-          {
-            TDetHit jDetHit = detList[jdetNumber]->hits[jhit];
-            if (jDetHit.startTime <= iDetHit.startTime)
-              continue;
-            nextHitStartTime = jDetHit.startTime;
-            break; // only want the next hit after this one
-          } // other hit loop
           hNextHitTimeOther[idetNumber]->Fill(nextHitStartTime);
         } // other det loop
       } // this det hit loop
@@ -860,12 +860,35 @@ void post(TString tag)
   gStyle->SetOptStat(1001101);
   /* get RunTree */
   RunTree = new TChain("RunTree");
-  //** add files  */
+  trigTimeByFileEvent.resize(fileListName.size());
+  //** add files  and get ntTrigTime */
   for (unsigned ifile = 0; ifile < fileListName.size(); ++ifile)
   {
     TString fullName = TString("caenData/") + fileListName[ifile];
     printf("RunTree add file %s \n", fullName.Data());
     RunTree->Add(fullName);
+    TNtuple *ntTrigTime = nullptr;
+    TFile fin = TFile(fullName, "readonly");
+    fin.GetObject("ntTrigTime", ntTrigTime);
+    if (ntTrigTime)
+    {
+      printf("got %s fiile %s \n", ntTrigTime->GetName(), fullName.Data());
+      for (unsigned jentry = 0; jentry < ntTrigTime->GetEntries(); ++jentry)
+      {
+        ntTrigTime->GetEntry(jentry);
+        Float_t *args = ntTrigTime->GetArgs(); // entry:chan:firstTime:time:adc:ftime:fadc
+        if (args[1] == 0)
+        {
+          trigTimeByFileEvent[ifile].push_back(double(args[2]));
+          // printf("\t entry %u : event %.0f firstTime=%.1f \n", jentry, args[0], args[2]);
+        }
+      }
+      fin.Close();
+    }
+    else
+    {
+      printf("!!!!aint got ntTrigTime fiile %s \n", fullName.Data());
+    }
   }
 
   if (!RunTree)
@@ -921,6 +944,7 @@ void post(TString tag)
   ntLateInt = new TNtuple("ntLateInt", "late integral by channel", "event:chan:int0:int1:int2:int3:int4:int5:int6:int7:int8:int9:int10:int11");
   // make histograms
   // upper edge of last bin = 8
+  hTheHitTime = new TH1D("TheHitTime", "TheHitTime", 7500, 0, 7500);
   hPassBitNew = new TH1D("PassBitNew", "pass bit", FAILBITS - 1, 0, FAILBITS - 1);
   hEventPassNew = new TH1D("EventPassNew", " remade event failures", TOTALCODES, 0, TOTALCODES);
   hCosmicCut = new TH1D("CosmicCut", "cosmic cut pmtot totSum/nominal gain ", 1500., 0, 1500.);
@@ -1160,6 +1184,8 @@ int main(int argc, char *argv[])
   /* count files between dates */
   unsigned nfiles = countFiles();
   printf("MESSAGE line 985 count files from %s to %s total files  %ld \n", theStartTag.Data(), theEndTag.Data(), fileListName.size());
+  for (unsigned ifile = 0; ifile < fileListName.size(); ++ifile)
+    printf("file %s\n", fileListName[ifile].Data());
 
   if (nfiles == 0)
   {
