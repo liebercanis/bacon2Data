@@ -73,19 +73,22 @@ static double r2ConstDefault = 3.76E-5;
 static double r3ConstDefault = 1.95E-4;
 static double C1ConstDefault = 0.09;
 /******
-   absprption model Doug sept 25 2026 with PPM_MOLAR
+   absprption model Doug Oct. 2 2026 with PPM_MOLAR
 ******/
-static double lambda1ConstDefault = 9.08; // cm at 0.1 PPM_MOLAR
-// static double lambda1ConstDefault = 2.E4;    // cm at 0.1 PPM_MOLAR very large value for testing
-static double lambda2ConstDefault = 65.69;   // cm at 0.1 PPM_MOLAR
-static double lambda3ConstDefault = 1928.92; // cm at 0.1 PPM_MOLAR
-// static double absorb1ConstDefault = 8.E3;
-static double AConstantDefault = 0.6351;
-static double CConstantDefault = 0.1555;
+static double lambda1ConstDefault = 16.59;   // cm at 0.1 PPM_MOLAR
+static double lambda2ConstDefault = 75.81;   // cm at 0.1 PPM_MOLAR
+static double lambda3ConstDefault = 2995.82; // cm at 0.1 PPM_MOLAR
+static double AConstantDefault = 0.4417;
+static double CConstantDefault = 0.1936;
 
 static double backgroundConstDefault = 0.04153;
 //
 static int iTrigger = 729;
+
+// values in samples
+static int iLowFitRange = 650; //
+                               // int iHighFitRange = 7500;
+static int iHighFitRange = 4000 / 2;
 
 // NOT USING THIS
 /* Ion-beam excitation of liquid argon M. Hofmann et al.  Eur. Phys. J. C (2013) 73:2618 */
@@ -490,10 +493,6 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     */
     effGeo = 1.;
 
-    // values in samples
-    int iLowFitRange = 650; //
-                            // int iHighFitRange = 7500;
-    int iHighFitRange = 4000 / 2;
     //  MAXSAMPLE; // singlet MAXSAMPLE;
     //   singlet region
     //   iHighFitRange = 1500;
