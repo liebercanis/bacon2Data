@@ -48,6 +48,7 @@ public:
   std::vector<double> relativeEff;
   std::vector<double> relativeNorm;
   std::vector<double> relativeLEDEff;
+  std::vector<double> singletNorm;
   double nominalGain;     // 170.;     // was 160.0; set Jue 13 2025
   double nominalTrigGain; //
   double nominalQsumGain;

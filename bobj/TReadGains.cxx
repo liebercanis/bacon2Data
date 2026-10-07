@@ -127,6 +127,19 @@ ClassImp(TReadGains)
     relativeNorm[6] = 1.151084;
     relativeNorm[7] = 1.152126;
 
+    singletNorm.resize(NUMCHANNELS, 1);
+
+    singletNorm[1] = 1.123E+00;
+    singletNorm[2] = 8.769E-01;
+    singletNorm[3] = 5.028E-01;
+    singletNorm[4] = 1.621E-01;
+    singletNorm[5] = 3.350E-01;
+    singletNorm[6] = 9.424E-01;
+    singletNorm[7] = 8.943E-01;
+    singletNorm[9] = 3.397E-01;
+    singletNorm[10] = 3.334E-01;
+    singletNorm[11] = 3.269E-01;
+
     printGains();
 }
 
