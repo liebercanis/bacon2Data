@@ -109,13 +109,13 @@ ClassImp(TReadGains)
     */
     // after baseline mode subtraction sept 15 2026 skip channels 0, 8
 
-    relativeEff[1] = 1. + -0.446354;
-    relativeEff[2] = 1. + -0.076883;
-    relativeEff[3] = 1. + -0.030821;
-    relativeEff[4] = 1. + 0.017561;
-    relativeEff[5] = 1. + -0.090557;
-    relativeEff[6] = 1. + 0.316456;
-    relativeEff[7] = 1. + 0.310597;
+    relativeNorm[1] = 1. + -0.446354;
+    relativeNorm[2] = 1. + -0.076883;
+    relativeNorm[3] = 1. + -0.030821;
+    relativeNorm[4] = 1. + 0.017561;
+    relativeNorm[5] = 1. + -0.090557;
+    relativeNorm[6] = 1. + 0.316456;
+    relativeNorm[7] = 1. + 0.310597;
 
     printGains();
 }
