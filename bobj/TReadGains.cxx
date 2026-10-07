@@ -27,7 +27,7 @@ ClassImp(TReadGains)
 
     readPeakGains();
     readSumGains();
-    relativeLEDEff.resize(NUMCHANNELS);
+    relativeLEDEff.resize(NUMCHANNELS, 1.0);
     // from LED run as eff_i - mean
     // devide to correct
     relativeLEDEff[0] = 1. + 0.245877;
@@ -45,9 +45,7 @@ ClassImp(TReadGains)
     relativeLEDEff[12] = 1.0;
 
     // relativeEff from zero PPM run
-    relativeEff.resize(NUMCHANNELS);
-    for (unsigned i = 0; i < relativeEff.size(); ++i)
-        relativeEff[i] = 1;
+    relativeEff.resize(NUMCHANNELS, 1.0);
 
     // with 0.15 PPM
     relativeEff[1] = 1.0 + -0.320668;
@@ -94,10 +92,7 @@ ClassImp(TReadGains)
         relativeEff[12] = 1. + -0.881690;
         */
 
-    relativeNorm.resize(NUMCHANNELS);
-    for (unsigned i = 0; i < relativeNorm.size(); ++i)
-        relativeNorm[i] = 1;
-
+    relativeNorm.resize(NUMCHANNELS, 1.0);
     /** from limit range fit  old
     relativeNorm[0] = 1.0 + 2.203244;
     relativeNorm[2] = 1.0 + -0.045537;
@@ -127,7 +122,7 @@ ClassImp(TReadGains)
     relativeNorm[6] = 1.151084;
     relativeNorm[7] = 1.152126;
 
-    singletNorm.resize(NUMCHANNELS, 1);
+    singletNorm.resize(NUMCHANNELS, 1.0);
 
     singletNorm[1] = 1.123E+00;
     singletNorm[2] = 8.769E-01;
