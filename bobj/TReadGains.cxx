@@ -108,6 +108,7 @@ ClassImp(TReadGains)
     relativeNorm[7] = 1.0 + 0.152126;
     */
     // after baseline mode subtraction sept 15 2026 skip channels 0, 8
+    /*
 
     relativeNorm[1] = 1. + -0.446354;
     relativeNorm[2] = 1. + -0.076883;
@@ -116,6 +117,15 @@ ClassImp(TReadGains)
     relativeNorm[5] = 1. + -0.090557;
     relativeNorm[6] = 1. + 0.316456;
     relativeNorm[7] = 1. + 0.310597;
+    */
+    /* October 7 */
+    relativeNorm[1] = 1.191451;
+    relativeNorm[2] = 0.954463;
+    relativeNorm[3] = 0.893262;
+    relativeNorm[4] = 0.862011;
+    relativeNorm[5] = 0.795603;
+    relativeNorm[6] = 1.151084;
+    relativeNorm[7] = 1.152126;
 
     printGains();
 }
