@@ -124,16 +124,20 @@ ClassImp(TReadGains)
 
     /* oct 7 */
     singletNorm.resize(NUMCHANNELS, 1.0);
-    singletNorm[1] = 9.380E-01;
-    singletNorm[2] = 1.062E+00;
-    singletNorm[3] = 6.340E-01;
-    singletNorm[4] = 1.521E+00;
-    singletNorm[5] = 8.453E-01;
-    singletNorm[6] = 9.863E-01;
-    singletNorm[7] = 1.014E+00;
-    singletNorm[9] = 9.858E-01;
-    singletNorm[10] = 9.997E-01;
-    singletNorm[11] = 1.015E+00;
+    // ave singlet integral 102.534805
+    // MESSAGE relativeEff from postMacroAllFile
+    // without applying TReadGain singlelt norm Oct 8
+    singletNorm[1] = 6.772769E-01;
+    singletNorm[2] = 9.466520E-01;
+    singletNorm[3] = 1.183694E+00;
+    singletNorm[4] = 1.135740E+00;
+    singletNorm[5] = 9.992206E-01;
+    singletNorm[6] = 1.049722E+00;
+    singletNorm[7] = 1.007695E+00;
+    singletNorm[8] = 8.137023E-02;
+    singletNorm[9] = 4.161683E+00;
+    singletNorm[10] = 4.152675E+00;
+    singletNorm[11] = 4.108812E+00;
 
     printGains();
 }
