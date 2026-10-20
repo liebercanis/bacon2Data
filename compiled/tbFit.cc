@@ -31,6 +31,7 @@ TFile *fout;        ///< Output ROOT file handle for results
 TNtuple *ntParScan; ///< N-tuple storing parameter scan results
 
 std::vector<TH1D *> hnorm;                   ///< Normalized detector response histograms per channel
+std::vector<TH1D *> hlevel;                  ///< Normalized detector response histograms summed over level
 std::vector<TH1D *> hcurve;                  ///< Raw curve histograms per channel
 std::vector<TH1D *> hffit;                   ///< Fitted waveforms per channel
 std::vector<TH1D *> hmodel;                  ///< Model histograms per channel (reserved for future use)
@@ -292,51 +293,6 @@ TGraph *parameterScan(int thePar)
  * @param ichan Channel index
  * @param hist Pointer to histogram to fill with fitted values
  */
-void fillFitWave(int ichan, TH1D *hist)
-{
-  std::cout << "line 249 fillFitWave " << ichan << "  " << hist->GetName()
-            << " bins " << hist->GetNbinsX() << " bin " << int(theTrigStart) / 2 << std::endl;
-  hist->Reset("ICES");
-  for (int ib = 1; ib < hist->GetNbinsX(); ++ib)
-  {
-    /* debug
-    if (ib > int(theTrigStart / 2.) && ib < int(theTrigStart / 2.) + 100) // example condition to check for a specific bin
-      printf("line 255 in fillFitWave ichan %i sample %i val %E  \n", ichan, ib, fitWave[ichan][ib]);
-      */
-    double val = max(fitWave[ichan][ib], 1.E-9);
-    hist->SetBinContent(ib, val);
-    hist->SetBinError(ib, 0.);
-    hist->GetYaxis()->SetTitle("yield");
-    hist->GetXaxis()->SetTitle("time [ns]");
-    hffit[ichan] = hist;
-  }
-}
-
-/**
- * @brief Populate histogram with fitted component waveform for given channel and component type
- * @details Extracts fitted component contributes (singlet, triplet, mixed) stored in
- *          fitComp[NCHAN][NUMCOMP][MAXSAMPLE] and fills histogram
- * @param ichan Channel index
- * @param icomp Component index (e.g., singlet=0, triplet=1, mixed=2)
- * @param hist Pointer to histogram to fill
- */
-void fillCompWave(int ichan, int icomp, TH1D *hist)
-{
-  // std::cout << " fillCompWave " << ichan << " comp  " << icomp << " " << hist->GetName() << std::endl;
-  hist->Reset("ICES");
-  for (int ib = 1; ib < hist->GetNbinsX(); ++ib)
-  {
-    double val = max(fitComp[ichan][icomp][ib], 1.E-9);
-    hist->SetBinContent(ib, val);
-    // if (icomp == XENONCOMP && ib > 600 && ib < 1000)
-    //   printf("!!!! icomp %i chan %i sample %i val %E hist %E \n", icomp, ichan, ib, val, hist->GetBinContent(ib));
-    hist->SetBinError(ib, 0);
-    hist->GetYaxis()->SetTitle("yield");
-    hist->GetXaxis()->SetTitle("time [ns]");
-  }
-  hCompWaves[ichan].push_back(hist);
-  std::cout << std::endl;
-}
 
 /**
  * @brief Load all detector waveform histograms from input ROOT file
@@ -461,10 +417,10 @@ bool openFile(TString fileName)
  * @details Performs likelihood minimization using ROOT Minuit optimizer with chi-squared
  *          goodness-of-fit metric. Outputs fitted waveforms, component decomposition,
  *          parameter scan plots, and comparison canvases.
- * @param theFitChannel Channel index to fit. Use -1 to simultaneously fit all 12 PMT channels.
+ * @param theFitLevel Channel index to fit. Use -1 to simultaneously fit all 12 PMT channels.
  *                     This enables global optimization of parameters shared across detectors.
  */
-void tbFit(int theFitChannel = -2, int theFileNumber = 0)
+void tbFit(int theFitLevel = 0, int theFileNumber = 0)
 {
 
   hCompWaves.resize(NCHAN);
@@ -509,7 +465,7 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   inputFile = TString("postMacro-04_16_2026-04_16_2026.root");
   inputFile = TString(Form("postMacroAllFile%i.root", theFileNumber));
   // inputFile = TString("anaCRun-btbSimNEW-2026-02-23-10-18-100000-0.root");
-  printf("fit theFitChannel %i the file %s PPM %.3f\n", theFitChannel, inputFile.Data(), ppmFile[theFileNumber]);
+  printf("fit theFitLevel %i the file %s PPM %.3f\n", theFitLevel, inputFile.Data(), ppmFile[theFileNumber]);
 
   if (!openFile(inputFile))
     return;
@@ -547,12 +503,14 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   // Load all detector waveforms from input file hcurve and hnorm === hcurve is used for fit
   getCurves();
   printf("got curves %lu \n", hnorm.size());
+  sumCurvesToLevels(hnorm, hlevel);
+  fout->Write();
+  return;
+
   for (unsigned i = 0; i < hnorm.size(); ++i)
   {
     /* scale singlet model graph */
     printf("%i hist %s\n", i, hnorm[i]->GetName());
-    int earlyBin = 1350 / 2;
-    int lateBin = 1460 / 2;
     totalIntegral[i] = hnorm[i]->Integral(0, 15000 / 2);
   }
 
@@ -562,26 +520,26 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
 
   // Transfer histogram data to buffer arrays for fitting algorithm
   printf("fill buff \n");
-  if (theFitChannel < 0)
+  if (theFitLevel < 0)
   {
-    for (unsigned ichan = 0; ichan < NCHANPMT; ++ichan)
+    for (unsigned ilevel = 0; ilevel < NSIPMLEVELS; ++ilevel)
     {
-      printf(".... fill buffer for channel %i  hist %s maximum bin %i \n", ichan, hnorm[ichan]->GetName(), hnorm[ichan]->GetMaximumBin());
+      printf(".... fill buffer for channel %i  hist %s maximum bin %i \n", ilevel, hlevel[ilevel]->GetName(), hlevel[ilevel]->GetMaximumBin());
       // fill data buffer
       for (int isample = 1; isample < MAXSAMPLE; ++isample)
       {
-        buff[ichan][isample - 1] = hnorm[ichan]->GetBinContent(isample); // C starts array from zero
+        buff[ilevel][isample - 1] = hlevel[ilevel]->GetBinContent(isample); // C starts array from zero
       }
     }
   }
   else
   {
-    unsigned ichan = theFitChannel;
-    printf(".... fill buffer for channel %i  hist %s maximum bin %i \n", ichan, hnorm[ichan]->GetName(), hnorm[ichan]->GetMaximumBin());
+    int ilevel = theFitLevel;
+    printf(".... fill buffer for channel %i  hist %s maximum bin %i \n", ilevel, hlevel[ilevel]->GetName(), hlevel[ilevel]->GetMaximumBin());
     // fill data buffer
     for (int isample = 1; isample < MAXSAMPLE; ++isample)
     {
-      buff[ichan][isample - 1] = hnorm[ichan]->GetBinContent(isample); // C starts array from zero
+      buff[ilevel][isample - 1] = hlevel[ilevel]->GetBinContent(isample); // C starts array from zero
     }
   }
 
@@ -625,7 +583,7 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   vstart[C1CONST] = C1ConstDefault;
   vstart[LAMBDA1CONST] = lambda1ConstDefault;
 
-  vstart[THECHANNEL] = theFitChannel; ///< Channel selection flag
+  vstart[THELEVEL] = theFitLevel; ///< Channel selection flag
   printf("starting parameter values \n");
   for (int ip = 0; ip < NPARS; ++ip)
     printf(" par %i %s start val %.3f \n", ip, lparNames[ip].Data(), vstart[ip]);
@@ -653,8 +611,8 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   // Note: Minuit uses 1-based indexing for parameters (adds 1 to C++ indices)
 
   // fix channel
-  arglist[0] = THECHANNEL + 1; // channel
-  printf("\t fix THECHANNEL %.0f \n", arglist[0]);
+  arglist[0] = THELEVEL + 1; // channel
+  printf("\t fix THELEVEL %.0f \n", arglist[0]);
   gMinuit->mnexcm("FIX", arglist, 1, ierflg);
 
   arglist[0] = TRIGSTART + 1; // trigger
@@ -830,32 +788,32 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   }
   lightNorm = lpar[NORM];
 
-  if (theFitChannel < 0)
+  if (theFitLevel < 0)
   {
-    for (unsigned ic = 0; ic < NCHANPMT; ++ic)
+    for (unsigned ilevel = 0; ilevel < NLEVEL; ++ilevel)
     {
-      TH1D *hFit = (TH1D *)hnorm[ic]->Clone(Form("fitWaveFitChan%i", ic));
+      TH1D *hFit = (TH1D *)hnorm[ilevel]->Clone(Form("fitWaveFitLevel%i", ilevel));
       hFit->Reset("ICES");
-      hFit->SetTitle((Form("fitWaveFitChan%i %.3fPPM", ic, dopant)));
-      hFit->SetMarkerColor(colors[ic]);
-      hFit->SetLineColor(colors[ic]);
-      hfitModel[ic] = hFit;
-      fillFitWave(ic, hFit);
-      hModelFullWaves[ic] = hFit;
+      hFit->SetTitle((Form("fitWaveFitLevel%i %.3fPPM", ilevel, dopant)));
+      hFit->SetMarkerColor(colors[ilevel]);
+      hFit->SetLineColor(colors[ilevel]);
+      fillFitWave(ilevel, hFit);
+      hfitModel[ilevel] = hFit;
+      hModelFullWaves[ilevel] = hFit;
     }
   }
   else // only 1 channel
   {
-    printf("tbFit: filling fitWave for channel %i \n", theFitChannel);
-    TH1D *hFit = (TH1D *)hnorm[theFitChannel]->Clone(Form("fitWaveFitChan%i", theFitChannel));
+    printf("tbFit: filling fitWave for channel %i \n", theFitLevel);
+    TH1D *hFit = (TH1D *)hnorm[theFitLevel]->Clone(Form("fitWaveFitChan%i", theFitLevel));
     hFit->Reset("ICES");
-    hFit->SetTitle((Form("fitWaveFitChan%i %.3fPPM", theFitChannel, dopant)));
+    hFit->SetTitle((Form("fitWaveFitChan%i %.3fPPM", theFitLevel, dopant)));
 
-    hFit->SetMarkerColor(colors[theFitChannel]);
-    hFit->SetLineColor(colors[theFitChannel]);
-    hfitModel[theFitChannel] = hFit;
-    fillFitWave(theFitChannel, hFit);
-    hModelFullWaves[theFitChannel] = hFit;
+    hFit->SetMarkerColor(colors[theFitLevel]);
+    hFit->SetLineColor(colors[theFitLevel]);
+    hfitModel[theFitLevel] = hFit;
+    fillFitWave(theFitLevel, hFit);
+    hModelFullWaves[theFitLevel] = hFit;
   }
 
   // Create subdirectory in output file for component decomposition histograms
@@ -863,17 +821,17 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   compDir->cd();
 
   // Store individual component contributions (singlet, triplet, mixed) for each channel
-  if (theFitChannel < 0)
+  if (theFitLevel < 0)
   {
-    for (unsigned ic = 0; ic < NCHANPMT; ++ic)
+    for (unsigned ilevel = 0; ilevel < NSIPMLEVELS; ++ilevel)
     {
       for (int icomp = 0; icomp < NUMCOMP; ++icomp)
       {
-        TH1D *hFit = (TH1D *)hnorm[ic]->Clone(Form("fit%sChan%i", compNames[icomp].Data(), ic));
+        TH1D *hFit = (TH1D *)hlevel[ilevel]->Clone(Form("fit%sLevel%i", compNames[icomp].Data(), ilevel));
         hFit->Reset("ICES");
-        hFit->SetTitle((Form("fit%sChan%i %.3fPPM", compNames[icomp].Data(), ic, dopant)));
-        hFit->SetLineColor(colors[ic]);
-        fillCompWave(ic, icomp, hFit); // only need one of these
+        hFit->SetTitle((Form("fit%sLevel%i %.3fPPM", compNames[icomp].Data(), ilevel, dopant)));
+        hFit->SetLineColor(colors[ilevel]);
+        fillCompWave(ilevel, icomp, hFit); // only need one of these
       }
     }
   }
@@ -881,11 +839,11 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   {
     for (int icomp = 0; icomp < NUMCOMP; ++icomp)
     {
-      TH1D *hFit = (TH1D *)hnorm[theFitChannel]->Clone(Form("fit%sChan%i", compNames[icomp].Data(), theFitChannel));
+      TH1D *hFit = (TH1D *)hnorm[theFitLevel]->Clone(Form("fit%sChan%i", compNames[icomp].Data(), theFitLevel));
       hFit->Reset("ICES");
-      hFit->SetTitle((Form("fit%sChan%i %.3fPPM", compNames[icomp].Data(), theFitChannel, dopant)));
-      hFit->SetLineColor(colors[theFitChannel]);
-      fillCompWave(theFitChannel, icomp, hFit);
+      hFit->SetTitle((Form("fit%sChan%i %.3fPPM", compNames[icomp].Data(), theFitLevel, dopant)));
+      hFit->SetLineColor(colors[theFitLevel]);
+      fillCompWave(theFitLevel, icomp, hFit);
     }
   }
   fout->cd(); // leave the "components" subdirectory, everything below belongs at top level
@@ -912,23 +870,23 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   // printf("scan parameter %i %s from %f to %f \n", thePar, lparNames[thePar].Data(), 0.001 * lpar[thePar], 100. * lpar[thePar]);
   // parameterScan(thePar);
 
-  if (theFitChannel < 0)
+  if (theFitLevel < 0)
   {
     makeCanFit(0, 2, TString(Form("canFitLevel0File%i", theFileNumber)));
     makeCanFit(3, 5, TString(Form("canFitLevel1File%i", theFileNumber)));
     makeCanFit(6, 8, TString(Form("canFitLevel2File%i", theFileNumber)));
 
-    if (theFitChannel == -1)
+    if (theFitLevel == -1)
       makeCanFit(9, 11, TString(Form("canFitTrigFile%i", theFileNumber)));
   }
   else
-    makeCanFitOne(theFitChannel, theFileNumber);
+    makeCanFitOne(theFitLevel, theFileNumber);
 
   // ============================================================================
   //  GOODNESS-OF-FIT EVALUATION
   // ============================================================================
   // Compute and report reduced chi-squared for each non-flagged channel
-  if (theFitChannel < 0)
+  if (theFitLevel < 0)
   {
     for (unsigned ic = 0; ic < NCHANPMT; ++ic)
     {
@@ -938,7 +896,7 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
   }
   else
   {
-    printf("channel %i chisq/dof %.3E \n", theFitChannel, doChsiq(theFitChannel));
+    printf("channel %i chisq/dof %.3E \n", theFitLevel, doChsiq(theFitLevel));
   }
 
   // printf(" shift %.2f peak curve chan 9 %d peak fit %d ns \n", shift, 2 * hcurve[9]->GetMaximumBin(), 2 * hffit[9]->GetMaximumBin());
@@ -952,15 +910,15 @@ void tbFit(int theFitChannel = -2, int theFileNumber = 0)
       }
     }
   }
-  if (theFitChannel > 0)
-    plotComponents(theFileNumber, theFitChannel); // ifile,ichan
+  if (theFitLevel > 0)
+    plotComponents(theFileNumber, theFitLevel); // ifile,ichan
   fout->Write();
 
   printf("tbFit: finished fit for file %i norm %f \n", theFileNumber, lightNorm);
   for (unsigned ich = 0; ich < totalIntegral.size(); ++ich)
     printf(" channel %i light integral %f \n", ich, totalIntegral[ich]);
 
-  printf("\nMESSAGE ...  finished tbFit theFitChannel %i file %i \n", theFitChannel, theFileNumber);
+  printf("\nMESSAGE ...  finished tbFit theFitLevel %i file %i \n", theFitLevel, theFileNumber);
   printf("MESSAGE fitted parameter values:\n");
   for (int ip = 0; ip < NPARS; ++ip)
   {

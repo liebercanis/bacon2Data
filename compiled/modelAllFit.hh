@@ -28,7 +28,7 @@ enum
   R3CONST,
   C1CONST,
   LAMBDA1CONST,
-  THECHANNEL,
+  THELEVEL,
   NPARS
 };
 
@@ -36,14 +36,20 @@ enum
 {
   NCHAN = 13,
   NCHANPMT = 12,
-  MAXSAMPLE = 7500
+  MAXSAMPLE = 7500,
+  NSIPMLEVELS = 4,
+  NLEVEL = 7
+  /******
+    levels 0,1,2,3 are SIPMS
+    level 4 is PMT, level 5 is SIPM 0 and level 6 is SIPM 8
+  ***/
 };
 
 // return fitted function
-static double buff[NCHAN][MAXSAMPLE]; // buffer to store light curve data
-static double fitWave[NCHAN][MAXSAMPLE];
-static double fitComp[NCHAN][NUMCOMP][MAXSAMPLE];
-static double lateBkg[NCHAN]; // no longer used
+static double buff[NLEVEL][MAXSAMPLE]; // buffer to store light curve data
+static double fitWave[NLEVEL][MAXSAMPLE];
+static double fitComp[NLEVEL][NUMCOMP][MAXSAMPLE];
+static double lateBkg[NLEVEL]; // no longer used
 
 /*** define singlet integral region Sept 28 2026 */
 static int earlyBin = 1400 / 2; //
@@ -134,6 +140,99 @@ static double PMTQE150 = 0.01;
 static double PMTQE175 = 0.38;
 static double PMTQE400 = 0.35;
 
+// level
+static int getLevel(int ichan)
+{
+  int ilevel = -1; // triggger 9,10,11
+  if (ichan == 9 || ichan == 10 || ichan == 11)
+    ilevel = 0;
+  if (ichan == 6 || ichan == 7)
+    ilevel = 1;
+  if (ichan == 3 || ichan == 4 || ichan == 5)
+    ilevel = 2;
+  if (ichan == 1 || ichan == 2)
+    ilevel = 3;
+  if (ichan == 12)
+    ilevel = 4;
+  if (ichan == 0)
+    ilevel = 5;
+  if (ichan == 8)
+    ilevel = 6;
+  return ilevel;
+}
+
+static void sumCurvesToLevels(std::vector<TH1D *> hchan, std::vector<TH1D *> hsum)
+{
+  // make clones
+  hsum.resize(NLEVEL);
+  for (int ilevel = 0; ilevel < NLEVEL; ++ilevel)
+  {
+    hsum[ilevel] = (TH1D *)hchan[0]->Clone(Form("levelCurve%i", ilevel));
+    hsum[ilevel]->Reset("ICESM"); // reset
+  }
+  /* sum over channels */
+  for (int ichan = 0; ichan < NCHAN; ++ichan)
+  {
+    int ilevel = getLevel(ichan);
+    if (ilevel < 0)
+      continue;
+    /* sum over bins */
+    for (int ibin = 0; ibin < hchan[ichan]->GetNbinsX(); ++ibin)
+    {
+      hsum[ilevel]->SetBinContent(ibin, hsum[ilevel]->GetBinContent(ibin) + hchan[ichan]->GetBinContent(ibin));
+      double error = sqrt(pow(hsum[ilevel]->GetBinError(ibin), 2.) + pow(hchan[ichan]->GetBinError(ibin), 2.));
+      hsum[ilevel]->SetBinError(ibin, error);
+    }
+  }
+}
+
+/**
+ * @brief Populate histogram with fitted waveform samples from optimization result
+ * @details Transfers fitWave array (computed by fcn() during minimization) into a TH1D
+ *          histogram. Data is stored in modelAllFit.hh as fitWave[NCHAN][MAXSAMPLE]
+ * @param level level index
+ * @param hist Pointer to histogram to fill with fitted values
+ */
+static void fillFitWave(int ilevel, TH1D *hist)
+{
+  hist->Reset("ICES");
+  for (int ib = 1; ib < hist->GetNbinsX(); ++ib)
+  {
+    /* debug
+    if (ib > int(theTrigStart / 2.) && ib < int(theTrigStart / 2.) + 100) // example condition to check for a specific bin
+      printf("line 255 in fillFitWave ichan %i sample %i val %E  \n", ichan, ib, fitWave[ichan][ib]);
+      */
+    double val = max(fitWave[ilevel][ib], 1.E-9);
+    hist->SetBinContent(ib, val);
+    hist->SetBinError(ib, 0.);
+    hist->GetYaxis()->SetTitle("yield");
+    hist->GetXaxis()->SetTitle("time [ns]");
+  }
+}
+
+/**
+ * @brief Populate histogram with fitted component waveform for given channel and component type
+ * @details Extracts fitted component contributes (singlet, triplet, mixed) stored in
+ *          fitComp[NCHAN][NUMCOMP][MAXSAMPLE] and fills histogram
+ * @param ilevel level index
+ * @param icomp Component index (e.g., singlet=0, triplet=1, mixed=2)
+ * @param hist Pointer to histogram to fill
+ */
+static void fillCompWave(int ilevel, int icomp, TH1D *hist)
+{
+  hist->Reset("ICES");
+  for (int ib = 1; ib < hist->GetNbinsX(); ++ib)
+  {
+    double val = max(fitComp[ilevel][icomp][ib], 1.E-9);
+    hist->SetBinContent(ib, val);
+    // if (icomp == XENONCOMP && ib > 600 && ib < 1000)
+    //   printf("!!!! icomp %i chan %i sample %i val %E hist %E \n", icomp, ichan, ib, val, hist->GetBinContent(ib));
+    hist->SetBinError(ib, 0);
+    hist->GetYaxis()->SetTitle("yield");
+    hist->GetXaxis()->SetTitle("time [ns]");
+  }
+}
+
 static bool isBadChannel(int ichan)
 {
   return badChannel[ichan];
@@ -171,7 +270,7 @@ static void setParNames() // tousif
   lparNames[R3CONST] = TString("r3const");
   lparNames[C1CONST] = TString("c1onst");
   lparNames[LAMBDA1CONST] = TString("lambda1const");
-  lparNames[THECHANNEL] = TString("theChannel");
+  lparNames[THELEVEL] = TString("theChannel");
 }
 
 static void setCompNames() // tousif
@@ -216,21 +315,6 @@ static void setupModelAllFit()
   isCovered[0] = true;
   isCovered[8] = true;
   // isCovered[3] = true;
-}
-
-// level
-static int getLevel(int ichan)
-{
-  int ilevel = 0; // triggger 9,10,11
-  if (ichan == 6 || ichan == 7 || ichan == 8)
-    ilevel = 1;
-  if (ichan == 3 || ichan == 4 || ichan == 5)
-    ilevel = 2;
-  if (ichan == 0 || ichan == 1 || ichan == 2)
-    ilevel = 3;
-  if (ichan == 12)
-    ilevel = 4;
-  return ilevel;
 }
 
 static double effGeoFunc(int ichan)
@@ -452,40 +536,24 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
    **************** loop over channels *************
    * **************/
   // double chanList[3] = {8, 5, 0};
-  for (int ic = 0; ic < NCHAN; ++ic)
+  for (int ilevel = 0; ilevel < NLEVEL; ++ilevel)
   {
     /* for fitting single channel
-     ************  par[THECHANNEL] =-1 for all
+     ************  par[THELEVEL] =-1 for all
      */
-    if (par[THECHANNEL] > 0 && ic != par[THECHANNEL])
+    if (par[THELEVEL] > 3) // only SIPMs for now
     {
       continue;
     }
 
-    if (par[THECHANNEL] == -2)
-    { // dont use trigger sipms
-      if (ic > 8)
-        continue;
-    }
-
-    /* skip bad channels */
+    /* skip bad channels
     if (isBadChannel(ic))
     {
       printf("fcn skipping bad channel %i \n", ic);
       continue;
     }
+    */
 
-    // **** level
-    int ilevel = 0; // triggger 9,10,11
-    if (ic == 6 || ic == 7 || ic == 8)
-      ilevel = 1;
-    else if (ic == 3 || ic == 4 || ic == 5)
-      ilevel = 2;
-    else if (ic == 0 || ic == 1 || ic == 2)
-      ilevel = 3;
-    else if (ic == 12)
-      ilevel = 4;
-    //  **** ilevel
     /** dist */
     double dist = distanceLevel[ilevel]; // from header distanceLevels.hh
     // SiPMQ128
@@ -505,7 +573,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     double fourPi = 2. * TMath::TwoPi();
     double effGeo = pow(0.6, 2.) / fourPi / pow(dist, 2.);
     double aPmt = TMath::Pi() / 4.0 * pow(6.40, 2); // R11410-20  Effective area : 64 mm dia units here are cm
-    if (ic == 12)
+    if (ilevel == 4)
       effGeo = aPmt / fourPi / pow(dist, 2.);
     double effGeoTrig = pow(0.6, 2.) / fourPi / pow(distanceLevel[0], 2.);
     /*
@@ -586,7 +654,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       double fm = (mterm1 + mterm3) / tMix; // mixed
 
       // additional factors depend on SIPM channel
-      if (ic == 0) // poly carbon covered sees only above 4000 nm
+      if (ilevel == 5) // poly carbon covered sees only above 4000 nm
       {
         fs = 0;
         ft = 0;
@@ -594,7 +662,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
         fx = 0;
         frad = 0;
       }
-      else if (ic == 8) // glass covered sees only  175
+      else if (ilevel == 6) // glass covered sees only  175
       {
         fs = 0;
         ft = 0;
@@ -602,7 +670,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
         frad = frad * SiPMQE150;
         fx = fx * SiPMQE175;
       }
-      else if (ic == 12) // PMT
+      else if (ilevel == 4) // PMT
       {
         fs = 0;
         ft = 0;
@@ -626,17 +694,17 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       // printf("line501  model value chan %i sample %i x %E fs %E ft %E fx %E fm %E frad %E mval %E  \n", ic, j, x, fs, ft, fx, fm, frad, mval);
       //  mval =] fs + ft;
       //   for plottting components
-      fitComp[ic][SINGLETCOMP][j] = fs;
-      fitComp[ic][TRIPLETCOMP][j] = ft;
-      fitComp[ic][XENONCOMP][j] = fx;
-      fitComp[ic][RADIATIVECOMP][j] = frad;
-      fitComp[ic][VISIBLECOMP][j] = fvis;
+      fitComp[ilevel][SINGLETCOMP][j] = fs;
+      fitComp[ilevel][TRIPLETCOMP][j] = ft;
+      fitComp[ilevel][XENONCOMP][j] = fx;
+      fitComp[ilevel][RADIATIVECOMP][j] = frad;
+      fitComp[ilevel][VISIBLECOMP][j] = fvis;
       // if (ic == 8 && j == 1500)
       //   printf("....line418 sample %i fx %E \n", j, fx);
-      fitComp[ic][MIXEDCOMP][j] = fm;
+      fitComp[ilevel][MIXEDCOMP][j] = fm;
       // fitComp[ic][BKGCOMP][j] = lateBkg[j];
       //  output fitted function
-      fitWave[ic][j] = mval;
+      fitWave[ilevel][j] = mval;
 
       // printf("line614 modelFitAll chan %i j %i --  fs %E ft %E fx %E fm %E frad %E mval %E \n", ic, j, fs, ft, fx, fm, frad, mval);
 
@@ -651,7 +719,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
          */
 
       // build the likelihood f to minimize
-      double y = buff[ic][j]; // observe)d
+      double y = buff[ilevel][j]; // observe)d
       // we do an NLL
       double yterm = 0.0; // in this case Prob=1 so log=0
       if (y <= 0)
@@ -663,7 +731,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       yterm = y - y * log(y);
       if (isnan(yterm))
       {
-        printf("line577 ibin YTERM is NAN chan %i sample  %i f=%E  y = %E fs %E ft %E fx %E fm %E bkg %E \n", ic, j, f, y, fs, ft, fx, fm, lateBkg[j]);
+        printf("line577 ibin YTERM is NAN level %i sample  %i f=%E  y = %E fs %E ft %E fx %E fm %E bkg %E \n", ilevel, j, f, y, fs, ft, fx, fm, lateBkg[j]);
       }
       else
       { // sum up NLL as defined ROOT documentation
@@ -675,7 +743,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       //   leave warnning printout
       if (isnan(f))
       {
-        printf("line265  ibin F is NAN chan %i sample %i f=%E mval = %E x = %E y = %E yterm %E rad3 %E krad23 %E fs %E ft %E fx %E fm %E frad %E \n", ic, j, f, mval, x, y, yterm, rad3, krad23, fs, ft, fx, fm, frad);
+        printf("line265  ibin F is NAN level %i sample %i f=%E mval = %E x = %E y = %E yterm %E rad3 %E krad23 %E fs %E ft %E fx %E fm %E frad %E \n", ilevel, j, f, mval, x, y, yterm, rad3, krad23, fs, ft, fx, fm, frad);
       }
     }
 
