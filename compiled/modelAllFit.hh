@@ -1,4 +1,6 @@
-
+/*
+  model fitting to all channels at once revised Oct 2026
+*/
 // light components
 enum
 {
@@ -45,7 +47,7 @@ static double lateBkg[NCHAN]; // no longer used
 
 /*** define singlet integral region Sept 28 2026 */
 static int earlyBin = 1400 / 2; //
-static int lateBin = 1460 / 2;
+static int lateBin = 1600 / 2;
 
 /***** units are nanoseconds ****/
 static double shift = 9.;
@@ -74,12 +76,30 @@ static double r3ConstDefault = 1.95E-4;
 static double C1ConstDefault = 0.09;
 /******
    absprption model Doug Oct. 2 2026 with PPM_MOLAR
-******/
 static double lambda1ConstDefault = 16.59;   // cm at 0.1 PPM_MOLAR
 static double lambda2ConstDefault = 75.81;   // cm at 0.1 PPM_MOLAR
 static double lambda3ConstDefault = 2995.82; // cm at 0.1 PPM_MOLAR
 static double AConstantDefault = 0.4417;
 static double CConstantDefault = 0.1936;
+*****/
+
+/****
+   absprption model Doug Oct. 6 2026 with PPM_MOLAR
+static double lambda1ConstDefault = 9.20;    // cm at 0.1 PPM_MOLAR
+static double lambda2ConstDefault = 57.96;   // cm at 0.1 PPM_MOLAR
+static double lambda3ConstDefault = 4391.16; // cm at 0.1 PPM_MOLAR
+static double AConstantDefault = 0.3720;
+static double CConstantDefault = 0.1653;
+******/
+
+/****
+   absprption model Doug Oct. 20 2026 with PPM_MOLAR
+******/
+static double lambda1ConstDefault = 4.49;    // cm at 0.1 PPM_MOLAR
+static double lambda2ConstDefault = 38.55;   // cm at 0.1 PPM_MOLAR
+static double lambda3ConstDefault = 5694.54; // cm at 0.1 PPM_MOLAR
+static double AConstantDefault = 0.4010;
+static double CConstantDefault = 0.1399;
 
 static double backgroundConstDefault = 0.04153;
 //
