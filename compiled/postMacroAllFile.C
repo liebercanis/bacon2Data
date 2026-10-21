@@ -70,6 +70,7 @@ std::vector<double> rayleighAtten;
 std::vector<double> relativeEff;
 std::vector<TH1D *> hGeoNorm;
 std::vector<TH1D *> hEffNorm;
+std::vector<TH1D *> hEffNormLevel; // summed by level
 std::vector<TH1D *> hRayleighNorm;
 std::vector<TString> fileList;
 
@@ -150,8 +151,11 @@ void makeEffNorm(int i)
     */
 
     // double corr = 1. / relativeEff[i] / effGeoFunc(i) / rayleighAtten[i] / absorptionFactor[i];
-    double corr = 1. / effGeoFunc(i) / readGains->relativeNorm[i] / SiPMQE128Ham;
-    // printf("chan%i  integral %.3E base %.3E geo %.3E abs %.3E corr %.3E \n", i, hnorm[i]->Integral(), baseline, effGeoFunc(i), absorptionFactor[i], corr);
+    double corr = 1. / effGeoFunc(i) / readGains->relativeNorm[i] / readGains->singletNorm[i] / SiPMQE128Ham;
+    // double corr = 1. / effGeoFunc(i) / readGains->relativeNorm[i] / SiPMQE128Ham;
+    //     corr = 1. / effGeoFunc(i) / SiPMQE128Ham;
+    //     double corr = 1. / effGeoFunc(i)  / SiPMQE128Ham;
+    //      printf("chan%i  integral %.3E base %.3E geo %.3E abs %.3E corr %.3E \n", i, hnorm[i]->Integral(), baseline, effGeoFunc(i), absorptionFactor[i], corr);
     hGeoNorm[i] = (TH1D *)hnorm[i]->Clone(Form("GeoNormChan%i", i));
     hRayleighNorm[i] = (TH1D *)hnorm[i]->Clone(Form("RayleighNormChan%i", i));
     hEffNorm[i] = (TH1D *)hnorm[i]->Clone(Form("effNormChan%i", i));
@@ -166,7 +170,7 @@ void makeEffNorm(int i)
         hEffNorm[i]->SetBinContent(ibin, val * corr);
         hEffNorm[i]->SetBinError(ibin, hnorm[i]->GetBinError(ibin) * corr);
     }
-    printf("line 142 NORM chan %i dist %f geo %.3E baseline %.3E mode %.3E corr %.3E LightNorm integral  %.3E hnormintegral600 %.3E EffNorm integral600 %.3E  EffNorm integral %.3E \n", i, distanceLevel[getLevel(i)], effGeoFunc(i), baseline, baselineMode, corr, hnorm[i]->Integral(), hnorm[i]->Integral(0, 600), hEffNorm[i]->Integral(0, 600), hEffNorm[i]->Integral());
+    printf("line 142 NORM chan %i dist %f geo %.3E baseline %.3E singletNorm %.3E corr %.3E LightNorm integral  %.3E hnormintegral600 %.3E EffNorm singlet Integral %.3E  EffNorm integral %.3E \n", i, distanceLevel[getLevel(i)], effGeoFunc(i), baseline, readGains->singletNorm[i], corr, hnorm[i]->Integral(), hnorm[i]->Integral(earlyBin, lateBin), hEffNorm[i]->Integral(earlyBin, lateBin), hEffNorm[i]->Integral());
 }
 
 // Color palette with 12 distinct colors for plotting
@@ -435,8 +439,7 @@ void postMacroAllFile(unsigned theFile = 0)
     }
 
     // geometric eff
-    bool geoVersionOld = false;
-    setDistanceLevels(geoVersionOld);
+    setDistanceLevels();
     for (unsigned i = 0; i < 12; ++i)
     {
         printf("chan %i distance %f geo eff %.2E\n", i, distanceLevel[getLevel(i)], effGeoFunc(i));
@@ -509,6 +512,11 @@ void postMacroAllFile(unsigned theFile = 0)
         fout->Append(hRayleighNorm[i]);
         fout->Append(hEffNorm[i]);
     }
+    hEffNormLevel.resize(NLEVEL);
+    sumCurvesToLevels(hEffNorm, hEffNormLevel);
+    for (int ilevel = 0; ilevel < NLEVEL; ++ilevel)
+        fout->Append(hEffNormLevel[ilevel]);
+
     gStyle->SetOptTitle(0);
     gStyle->SetOptStat(0);
 
@@ -540,9 +548,10 @@ void postMacroAllFile(unsigned theFile = 0)
     double peakValue[13];
     double peakRayleighCorr[13];
     double peakValueCorr[13];
-    double relativeValue[13];
+
     double xchan[13];
-    double peakAve = 0;
+    double xlevel[NLEVEL];
+
     for (unsigned i = 0; i < hEffNorm.size(); ++i)
     {
         xchan[i] = double(i);
@@ -554,34 +563,27 @@ void postMacroAllFile(unsigned theFile = 0)
         hPeak->SetBinContent(i + 1, peakValue[i]);
         hPeakEff->SetBinContent(i + 1, peakValueCorr[i]);
         printf("MESSAGE chan %u max bin %i geo %.3E peakVal %.3E peakRayleigh %.3E peakEffVal %.3E \n", i, hnorm[i]->GetMaximumBin(), effGeoFunc(i), peakValue[i], peakRayleighCorr[i], peakValueCorr[i]);
-        // peak ave is of non trigger
-        if (i > 0 && i < 8)
-            peakAve += peakValueCorr[i];
     }
-    peakAve /= 7.;
-    printf("ave %f \n", peakAve);
 
     printf("rayleigh scattering length is %.3f\n", rayleighLength);
 
-    for (unsigned i = 0; i < 13; ++i)
-    {
-        relativeValue[i] = (peakValueCorr[i] - peakAve) / peakAve;
-        printf("RELATIVEVALUES chan %i peak %.3E relative %E (%.3E) distance %.3f rayleigh %.3f  peak %.3E corr %.3E; \n", i, peakValue[i], relativeValue[i], readGains->relativeEff[i] - 1., distanceLevel[getLevel(i)], rayleighAtten[i], peakValue[i], peakValueCorr[i]);
-    }
     // fill integral arrays
     singletIntegral.resize(NCHAN);
     lateIntegral.resize(NCHAN);
     totalIntegral.resize(NCHAN);
+
+    double singletAve = 0;
     for (int i = 0; i < NCHAN; ++i)
     {
         // integral is over bins
-        int earlyBin = 1350 / 2;
-        int lateBin = 1460 / 2;
-        // Integral(Int_t binx1, Int_t binx2, Option_t *option="") const
+        // Integral(Int_t binx1, Int_t binx2, :w
+        Option_t *option = "";
         singletIntegral[i] = hEffNorm[i]->Integral(earlyBin, lateBin);
         lateIntegral[i] = hEffNorm[i]->Integral(lateBin, 3000 / 2);
         totalIntegral[i] = hEffNorm[i]->Integral(0, 15000 / 2);
-        printf("line546 chan %i singlet %E late %E total %E \n", i, singletIntegral[i], lateIntegral[i], totalIntegral[i]);
+        printf("line546 INTEGRALS chan %i singlet %0.3E late %0.3E total %0.3E \n", i, singletIntegral[i], lateIntegral[i], totalIntegral[i]);
+        if (i > 0 && i < 8)
+            singletAve += singletIntegral[i];
         //  singletIntegral[i] = hGeoNorm[i]->Integral(0., 1400.);
         //  lateIntegral[i] = hGeoNorm[i]->Integral(1400., 3500.);
 
@@ -595,6 +597,14 @@ void postMacroAllFile(unsigned theFile = 0)
                 lateIntegral[i] += val;
         }
         */
+    }
+    singletAve /= 7.;
+
+    double relativeValue[13];
+    for (unsigned i = 0; i < 13; ++i)
+    {
+        relativeValue[i] = 1. + (singletIntegral[i] - singletAve) / singletAve;
+        printf("RELATIVEVALUES chan %i peak %.3E relative %E (%.3E) distance %.3f rayleigh %.3f  peak %.3E corr %.3E; \n", i, singletIntegral[i], relativeValue[i], readGains->relativeEff[i] - 1., distanceLevel[getLevel(i)], rayleighAtten[i], peakValue[i], peakValueCorr[i]);
     }
 
     gSingletIntegrals = new TGraph(NCHAN, &xchan[0], &singletIntegral[0]);
@@ -662,13 +672,59 @@ void postMacroAllFile(unsigned theFile = 0)
     gPeakCorr->Print("all");
     fout->Append(gPeakCorr);
 
-    // gRelativeEff->Print("all");
-    for (unsigned ichan = 0; ichan < 13; ++ichan)
-        printf("relativeEff[%u]=1.+%f;\n", ichan, relativeValue[ichan]);
-
     for (unsigned ichan = 0; ichan < 13; ++ichan)
         printf("chan %i singlet %f late %f \n", ichan, singletIntegral[ichan], lateIntegral[ichan]);
-    printf("MESSAGE end of file %s \n", fout->GetName());
+
+    // for (int ichan = 0; ichan < 12; ++ichan)
+    // printf("MESSAGE SINGLET INTEGRAL %i %.3E \n", ichan, singletIntegral[ichan]);
+
+    // gRelativeEff->Print("all");
+    printf("ave singlet integral %f \n", singletAve);
+    printf("MESSAGE relativeEff \n");
+    for (unsigned ichan = 0; ichan < 13; ++ichan)
+        printf(" singletNorm[%u]=%E;\n", ichan, relativeValue[ichan]);
+
+    printf("MESSAGE gSingletIntegrals %s values:\n", gSingletIntegrals->GetName());
+    for (int i = 0; i < gSingletIntegrals->GetN(); ++i)
+    {
+        double x, y;
+        gSingletIntegrals->GetPoint(i, x, y);
+        printf("  chan %.0f  singletIntegral %.3E\n", x, y);
+    }
+
+    // multiplot of hEffNormLevel: all levels overlaid on one canvas
+    TCanvas *canEffNormLevel = new TCanvas(Form("canEffNormLevel%s", tag.Data()), Form("canEffNormLevel%s", tag.Data()));
+    double levelYmin = 1.E5, levelYmax = 1.E-4;
+    for (int ilevel = 0; ilevel < NLEVEL; ++ilevel)
+    {
+        int maxBin = hEffNormLevel[ilevel]->GetMaximumBin();
+        double maxValue = hEffNormLevel[ilevel]->GetBinContent(maxBin);
+        if (maxValue > levelYmax)
+            levelYmax = maxValue;
+    }
+    levelYmin = levelYmax * 1.E-4;
+    levelYmax *= 1.2;
+    TLegend *legEffNormLevel = new TLegend(0.6, 0.7, 0.99, 0.99);
+    legEffNormLevel->SetBorderSize(1);
+    legEffNormLevel->SetFillColor(kWhite);
+    for (int ilevel = 0; ilevel < NLEVEL; ++ilevel)
+    {
+        int icolor = colorPalette[ilevel];
+        hEffNormLevel[ilevel]->SetLineColor(icolor);
+        hEffNormLevel[ilevel]->SetMarkerColor(icolor);
+        hEffNormLevel[ilevel]->SetLineWidth(1);
+        hEffNormLevel[ilevel]->SetTitle(Form("effNormLevel%i%s", ilevel, tag.Data()));
+        hEffNormLevel[ilevel]->GetXaxis()->SetTitle("time [ns]");
+        hEffNormLevel[ilevel]->GetYaxis()->SetTitle("effNorm yield");
+        hEffNormLevel[ilevel]->GetYaxis()->SetRangeUser(levelYmin, levelYmax);
+        hEffNormLevel[ilevel]->Draw(ilevel == 0 ? "HISTILINE" : "HISTLINESAME");
+        legEffNormLevel->AddEntry(hEffNormLevel[ilevel], Form("level %i", ilevel), "l");
+    }
+    legEffNormLevel->Draw();
+    canEffNormLevel->SetLogy();
+    canEffNormLevel->SetGrid();
+    canEffNormLevel->Print(".pdf");
+    fout->Append(canEffNormLevel);
 
     // fout->ls();
     fout->Write();
@@ -677,6 +733,7 @@ void postMacroAllFile(unsigned theFile = 0)
     // delete them a second time after ROOT's canvas cleanup already did so
     // at macro exit, producing the segfault.  Clear() removes list entries
     // without deleting the objects; the canvases become the sole owners.
+    printf("MESSAGE end of file %s \n", fout->GetName());
     fout->GetList()->Clear();
     fin->Close();
     // fout->Close();

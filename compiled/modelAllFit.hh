@@ -2,6 +2,9 @@
   model fitting to all channels at once revised Oct 2026
 */
 // light components
+#ifndef MODELALLFIT_H
+#define MODELALLFIT_H
+#include "TMinuit.h"
 enum
 {
   SINGLETCOMP,
@@ -45,11 +48,16 @@ enum
   ***/
 };
 
+TMinuit *gMinuit;
+bool geoVersionOld = false;
+// fcn prototype
+void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag);
 // return fitted function
 static double buff[NLEVEL][MAXSAMPLE]; // buffer to store light curve data
 static double fitWave[NLEVEL][MAXSAMPLE];
 static double fitComp[NLEVEL][NUMCOMP][MAXSAMPLE];
 static double lateBkg[NLEVEL]; // no longer used
+static int numberOfSensors[NLEVEL];
 
 /*** define singlet integral region Sept 28 2026 */
 static int earlyBin = 1400 / 2; //
@@ -126,6 +134,7 @@ Electron transport and electron–ion recombination in liquid argon simulation b
 // NOT USING THIS
 
 static double lpar[NPARS];       // pass parameters to light model
+static Double_t step[NPARS];     ///< Step sizes for Minuit parameter exploration
 static TString lparNames[NPARS]; // parameter names
 static TString compNames[NPARS]; // parameter names
 static bool badChannel[NCHAN];
@@ -139,6 +148,52 @@ static double SiPMQE175 = 0.238;
 static double PMTQE150 = 0.01;
 static double PMTQE175 = 0.38;
 static double PMTQE400 = 0.35;
+
+static double distanceLevel[NLEVEL];
+static void setDistanceLevels()
+{
+  if (!geoVersionOld) // new geometry if geoVersionOld is false
+  {
+    distanceLevel[0] = 1.062; // trigger
+    distanceLevel[1] = 11.48;
+    distanceLevel[2] = 21.41;
+    distanceLevel[3] = 31.35;
+    distanceLevel[4] = 42.70; // PMT
+    distanceLevel[5] = 31.35; // sipm 0
+    distanceLevel[6] = 11.48; // sipm 8
+  }
+  else
+  {
+    distanceLevel[0] = 1.251; // trigger
+    distanceLevel[1] = 11.789;
+    distanceLevel[2] = 21.723;
+    distanceLevel[3] = 31.668;
+    distanceLevel[4] = 42.017; // PMT
+    distanceLevel[5] = 31.668;
+    distanceLevel[6] = 11.789;
+  }
+}
+
+// == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == ==
+//  MINUIT OPTIMIZER INITIALIZATION
+// ============================================================================
+static void setupMinuit()
+{
+  // Create Minuit minimizer with NPARS parameters
+  gMinuit = new TMinuit(NPARS);
+  gMinuit->SetFCN(fcn); // Set likelihood function pointer
+  double_t arglist[10];
+  int ierflg = 0;
+  arglist[0] = 0.5; // for likelihood up from minimum for 1 sigma errors
+  gMinuit->mnexcm("SET ERR", arglist, 1, ierflg);
+  printf("starting parameter values \n");
+  for (int ip = 0; ip < NPARS; ++ip)
+  {
+    printf(" par %i %s start val %.3f \n", ip, lparNames[ip].Data(), lpar[ip]);
+    step[ip] = 1.E-6 * lpar[ip];
+    gMinuit->mnparm(ip, lparNames[ip].Data(), lpar[ip], step[ip], 0.1 * lpar[ip], 10. * lpar[ip], ierflg);
+  }
+}
 
 // level
 static int getLevel(int ichan)
@@ -161,7 +216,7 @@ static int getLevel(int ichan)
   return ilevel;
 }
 
-static void sumCurvesToLevels(std::vector<TH1D *> hchan, std::vector<TH1D *> hsum)
+static void sumCurvesToLevels(std::vector<TH1D *> hchan, std::vector<TH1D *> &hsum)
 {
   // make clones
   hsum.resize(NLEVEL);
@@ -290,7 +345,7 @@ static void setupModelAllFit()
   // ntScan = new TNtuple("ntScan", "ntScan", "ppm:x:f");
 
   geoVersionOld = false;
-  setDistanceLevels(geoVersionOld);
+  setDistanceLevels();
   printf("setParNames and setCompNames\n");
   setParNames();
   setCompNames();
@@ -315,6 +370,13 @@ static void setupModelAllFit()
   isCovered[0] = true;
   isCovered[8] = true;
   // isCovered[3] = true;
+  numberOfSensors[0] = 3;
+  numberOfSensors[1] = 2;
+  numberOfSensors[2] = 3;
+  numberOfSensors[3] = 2;
+  numberOfSensors[4] = 1;
+  numberOfSensors[5] = 1;
+  numberOfSensors[6] = 1;
 }
 
 static double effGeoFunc(int ichan)
@@ -571,9 +633,9 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
 
     /* geometric efficiencies */
     double fourPi = 2. * TMath::TwoPi();
-    double effGeo = pow(0.6, 2.) / fourPi / pow(dist, 2.);
+    double effGeo = double(numberOfSensors[ilevel]) * pow(0.6, 2.) / fourPi / pow(dist, 2.);
     double aPmt = TMath::Pi() / 4.0 * pow(6.40, 2); // R11410-20  Effective area : 64 mm dia units here are cm
-    if (ilevel == 4)
+    if (ilevel == 4)                                // PMT
       effGeo = aPmt / fourPi / pow(dist, 2.);
     double effGeoTrig = pow(0.6, 2.) / fourPi / pow(distanceLevel[0], 2.);
     /*
@@ -654,13 +716,13 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       double fm = (mterm1 + mterm3) / tMix; // mixed
 
       // additional factors depend on SIPM channel
-      if (ilevel == 5) // poly carbon covered sees only above 4000 nm
+      if (ilevel == 5) // poly carbon covered sees only above 400 nm
       {
         fs = 0;
         ft = 0;
         fm = 0;
-        fx = 0;
-        frad = 0;
+        fx = fx * SiPMQE175;
+        frad = frad * SiPMQE150;
       }
       else if (ilevel == 6) // glass covered sees only  175
       {
@@ -751,3 +813,4 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
   } // loop over channels
   // printf("return modelFitAll nLL = %E\n", f);
 }
+#endif // MODELALLFIT_HH
