@@ -45,7 +45,6 @@
 #include "hitFinder.hxx"
 #include "TBFile.hxx"
 #include "TReadGains.hxx"
-#include "distanceLevels.hh"
 #include "modelAllFit.hh"
 #include "failCodes.hh" // for fail bit names and codes
 
@@ -904,8 +903,7 @@ void post(TString tag)
   // RunTree->GetListOfBranches()->ls();
 
   // geometric eff
-  bool geoVersionOld = false;
-  setDistanceLevels(geoVersionOld);
+  setupModelAllFit();
   for (unsigned i = 0; i < 12; ++i)
   {
     printf("chan %i distance %f geo eff %.2E\n", i, distanceLevel[getLevel(i)], effGeoFunc(i));
