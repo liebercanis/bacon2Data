@@ -59,7 +59,7 @@ bool isLedRun = false;
 double triggerSum;
 TString currentFileName = TString("");
 int currentFileNumber = 0;
-int nominalTrigger = 729;
+int nominalTrigger = 750; // nominal trigger bin oct 29
 int theMaximumBin = 0;
 
 std::vector<double> scaleSum;
@@ -781,7 +781,7 @@ void loop()
         // trigger time shift to time of first trigger SIPM
         //* subtract off ave trigger time from anaCRunGamma */
         /* remove maximumbim offfset */
-        int theHitTime = thit.firstBin + trigTimeByFileEvent[fileIndex][int(entry)];
+        int theHitTime = thit.firstBin + trigTimeByFileEvent[fileIndex][int(entry)] - nominalTrigger;
         hTheHitTime->Fill(theHitTime);
         // printf("line784 entry %lld fileIndex %i trigTimeByFile %.0f maxBin %i theHitTime %i \n", entry, fileIndex, trigTimeByFileEvent[fileIndex][int(entry)], theMaximumBin, theHitTime);
         ntHitStart->Fill(entry, idet, thit.startTime, theHitTime);
@@ -880,7 +880,6 @@ void post(TString tag)
         if (args[1] == 0)
         {
           trigTimeByFileEvent[ifile].push_back(double(args[2]));
-          // printf("\t entry %u : event %.0f firstTime=%.1f \n", jentry, args[0], args[2]);
         }
       }
       fin.Close();
@@ -893,6 +892,14 @@ void post(TString tag)
 
   if (!RunTree)
     return;
+
+  for (unsigned ifile = 0; ifile < fileListName.size(); ++ifile)
+  {
+    printf("file %i trigByFile size %lu \n", ifile, trigTimeByFileEvent[ifile].size());
+  }
+
+  printf("MESSAGE line 680 post tag %s RunTree entries  %lld \n", tag.Data(), RunTree->GetEntries());
+
   printf("MESSAGE line 710 files in chain:\n");
   RunTree->GetListOfFiles()->Print();
   Long64_t ntriggers = RunTree->GetEntries();
