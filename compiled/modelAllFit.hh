@@ -1,6 +1,6 @@
 /*
-  model fitting to all channels at once revised Oct 2026
-*/
+   model fitting to all channels at once revised Oct 2026
+ */
 // light components
 #ifndef MODELALLFIT_H
 #define MODELALLFIT_H
@@ -57,7 +57,7 @@ static double buff[NLEVEL][MAXSAMPLE]; // buffer to store light curve data
 static double fitWave[NLEVEL][MAXSAMPLE];
 static double fitComp[NLEVEL][NUMCOMP][MAXSAMPLE];
 static double lateBkg[NLEVEL]; // no longer used
-static int numberOfSensors[NLEVEL];
+vector<vector<int>> sensorLevels;
 
 /*** define singlet integral region Sept 28 2026 */
 static int earlyBin = 1400 / 2; //
@@ -122,7 +122,7 @@ static int iTrigger = 729;
 // values in samples
 static int iLowFitRange = 650; //
                                // int iHighFitRange = 7500;
-static int iHighFitRange = 4000 / 2;
+static int iHighFitRange = 15000 / 2;
 
 // NOT USING THIS
 /* Ion-beam excitation of liquid argon M. Hofmann et al.  Eur. Phys. J. C (2013) 73:2618 */
@@ -216,28 +216,37 @@ static int getLevel(int ichan)
   return ilevel;
 }
 
-static void sumCurvesToLevels(std::vector<TH1D *> hchan, std::vector<TH1D *> &hsum)
+static void sumCurvesToLevels(std::vector<TH1D *> hchan, std::vector<TH1D *> &hsum, int theFileNumber)
 {
   // make clones
   hsum.resize(NLEVEL);
   for (int ilevel = 0; ilevel < NLEVEL; ++ilevel)
   {
-    hsum[ilevel] = (TH1D *)hchan[0]->Clone(Form("levelCurve%i", ilevel));
+    hsum[ilevel] = (TH1D *)hchan[0]->Clone(Form("levelCurve%iFile%i", ilevel, theFileNumber));
     hsum[ilevel]->Reset("ICESM"); // reset
   }
-  /* sum over channels */
-  for (int ichan = 0; ichan < NCHAN; ++ichan)
+
+  for (int ilevel = 0; ilevel < NLEVEL; ++ilevel)
   {
-    int ilevel = getLevel(ichan);
-    if (ilevel < 0)
-      continue;
-    /* sum over bins */
-    for (int ibin = 0; ibin < hchan[ichan]->GetNbinsX(); ++ibin)
+    /* sum over channels */
+    for (int ichan = sensorLevels[ilevel][0]; ichan <= sensorLevels[ilevel].back(); ++ichan)
     {
-      hsum[ilevel]->SetBinContent(ibin, hsum[ilevel]->GetBinContent(ibin) + hchan[ichan]->GetBinContent(ibin));
-      double error = sqrt(pow(hsum[ilevel]->GetBinError(ibin), 2.) + pow(hchan[ichan]->GetBinError(ibin), 2.));
-      hsum[ilevel]->SetBinError(ibin, error);
+      for (int ibin = 0; ibin < hchan[ichan]->GetNbinsX(); ++ibin)
+      {
+        hsum[ilevel]->SetBinContent(ibin, hsum[ilevel]->GetBinContent(ibin) + hchan[ichan]->GetBinContent(ibin));
+        double error = sqrt(pow(hsum[ilevel]->GetBinError(ibin), 2.) + pow(hchan[ichan]->GetBinError(ibin), 2.));
+        hsum[ilevel]->SetBinError(ibin, error);
+      }
+      // aftter summing average divide by nlevels to normalize to one sipm
+      // printf("line 244 after summing average ilevel %i numberOfSensors %lu histEntries %f histEntriesScaled %f\n", ilevel, sensorLevels[ilevel].size(), hsum[ilevel]->Integral(), hsum[ilevel]->Integral() / double(sensorLevels[ilevel].size()));
     }
+  }
+
+  // normalize to single SIPM
+  for (int ilevel = 0; ilevel < NLEVEL; ++ilevel)
+  {
+    hsum[ilevel]->Scale(1.0 / double(sensorLevels[ilevel].size()));
+    // printf("line 229 after scaling ilevel %i numberOfSensors %lu integral %f \n", ilevel, sensorLevels[ilevel].size(), hsum[ilevel]->Integral());
   }
 }
 
@@ -343,24 +352,20 @@ static void setupModelAllFit()
 {
   /* set geomegtry version for modelAllFit,hh */
   // ntScan = new TNtuple("ntScan", "ntScan", "ppm:x:f");
+  sensorLevels.resize(NLEVEL);
+  sensorLevels[0] = {9, 10, 11}; // trigger
+  sensorLevels[1] = {6, 7};      // sipm 6
+  sensorLevels[2] = {3, 4, 5};   // sipm 3
+  sensorLevels[3] = {1, 2};      // sipm 1
+  sensorLevels[4] = {12};        // PMT
+  sensorLevels[5] = {0};         // sipm 0
+  sensorLevels[6] = {8};         // sipm 8
 
   geoVersionOld = false;
   setDistanceLevels();
   printf("setParNames and setCompNames\n");
   setParNames();
   setCompNames();
-
-  /* set bad channels used in fit modelAllFit.hh */
-  std::vector<unsigned> badList;
-  /*
-  badList.push_back(1);
-  badList.push_back(2);
-  badList.push_back(3);
-  badList.push_back(4);
-  badList.push_back(0);
-  badList.push_back(8);
-  */
-  setBadChannels(badList);
 
   // covered channels
   for (unsigned ic = 0; ic < NCHAN; ++ic)
@@ -370,13 +375,6 @@ static void setupModelAllFit()
   isCovered[0] = true;
   isCovered[8] = true;
   // isCovered[3] = true;
-  numberOfSensors[0] = 3;
-  numberOfSensors[1] = 2;
-  numberOfSensors[2] = 3;
-  numberOfSensors[3] = 2;
-  numberOfSensors[4] = 1;
-  numberOfSensors[5] = 1;
-  numberOfSensors[6] = 1;
 }
 
 static double effGeoFunc(int ichan)
@@ -457,8 +455,8 @@ static void printModel(int ibin, Double_t *par)
   printf(" printModel ppm %.2f sample %i \n", par[PPM], ibin);
 
   double xTrigger = par[TRIGSTART];
-  double x = double(ibin) - xTrigger; // subract trigger sample
-  double bw = 2.;                     // ns
+  double x = double(ibin) - xTrigger - 100 * tResolution; // subract trigger sample
+  double bw = 2.;                                         // ns
   double ppm = max(1.0E-9, par[PPM]);
   double norm = par[NORM]; // start is 60*LY;
   double tTriplet = par[TAU3];
@@ -568,11 +566,85 @@ static void printModel(int ibin, Double_t *par)
   printf("DENOMINATORS kxPrime %E lx %E l1  %E  l3  %E\n", kxPrime, lX, l1, l3);
   printf("DENOMINATORS lx - kxPrime %E lx - l1 %E lx - l3 %E\n", lX - kxPrime, lX - l1, lX - l3);
 }
-/*
- **************************************************************************
- **********************   fcn function fit by minuit **************************
- **********************   Minuit specifies function arguments
- **********************   returned f is NLL value ************************
+/**
+ * @brief Calculate the singlet/triplet/xenon/mixed/radiative light components at time x
+ * @details Computes the model emission components (equation 6) for a given level/channel
+ *          at a single time bin, then applies the per-level SiPM/PMT QE scaling (fs, ft,
+ *          fx, fm, frad are modified in place -- this mirrors the per-channel branching
+ *          used in fcn: level 5 = poly carbon covered, level 6 = glass covered, level 4 = PMT,
+ *          all others = ordinary SiPM).
+ */
+static void calcLightComponents(int ilevel, double x, double ab, double alpha1, double alpha3,
+                                double kx, double kxPrime, double tkxPrime,
+                                double l1, double l3, double lX, double t1, double t3,
+                                double c1, double c3, double tTriplet, double tMix,
+                                double norm, double rad2, double rad3, double c1rad,
+                                double &fs, double &ft, double &fx, double &fm, double &frad)
+{
+  // model emission components terms in equation 6
+  // convoute with resolution using expGaus
+  fs = (1. - ab) * alpha1 / tSinglet0 * expGaus(x, t1); // singlet
+  ft = (1. - ab) * alpha3 / tTriplet * expGaus(x, t3);  // triplet
+
+  // radiative component
+  double krad3 = rad3 + 1. / tMix;
+  double krad23 = rad2 - krad3;
+  // here time x is nanoseconds
+  double tnano = 2 * x;
+  double pRadiative = rad2 * krad3 / krad23 * TMath::Exp(-krad3 * tnano) * (1. - TMath::Exp(-krad23 * tnano));
+  pRadiative = max(pRadiative, 1.E-9);
+  frad = c1rad * norm * abs(pRadiative);
+
+  // xenon emission x_i terms in paper
+  double xterm1 = c1 * kx * alpha1 / (l1 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe0)) / (lX - l1));
+  double xterm3 = c3 * kx * alpha3 / (l3 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe0)) / (lX - l3));
+  // divide by Xenon lifetime from equation 6
+  fx = (xterm1 + xterm3) / tXe0;
+  //  mixed component
+  double mterm1 = alpha1 * c1 / (l1 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t1));
+  double mterm3 = alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
+  fm = (mterm1 + mterm3) / tMix; // mixed
+
+  // additional factors depend on SIPM channel
+  if (ilevel == 5) // poly carbon covered sees only above 400 nm
+  {
+    fs = 0;
+    ft = 0;
+    fm = 0;
+    fx = fx * SiPMQE175;
+    frad = frad * SiPMQE150;
+  }
+  else if (ilevel == 6) // glass covered sees only  175
+  {
+    fs = 0;
+    ft = 0;
+    fm = fm * SiPMQE150;
+    frad = frad * SiPMQE150;
+    fx = fx * SiPMQE175;
+  }
+  else if (ilevel == 4) // PMT
+  {
+    fs = 0;
+    ft = 0;
+    fm = fm * PMTQE150;
+    frad = frad * SiPMQE150;
+    fx = fx * PMTQE175;
+  }
+  else
+  { // all other sipms
+    // multiply by efficiencies
+    fs = fs * SiPMQE128Ham;
+    ft = ft * SiPMQE128Ham;
+    fm = fm * SiPMQE150;
+    frad = frad * SiPMQE150;
+    fx = fx * SiPMQE175;
+  }
+}
+
+/*****************************************************************************
+ **********************    fcn function fit by minuit  *******************
+ ********************** Minuit specifies function arguments
+ **********************r eturned f is NLL value    ************************
  **************************************************************************
  */
 void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
@@ -600,14 +672,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
   // double chanList[3] = {8, 5, 0};
   for (int ilevel = 0; ilevel < NLEVEL; ++ilevel)
   {
-    /* for fitting single channel
-     ************  par[THELEVEL] =-1 for all
-     */
-    if (par[THELEVEL] > 3) // only SIPMs for now
-    {
-      continue;
-    }
-
+    if (par[THELEVEL] >= 0 && ilevel != par[THELEVEL])
+      continue; // only fit the specified level
     /* skip bad channels
     if (isBadChannel(ic))
     {
@@ -616,6 +682,8 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
     }
     */
 
+    // printf("line 687fcn level %i \n", ilevel);
+
     /** dist */
     double dist = distanceLevel[ilevel]; // from header distanceLevels.hh
     // SiPMQ128
@@ -623,17 +691,18 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
 
     /****
      * absorption as a function of distance and xenon concentration.%
-     ****/
     double lambda1 = par[LAMBDA1CONST] * 0.1 / ppm;
     double lambda2 = lambda2ConstDefault * 0.1 / ppm;
     double lambda3 = lambda3ConstDefault * 0.1 / ppm;
     double Tr128 = AConstantDefault * exp(-dist / lambda1) + CConstantDefault * exp(-dist / lambda2) + (1 - AConstantDefault - CConstantDefault) * exp(-dist / lambda3);
     double ab = 1. - Tr128;
+     ****/
+    double ab = AbsorptionByValue(ppm, dist, par[LAMBDA1CONST]);
     // printf("line485*********** absconst %.3E ppm %.3f ab %.3E *************\n", abs1Const, ppm, ab);
 
     /* geometric efficiencies */
     double fourPi = 2. * TMath::TwoPi();
-    double effGeo = double(numberOfSensors[ilevel]) * pow(0.6, 2.) / fourPi / pow(dist, 2.);
+    double effGeo = pow(0.6, 2.) / fourPi / pow(dist, 2.);
     double aPmt = TMath::Pi() / 4.0 * pow(6.40, 2); // R11410-20  Effective area : 64 mm dia units here are cm
     if (ilevel == 4)                                // PMT
       effGeo = aPmt / fourPi / pow(dist, 2.);
@@ -657,7 +726,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       //   continue;
       /* set sample starting based on TRIGSTART*/
       double xTrigger = par[TRIGSTART];
-      double x = (double(j - int(xTrigger / 2.0)) + 0.5); // bin center convert to ns mutiplying by bin width
+      double x = double(j - int(xTrigger / 2.0)) + 0.5 + 7.0 * tResolution; // bin center convert to ns mutiplying by bin width
       /* fit to geometric corrected light curves so do not multiply by effGeo */
       double alpha1 = sfrac * bw * norm;        // singlet norm N1 in paper
       double alpha3 = (1. - sfrac) * bw * norm; // triplet norm N3 in paper
@@ -683,72 +752,15 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       double c1 = kx + ab / tSinglet0;
       double c3 = kx + ab / tTriplet;
 
-      // model emission components terms in equation 6
-      // convoute with resolution using expGaust
-      /* ****** test set ab in fs to zero ****** */
-      double fs = (1. - ab) * alpha1 / tSinglet0 * expGaus(x, t1); // singlet
-      double t1Zer0 = 1.0 / (1. / tSinglet0 + kqZero + kxZero);
-      // fs = alpha1 / tSinglet0 * expGaus(x, t1Zer0); // singlet
-      //  if (j == 710)
-      //    printf("line 549 t1zero %f fs %E\n", t1Zer0, fs);
-      double ft = (1. - ab) * alpha3 / tTriplet * expGaus(x, t3); // triplet
       // visible component
       double fvis = 0.; // visibleYield * norm * effGeo;
 
-      // radiative conpontent
-      double krad3 = rad3 + 1. / tMix;
-      double krad23 = rad2 - krad3;
-      // here time x is nanoseconds
-      double tnano = 2 * x;
-      double pRadiative = rad2 * krad3 / krad23 * TMath::Exp(-krad3 * tnano) * (1. - TMath::Exp(-krad23 * tnano));
-      pRadiative = max(pRadiative, 1.E-9);
-      double frad = c1rad * norm * abs(pRadiative);
-
-      // xenenon emission x_i terms in paper
-      double xterm1 = c1 * kx * alpha1 / (l1 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t1) - expGaus(x, tXe0)) / (lX - l1));
-      /* fix was c1 not c3 Nov 14 2025*/
-      double xterm3 = c3 * kx * alpha3 / (l3 - kxPrime) * ((expGaus(x, tkxPrime) - expGaus(x, tXe0)) / (lX - kxPrime) - (expGaus(x, t3) - expGaus(x, tXe0)) / (lX - l3));
-      // divide by Xenon lifetime from equation 6
-      double fx = (xterm1 + xterm3) / tXe0;
-      //  mixed component
-      double mterm1 = alpha1 * c1 / (l1 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t1));
-      double mterm3 = alpha3 * c3 / (l3 - kxPrime) * (expGaus(x, tkxPrime) - expGaus(x, t3));
-      double fm = (mterm1 + mterm3) / tMix; // mixed
-
-      // additional factors depend on SIPM channel
-      if (ilevel == 5) // poly carbon covered sees only above 400 nm
-      {
-        fs = 0;
-        ft = 0;
-        fm = 0;
-        fx = fx * SiPMQE175;
-        frad = frad * SiPMQE150;
-      }
-      else if (ilevel == 6) // glass covered sees only  175
-      {
-        fs = 0;
-        ft = 0;
-        fm = fm * SiPMQE150;
-        frad = frad * SiPMQE150;
-        fx = fx * SiPMQE175;
-      }
-      else if (ilevel == 4) // PMT
-      {
-        fs = 0;
-        ft = 0;
-        fm = fm * PMTQE150;
-        frad = frad * SiPMQE150;
-        fx = fx * PMTQE175;
-      }
-      else
-      { // all other sipms
-        // multiply by efficiencies
-        fs = fs * SiPMQE128Ham;
-        ft = ft * SiPMQE128Ham;
-        fm = fm * SiPMQE150;
-        frad = frad * SiPMQE150;
-        fx = fx * SiPMQE175;
-      }
+      // model emission components (singlet, triplet, xenon, mixed, radiative),
+      // including per-level SiPM/PMT QE scaling
+      double fs, ft, fx, fm, frad;
+      calcLightComponents(ilevel, x, ab, alpha1, alpha3, kx, kxPrime, tkxPrime,
+                          l1, l3, lX, t1, t3, c1, c3, tTriplet, tMix,
+                          norm, rad2, rad3, c1rad, fs, ft, fx, fm, frad);
 
       // total light for channel and bin ic
       // double mval = fs + ft + fx + fm + lateBkg[ic];
@@ -805,12 +817,12 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       //   leave warnning printout
       if (isnan(f))
       {
-        printf("line265  ibin F is NAN level %i sample %i f=%E mval = %E x = %E y = %E yterm %E rad3 %E krad23 %E fs %E ft %E fx %E fm %E frad %E \n", ilevel, j, f, mval, x, y, yterm, rad3, krad23, fs, ft, fx, fm, frad);
+        printf("line265  ibin F is NAN level %i sample %i f=%E mval = %E x = %E y = %E yterm %E rad3 %E fs %E ft %E fx %E fm %E frad %E \n", ilevel, j, f, mval, x, y, yterm, rad3, fs, ft, fx, fm, frad);
       }
     }
 
     // printf("channel modelFitAll channelic, ic %i nLL = %E\n", ic, f);
   } // loop over channels
-  // printf("return modelFitAll nLL = %E\n", f);
+    // printf("return modelFitAll nLL = %E\n", f);
 }
 #endif // MODELALLFIT_HH
