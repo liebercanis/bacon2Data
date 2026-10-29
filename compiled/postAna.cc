@@ -134,7 +134,6 @@ double aveGain;
 // cut values based on 04_16_2026 revised June 9 2026
 double overlapEventCut = 70.; // was 100.;           //         // value normlized to nominalPmtGain
 double cosmicEventCut = 10.;  // 10; // was 140.; // was 150 normalized to nominalGain; //
-int timeOffset = 13;          // transit tiime of SIPM amplifiers
 
 // pass bit failures hex
 // COSMIC AND GAMMA now refined as cosmicEvent and overlapEvent
@@ -781,10 +780,8 @@ void loop()
 
         // trigger time shift to time of first trigger SIPM
         //* subtract off ave trigger time from anaCRunGamma */
-        /* remove maximumbim offfset add timeOffset for no SIPM */
+        /* remove maximumbim offfset */
         int theHitTime = thit.firstBin + trigTimeByFileEvent[fileIndex][int(entry)];
-        if (idet < 9)
-          theHitTime -= timeOffset; // subtract transit time of SIPM amplifiers
         hTheHitTime->Fill(theHitTime);
         // printf("line784 entry %lld fileIndex %i trigTimeByFile %.0f maxBin %i theHitTime %i \n", entry, fileIndex, trigTimeByFileEvent[fileIndex][int(entry)], theMaximumBin, theHitTime);
         ntHitStart->Fill(entry, idet, thit.startTime, theHitTime);
