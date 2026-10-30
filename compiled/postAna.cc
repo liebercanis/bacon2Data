@@ -126,7 +126,7 @@ std::vector<TH1D *> hLateSumChan;
 std::vector<TH1D *> hLightCurve;
 std::vector<TH1D *> hLightNorm;
 std::vector<TH1D *> hLightEff;
-std::vector<std::vector<double>> trigTimeByFileEvent;
+std::vector<double> trigTimeByEvent;
 
 std::vector<double> qsumGain; // read from class TReadGain
 double aveGain;
@@ -781,7 +781,7 @@ void loop()
         // trigger time shift to time of first trigger SIPM
         //* subtract off ave trigger time from anaCRunGamma */
         /* remove maximumbim offfset */
-        int theHitTime = thit.firstBin + trigTimeByFileEvent[fileIndex][int(entry)] - nominalTrigger;
+        int theHitTime = thit.firstBin + trigTimeByEvent[entry] - nominalTrigger;
         hTheHitTime->Fill(theHitTime);
         // printf("line784 entry %lld fileIndex %i trigTimeByFile %.0f maxBin %i theHitTime %i \n", entry, fileIndex, trigTimeByFileEvent[fileIndex][int(entry)], theMaximumBin, theHitTime);
         ntHitStart->Fill(entry, idet, thit.startTime, theHitTime);
@@ -860,7 +860,7 @@ void post(TString tag)
   gStyle->SetOptStat(1001101);
   /* get RunTree */
   RunTree = new TChain("RunTree");
-  trigTimeByFileEvent.resize(fileListName.size());
+  trigTimeByEvent.clear();
   //** add files  and get ntTrigTime */
   for (unsigned ifile = 0; ifile < fileListName.size(); ++ifile)
   {
@@ -879,7 +879,7 @@ void post(TString tag)
         Float_t *args = ntTrigTime->GetArgs(); // entry:chan:firstTime:time:adc:ftime:fadc
         if (args[1] == 0)
         {
-          trigTimeByFileEvent[ifile].push_back(double(args[2]));
+          trigTimeByEvent.push_back(double(args[2]));
         }
       }
       fin.Close();
@@ -893,17 +893,10 @@ void post(TString tag)
   if (!RunTree)
     return;
 
-  for (unsigned ifile = 0; ifile < fileListName.size(); ++ifile)
-  {
-    printf("file %i trigByFile size %lu \n", ifile, trigTimeByFileEvent[ifile].size());
-  }
-
-  printf("MESSAGE line 680 post tag %s RunTree entries  %lld \n", tag.Data(), RunTree->GetEntries());
-
   printf("MESSAGE line 710 files in chain:\n");
   RunTree->GetListOfFiles()->Print();
   Long64_t ntriggers = RunTree->GetEntries();
-  printf("MESSAGE line 715  in post: tag %s total triggers in this chain %lld \n", tag.Data(), ntriggers);
+  printf("MESSAGE line899  in post: tag %s total entries in this chain %lld total triggers counted %ld\n", tag.Data(), ntriggers, trigTimeByEvent.size());
   // RunTree->GetListOfBranches()->ls();
 
   // geometric eff
