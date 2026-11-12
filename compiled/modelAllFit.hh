@@ -1,9 +1,8 @@
-/****
- * model fitting to all channels at once revised Oct 2026
- * version using new absorption model
- * and new light model with diffusion limited reaction rate and collision de-excitation quenching rate
- * Nov 3 2026
- ****/
+/*****model fitting to all channels at once revised Oct 2026 * version using new absorption model
+                                                                  *and new light model with diffusion limited reaction rate and collision de -
+    excitation quenching rate
+            *Nov 3 2026 *
+        ***/
 // light components
 #ifndef MODELALLFIT_H
 #define MODELALLFIT_H
@@ -867,6 +866,17 @@ static LArState AnalyticSolution(double t, const LArState &y0, const LArRates &r
   const double singletShiftNs = -5. * 2.; // -40 samples, 2 ns/sample (bw)
   // y.S = S0 * exp(-r.lS * t);
   y.S = S0 * expGaus(t, 1.0 / r.lS);
+  if (t < 0)
+  {
+    y.T = 0;
+    y.R = 0;
+    y.MS = 0;
+    y.MT = 0;
+    y.X = 0;
+    return y;
+  }
+  // if (y.S > 1.E-1)
+  //  printf("time %f y.S %E \n", t, y.S);
   y.T = T0 * Chain({r.lT}, t);
   y.R = R0 * Chain({r.k}, t);
   y.MS = MS0 * Chain({r.lMS}, t) + r.aSS * S0 * Chain({r.lS, r.lMS}, t) + r.aTS * T0 * Chain({r.lT, r.lMS}, t);
@@ -1122,13 +1132,15 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
       // already thought ~388 ns had elapsed -- many e-foldings past the ~4 ns
       // singlet lifetime, making every light.S/T component numerically zero
       // across the whole fit range.
-      double xTrigger = double(nominalTrigger);
+      double xTrigger = double(nominalTrigger);                                       // in samples/
       const double lightShiftNs = -42. * bw;                                          // shift entire light curve 40 samples in the negative direction
       double x = (double(j) - xTrigger + 0.5) * bw - 7. * tResolution - lightShiftNs; // ns since trigger
 
       // model emission components (singlet, triplet, mixedSinglet, mixedTriplet, xenon, visible/recomb),
       // computed from the closed-form LAr/Xe kinetics so ution (ported from lar_analytic.C)
       LArState larState0 = {Sfrac * fitNorm, (1.0 - Sfrac) * fitNorm, 0.0, 0.0, 0.0, 36.0};
+
+      /*
       if (x < 0)
       {
         // before the trigger, nothing has happened yet -- AnalyticSolution's
@@ -1140,10 +1152,12 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
         fitWave[ilevel][j] = 0.0;
         continue;
       }
+        */
       // printLArState(larState0);
       LArState larPop = AnalyticSolution(x, larState0, larRates);
       // printf("x %.3f ns  S %.3E T %.3E MS %.3E MT %.3E X %.3E R %.3E \n", x, larPop.S, larPop.T, larPop.MS, larPop.MT, larPop.X, larPop.R);
       //  printLArState(larPop);
+
       LArState light = LightComponents(larPop, 1. - ab, x);
       // LArState light = TimeIntegrals(larPop, larRates)s/;
 
