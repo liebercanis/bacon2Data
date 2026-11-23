@@ -367,6 +367,7 @@ int passEventCuts(Long64_t entry)
         qHitFraction[idet - 9] += thit.qpeak / readGains->sipmPeakGain[idet];
     }
   }
+  hOverTrigHitEvent->Fill(trigSum);
   hGammaPeak->Fill(trigSum);
   if (trigSum > overlapEventCut)
     passBit |= GAMMA;
