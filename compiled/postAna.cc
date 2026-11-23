@@ -380,8 +380,6 @@ int passEventCuts(Long64_t entry)
   makeTernary(qHitFraction[0], qHitFraction[1], qHitFraction[2], xternQ, yternQ);
   hTriangle->Fill(xternQ, yternQ);
 
-  ntTrig->Fill(double(entry), pmtTotSum, totSum13, triggerSum, detList[9]->totSum, detList[10]->totSum, detList[11]->totSum, xternQ, yternQ, double(passBit));
-
   /******   triangle cut ** try a cut like TUM */
   bool passTriangle = true;
   for (int itr = 0; itr < 3; ++itr)
@@ -445,6 +443,9 @@ int passEventCuts(Long64_t entry)
   if (entry < 100)
     for (unsigned idetNumber = 9; idetNumber < 12; ++idetNumber)
       hTrigTime[idetNumber]->Clone(TString::Format("hTrigTimeDet%i_event%lld", idetNumber, entry));
+
+  // ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtTotSum:totSum13:triggerSum:q0:q1:q2:xQ:yQ:passBit");
+  ntTrig->Fill(double(entry), pmtTotSum, totSum13, triggerSum, qHitFraction[0], qHitFraction[1], qHitFraction[2], xternQ, yternQ, double(passBit));
 
   // loop over fail bits
   for (int ic = 0; ic < FAILBITS; ++ic)
@@ -948,7 +949,9 @@ void post(TString tag)
   // trigger info ntuple
   ntHitStart = new TNtuple("ntHitStart", "hit start", "nev:chan:startTime:hitTime");
   ntHitCount = new TNtuple("ntHitCount", "hit count", "file:nev:chan:early:late");
-  ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtTotS`um:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
+
+  // ntTrig->Fill(double(entry), pmtTotSum, totSum13, triggerSum, qHitFraction[0] + qHitFraction[1] + qHitFraction[2], double(passBit));
+  ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtTotSum:totSum13:triggerSum:q0:q1:q2:xQ:yQ:passBit");
   ntTrigChan = new TNtuple("ntTrigChan", "trigger info by channel", "event:trigTime:chan:hitTime:maxBin:passBit");
   // ntLateInt = new TNtuple("ntLateInt", "late integral", "event:lateTotSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
   ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:ph12:qsum12:hitSum:ADCSum:xternQ:yternQ");
