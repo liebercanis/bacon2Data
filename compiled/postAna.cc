@@ -132,7 +132,7 @@ std::vector<double> qsumGain; // read from class TReadGain
 double aveGain;
 
 // cut values based on 04_16_2026 revised June 9 2026
-double overlapEventCut = 110; // was reset Nov 23 70.;                          // was 100.;           //         // value normlized to nominalPmtGain
+double overlapEventCut = 110; // was 70.;reset Nov 23                           // was 100.;           //         // value normlized to nominalPmtGain
 double cosmicEventCut = 10.;  // 10; // was 140.; // was 150 normalized to nominalGain; //
 
 // pass bit failures hex
@@ -367,14 +367,14 @@ int passEventCuts(Long64_t entry)
         qHitFraction[idet - 9] += thit.qpeak / readGains->sipmPeakGain[idet];
     }
   }
-  hGammaPeak->Fill(triggerSum);
-  hOverTrigHitEvent->Fill(trigSum);
+  hGammaPeak->Fill(trigSum);
   if (trigSum > overlapEventCut)
     passBit |= GAMMA;
 
-  // normalize qHitFraction to trigSum
+  // normalize qHitFraction to trigSum was a bug in previous version of code
+  double qHitFractionSum = qHitFraction[0] + qHitFraction[1] + qHitFraction[2];
   for (int i = 0; i < 3; ++i)
-    qHitFraction[i] /= (qHitFraction[0] + qHitFraction[1] + qHitFraction[2]);
+    qHitFraction[i] /= qHitFractionSum;
 
   double xternQ, yternQ;
   makeTernary(qHitFraction[0], qHitFraction[1], qHitFraction[2], xternQ, yternQ);
