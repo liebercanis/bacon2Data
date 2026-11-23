@@ -59,7 +59,6 @@ bool isLedRun = false;
 double triggerSum;
 TString currentFileName = TString("");
 int currentFileNumber = 0;
-int nominalTrigger = 750; // nominal trigger bin oct 29
 int theMaximumBin = 0;
 
 std::vector<double> scaleSum;
@@ -117,6 +116,7 @@ TH1D *hGammaPeak;
 TH1D *hGammaPeakHit;
 TH1D *hGammaPeakPass;
 TH1D *hOverlapEvent;
+TH1D *hOverTrigHitEvent;
 TH1D *hCosmicCut;
 TH1D *hQsumChannel;
 TH1D *hQsumChannelEff;
@@ -132,7 +132,7 @@ std::vector<double> qsumGain; // read from class TReadGain
 double aveGain;
 
 // cut values based on 04_16_2026 revised June 9 2026
-double overlapEventCut = 70.; // was 100.;           //         // value normlized to nominalPmtGain
+double overlapEventCut = 110; // was reset Nov 23 70.;                          // was 100.;           //         // value normlized to nominalPmtGain
 double cosmicEventCut = 10.;  // 10; // was 140.; // was 150 normalized to nominalGain; //
 
 // pass bit failures hex
@@ -295,10 +295,9 @@ int passEventCuts(Long64_t entry)
   // printf("postAna .... %lld totSum9 %f triggerSum %f\n,", entry, detList[9]->totSum, triggerSum);
 
   /* set trigfail if triggerSum>230 */
-  if (triggerSum > 230)
-    passBit |= TRIGFAIL;
+  // if (triggerSum > 230)
+  //  passBit |= TRIGFAIL;
 
-  hGammaPeak->Fill(triggerSum);
   double qFraction[3];
   qFraction[0] = detList[9]->totSum * scaleSum[9] / triggerSum;
   qFraction[1] = detList[10]->totSum * scaleSum[10] / triggerSum;
@@ -309,10 +308,6 @@ int passEventCuts(Long64_t entry)
   qFractionUn[1] = detList[10]->totSum / triggerSumUn;
   qFractionUn[2] = detList[11]->totSum / triggerSumUn;
 
-  double xternQ, yternQ;
-  makeTernary(qFraction[0], qFraction[1], qFraction[2], xternQ, yternQ);
-  hTriangle->Fill(xternQ, yternQ);
-
   double xternQun, yternQun;
   makeTernary(qFractionUn[0], qFractionUn[1], qFractionUn[2], xternQun, yternQun);
   hTriangleUn->Fill(xternQun, yternQun);
@@ -322,22 +317,6 @@ int passEventCuts(Long64_t entry)
   /* look at second peak triangle*/
   if (triggerSumUn > 50.)
     hTriangleSecondUn->Fill(xternQun, yternQun);
-  if (triggerSum > 50.)
-    hTriangleSecond->Fill(xternQ, yternQ);
-
-  /******   triangle cut ** try a cut like TUM */
-  bool passTriangle = true;
-  for (int itr = 0; itr < 3; ++itr)
-    if (qFraction[itr] < 0.2 || qFraction[itr] > 0.8)
-      passTriangle = false;
-
-  // plot passing
-  if (passTriangle)
-    hTrianglePass->Fill(xternQ, yternQ);
-
-  // set triangle bit
-  if (!passTriangle)
-    passBit |= TRIANGLE;
 
   // cosmic cut on PMT late sum fixed to totSum jun 10 2026
   double pmtTotSum = 0;
@@ -355,14 +334,8 @@ int passEventCuts(Long64_t entry)
     totSum13 += detList[i]->totSum * scaleSum[i];
 
   hOverlapEvent->Fill(totSum13);
-  if (totSum13 > overlapEventCut)
-    passBit |= GAMMA;
-
-  ntTrig->Fill(double(entry), pmtTotSum, totSum13, triggerSum, detList[9]->totSum, detList[10]->totSum, detList[11]->totSum, xternQ, yternQun, double(passBit));
-
-  // fill passing gamma peak
-  if (passBit == 0)
-    hGammaPeakPass->Fill(triggerSum);
+  // if (totSum13 > overlapEventCut)
+  //   passBit |= GAMMA;
 
   for (unsigned i = 0; i < 9; ++i)
   {
@@ -372,6 +345,8 @@ int passEventCuts(Long64_t entry)
 
   bool multCut = false;
   // finally a SPE mult cut on not trigger SIPM
+  double trigSum = 0;
+  double qHitFraction[3] = {0, 0, 0};
   for (unsigned idet = 0; idet < CHANNELS; ++idet)
   {
     // hit loop
@@ -379,11 +354,51 @@ int passEventCuts(Long64_t entry)
     {
       TDetHit thit = detList[idet]->hits[ihit];
       hMulti[idet]->Fill(thit.qpeak / readGains->sipmPeakGain[idet]);
+      if (idet == 9 || idet == 10 || idet == 11)
+        trigSum += thit.qpeak / readGains->sipmPeakGain[idet];
       // cut on 1.5 SPE for filling light curve should I remove entire event?
       if (idet < 9 && thit.qpeak / readGains->sipmPeakGain[idet] > 1.5)
         multCut = true;
+      if (idet == 9)
+        qHitFraction[idet - 9] += thit.qpeak / readGains->sipmPeakGain[idet];
+      if (idet == 10)
+        qHitFraction[idet - 9] += thit.qpeak / readGains->sipmPeakGain[idet];
+      if (idet == 11)
+        qHitFraction[idet - 9] += thit.qpeak / readGains->sipmPeakGain[idet];
     }
   }
+  hGammaPeak->Fill(triggerSum);
+  hOverTrigHitEvent->Fill(trigSum);
+  if (trigSum > overlapEventCut)
+    passBit |= GAMMA;
+
+  // normalize qHitFraction to trigSum
+  for (int i = 0; i < 3; ++i)
+    qHitFraction[i] /= (qHitFraction[0] + qHitFraction[1] + qHitFraction[2]);
+
+  double xternQ, yternQ;
+  makeTernary(qHitFraction[0], qHitFraction[1], qHitFraction[2], xternQ, yternQ);
+  hTriangle->Fill(xternQ, yternQ);
+
+  ntTrig->Fill(double(entry), pmtTotSum, totSum13, triggerSum, detList[9]->totSum, detList[10]->totSum, detList[11]->totSum, xternQ, yternQ, double(passBit));
+
+  /******   triangle cut ** try a cut like TUM */
+  bool passTriangle = true;
+  for (int itr = 0; itr < 3; ++itr)
+    if (qHitFraction[itr] < 0.2 || qHitFraction[itr] > 0.8)
+      passTriangle = false;
+  // set triangle bit
+
+  if (!passTriangle)
+    passBit |= TRIANGLE;
+
+  // plot passing
+  if (passTriangle)
+    hTrianglePass->Fill(xternQ, yternQ);
+
+  // fill passing gamma peak
+  if (passBit == 0)
+    hGammaPeakPass->Fill(triggerSum);
 
   if (multCut)
   {
@@ -417,8 +432,8 @@ int passEventCuts(Long64_t entry)
   // printf("line 411 event %lld  9 max bin: %i 10 max bin: %i 11 max bin: %i\n", entry, vTrigTime[0], vTrigTime[1], vTrigTime[2]);
   std::sort(vTrigTime.begin(), vTrigTime.end());
   theMaximumBin = vTrigTime[0];
-  if (theMaximumBin < 700)
-    theMaximumBin = nominalTrigger;
+  // if (theMaximumBin < 700)
+  //   theMaximumBin = nominalTrigger;
   hTrigTimeEvent->Fill(vTrigTime[0]);
   if (vTrigTime[0] < 660 || vTrigTime[0] > 740)
   {
@@ -933,7 +948,7 @@ void post(TString tag)
   // trigger info ntuple
   ntHitStart = new TNtuple("ntHitStart", "hit start", "nev:chan:startTime:hitTime");
   ntHitCount = new TNtuple("ntHitCount", "hit count", "file:nev:chan:early:late");
-  ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtTotSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
+  ntTrig = new TNtuple("ntTrig", "trigger info", "event:pmtTotS`um:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
   ntTrigChan = new TNtuple("ntTrigChan", "trigger info by channel", "event:trigTime:chan:hitTime:maxBin:passBit");
   // ntLateInt = new TNtuple("ntLateInt", "late integral", "event:lateTotSum:totSum13:triggerSum:qun0:qun1:qun2:q0:q1:q2:xQ:yQ:passBit");
   ntGamma = new TNtuple("ntGamma", "gamma peak", "event:ph9:qsum9:ph10:qsum10:ph11:qsum11:ph12:qsum12:hitSum:ADCSum:xternQ:yternQ");
@@ -948,6 +963,7 @@ void post(TString tag)
   hEventPassNew = new TH1D("EventPassNew", " remade event failures", TOTALCODES, 0, TOTALCODES);
   hCosmicCut = new TH1D("CosmicCut", "cosmic cut pmtot totSum/nominal gain ", 1500., 0, 1500.);
   hOverlapEvent = new TH1D("OverlapEvent", " overlap event qsum13/nominal gain", 15000, 0., 15000.);
+  hOverTrigHitEvent = new TH1D("OverTrigHitEvent", " overlap trigger hit event qsum13/nominal gain", 15000, 0., 15000.);
   hTriangleUn = new TH2D("TriangleUn", "ytern vs xtern unscaled", 100, 0., 1., 100, 0., 1.);
   hTriangle = new TH2D("Triangle", "ytern vs xtern", 100, 0., 1., 100, 0., 1.);
   hTriangleSecondUn = new TH2D("TriangleSecondUn", "ytern vs xtern in second gamma peak", 100, 0., 1., 100, 0., 1.);
