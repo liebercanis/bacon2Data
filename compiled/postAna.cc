@@ -132,7 +132,7 @@ std::vector<double> qsumGain; // read from class TReadGain
 double aveGain;
 
 // cut values based on 04_16_2026 revised June 9 2026
-double overlapEventCut = 110; // was 70.;reset Nov 23                           // was 100.;           //         // value normlized to nominalPmtGain
+double overlapEventCut = 117; // was 70.;reset Nov 23                           // was 100.;           //         // value normlized to nominalPmtGain
 double cosmicEventCut = 10.;  // 10; // was 140.; // was 150 normalized to nominalGain; //
 
 // pass bit failures hex
@@ -367,9 +367,11 @@ int passEventCuts(Long64_t entry)
         qHitFraction[idet - 9] += thit.qpeak / readGains->sipmPeakGain[idet];
     }
   }
-  hOverTrigHitEvent->Fill(trigSum);
-  hGammaPeak->Fill(trigSum);
-  if (trigSum > overlapEventCut)
+  hOverlapEvent->Fill(triggerSum);
+  hGammaPeak->Fill(triggerSum);
+
+  /// go back to ADC sum
+  if (triggerSum > overlapEventCut)
     passBit |= GAMMA;
 
   // normalize qHitFraction to trigSum was a bug in previous version of code
@@ -872,7 +874,16 @@ void loop()
 void post(TString tag)
 {
   vecFail.resize(FAILBITS);
+  /* define cut based on tag nov 23*/
+  overlapEventCut = 117;
+  if (tag.Contains("05_14"))
+    overlapEventCut = 127;
+  if (tag.Contains("05_26"))
+    overlapEventCut = 147;
+  if (tag.Contains("05_14"))
+    overlapEventCut = 169;
   /*gains-2024-02-01-17-06.root*/
+  printf("MESSAGE line888  in post: tag %s overlapEventCut %f\n", tag.Data(), overlapEventCut);
 
   gStyle->SetOptStat(1001101);
   /* get RunTree */
@@ -913,7 +924,7 @@ void post(TString tag)
   printf("MESSAGE line 710 files in chain:\n");
   RunTree->GetListOfFiles()->Print();
   Long64_t ntriggers = RunTree->GetEntries();
-  printf("MESSAGE line899  in post: tag %s total entries in this chain %lld total triggers counted %ld\n", tag.Data(), ntriggers, trigTimeByEvent.size());
+  printf("MESSAGE line899  in post: tag %s total entries in this chain %lld total triggers counted %ld overlapEventCut %f\n", tag.Data(), ntriggers, trigTimeByEvent.size(), overlapEventCut);
   // RunTree->GetListOfBranches()->ls();
 
   // geometric eff
