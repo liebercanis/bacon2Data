@@ -876,6 +876,8 @@ void post(TString tag)
   vecFail.resize(FAILBITS);
   /* define cut based on tag nov 23*/
   overlapEventCut = 117;
+  if (tag.Contains("05_11"))
+    overlapEventCut = 107;
   if (tag.Contains("05_14"))
     overlapEventCut = 127;
   if (tag.Contains("05_26"))
